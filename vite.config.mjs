@@ -4,10 +4,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
         plugins: [
-                tailwindcss({
-                        config: './tailwind.config.mjs',
-                }),
-                sveltekit()
+                tailwindcss(),
+                sveltekit(),
         ],
         server: {
                 host: '0.0.0.0',
@@ -26,7 +24,7 @@ export default defineConfig({
                 },
                 allowedHosts: [
                         'localhost',
-                        '308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev', 
+                        '308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev',
                         '.replit.dev',
                         '.repl.co'
                 ]

@@ -4,7 +4,7 @@ export interface User {
     name: string;
     email: string;
     magic_key?: string;
-    devices?: string[];
+    devices?: string; // Changed from string[] to string to avoid Gun.js storage issues
     created_at: number;
 }
 

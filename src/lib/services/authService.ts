@@ -38,7 +38,7 @@ export async function registerUser(name: string, email: string, password: string
                         name,
                         email,
                         magic_key: generateId(), // Generate a unique key for the user
-                        devices: [navigator.userAgent],
+                        devices: navigator.userAgent, // Store as string instead of array
                         created_at: Date.now()
                     };
                     
