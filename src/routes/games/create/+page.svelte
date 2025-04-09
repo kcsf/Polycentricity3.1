@@ -5,12 +5,13 @@
         import CreateGameForm from '$lib/components/CreateGameForm.svelte';
         import { ArrowLeft } from 'svelte-lucide';
         
-        onMount(() => {
-                // Check if user is authenticated
-                if (!$userStore.user) {
-                        goto('/login');
-                }
-        });
+        // Temporarily disabled authentication check for development
+        // onMount(() => {
+        //         // Check if user is authenticated
+        //         if (!$userStore.user) {
+        //                 goto('/login');
+        //         }
+        // });
         
         function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
                 const { gameId } = event.detail;

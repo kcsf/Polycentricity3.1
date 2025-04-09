@@ -14,10 +14,21 @@ export async function createGame(
     try {
         console.log(`Creating game: ${name} with deck type: ${deckType} and role assignment: ${roleAssignmentType}`);
         const gun = getGun();
-        const currentUser = getCurrentUser();
+        let currentUser = getCurrentUser();
         
-        if (!gun || !currentUser) {
-            console.error('Gun or user not initialized');
+        // For development: create a mock user if no real user is authenticated
+        if (!currentUser) {
+            console.warn('No authenticated user found. Using mock user for development.');
+            currentUser = {
+                user_id: 'dev-user-' + Date.now(),
+                name: 'Development User',
+                email: 'dev@example.com',
+                created_at: Date.now()
+            };
+        }
+        
+        if (!gun) {
+            console.error('Gun not initialized');
             return null;
         }
         
@@ -382,11 +393,17 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
 export async function getUserGames(): Promise<Game[]> {
     try {
         console.log('Getting user games');
-        const currentUser = getCurrentUser();
+        let currentUser = getCurrentUser();
         
+        // For development: create a mock user if no real user is authenticated
         if (!currentUser) {
-            console.error('User not initialized');
-            return [];
+            console.warn('No authenticated user found. Using mock user for development.');
+            currentUser = {
+                user_id: 'dev-user-' + Date.now(),
+                name: 'Development User',
+                email: 'dev@example.com',
+                created_at: Date.now()
+            };
         }
         
         const allGames = await getAllGames();

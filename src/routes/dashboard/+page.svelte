@@ -10,11 +10,11 @@
         let isLoading = true;
         
         onMount(async () => {
-                // Check if user is authenticated
-                if (!$userStore.user) {
-                        goto('/login');
-                        return;
-                }
+                // Temporarily disabled authentication check for development
+                // if (!$userStore.user) {
+                //         goto('/login');
+                //         return;
+                // }
                 
                 // Fetch user's games
                 try {
@@ -39,12 +39,23 @@
                 <div class="card p-8 text-center">
                         <p>Loading your dashboard...</p>
                 </div>
-        {:else if $userStore.user}
+        {:else}
+                <!-- For development: Show dashboard even without logged in user -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <!-- User profile section -->
                         <div class="lg:col-span-1">
                                 <h2 class="h2 mb-4">Your Profile</h2>
-                                <UserCard user={$userStore.user} showDetails={true} />
+                                
+                                {#if $userStore.user}
+                                    <UserCard user={$userStore.user} showDetails={true} />
+                                {:else}
+                                    <!-- Mock user card for development -->
+                                    <div class="card p-4">
+                                        <h3 class="h3">Development User</h3>
+                                        <p class="text-sm my-2">You're using a development user account.</p>
+                                        <p class="text-xs">Email: dev@example.com</p>
+                                    </div>
+                                {/if}
                                 
                                 <div class="card p-4 mt-4">
                                         <h3 class="h3 mb-2">Quick Stats</h3>
@@ -87,14 +98,6 @@
                                                 <a href="/games" class="btn variant-ghost">View All Games</a>
                                         </div>
                                 {/if}
-                        </div>
-                </div>
-        {:else}
-                <div class="card p-8 text-center">
-                        <p class="mb-4">You need to be logged in to view your dashboard.</p>
-                        <div class="flex justify-center space-x-4">
-                                <a href="/login" class="btn variant-filled-primary">Login</a>
-                                <a href="/register" class="btn variant-filled-secondary">Register</a>
                         </div>
                 </div>
         {/if}

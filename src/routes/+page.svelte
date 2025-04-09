@@ -4,10 +4,11 @@
         import { onMount } from 'svelte';
 
         onMount(() => {
+                // Temporarily disabled redirect for development
                 // Check if user is already logged in, redirect to dashboard if true
-                if ($userStore.user) {
-                        goto('/dashboard');
-                }
+                // if ($userStore.user) {
+                //         goto('/dashboard');
+                // }
         });
 </script>
 
@@ -21,6 +22,16 @@
                         <div class="flex justify-center space-x-4">
                                 <a href="/login" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-1/2 text-center">Login</a>
                                 <a href="/register" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-1/2 text-center">Register</a>
+                        </div>
+                        
+                        <!-- Development shortcuts -->
+                        <div class="flex justify-center space-x-4 pt-2">
+                                <a href="/dashboard" class="bg-amber-500 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded w-1/2 text-center">
+                                        Dashboard
+                                </a>
+                                <a href="/games" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded w-1/2 text-center">
+                                        Games
+                                </a>
                         </div>
                         <div class="pt-4">
                                 <p class="text-center">
