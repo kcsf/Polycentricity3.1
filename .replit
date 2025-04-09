@@ -13,10 +13,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "SvelteKit Server"
+args = "SvelteKit Dev Server"
 
 [[workflows.workflow]]
-name = "SvelteKit Server"
+name = "SvelteKit Dev Server"
 author = "agent"
 
 [workflows.workflow.metadata]
