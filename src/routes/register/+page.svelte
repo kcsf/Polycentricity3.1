@@ -7,7 +7,6 @@
         let name = '';
         let email = '';
         let password = '';
-        let confirmPassword = '';
         let isRegistering = false;
         let error = '';
         
@@ -23,13 +22,8 @@
                 error = '';
                 
                 // Validate form
-                if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+                if (!name.trim() || !email.trim() || !password) {
                         error = 'All fields are required';
-                        return;
-                }
-                
-                if (password !== confirmPassword) {
-                        error = 'Passwords do not match';
                         return;
                 }
                 
@@ -112,17 +106,6 @@
                                                 class="input" 
                                                 bind:value={password} 
                                                 placeholder="Create a password"
-                                                required
-                                        />
-                                </label>
-                                
-                                <label class="label">
-                                        <span>Confirm Password</span>
-                                        <input 
-                                                type="password" 
-                                                class="input" 
-                                                bind:value={confirmPassword} 
-                                                placeholder="Confirm your password"
                                                 required
                                         />
                                 </label>
