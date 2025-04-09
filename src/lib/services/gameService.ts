@@ -2,7 +2,7 @@ import { getGun, nodes, generateId } from './gunService';
 import { getCurrentUser } from './authService';
 import type { Game, Actor, RoleAssignment } from '$lib/types';
 import { GameStatus } from '$lib/types';
-import { gameStore } from '$lib/stores/gameStore';
+import { currentGameStore, setUserGames } from '$lib/stores/gameStore';
 import { get } from 'svelte/store';
 
 // Create a new game
