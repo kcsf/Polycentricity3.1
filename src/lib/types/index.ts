@@ -14,7 +14,7 @@ export interface Game {
     name: string;
     creator: string; // user_id of creator
     deck_type: string;
-    deck?: any[]; // Deck of cards or game elements
+    deck?: Record<string, boolean> | any[]; // Deck of cards as object with actor_id keys, or array for backward compatibility
     role_assignment?: Record<string, string>; // Mapping of user_id to role_id
     role_assignment_type?: string; // 'random' or 'player-choice'
     players: Record<string, boolean> | string[]; // Object with user_id keys, or array of user_ids for backward compatibility

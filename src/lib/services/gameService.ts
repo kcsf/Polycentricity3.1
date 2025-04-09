@@ -39,7 +39,7 @@ export async function createGame(
             name,
             creator: currentUser.user_id,
             deck_type: deckType,
-            deck: [], // Will be populated later
+            deck: {}, // Will be populated later as an object, not array
             role_assignment: {}, // Will be populated as players join
             role_assignment_type: roleAssignmentType, // 'random' or 'player-choice'
             players: {[currentUser.user_id]: true}, // Creator is the first player, stored as object key
@@ -74,8 +74,8 @@ export async function createGame(
                             return;
                         }
                         
-                        // Then add empty deck and role assignment
-                        gun.get(nodes.games).get(game_id).get('deck').put([], (ack: any) => {
+                        // Then add empty deck (as object) and role assignment
+                        gun.get(nodes.games).get(game_id).get('deck').put({}, (ack: any) => {
                             if (ack.err) {
                                 console.error('Error adding deck to game:', ack.err);
                                 reject(ack.err);
@@ -426,11 +426,14 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
             });
         }
         
-        // Add actor IDs to game's deck
-        const actorIds = actors.map(actor => actor.actor_id);
+        // Add actor IDs to game's deck as object (not array)
+        const deckObj: Record<string, boolean> = {};
+        actors.forEach(actor => {
+            deckObj[actor.actor_id] = true;
+        });
         
         return new Promise((resolve, reject) => {
-            gun.get(nodes.games).get(gameId).get('deck').put(actorIds, (ack: any) => {
+            gun.get(nodes.games).get(gameId).get('deck').put(deckObj, (ack: any) => {
                 if (ack.err) {
                     console.error('Error setting game actors:', ack.err);
                     reject(ack.err);
