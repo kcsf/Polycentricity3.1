@@ -101,7 +101,13 @@
                 
                 // If there's a logged in user, check if they're in the game
                 if ($userStore.user) {
-                    return game.players.includes($userStore.user.user_id);
+                    const userId = $userStore.user.user_id;
+                    if (Array.isArray(game.players)) {
+                        return game.players.includes(userId);
+                    } else {
+                        // Check if player exists in the object-based players structure
+                        return game.players && game.players[userId] === true;
+                    }
                 }
                 
                 // For development: always return true when no user is logged in
@@ -154,19 +160,38 @@
                                 <!-- Player info and role -->
                                 <div class="lg:col-span-1 space-y-4">
                                         <div class="card p-4">
-                                                <h2 class="h2 mb-4">Players ({game.players.length})</h2>
-                                                
-                                                {#if game.players.length === 0}
-                                                        <p>No players have joined yet.</p>
+                                                {#if Array.isArray(game.players)}
+                                                    <h2 class="h2 mb-4">Players ({game.players.length})</h2>
+                                                    
+                                                    {#if game.players.length === 0}
+                                                            <p>No players have joined yet.</p>
+                                                    {:else}
+                                                            <div class="space-y-2">
+                                                                    {#each game.players as playerId}
+                                                                            <!-- This is simplified as we don't have a way to get player info from ID -->
+                                                                            <div class="p-2 rounded bg-surface-100-800-token">
+                                                                                    <p>{playerId}</p>
+                                                                            </div>
+                                                                    {/each}
+                                                            </div>
+                                                    {/if}
                                                 {:else}
-                                                        <div class="space-y-2">
-                                                                {#each game.players as playerId}
-                                                                        <!-- This is simplified as we don't have a way to get player info from ID -->
-                                                                        <div class="p-2 rounded bg-surface-100-800-token">
-                                                                                <p>{playerId}</p>
-                                                                        </div>
-                                                                {/each}
-                                                        </div>
+                                                    <!-- Handle players as object format -->
+                                                    {@const playerCount = Object.keys(game.players || {}).length}
+                                                    <h2 class="h2 mb-4">Players ({playerCount})</h2>
+                                                    
+                                                    {#if playerCount === 0}
+                                                            <p>No players have joined yet.</p>
+                                                    {:else}
+                                                            <div class="space-y-2">
+                                                                    {#each Object.keys(game.players || {}) as playerId}
+                                                                            <!-- This is simplified as we don't have a way to get player info from ID -->
+                                                                            <div class="p-2 rounded bg-surface-100-800-token">
+                                                                                    <p>{playerId}</p>
+                                                                            </div>
+                                                                    {/each}
+                                                            </div>
+                                                    {/if}
                                                 {/if}
                                         </div>
                                         
