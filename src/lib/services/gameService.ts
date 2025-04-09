@@ -6,9 +6,13 @@ import { currentGameStore, setUserGames } from '$lib/stores/gameStore';
 import { get } from 'svelte/store';
 
 // Create a new game
-export async function createGame(name: string, deckType: string): Promise<Game | null> {
+export async function createGame(
+    name: string, 
+    deckType: string, 
+    roleAssignmentType: string = 'random'
+): Promise<Game | null> {
     try {
-        console.log(`Creating game: ${name}`);
+        console.log(`Creating game: ${name} with deck type: ${deckType} and role assignment: ${roleAssignmentType}`);
         const gun = getGun();
         const currentUser = getCurrentUser();
         
@@ -25,6 +29,7 @@ export async function createGame(name: string, deckType: string): Promise<Game |
             deck_type: deckType,
             deck: [], // Will be populated later
             role_assignment: {}, // Will be populated as players join
+            role_assignment_type: roleAssignmentType, // 'random' or 'player-choice'
             players: [currentUser.user_id], // Creator is the first player
             created_at: Date.now(),
             status: GameStatus.CREATED
