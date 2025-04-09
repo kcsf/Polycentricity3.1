@@ -17,7 +17,7 @@ export interface Game {
     deck?: any[]; // Deck of cards or game elements
     role_assignment?: Record<string, string>; // Mapping of user_id to role_id
     role_assignment_type?: string; // 'random' or 'player-choice'
-    players: string[]; // Array of user_ids
+    players: Record<string, boolean> | string[]; // Object with user_id keys, or array of user_ids for backward compatibility
     created_at: number;
     status: GameStatus;
 }

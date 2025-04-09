@@ -42,7 +42,7 @@ export async function createGame(
             deck: [], // Will be populated later
             role_assignment: {}, // Will be populated as players join
             role_assignment_type: roleAssignmentType, // 'random' or 'player-choice'
-            players: [currentUser.user_id], // Creator is the first player
+            players: {[currentUser.user_id]: true}, // Creator is the first player, stored as object key
             created_at: Date.now(),
             status: GameStatus.CREATED
         };
@@ -66,8 +66,8 @@ export async function createGame(
                         return;
                     }
                     
-                    // Then add players separately
-                    gun.get(nodes.games).get(game_id).get('players').put([currentUser.user_id], (ack: any) => {
+                    // Then add players separately - using object instead of array to avoid Gun.js issues
+                    gun.get(nodes.games).get(game_id).get('players').put({[currentUser.user_id]: true}, (ack: any) => {
                         if (ack.err) {
                             console.error('Error adding player to game:', ack.err);
                             reject(ack.err);
@@ -198,13 +198,14 @@ export async function joinGame(gameId: string): Promise<boolean> {
         }
         
         // Check if user is already in the game
-        if (game.players.includes(currentUser.user_id)) {
+        const playersObj = game.players as Record<string, boolean>;
+        if (playersObj && playersObj[currentUser.user_id]) {
             console.log(`User already in game: ${gameId}`);
             return true;
         }
         
-        // Add user to the game
-        const updatedPlayers = [...game.players, currentUser.user_id];
+        // Add user to the game object
+        const updatedPlayers = { ...(playersObj || {}), [currentUser.user_id]: true };
         
         return new Promise((resolve, reject) => {
             gun.get(nodes.games).get(gameId).get('players').put(updatedPlayers, (ack: any) => {
@@ -242,8 +243,10 @@ export async function leaveGame(gameId: string): Promise<boolean> {
             return false;
         }
         
-        // Remove user from the game
-        const updatedPlayers = game.players.filter(id => id !== currentUser.user_id);
+        // Remove user from the game object
+        const playersObj = game.players as Record<string, boolean>;
+        const updatedPlayers = { ...playersObj };
+        delete updatedPlayers[currentUser.user_id];
         
         return new Promise((resolve, reject) => {
             gun.get(nodes.games).get(gameId).get('players').put(updatedPlayers, (ack: any) => {
@@ -462,7 +465,14 @@ export async function getUserGames(): Promise<Game[]> {
         }
         
         const allGames = await getAllGames();
-        const userGames = allGames.filter(game => game.players.includes(currentUser.user_id));
+        const userGames = allGames.filter(game => {
+            if (Array.isArray(game.players)) {
+                return game.players.includes(currentUser.user_id);
+            } else {
+                const playersObj = game.players as Record<string, boolean>;
+                return playersObj && playersObj[currentUser.user_id];
+            }
+        });
         
         console.log(`Retrieved ${userGames.length} games for user ${currentUser.user_id}`);
         return userGames;
