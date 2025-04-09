@@ -4,6 +4,7 @@ import type { Game, Actor, RoleAssignment } from '$lib/types';
 import { GameStatus } from '$lib/types';
 import { currentGameStore, setUserGames } from '$lib/stores/gameStore';
 import { get } from 'svelte/store';
+import { getPredefinedDeck } from '$lib/data/predefinedDecks';
 
 // Create a new game
 export async function createGame(
@@ -46,17 +47,71 @@ export async function createGame(
             status: GameStatus.CREATED
         };
         
+        // Create game in a more structured way to avoid Gun.js issues
         return new Promise((resolve, reject) => {
-            gun.get(nodes.games).get(game_id).put(gameData, (ack: any) => {
-                if (ack.err) {
-                    console.error('Error creating game:', ack.err);
-                    reject(ack.err);
-                    return;
-                }
-                
-                console.log(`Game created: ${game_id}`);
-                resolve(gameData);
-            });
+            try {
+                // First add basic game info
+                gun.get(nodes.games).get(game_id).put({
+                    game_id,
+                    name,
+                    creator: currentUser.user_id,
+                    deck_type: deckType,
+                    role_assignment_type: roleAssignmentType,
+                    created_at: Date.now(),
+                    status: GameStatus.CREATED
+                }, (ack: any) => {
+                    if (ack.err) {
+                        console.error('Error creating game basic info:', ack.err);
+                        reject(ack.err);
+                        return;
+                    }
+                    
+                    // Then add players separately
+                    gun.get(nodes.games).get(game_id).get('players').put([currentUser.user_id], (ack: any) => {
+                        if (ack.err) {
+                            console.error('Error adding player to game:', ack.err);
+                            reject(ack.err);
+                            return;
+                        }
+                        
+                        // Then add empty deck and role assignment
+                        gun.get(nodes.games).get(game_id).get('deck').put([], (ack: any) => {
+                            if (ack.err) {
+                                console.error('Error adding deck to game:', ack.err);
+                                reject(ack.err);
+                                return;
+                            }
+                            
+                            gun.get(nodes.games).get(game_id).get('role_assignment').put({}, async (ack: any) => {
+                                if (ack.err) {
+                                    console.error('Error adding role assignment to game:', ack.err);
+                                    reject(ack.err);
+                                    return;
+                                }
+                                
+                                // Now add predefined deck if using a predefined deck type
+                                if (deckType === 'eco-village' || deckType === 'community-garden') {
+                                    try {
+                                        const actors = getPredefinedDeck(deckType);
+                                        const success = await setGameActors(game_id, actors);
+                                        if (!success) {
+                                            console.warn(`Failed to set predefined deck for game ${game_id}, but game was created`);
+                                        }
+                                    } catch (err) {
+                                        console.warn(`Error setting predefined deck: ${err}, but game was created`);
+                                    }
+                                }
+                                
+                                console.log(`Game created: ${game_id}`);
+                                resolve(gameData);
+                            });
+                        });
+                    });
+                });
+            } catch (error) {
+                console.error('Error in game creation process:', error);
+                reject(error);
+            }
         });
     } catch (error) {
         console.error('Create game error:', error);

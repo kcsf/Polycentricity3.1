@@ -52,7 +52,7 @@
         }
 </script>
 
-<div class="card p-4 shadow">
+<div class="card p-4 shadow bg-surface-900/80 backdrop-blur-sm">
         <header class="card-header">
                 <h3 class="h3">Create New Game</h3>
         </header>
@@ -60,8 +60,8 @@
         <div class="p-4">
                 <form on:submit|preventDefault={handleSubmit}>
                         {#if error}
-                                <div class="alert variant-filled-error mb-4">
-                                        <p>{error}</p>
+                                <div class="alert variant-ghost-secondary mb-4">
+                                        <p class="text-secondary-200 text-sm">{error}</p>
                                 </div>
                         {/if}
                         
