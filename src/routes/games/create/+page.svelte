@@ -15,6 +15,16 @@
         
         function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
                 const { gameId } = event.detail;
+                
+                // Handle timeout case
+                if (gameId === 'timeout') {
+                    console.log('Game creation timed out, redirecting to games list');
+                    goto('/games');
+                    return;
+                }
+                
+                // Normal case - navigate to the new game
+                console.log(`Game created, navigating to game: ${gameId}`);
                 goto(`/games/${gameId}`);
         }
 </script>

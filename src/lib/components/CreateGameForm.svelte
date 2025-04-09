@@ -27,26 +27,45 @@
                 isCreating = true;
                 error = '';
                 
+                // Set a timeout to handle stalled game creation
+                const timeoutId = setTimeout(() => {
+                        if (isCreating) {
+                                // Force navigation to games page if taking too long
+                                console.log('Game creation is taking too long, redirecting to games list');
+                                isCreating = false;
+                                dispatch('created', { gameId: 'timeout' });
+                        }
+                }, 5000);
+                
                 try {
                         // If custom deck is selected but no implementation yet, fallback to predefined
                         const selectedDeckType = deckOption === 'custom' ? 'custom' : deckType;
                         
+                        console.log(`Starting game creation: ${gameName}, ${selectedDeckType}, ${roleAssignment}`);
                         const game = await createGame(
                                 gameName, 
                                 selectedDeckType, 
                                 roleAssignment
                         );
                         
+                        // Clear the timeout since we got a response
+                        clearTimeout(timeoutId);
+                        
                         if (game) {
-                                console.log(`Game created: ${game.game_id}`);
+                                console.log(`Game created successfully: ${game.game_id}`);
                                 dispatch('created', { gameId: game.game_id });
                         } else {
+                                console.error('Game creation returned null');
                                 error = 'Failed to create game. Please try again.';
                         }
                 } catch (err) {
+                        // Clear the timeout since we got a response
+                        clearTimeout(timeoutId);
                         console.error('Error creating game:', err);
                         error = 'An error occurred while creating the game';
                 } finally {
+                        // Clear the timeout as a backup
+                        clearTimeout(timeoutId);
                         isCreating = false;
                 }
         }
