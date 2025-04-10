@@ -15,9 +15,17 @@
     success = false;
     
     try {
+      console.log('Starting initialization of bidirectional relationships');
       result = await initializeBidirectionalRelationships();
+      console.log('Initialization complete', result);
       success = result.success;
+      
+      // Refresh the statistics after initialization
+      if (success) {
+        await getRelationshipStats();
+      }
     } catch (err) {
+      console.error('Error initializing relationships:', err);
       error = err instanceof Error ? err.message : 'An unknown error occurred';
     } finally {
       isLoading = false;
@@ -32,44 +40,105 @@
   };
   
   async function getRelationshipStats() {
-    const gun = getGun();
-    let cardsWithDecks = 0;
-    let cards = 0;
-    let decks = 0;
-    let decksWithCards = 0;
-    
-    // Count cards
-    await new Promise<void>(resolve => {
-      gun.get(nodes.cards).map().once((cardData, cardId) => {
-        cards++;
-        if (cardData.decks && Object.keys(cardData.decks).length > 0) {
-          cardsWithDecks++;
-        }
+    try {
+      const gun = getGun();
+      let cardsWithDecks = 0;
+      let cards = 0;
+      let decks = 0;
+      let decksWithCards = 0;
+      
+      console.log('Getting relationship statistics...');
+      
+      // Count cards
+      await new Promise<void>(resolve => {
+        gun.get(nodes.cards).map().once((cardData, cardId) => {
+          if (!cardData) return;
+          
+          cards++;
+          console.log(`Processing card ${cardId}`, cardData);
+          
+          // Check if card has decks and the decks property is an object
+          if (cardData.decks) {
+            if (typeof cardData.decks === 'object') {
+              // Handle direct object format
+              if (!cardData.decks['#']) {
+                const deckCount = Object.keys(cardData.decks).length;
+                if (deckCount > 0) {
+                  cardsWithDecks++;
+                  console.log(`Card ${cardId} has ${deckCount} decks`);
+                }
+              } 
+              // Handle Gun.js reference format
+              else {
+                console.log(`Card ${cardId} has decks reference: ${cardData.decks['#']}`);
+                cardsWithDecks++; // Assume it has at least one deck if there's a reference
+              }
+            } 
+            // Handle array format (though this should be rare with Gun.js)
+            else if (Array.isArray(cardData.decks) && cardData.decks.length > 0) {
+              cardsWithDecks++;
+              console.log(`Card ${cardId} has ${cardData.decks.length} decks (array format)`);
+            }
+          }
+        });
+        
+        // Give it a moment to fetch data before resolving
+        setTimeout(resolve, 1000);
       });
       
-      // Give it a moment to fetch data before resolving
-      setTimeout(resolve, 500);
-    });
-    
-    // Count decks
-    await new Promise<void>(resolve => {
-      gun.get(nodes.decks).map().once((deckData, deckId) => {
-        decks++;
-        if (deckData.cards && Object.keys(deckData.cards).length > 0) {
-          decksWithCards++;
-        }
+      // Count decks
+      await new Promise<void>(resolve => {
+        gun.get(nodes.decks).map().once((deckData, deckId) => {
+          if (!deckData) return;
+          
+          decks++;
+          console.log(`Processing deck ${deckId}`, deckData);
+          
+          // Check if deck has cards and the cards property is an object or array
+          if (deckData.cards) {
+            if (typeof deckData.cards === 'object') {
+              // Handle direct object format
+              if (!deckData.cards['#']) {
+                const cardCount = Object.keys(deckData.cards).length;
+                if (cardCount > 0) {
+                  decksWithCards++;
+                  console.log(`Deck ${deckId} has ${cardCount} cards`);
+                }
+              } 
+              // Handle Gun.js reference format
+              else {
+                console.log(`Deck ${deckId} has cards reference: ${deckData.cards['#']}`);
+                decksWithCards++; // Assume it has at least one card if there's a reference
+              }
+            } 
+            // Handle array format (though this should be rare with Gun.js)
+            else if (Array.isArray(deckData.cards) && deckData.cards.length > 0) {
+              decksWithCards++;
+              console.log(`Deck ${deckId} has ${deckData.cards.length} cards (array format)`);
+            }
+          }
+        });
+        
+        // Give it a moment to fetch data before resolving
+        setTimeout(resolve, 1000);
       });
       
-      // Give it a moment to fetch data before resolving
-      setTimeout(resolve, 500);
-    });
-    
-    relationshipStats = {
-      cardsWithDecks,
-      decksWithCards,
-      cards,
-      decks
-    };
+      console.log('Relationship statistics gathered:', {
+        cards,
+        cardsWithDecks,
+        decks,
+        decksWithCards
+      });
+      
+      relationshipStats = {
+        cardsWithDecks,
+        decksWithCards,
+        cards,
+        decks
+      };
+    } catch (err) {
+      console.error('Error getting relationship statistics:', err);
+    }
   }
   
   onMount(() => {
