@@ -4,8 +4,8 @@
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   
-  // For G6 visualization
-  let G6: any = null;
+  // For G6 visualization - will be initialized later
+  let Graph: any = null;
   let graph: any;
   let graphContainer: HTMLElement;
   let isG6Loading = false;
@@ -17,8 +17,10 @@
     try {
       // Only import in browser environment
       if (typeof window !== 'undefined') {
-        const G6Module = await import('@antv/g6');
-        G6 = G6Module.default || G6Module;
+        // Use named imports as per documentation
+        const G6 = await import('@antv/g6');
+        Graph = G6.Graph;
+        console.log('G6 imported with Graph:', Graph);
         return true;
       }
       return false;
@@ -46,14 +48,14 @@
     
     try {
       // Load G6 library if not already loaded
-      if (!G6) {
+      if (!Graph) {
         const success = await loadG6Library();
         if (!success) {
           throw new Error("Failed to load G6 library");
         }
       }
       
-      console.log("G6 library loaded successfully:", G6);
+      console.log("G6 library loaded successfully with Graph:", Graph);
       
       // Prepare graph data
       prepareGraphData();
@@ -63,7 +65,7 @@
       }
       
       // Initialize graph
-      graph = new G6.Graph({
+      graph = new Graph({
         container: graphContainer,
         width: graphContainer.clientWidth,
         height: 700,
@@ -263,7 +265,7 @@
     
     if (tab === 'visualize' && typeof window !== 'undefined') {
       // Preload G6 library when switching to visualization tab
-      if (!G6) {
+      if (!Graph) {
         await loadG6Library();
       }
       
