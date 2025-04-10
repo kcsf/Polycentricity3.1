@@ -452,51 +452,85 @@ export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'c
     try {
         console.log(`Importing ${cardsData.length} cards to deck ${deckId}`);
         let addedCount = 0;
+        const gun = getGun();
         
-        // Process cards in smaller batches to avoid overwhelming Gun.js
-        const batchSize = 5;
-        const batches = [];
-        
-        // Split cards into batches
-        for (let i = 0; i < cardsData.length; i += batchSize) {
-            batches.push(cardsData.slice(i, i + batchSize));
+        if (!gun) {
+            console.error('Gun not initialized');
+            return { success: false, added: 0 };
         }
         
-        console.log(`Processing ${batches.length} batches of cards`);
+        // Use an extremely small batch size for Gun.js to avoid overwhelming it
+        const batchSize = 1; // Process one card at a time
+        const timeout = 1000; // 1 second timeout between cards
         
-        // Process each batch sequentially
-        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-            const batch = batches[batchIndex];
-            console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} cards`);
+        // Make a copy of the data to avoid modifying the original
+        const cardQueue = [...cardsData];
+        
+        // Function to process a single card with proper error handling
+        const processNextCard = async (): Promise<void> => {
+            if (cardQueue.length === 0) {
+                return; // Queue is empty, we're done
+            }
             
-            // Process cards in this batch
-            for (const cardData of batch) {
-                try {
-                    const card = await createCard(cardData);
-                    
-                    if (card) {
-                        const added = await addCardToDeck(deckId, card.card_id);
-                        if (added) {
-                            addedCount++;
-                            console.log(`Successfully added card ${card.card_id} to deck ${deckId} (${addedCount}/${cardsData.length})`);
-                        } else {
-                            console.warn(`Failed to add card ${card.card_id} to deck ${deckId}`);
-                        }
-                    } else {
-                        console.warn('Failed to create card:', cardData.role_title);
+            const cardData = cardQueue.shift();
+            if (!cardData) return;
+            
+            try {
+                console.log(`Processing card: ${cardData.role_title} (${cardsData.length - cardQueue.length}/${cardsData.length})`);
+                
+                // Pre-process values and capabilities to ensure they exist
+                if (cardData.values_text) {
+                    const valueNames = cardData.values_text.split(',').map(v => v.trim()).filter(v => v);
+                    if (valueNames.length > 0) {
+                        console.log(`Pre-processing ${valueNames.length} values for card`);
+                        gun.get(nodes.values).map().once(); // Trigger a data load
+                        // Wait a moment for Gun to load values
+                        await new Promise(resolve => setTimeout(resolve, 200));
                     }
-                } catch (cardError) {
-                    console.error('Error processing individual card:', cardError);
-                    // Continue with next card even if one fails
                 }
+                
+                if (cardData.capabilities_text) {
+                    const capabilityNames = cardData.capabilities_text.split(',').map(c => c.trim()).filter(c => c);
+                    if (capabilityNames.length > 0) {
+                        console.log(`Pre-processing ${capabilityNames.length} capabilities for card`);
+                        gun.get(nodes.capabilities).map().once(); // Trigger a data load
+                        // Wait a moment for Gun to load capabilities
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                }
+                
+                // Create the card
+                const card = await createCard(cardData);
+                
+                if (card) {
+                    const added = await addCardToDeck(deckId, card.card_id);
+                    if (added) {
+                        addedCount++;
+                        console.log(`Successfully added card ${card.card_id} to deck ${deckId} (${addedCount}/${cardsData.length})`);
+                    } else {
+                        console.warn(`Failed to add card ${card.card_id} to deck ${deckId}`);
+                    }
+                } else {
+                    console.warn('Failed to create card:', cardData.role_title);
+                }
+            } catch (cardError) {
+                console.error('Error processing individual card:', cardError);
+                // Continue with next card even if one fails
             }
+        };
+        
+        // Process cards one by one with timeouts in between
+        while (cardQueue.length > 0) {
+            await processNextCard();
             
-            // Add a small delay between batches to let Gun.js breathe
-            if (batchIndex < batches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+            // Add a timeout between each card to let Gun.js breathe
+            if (cardQueue.length > 0) {
+                console.log(`Waiting ${timeout}ms before processing next card. ${cardQueue.length} cards remaining.`);
+                await new Promise(resolve => setTimeout(resolve, timeout));
             }
         }
         
+        console.log(`Import complete. Added ${addedCount} out of ${cardsData.length} cards.`);
         return { 
             success: addedCount > 0, 
             added: addedCount 
