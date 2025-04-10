@@ -73,7 +73,7 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
         const cardId = `card_${generateId()}`;
         
         // Ensure card_number is set and within valid range
-        if (!card.card_number || isNaN(card.card_number) || card.card_number < 1 || card.card_number > 52) {
+        if (!card.card_number || isNaN(Number(card.card_number)) || card.card_number < 1 || card.card_number > 52) {
             console.warn('Invalid card number, setting to random value', card.card_number);
             card.card_number = Math.floor(Math.random() * 52) + 1;
         }
@@ -96,13 +96,47 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
             }
         }
         
+        // Fix for Gun.js array storage issues
+        // Convert arrays to comma-separated strings
+        const valuesStr = Array.isArray(card.values) ? card.values.join(',') : card.values;
+        const goalsStr = Array.isArray(card.goals) ? card.goals.join(',') : card.goals;
+        
+        // Create a Gun.js compatible object (no arrays)
+        const gunCompatibleCard = {
+            card_id: cardId,
+            card_number: card.card_number,
+            role_title: card.role_title,
+            backstory: card.backstory,
+            values: valuesStr,
+            goals: goalsStr,
+            obligations: card.obligations || '',
+            capabilities: card.capabilities || '',
+            intellectual_property: card.intellectual_property || '',
+            rivalrous_resources: card.rivalrous_resources || '',
+            card_category: card.card_category,
+            type: card.type,
+            icon: card.icon || 'User'
+        };
+        
+        // Create a typed object for the return value
         const cardData: Card = {
             card_id: cardId,
-            ...card
+            card_number: card.card_number,
+            role_title: card.role_title,
+            backstory: card.backstory,
+            values: Array.isArray(card.values) ? card.values : [card.values as string],
+            goals: Array.isArray(card.goals) ? card.goals : [card.goals as string],
+            obligations: card.obligations,
+            capabilities: card.capabilities,
+            intellectual_property: card.intellectual_property,
+            rivalrous_resources: card.rivalrous_resources,
+            card_category: card.card_category,
+            type: card.type,
+            icon: card.icon
         };
         
         return new Promise((resolve) => {
-            gun.get(nodes.cards).get(cardId).put(cardData, (ack: any) => {
+            gun.get(nodes.cards).get(cardId).put(gunCompatibleCard, (ack: any) => {
                 if (ack.err) {
                     console.error('Error creating card:', ack.err);
                     resolve(null);
