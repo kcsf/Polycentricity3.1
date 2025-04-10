@@ -1,8 +1,16 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
+  
+  // For G6 visualization
+  let G6: any;
+  let graph: any;
+  let graphContainer: HTMLElement;
+  let isG6Loading = false;
+  let g6Error: string | null = null;
+  let graphData: any = { nodes: [], edges: [] };
   
   // State variables
   let isMounted = false;
@@ -10,6 +18,244 @@
   let error: string | null = null;
   let databaseNodes: any[] = [];
   let nodeCount = 0;
+  let activeTab = 'overview';
+  
+  // G6 visualization initialization and data transformation
+  async function initializeG6Visualization() {
+    if (typeof window === 'undefined' || !graphContainer) return;
+    
+    isG6Loading = true;
+    g6Error = null;
+    
+    try {
+      // Dynamically import G6
+      if (!G6) {
+        const module = await import('@antv/g6');
+        G6 = module.default;
+      }
+      
+      // Prepare graph data
+      prepareGraphData();
+      
+      if (graph) {
+        graph.destroy();
+      }
+      
+      // Initialize graph
+      graph = new G6.Graph({
+        container: graphContainer,
+        width: graphContainer.clientWidth,
+        height: 700,
+        modes: {
+          default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
+        },
+        layout: {
+          type: 'force',
+          preventOverlap: true,
+          linkDistance: 200,
+          nodeStrength: -100,
+          alphaDecay: 0.01
+        },
+        defaultNode: {
+          size: 30,
+          style: {
+            fill: '#5B8FF9',
+            stroke: '#5B8FF9',
+            lineWidth: 2
+          },
+          labelCfg: {
+            style: {
+              fill: '#000',
+              fontSize: 12
+            }
+          }
+        },
+        defaultEdge: {
+          style: {
+            stroke: '#aaa',
+            lineWidth: 1,
+            endArrow: true
+          },
+          labelCfg: {
+            style: {
+              fill: '#666',
+              fontSize: 10
+            }
+          }
+        },
+        nodeStateStyles: {
+          selected: {
+            stroke: '#000',
+            lineWidth: 3
+          },
+          hover: {
+            stroke: '#666',
+            lineWidth: 3
+          }
+        }
+      });
+      
+      // Register event listeners
+      graph.on('node:mouseenter', (evt: any) => {
+        const nodeItem = evt.item;
+        graph.setItemState(nodeItem, 'hover', true);
+      });
+      
+      graph.on('node:mouseleave', (evt: any) => {
+        const nodeItem = evt.item;
+        graph.setItemState(nodeItem, 'hover', false);
+      });
+      
+      graph.on('node:click', (evt: any) => {
+        const nodeItem = evt.item;
+        console.log('Node clicked:', nodeItem.getModel());
+      });
+      
+      // Render the graph
+      graph.data(graphData);
+      graph.render();
+      
+      // Auto fit view
+      setTimeout(() => {
+        graph.fitView();
+      }, 500);
+      
+    } catch (err) {
+      console.error('Error initializing G6:', err);
+      g6Error = `Failed to initialize graph: ${err}`;
+    } finally {
+      isG6Loading = false;
+    }
+  }
+  
+  // Prepare graph data from the database nodes
+  function prepareGraphData() {
+    const nodes: any[] = [];
+    const edges: any[] = [];
+    
+    // Color mapping for different node types
+    const colorMap = new Map<string, string>([
+      ['users', '#5B8FF9'],
+      ['games', '#5AD8A6'],
+      ['actors', '#5D7092'],
+      ['chat', '#F6BD16'],
+      ['agreements', '#E8684A'],
+      ['obligations', '#6DC8EC'],
+      ['benefits', '#9270CA'],
+      ['node_positions', '#FF9D4D']
+    ]);
+    
+    // Process each node type
+    databaseNodes.forEach(nodeType => {
+      const color = colorMap.get(nodeType.type) || '#5B8FF9';
+      
+      // Add nodes
+      nodeType.nodes.forEach(node => {
+        nodes.push({
+          id: `${nodeType.type}_${node.id}`,
+          nodeId: node.id,
+          type: nodeType.type,
+          label: getLabelForNode(node, nodeType.type),
+          style: {
+            fill: color,
+            stroke: color
+          },
+          data: node.data
+        });
+      });
+    });
+    
+    // Create edges between related nodes
+    databaseNodes.forEach(nodeType => {
+      nodeType.nodes.forEach(node => {
+        if (typeof node.data === 'object') {
+          // Process properties that might be references
+          Object.entries(node.data).forEach(([key, value]) => {
+            if (key === '_' || key === '#' || key === 'id') return;
+            
+            // Handle string references
+            if (typeof value === 'string' && value.length > 8) {
+              const targetNode = findNodeById(nodes, value);
+              if (targetNode) {
+                edges.push({
+                  id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}`,
+                  source: `${nodeType.type}_${node.id}`,
+                  target: `${targetNode.type}_${targetNode.nodeId}`,
+                  label: key
+                });
+              }
+            }
+            
+            // Handle objects with references (Gun.js {id: true} pattern)
+            if (value && typeof value === 'object') {
+              Object.keys(value).forEach(refKey => {
+                if (value[refKey] === true) {
+                  const targetNode = findNodeById(nodes, refKey);
+                  if (targetNode) {
+                    edges.push({
+                      id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}_${key}`,
+                      source: `${nodeType.type}_${node.id}`,
+                      target: `${targetNode.type}_${targetNode.nodeId}`,
+                      label: key
+                    });
+                  }
+                }
+              });
+            }
+          });
+        }
+      });
+    });
+    
+    graphData = { nodes, edges };
+    console.log('Graph data prepared:', graphData);
+  }
+  
+  // Helper functions for graph data preparation
+  function getLabelForNode(node: any, nodeType: string): string {
+    if (typeof node.data !== 'object') {
+      return node.id.substring(0, 8);
+    }
+    
+    // Try to find a good property to use as label based on node type
+    switch (nodeType) {
+      case 'users':
+        return node.data.name || node.data.email || node.id.substring(0, 8);
+      case 'games':
+        return node.data.name || `Game ${node.id.substring(0, 6)}`;
+      case 'actors':
+        return node.data.role_title || `Actor ${node.id.substring(0, 6)}`;
+      case 'chat':
+        return `Chat ${node.id.substring(0, 6)}`;
+      default:
+        return `${nodeType} ${node.id.substring(0, 6)}`;
+    }
+  }
+  
+  function findNodeById(nodes: any[], id: string): any {
+    return nodes.find(n => n.nodeId === id);
+  }
+  
+  // Tab switching and cleanup
+  function handleTabChange(tab: string) {
+    activeTab = tab;
+    
+    if (tab === 'visualize' && typeof window !== 'undefined') {
+      // Initialize G6 when switching to visualization tab
+      setTimeout(() => {
+        if (graphContainer) {
+          initializeG6Visualization();
+        }
+      }, 100);
+    }
+  }
+  
+  function handleResize() {
+    if (graph && graphContainer) {
+      graph.changeSize(graphContainer.clientWidth, 700);
+      graph.fitView();
+    }
+  }
   
   onMount(async () => {
     isMounted = true;
@@ -23,6 +269,19 @@
         error = 'Failed to load database information.';
       } finally {
         isLoading = false;
+      }
+      
+      // Add window resize event listener
+      window.addEventListener('resize', handleResize);
+    }
+  });
+  
+  onDestroy(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', handleResize);
+      
+      if (graph) {
+        graph.destroy();
       }
     }
   });
@@ -106,12 +365,87 @@
   
   <div class="card p-4 bg-white dark:bg-surface-800 shadow rounded-lg">
     <div class="tabs mb-4">
-      <button class="tab variant-filled-primary">Database Overview</button>
-      <button class="tab">Advanced Graph View</button>
+      <button 
+        class="tab {activeTab === 'overview' ? 'variant-filled-primary' : 'variant-ghost'}" 
+        on:click={() => handleTabChange('overview')}
+      >
+        Database Overview
+      </button>
+      <button 
+        class="tab {activeTab === 'visualize' ? 'variant-filled-primary' : 'variant-ghost'}" 
+        on:click={() => handleTabChange('visualize')}
+      >
+        Visualize
+      </button>
     </div>
     
     <div class="tab-content">
-      <div class="p-2">
+      {#if activeTab === 'visualize'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Network} class="text-primary-500" />
+              <div>
+                <h3 class="h4">Database Visualization</h3>
+                <p class="text-sm">This interactive graph shows the nodes and relationships in your Gun.js database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isG6Loading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Loading Graph Visualization...</span>
+            </div>
+          {:else if g6Error}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{g6Error}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={initializeG6Visualization}>Retry</button>
+              </div>
+            </div>
+          {:else}
+            <div class="card p-4 bg-surface-50-900-token">
+              <div 
+                class="graph-container" 
+                bind:this={graphContainer} 
+                style="width: 100%; height: 700px; background: #f8f9fa; border-radius: 8px;"
+              ></div>
+              
+              <div class="graph-legend mt-4 p-3 bg-surface-100-800-token rounded-lg">
+                <h5 class="font-semibold mb-2">Node Types</h5>
+                <div class="flex flex-wrap gap-3">
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#5B8FF9]"></span>
+                    <span class="text-sm">Users</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#5AD8A6]"></span>
+                    <span class="text-sm">Games</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#5D7092]"></span>
+                    <span class="text-sm">Actors</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#F6BD16]"></span>
+                    <span class="text-sm">Chat</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#E8684A]"></span>
+                    <span class="text-sm">Agreements</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <div class="p-2">
         <div class="card p-4 bg-surface-100-800-token mb-4">
           <div class="flex items-center space-x-4">
             <svelte:component this={icons.Info} class="text-primary-500" />
