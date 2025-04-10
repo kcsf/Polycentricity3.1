@@ -3,33 +3,14 @@
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
+  import G6Graph from '$lib/components/admin/G6Graph.svelte';
   
-  // For G6 visualization - will be initialized later
-  let Graph: any = null;
-  let graph: any;
-  let graphContainer: HTMLElement;
+  // For visualization
   let isG6Loading = false;
   let g6Error: string | null = null;
-  let graphData: any = { nodes: [], edges: [] };
-  
-  // Load G6 library on mount
-  async function loadG6Library() {
-    try {
-      // Only import in browser environment
-      if (typeof window !== 'undefined') {
-        // Use named imports as per documentation
-        const G6 = await import('@antv/g6');
-        Graph = G6.Graph;
-        console.log('G6 imported with Graph:', Graph);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Failed to load G6 library:', error);
-      g6Error = `Failed to load G6 library: ${error}`;
-      return false;
-    }
-  }
+  let graphData = { nodes: [], edges: [] };
+  // No longer needed with the G6Graph component
+  // let graphContainer: HTMLElement;
   
   // State variables
   let isMounted = false;
@@ -39,114 +20,18 @@
   let nodeCount = 0;
   let activeTab = 'overview';
   
-  // G6 visualization initialization and data transformation
-  async function initializeG6Visualization() {
-    if (typeof window === 'undefined' || !graphContainer) return;
-    
+  // Simplified visualization loading
+  function loadGraphVisualization() {
     isG6Loading = true;
     g6Error = null;
     
     try {
-      // Load G6 library if not already loaded
-      if (!Graph) {
-        const success = await loadG6Library();
-        if (!success) {
-          throw new Error("Failed to load G6 library");
-        }
-      }
-      
-      console.log("G6 library loaded successfully with Graph:", Graph);
-      
       // Prepare graph data
       prepareGraphData();
-      
-      if (graph) {
-        graph.destroy();
-      }
-      
-      // Initialize graph
-      graph = new Graph({
-        container: graphContainer,
-        width: graphContainer.clientWidth,
-        height: 700,
-        modes: {
-          default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
-        },
-        layout: {
-          type: 'force',
-          preventOverlap: true,
-          linkDistance: 200,
-          nodeStrength: -100,
-          alphaDecay: 0.01
-        },
-        defaultNode: {
-          size: 30,
-          style: {
-            fill: '#5B8FF9',
-            stroke: '#5B8FF9',
-            lineWidth: 2
-          },
-          labelCfg: {
-            style: {
-              fill: '#000',
-              fontSize: 12
-            }
-          }
-        },
-        defaultEdge: {
-          style: {
-            stroke: '#aaa',
-            lineWidth: 1,
-            endArrow: true
-          },
-          labelCfg: {
-            style: {
-              fill: '#666',
-              fontSize: 10
-            }
-          }
-        },
-        nodeStateStyles: {
-          selected: {
-            stroke: '#000',
-            lineWidth: 3
-          },
-          hover: {
-            stroke: '#666',
-            lineWidth: 3
-          }
-        }
-      });
-      
-      // Register event listeners
-      graph.on('node:mouseenter', (evt: any) => {
-        const nodeItem = evt.item;
-        graph.setItemState(nodeItem, 'hover', true);
-      });
-      
-      graph.on('node:mouseleave', (evt: any) => {
-        const nodeItem = evt.item;
-        graph.setItemState(nodeItem, 'hover', false);
-      });
-      
-      graph.on('node:click', (evt: any) => {
-        const nodeItem = evt.item;
-        console.log('Node clicked:', nodeItem.getModel());
-      });
-      
-      // Render the graph
-      graph.data(graphData);
-      graph.render();
-      
-      // Auto fit view
-      setTimeout(() => {
-        graph.fitView();
-      }, 500);
-      
+      isG6Loading = false;
     } catch (err) {
-      console.error('Error initializing G6:', err);
-      g6Error = `Failed to initialize graph: ${err}`;
-    } finally {
+      console.error('Error preparing graph data:', err);
+      g6Error = `Failed to prepare graph data: ${err}`;
       isG6Loading = false;
     }
   }
@@ -259,29 +144,13 @@
     return nodes.find(n => n.nodeId === id);
   }
   
-  // Tab switching and cleanup
-  async function handleTabChange(tab: string) {
+  // Tab switching
+  function handleTabChange(tab: string) {
     activeTab = tab;
     
     if (tab === 'visualize' && typeof window !== 'undefined') {
-      // Preload G6 library when switching to visualization tab
-      if (!Graph) {
-        await loadG6Library();
-      }
-      
-      // Initialize G6 when switching to visualization tab
-      setTimeout(() => {
-        if (graphContainer) {
-          initializeG6Visualization();
-        }
-      }, 100);
-    }
-  }
-  
-  function handleResize() {
-    if (graph && graphContainer) {
-      graph.changeSize(graphContainer.clientWidth, 700);
-      graph.fitView();
+      // Prepare graph data when switching to visualization tab
+      loadGraphVisualization();
     }
   }
   
@@ -297,19 +166,6 @@
         error = 'Failed to load database information.';
       } finally {
         isLoading = false;
-      }
-      
-      // Add window resize event listener
-      window.addEventListener('resize', handleResize);
-    }
-  });
-  
-  onDestroy(() => {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('resize', handleResize);
-      
-      if (graph) {
-        graph.destroy();
       }
     }
   });
@@ -433,16 +289,12 @@
                 <p>{g6Error}</p>
               </div>
               <div class="alert-actions">
-                <button class="btn variant-filled" on:click={initializeG6Visualization}>Retry</button>
+                <button class="btn variant-filled" on:click={loadGraphVisualization}>Retry</button>
               </div>
             </div>
           {:else}
             <div class="card p-4 bg-surface-50-900-token">
-              <div 
-                class="graph-container" 
-                bind:this={graphContainer} 
-                style="width: 100%; height: 700px; background: #f8f9fa; border-radius: 8px;"
-              ></div>
+              <G6Graph nodes={graphData.nodes} edges={graphData.edges} />
               
               <div class="graph-legend mt-4 p-3 bg-surface-100-800-token rounded-lg">
                 <h5 class="font-semibold mb-2">Node Types</h5>
