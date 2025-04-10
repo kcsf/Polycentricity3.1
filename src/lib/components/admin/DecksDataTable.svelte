@@ -82,6 +82,41 @@
     if (!timestamp) return 'N/A';
     return new Date(timestamp).toLocaleString();
   }
+  
+  async function deleteDeck(deckId: string) {
+    try {
+      const gun = getGun();
+      
+      if (!gun) {
+        error = 'Gun not initialized';
+        return;
+      }
+      
+      // Get the deck to check if it exists
+      const deck = await getDeck(deckId);
+      
+      if (!deck) {
+        error = `Deck with ID ${deckId} not found`;
+        return;
+      }
+      
+      // Set the deck node to null to delete it
+      gun.get(nodes.decks).get(deckId).put(null, async (ack) => {
+        if (ack.err) {
+          console.error('Error deleting deck:', ack.err);
+          error = `Failed to delete deck: ${ack.err}`;
+        } else {
+          console.log(`Deleted deck: ${deckId}`);
+          // Wait a moment then refresh the decks list
+          await tick();
+          loadDecks();
+        }
+      });
+    } catch (err) {
+      console.error('Delete deck error:', err);
+      error = err instanceof Error ? err.message : String(err);
+    }
+  }
 </script>
 
 <div class="deck-data-container">
@@ -249,6 +284,14 @@
   
   .import-button:hover {
     background-color: #059669;
+  }
+  
+  .delete-button {
+    background-color: #ef4444;
+  }
+  
+  .delete-button:hover {
+    background-color: #dc2626;
   }
   
   .icon {

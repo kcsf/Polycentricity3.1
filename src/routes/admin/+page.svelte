@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
@@ -166,6 +166,34 @@
   
   function findNodeById(nodes: any[], id: string): any {
     return nodes.find(n => n.nodeId === id);
+  }
+  
+  // Delete a node from the database
+  async function deleteNode(nodeType: string, nodeId: string) {
+    try {
+      const gun = getGun();
+      
+      if (!gun) {
+        error = 'Gun not initialized';
+        return;
+      }
+      
+      // Set the node to null to delete it
+      gun.get(nodeType).get(nodeId).put(null, async (ack: any) => {
+        if (ack.err) {
+          console.error(`Error deleting ${nodeType} node:`, ack.err);
+          error = `Failed to delete ${nodeType} node: ${ack.err}`;
+        } else {
+          console.log(`Deleted ${nodeType} node: ${nodeId}`);
+          // Wait a moment then refresh the database stats
+          await tick();
+          fetchDatabaseStats();
+        }
+      });
+    } catch (err) {
+      console.error(`Delete ${nodeType} node error:`, err);
+      error = err instanceof Error ? err.message : String(err);
+    }
   }
   
   // Tab switching
@@ -749,6 +777,7 @@
                             <th>ID</th>
                             <th>Properties</th>
                             <th>Created</th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -781,6 +810,19 @@
                                 {:else}
                                   -
                                 {/if}
+                              </td>
+                              <td>
+                                <button 
+                                  class="delete-button"
+                                  on:click={() => {
+                                    if (confirm(`Are you sure you want to delete this ${nodeType.type.slice(0, -1)} with ID "${node.id}"? This cannot be undone.`)) {
+                                      deleteNode(nodeType.type, node.id);
+                                    }
+                                  }}
+                                  title="Delete {nodeType.type.slice(0, -1)}"
+                                >
+                                  <span>❌</span>
+                                </button>
                               </td>
                             </tr>
                           {/each}
@@ -1044,5 +1086,20 @@
   .data-tab.active .badge {
     background-color: rgba(255, 255, 255, 0.3);
     color: white;
+  }
+  
+  .delete-button {
+    background-color: #ef4444;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+  }
+  
+  .delete-button:hover {
+    background-color: #dc2626;
   }
 </style>
