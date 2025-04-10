@@ -166,6 +166,91 @@ export function getCurrentUser(): User | null {
     return user;
 }
 
+// Find user by email
+export async function findUserByEmail(email: string): Promise<{found: boolean, userId?: string, userData?: User}> {
+    try {
+        console.log(`Searching for user with email: ${email}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return { found: false };
+        }
+        
+        return new Promise((resolve) => {
+            let found = false;
+            
+            // Find the user by email
+            gun.get(nodes.users).map().once((userData: User, key: string) => {
+                if (userData && userData.email === email) {
+                    console.log(`Found user with email ${email}, id: ${key}`);
+                    found = true;
+                    resolve({ found: true, userId: key, userData: userData });
+                }
+            });
+            
+            // Set a timeout in case user is not found
+            setTimeout(() => {
+                if (!found) {
+                    console.log(`User with email ${email} not found in our database`);
+                    resolve({ found: false });
+                }
+            }, 2000);
+        });
+    } catch (error) {
+        console.error('Find user error:', error);
+        return { found: false };
+    }
+}
+
+// Create a new user directly (bypassing Gun.js auth)
+export async function createUserDirectly(email: string, name: string, role: 'Guest' | 'Member' | 'Admin' = 'Guest'): Promise<{success: boolean, userId?: string}> {
+    try {
+        console.log(`Creating user directly for: ${email}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return { success: false };
+        }
+        
+        // Check if user already exists
+        const existingUser = await findUserByEmail(email);
+        if (existingUser.found) {
+            console.log(`User with email ${email} already exists in our database`);
+            return { success: false };
+        }
+        
+        // Generate a unique ID for the user
+        const userId = `user_${generateId()}`;
+        
+        // Create the user data
+        const userData: User = {
+            user_id: userId,
+            name,
+            email,
+            created_at: Date.now(),
+            role
+        };
+        
+        return new Promise((resolve) => {
+            // Save the user data
+            gun.get(nodes.users).get(userId).put(userData, (ack: any) => {
+                if (ack.err) {
+                    console.error('Error creating user:', ack.err);
+                    resolve({ success: false });
+                } else {
+                    console.log(`Created user with ID: ${userId}`);
+                    resolve({ success: true, userId });
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Create user error:', error);
+        return { success: false };
+    }
+}
+
 // Update a user's role to Admin
 export async function updateUserToAdmin(email: string): Promise<boolean> {
     try {
@@ -177,30 +262,31 @@ export async function updateUserToAdmin(email: string): Promise<boolean> {
             return false;
         }
         
-        return new Promise((resolve) => {
-            // Find the user by email
-            gun.get(nodes.users).map().once((userData: User, key: string) => {
-                if (userData && userData.email === email) {
-                    // Update the user's role to Admin
-                    gun.get(nodes.users).get(key).put({
-                        role: 'Admin'
-                    }, (ack: any) => {
-                        if (ack.err) {
-                            console.error('Error updating user role:', ack.err);
-                            resolve(false);
-                        } else {
-                            console.log(`Updated role for user: ${key}`);
-                            resolve(true);
-                        }
-                    });
-                }
+        // First try to find the user
+        const existingUser = await findUserByEmail(email);
+        
+        // If user is found, update their role
+        if (existingUser.found && existingUser.userId) {
+            return new Promise((resolve) => {
+                gun.get(nodes.users).get(existingUser.userId).put({
+                    role: 'Admin'
+                }, (ack: any) => {
+                    if (ack.err) {
+                        console.error('Error updating user role:', ack.err);
+                        resolve(false);
+                    } else {
+                        console.log(`Updated role for user: ${existingUser.userId}`);
+                        resolve(true);
+                    }
+                });
             });
-            
-            // Set a timeout in case user is not found
-            setTimeout(() => {
-                resolve(false);
-            }, 2000);
-        });
+        } 
+        // If user is not found, create a new admin user
+        else {
+            console.log(`User with email ${email} not found. Creating new admin user.`);
+            const result = await createUserDirectly(email, email.split('@')[0], 'Admin');
+            return result.success;
+        }
     } catch (error) {
         console.error('Update user role error:', error);
         return false;
