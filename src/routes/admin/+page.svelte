@@ -861,6 +861,9 @@
           <!-- Render the DeckBrowser component -->
           <DeckBrowser />
         </div>
+      {:else if activeTab === 'maintenance'}
+        <!-- Render the DatabaseMaintenance component -->
+        <DatabaseMaintenance />
       {:else if activeTab === 'data'}
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800-token mb-4">
