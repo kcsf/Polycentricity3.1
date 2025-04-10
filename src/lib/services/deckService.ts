@@ -292,26 +292,69 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         return [];
     }
     
-    // Handle both array and object format
-    const valueIds: string[] = Array.isArray(card.values) 
-        ? card.values 
-        : Object.keys(card.values as Record<string, boolean>);
-        
-    if (valueIds.length === 0) return [];
+    console.log(`Getting value names for card ${card.card_id}`, card.values);
     
-    // Get each value's name
-    for (const valueId of valueIds) {
-        await new Promise<void>(resolve => {
-            gun.get(nodes.values).get(valueId).once((valueData: any) => {
-                if (valueData && valueData.name) {
-                    valueNames.push(valueData.name);
+    // Case 1: values is a reference to another Gun node (contains # property)
+    if (typeof card.values === 'object' && (card.values as any)['#']) {
+        console.log(`Values is a reference to another Gun node: ${(card.values as any)['#']}`);
+        
+        // Create a promise to collect all values
+        return new Promise((resolveAll) => {
+            const valuesPath = (card.values as any)['#'] as string;
+            
+            gun.get(valuesPath).map().once(async (value: any, valueId: string) => {
+                if (value === true) {
+                    console.log(`Found value ID from reference: ${valueId}`);
+                    
+                    // Look up the value name using the ID
+                    await new Promise<void>(resolve => {
+                        gun.get(nodes.values).get(valueId).once((valueData: any) => {
+                            if (valueData && valueData.name) {
+                                console.log(`Found value name: ${valueData.name} for ID: ${valueId}`);
+                                valueNames.push(valueData.name);
+                            } else {
+                                console.log(`Value data missing for ID: ${valueId}`, valueData);
+                            }
+                            resolve();
+                        });
+                    });
                 }
-                resolve();
             });
+            
+            // Give Gun time to process all values
+            setTimeout(() => {
+                console.log(`Retrieved ${valueNames.length} value names:`, valueNames);
+                resolveAll(valueNames);
+            }, 500);
         });
     }
-    
-    return valueNames;
+    // Case 2: Handle both array and object format
+    else {
+        const valueIds: string[] = Array.isArray(card.values) 
+            ? card.values 
+            : Object.keys(card.values as Record<string, boolean>);
+            
+        if (valueIds.length === 0) return [];
+        
+        console.log(`Value IDs to look up:`, valueIds);
+        
+        // Get each value's name
+        for (const valueId of valueIds) {
+            await new Promise<void>(resolve => {
+                gun.get(nodes.values).get(valueId).once((valueData: any) => {
+                    if (valueData && valueData.name) {
+                        console.log(`Found value name: ${valueData.name} for ID: ${valueId}`);
+                        valueNames.push(valueData.name);
+                    } else {
+                        console.log(`Value data missing for ID: ${valueId}`, valueData);
+                    }
+                    resolve();
+                });
+            });
+        }
+        
+        return valueNames;
+    }
 }
 
 // Get capability names for a card
@@ -326,29 +369,72 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         return [];
     }
     
-    // If capabilities is a string (old format), just return it split into an array
+    console.log(`Getting capability names for card ${card.card_id}`, card.capabilities);
+    
+    // Case 1: If capabilities is a string (old format), just return it split into an array
     if (typeof card.capabilities === 'string') {
         return (card.capabilities as string).split(',').map((c: string) => c.trim()).filter((c: string) => c);
     }
     
-    // Handle both array and object format
-    const capabilityIds: string[] = Array.isArray(card.capabilities) 
-        ? card.capabilities 
-        : Object.keys(card.capabilities as Record<string, boolean>);
+    // Case 2: capabilities is a reference to another Gun node (contains # property)
+    if (typeof card.capabilities === 'object' && (card.capabilities as any)['#']) {
+        console.log(`Capabilities is a reference to another Gun node: ${(card.capabilities as any)['#']}`);
         
-    if (capabilityIds.length === 0) return [];
-    
-    // Get each capability's name
-    for (const capabilityId of capabilityIds) {
-        await new Promise<void>(resolve => {
-            gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: any) => {
-                if (capabilityData && capabilityData.name) {
-                    capabilityNames.push(capabilityData.name);
+        // Create a promise to collect all capabilities
+        return new Promise((resolveAll) => {
+            const capabilitiesPath = (card.capabilities as any)['#'] as string;
+            
+            gun.get(capabilitiesPath).map().once(async (value: any, capabilityId: string) => {
+                if (value === true) {
+                    console.log(`Found capability ID from reference: ${capabilityId}`);
+                    
+                    // Look up the capability name using the ID
+                    await new Promise<void>(resolve => {
+                        gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: any) => {
+                            if (capabilityData && capabilityData.name) {
+                                console.log(`Found capability name: ${capabilityData.name} for ID: ${capabilityId}`);
+                                capabilityNames.push(capabilityData.name);
+                            } else {
+                                console.log(`Capability data missing for ID: ${capabilityId}`, capabilityData);
+                            }
+                            resolve();
+                        });
+                    });
                 }
-                resolve();
             });
+            
+            // Give Gun time to process all capabilities
+            setTimeout(() => {
+                console.log(`Retrieved ${capabilityNames.length} capability names:`, capabilityNames);
+                resolveAll(capabilityNames);
+            }, 500);
         });
     }
-    
-    return capabilityNames;
+    // Case 3: Handle both array and object format
+    else {
+        const capabilityIds: string[] = Array.isArray(card.capabilities) 
+            ? card.capabilities 
+            : Object.keys(card.capabilities as Record<string, boolean>);
+            
+        if (capabilityIds.length === 0) return [];
+        
+        console.log(`Capability IDs to look up:`, capabilityIds);
+        
+        // Get each capability's name
+        for (const capabilityId of capabilityIds) {
+            await new Promise<void>(resolve => {
+                gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: any) => {
+                    if (capabilityData && capabilityData.name) {
+                        console.log(`Found capability name: ${capabilityData.name} for ID: ${capabilityId}`);
+                        capabilityNames.push(capabilityData.name);
+                    } else {
+                        console.log(`Capability data missing for ID: ${capabilityId}`, capabilityData);
+                    }
+                    resolve();
+                });
+            });
+        }
+        
+        return capabilityNames;
+    }
 }
