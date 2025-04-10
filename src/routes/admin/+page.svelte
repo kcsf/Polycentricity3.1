@@ -3,7 +3,7 @@
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
-  import CytoscapeGraph from '$lib/components/admin/CytoscapeGraph.svelte';
+  import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
   
   // For visualization
   let isG6Loading = false;
@@ -309,7 +309,7 @@
                   </p>
                 </div>
                 
-                <CytoscapeGraph nodes={graphData.nodes} edges={graphData.edges} />
+                <BasicCytoscapeGraph nodes={graphData.nodes} edges={graphData.edges} />
                 
                 <div class="graph-stats mt-4 p-4 bg-surface-100-800-token rounded">
                   <h4 class="font-semibold mb-2">Database Overview</h4>
