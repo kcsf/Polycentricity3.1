@@ -155,7 +155,7 @@
                     <svelte:component this={icons.Edit} class="w-4 h-4" />
                   </button>
                   <a 
-                    href="/admin?tab=decks&deckId={deck.id}" 
+                    href="/admin?tab=overview&deckId={deck.id}" 
                     class="btn btn-sm variant-soft-success"
                     title="Import Cards to Deck"
                   >

@@ -182,7 +182,7 @@
 <div class="card p-4 bg-surface-50-900-token">
   <h3 class="h4 mb-4 flex items-center">
     <svelte:component this={icons.Layers} class="w-5 h-5 mr-2 text-primary-500" />
-    Deck Manager
+    {deck ? `Import Cards to ${deck.name || 'Deck'}` : 'Deck Manager'}
   </h3>
   
   {#if isLoading}
