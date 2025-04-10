@@ -1,0 +1,41 @@
+"Replit, I need to update the Gun.js database schema for 'Polycentricity2' to optimize my decentralized eco-village game. We’ve added a role property to users to distinguish between Guest, Member, and Admin roles. Here’s the full, updated structure:
+
+Schema
+cards: Static role templates.
+Properties: card_id (e.g., 'c1'), role_title ('Verdant Weaver'), backstory, values (array), goals, obligations, capabilities, intellectual_property, rivalrous_resources, card_category ('Funders'|'Providers'|'Supporters'), type ('DAO'|'Practice'|etc.).
+decks: Card sets.
+Properties: deck_id ('d1'), name ('Eco-Village Standard Deck'), cards (array of card_ids), creator (user_id).
+users: Player accounts with roles.
+Properties: user_id ('u123'), name, email, magic_key, devices (array), created_at, role ('Guest'|'Member'|'Admin' — defaults to 'Guest').
+games: Active games.
+Properties: game_id ('g456'), name, creator (user_id), deck_id, role_assignment ('random'|'choice'), players ({ user_id: actor_id }), created_at, status ('active'|'ended').
+actors: Player roles in games.
+Properties: actor_id ('a1'), game_id, user_id, card_id.
+agreements: Actor agreements.
+Properties: agreement_id ('ag1'), game_id, title, summary, type ('symmetric'|'asymmetric'), parties (array of actor_ids), obligations ({ actor_id: text }), benefits ({ actor_id: text }), created_at.
+chat: Messages.
+Properties: chat_id ('g456_group'), game_id (or null for DMs), type ('group'|'private'), participants (array of user_ids for DMs), messages (array of { actor_id|user_id, text, timestamp }).
+node_positions: Graph layout.
+Properties: node_id (actor_id or agreement_id), game_id, x, y.
+Changes
+Replace actors with cards for static role definitions (move the 52-card deck here).
+Add decks to group cards, referenced by games.deck_id.
+Redefine actors as game-specific instances linking users to cards.
+Fold obligations and benefits into agreements as properties.
+Update users to include role ('Guest', 'Member', 'Admin'), defaulting to 'Guest' on registration.
+Keep games, chat, node_positions with minor relationship tweaks.
+Task
+Update the Gun.js schema in my SvelteKit project:
+
+Create sample data:
+1 user (u123, role: 'Member'), 1 guest (u124, role: 'Guest'), 1 admin (u125, role: 'Admin').
+1 deck (d1) with 2 cards (c1: 'Verdant Weaver', c2: 'Luminos Funder').
+1 game (g456) using d1, with 2 players (u123: a1, u124: a2).
+2 actors (a1, a2) linking users to cards.
+1 agreement (ag1) between a1 and a2.
+1 group chat (g456_group) with 1 message.
+2 node positions (a1, ag1).
+Adjust src/lib/gun.ts to use this structure (e.g., gun.get('cards') instead of actors).
+Test by logging each node type to console (e.g., gun.get('users').map().once(console.log)).
+Ensure compatibility with Skeleton UI (Fennec theme) and Tailwind CSS v4.
+What do you think, Replit? Can you refactor my Gun.js setup with this schema?"

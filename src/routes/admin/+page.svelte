@@ -4,6 +4,7 @@
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
+  import SchemaManager from '$lib/components/admin/SchemaManager.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
@@ -53,14 +54,14 @@
   
   // Color mapping for different node types
   const COLOR_MAP = new Map<string, string>([
-    ['users', '#5B8FF9'],
-    ['games', '#5AD8A6'],
-    ['actors', '#5D7092'],
-    ['chat', '#F6BD16'],
-    ['agreements', '#E8684A'],
-    ['obligations', '#6DC8EC'],
-    ['benefits', '#9270CA'],
-    ['node_positions', '#FF9D4D']
+    ['users', '#5B8FF9'],      // Blue
+    ['games', '#5AD8A6'],      // Green
+    ['cards', '#F6BD16'],      // Yellow
+    ['decks', '#E8684A'],      // Red
+    ['actors', '#5D7092'],     // Purple
+    ['chat', '#F6BD16'],       // Yellow
+    ['agreements', '#E8684A'], // Red
+    ['node_positions', '#FF9D4D'] // Orange
   ]);
   
   // Prepare graph data from the database nodes
@@ -467,6 +468,14 @@
                     <span class="text-sm">Games</span>
                   </div>
                   <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#F6BD16]"></span>
+                    <span class="text-sm">Cards</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#E8684A]"></span>
+                    <span class="text-sm">Decks</span>
+                  </div>
+                  <div class="flex items-center">
                     <span class="w-3 h-3 mr-2 rounded-full bg-[#5D7092]"></span>
                     <span class="text-sm">Actors</span>
                   </div>
@@ -477,6 +486,10 @@
                   <div class="flex items-center">
                     <span class="w-3 h-3 mr-2 rounded-full bg-[#E8684A]"></span>
                     <span class="text-sm">Agreements</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#FF9D4D]"></span>
+                    <span class="text-sm">Node Positions</span>
                   </div>
                 </div>
               </div>
@@ -792,6 +805,11 @@
                   {nodeCount > 0 ? 'Database contains data' : 'No data found in database'}
                 </p>
               </div>
+            </div>
+            
+            <!-- Schema Manager Component -->
+            <div class="mb-6">
+              <SchemaManager />
             </div>
             
             <h3 class="h3 mb-4">Database Structure</h3>

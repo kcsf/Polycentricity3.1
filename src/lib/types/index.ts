@@ -6,6 +6,7 @@ export interface User {
     magic_key?: string;
     devices?: string; // Changed from string[] to string to avoid Gun.js storage issues
     created_at: number;
+    role?: 'Guest' | 'Member' | 'Admin'; // Default is 'Guest'
 }
 
 // Game interface
@@ -13,25 +14,42 @@ export interface Game {
     game_id: string;
     name: string;
     creator: string; // user_id of creator
-    deck_type: string;
-    deck?: Record<string, boolean> | any[]; // Deck of cards as object with actor_id keys, or array for backward compatibility
-    role_assignment?: Record<string, string>; // Mapping of user_id to role_id
-    role_assignment_type?: string; // 'random' or 'player-choice'
+    deck_id: string; // Reference to deck used in this game
+    role_assignment: 'random' | 'choice'; // How roles are assigned
     players: Record<string, boolean> | string[]; // Object with user_id keys, or array of user_ids for backward compatibility
     created_at: number;
     status: GameStatus;
 }
 
-// Actor/Role interface
-export interface Actor {
-    actor_id: string;
+// Card interface (static role templates)
+export interface Card {
+    card_id: string;
     role_title: string;
     backstory: string;
     values: string[];
     goals: string[];
-    skills?: string[];
-    resources?: string[];
-    constraints?: string[];
+    obligations?: string;
+    capabilities?: string;
+    intellectual_property?: string;
+    rivalrous_resources?: string;
+    card_category: 'Funders' | 'Providers' | 'Supporters';
+    type: 'DAO' | 'Practice' | 'Individual' | string;
+}
+
+// Deck interface (collection of cards)
+export interface Deck {
+    deck_id: string;
+    name: string;
+    cards: Record<string, boolean> | string[]; // Card IDs
+    creator: string; // user_id
+}
+
+// Actor interface (instance of card in game)
+export interface Actor {
+    actor_id: string;
+    game_id: string;
+    user_id: string;
+    card_id: string;
 }
 
 // Chat message interface
@@ -78,13 +96,23 @@ export interface RoleAssignment {
 
 // Agreement interface
 export interface Agreement {
-    id: string;
+    agreement_id: string;
     game_id: string;
     title: string;
-    description: string;
-    parties: string[]; // user_ids
-    terms: string[];
-    status: 'proposed' | 'accepted' | 'rejected' | 'completed';
+    summary: string;
+    type: 'symmetric' | 'asymmetric';
+    parties: string[]; // actor_ids
+    obligations: Record<string, string>; // actor_id to obligation text
+    benefits: Record<string, string>; // actor_id to benefit text
+    status?: 'proposed' | 'accepted' | 'rejected' | 'completed';
     created_at: number;
-    updated_at: number;
+    updated_at?: number;
+}
+
+// Node Position interface for graph layout
+export interface NodePosition {
+    node_id: string; // actor_id or agreement_id
+    game_id: string;
+    x: number;
+    y: number;
 }

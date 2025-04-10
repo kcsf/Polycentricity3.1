@@ -88,11 +88,11 @@ export function generateId() {
 export const nodes = {
     users: 'users',
     games: 'games',
-    actors: 'actors',
+    cards: 'cards',       // New: static role templates
+    decks: 'decks',       // New: card collections
+    actors: 'actors',     // Changed: now links user to card in game
     chat: 'chat',
     // D3GameBoard related nodes
     agreements: 'agreements',
-    obligations: 'obligations',
-    benefits: 'benefits',
     positions: 'node_positions'
 };
