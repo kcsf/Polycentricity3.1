@@ -44,7 +44,16 @@
   
   // Function to fetch all data from Gun.js
   async function fetchGunData() {
+    console.log('Starting Gun.js data fetch');
     const gun = getGun();
+    if (!gun) {
+      console.error('Gun instance not initialized');
+      error = 'Gun instance not initialized';
+      loading = false;
+      return;
+    }
+    
+    console.log('Gun nodes available:', gunNodes);
     loading = true;
     
     try {
@@ -58,36 +67,53 @@
       // Helper function to process each node type
       const processNodeType = (nodeName: string) => {
         return new Promise<void>((resolve) => {
+          console.log(`Processing node type: ${nodeName}`);
           const nodeGroup: any[] = [];
           
-          gun.get(nodeName).map().once((nodeData: any, nodeId: string) => {
-            if (!nodeData) {
-              return;
-            }
-            
-            // Create a node
-            const node = {
-              id: `${nodeName}_${nodeId}`,
-              nodeId: nodeId,
-              label: nodeData.name || nodeData.title || nodeData.role_title || nodeId.substring(0, 8),
-              type: nodeName,
-              style: {
-                fill: getColor(nodeName),
-                stroke: getColor(nodeName)
-              },
-              data: nodeData
-            };
-            
-            nodeGroup.push(node);
-          });
+          try {
+            gun.get(nodeName).map().once((nodeData: any, nodeId: string) => {
+              console.log(`Found node in ${nodeName}:`, nodeId, nodeData);
+              
+              if (!nodeData) {
+                console.log(`Skipping null/undefined node data for ${nodeId}`);
+                return;
+              }
+              
+              try {
+                // Create a node
+                const nodeLabel = nodeData.name || nodeData.title || nodeData.role_title || 
+                                  (nodeId && nodeId.substring ? nodeId.substring(0, 8) : 'Unknown');
+                
+                const node = {
+                  id: `${nodeName}_${nodeId}`,
+                  nodeId: nodeId,
+                  label: nodeLabel,
+                  type: nodeName,
+                  style: {
+                    fill: getColor(nodeName),
+                    stroke: getColor(nodeName)
+                  },
+                  data: nodeData
+                };
+                
+                nodeGroup.push(node);
+                console.log(`Added node: ${node.label}`);
+              } catch (nodeErr) {
+                console.error(`Error processing node ${nodeId}:`, nodeErr);
+              }
+            });
+          } catch (mapErr) {
+            console.error(`Error mapping over ${nodeName}:`, mapErr);
+          }
           
           // We need to wait a bit for Gun to process the map
           setTimeout(() => {
+            console.log(`Node group for ${nodeName} has ${nodeGroup.length} nodes`);
             if (nodeGroup.length > 0) {
               nodeGroups.set(nodeName, nodeGroup);
             }
             resolve();
-          }, 200);
+          }, 300);
         });
       };
       
@@ -110,11 +136,13 @@
   
   // Build the graph data structure
   function buildGraphData() {
+    console.log('Building graph data from node groups:', nodeGroups);
     const nodes: any[] = [];
     const edges: any[] = [];
     
     // Add all nodes from all groups
     nodeGroups.forEach((group, groupName) => {
+      console.log(`Adding ${group.length} nodes from ${groupName}`);
       nodes.push(...group);
     });
     
