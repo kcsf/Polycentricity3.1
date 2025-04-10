@@ -7,9 +7,17 @@
         import { getGame, subscribeToGame, joinGame, getPlayerRole } from '$lib/services/gameService';
         import type { Game, Actor } from '$lib/types';
         import { GameStatus } from '$lib/types';
+        
+        // Basic components
         import UserCard from '$lib/components/UserCard.svelte';
         import RoleCard from '$lib/components/RoleCard.svelte';
         import ChatBox from '$lib/components/ChatBox.svelte';
+        
+        // Game-specific components
+        import GameBoard from '$lib/components/game/GameBoard.svelte';
+        import PlayersList from '$lib/components/game/PlayersList.svelte';
+        import GameDashboard from '$lib/components/game/GameDashboard.svelte';
+        import RoleSelector from '$lib/components/game/RoleSelector.svelte';
         
         export let data;
         
@@ -159,76 +167,49 @@
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 <!-- Player info and role -->
                                 <div class="lg:col-span-1 space-y-4">
-                                        <div class="card p-4">
-                                                {#if Array.isArray(game.players)}
-                                                    <h2 class="h2 mb-4">Players ({game.players.length})</h2>
-                                                    
-                                                    {#if game.players.length === 0}
-                                                            <p>No players have joined yet.</p>
-                                                    {:else}
-                                                            <div class="space-y-2">
-                                                                    {#each game.players as playerId}
-                                                                            <!-- This is simplified as we don't have a way to get player info from ID -->
-                                                                            <div class="p-2 rounded bg-surface-100-800-token">
-                                                                                    <p>{playerId}</p>
-                                                                            </div>
-                                                                    {/each}
-                                                            </div>
-                                                    {/if}
-                                                {:else}
-                                                    <!-- Handle players as object format -->
-                                                    {@const playerCount = Object.keys(game.players || {}).length}
-                                                    <h2 class="h2 mb-4">Players ({playerCount})</h2>
-                                                    
-                                                    {#if playerCount === 0}
-                                                            <p>No players have joined yet.</p>
-                                                    {:else}
-                                                            <div class="space-y-2">
-                                                                    {#each Object.keys(game.players || {}) as playerId}
-                                                                            <!-- This is simplified as we don't have a way to get player info from ID -->
-                                                                            <div class="p-2 rounded bg-surface-100-800-token">
-                                                                                    <p>{playerId}</p>
-                                                                            </div>
-                                                                    {/each}
-                                                            </div>
-                                                    {/if}
-                                                {/if}
-                                        </div>
-                                        
+                                        <!-- Game Dashboard -->
                                         {#if isCurrentUserInGame()}
-                                                <div class="card p-4">
-                                                        <h2 class="h2 mb-4">Your Role</h2>
-                                                        
-                                                        {#if playerRole}
-                                                                <RoleCard actor={playerRole} isAssigned={true} />
-                                                        {:else}
-                                                                <p>No role assigned yet. The game creator will assign roles soon.</p>
-                                                        {/if}
+                                                <div class="mb-4">
+                                                        <GameDashboard {game} />
                                                 </div>
+                                        {/if}
+                                        
+                                        <!-- Players List -->
+                                        <PlayersList 
+                                                {game} 
+                                                highlightCurrentUser={true} 
+                                                currentUserId={$userStore.user?.user_id || null} 
+                                        />
+                                        
+                                        <!-- Role Selection/Display -->
+                                        {#if isCurrentUserInGame()}
+                                                <RoleSelector 
+                                                        {game} 
+                                                        userId={$userStore.user?.user_id || 'dev-user-' + Date.now()} 
+                                                />
                                         {/if}
                                 </div>
                                 
                                 <!-- Game main content area -->
                                 <div class="lg:col-span-2">
                                         {#if isCurrentUserInGame()}
-                                                <div class="card p-4 h-96">
-                                                        <h2 class="h2 mb-4">Game Canvas</h2>
-                                                        <p class="text-center p-16">
-                                                                This is where the game canvas will be displayed.<br>
-                                                                The game canvas is being developed separately.
-                                                        </p>
+                                                <div class="mb-4">
+                                                        <GameBoard {gameId} />
                                                 </div>
                                                 
-                                                <div class="card p-4 mt-4 h-64">
+                                                <div class="card p-4 h-64">
                                                         <ChatBox {gameId} chatType="group" />
                                                 </div>
                                         {:else}
-                                                <div class="card p-8 text-center">
-                                                        <h2 class="h2 mb-4">Join to Participate</h2>
-                                                        <p class="mb-4">You need to join this game to see the game content and participate.</p>
-                                                        <button class="btn variant-filled-primary" on:click={handleJoinGame} disabled={isJoining}>
-                                                                {isJoining ? 'Joining...' : 'Join Game'}
-                                                        </button>
+                                                <div class="card p-8 text-center bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                                                        <div class="flex flex-col items-center justify-center py-12">
+                                                                <div class="text-5xl text-primary-400 mb-4">🎲</div>
+                                                                <h2 class="h2 mb-2">Join to Participate</h2>
+                                                                <p class="mb-6 text-surface-600 dark:text-surface-400">You need to join this game to see the game content and participate.</p>
+                                                                <button class="btn variant-filled-primary" on:click={handleJoinGame} disabled={isJoining}>
+                                                                        {isJoining ? 'Joining...' : 'Join Game'}
+                                                                </button>
+                                                        </div>
                                                 </div>
                                         {/if}
                                 </div>
