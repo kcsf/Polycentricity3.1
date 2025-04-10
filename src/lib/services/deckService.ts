@@ -541,21 +541,34 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                 
                 if (Array.isArray(cardData.values)) {
                     // Values provided as array of strings
+                    console.log(`Processing ${cardData.values.length} values from array:`, cardData.values);
+                    
                     for (const value of cardData.values) {
+                        console.log(`Processing value: "${value}"`);
+                        
                         const normalized = value.toLowerCase();
                         if (valueMap[normalized]) {
                             // Use existing value ID if found
-                            (cleanCardData.values as Record<string, boolean>)[valueMap[normalized]] = true;
+                            const valueId = valueMap[normalized];
+                            console.log(`Using existing value ID for "${value}": ${valueId}`);
+                            (cleanCardData.values as Record<string, boolean>)[valueId] = true;
                         } else {
                             // Create the value if needed
+                            console.log(`Creating new value "${value}"...`);
                             const newValue = await createValue(value);
                             if (newValue) {
+                                console.log(`Created new value "${value}" with ID: ${newValue.value_id}`);
                                 (cleanCardData.values as Record<string, boolean>)[newValue.value_id] = true;
                                 // Add to our map for future lookups
                                 valueMap[value.toLowerCase()] = newValue.value_id;
+                            } else {
+                                console.warn(`Failed to create value "${value}"`);
                             }
                         }
                     }
+                    
+                    // Check what we ended up with
+                    console.log(`Final values object:`, cleanCardData.values);
                 } else if (typeof cardData.values === 'string') {
                     // Values provided as comma-separated string
                     const valueNames = cardData.values.split(',').map((v: string) => v.trim()).filter((v: string) => v);
