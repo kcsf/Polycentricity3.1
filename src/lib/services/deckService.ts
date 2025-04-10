@@ -793,21 +793,40 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
     
     console.log(`Getting value names for card ${card.card_id}`, card.values);
     
-    // Case 1: values is a reference to another Gun node (contains # property)
+    // Case 1: If values is a string (old format), just return it split into an array
+    if (typeof card.values === 'string') {
+        console.log(`Values is a string, splitting into array: ${card.values}`);
+        return (card.values as string).split(',').map((v: string) => v.trim()).filter((v: string) => v);
+    }
+    
+    // Case 2: values is a reference to another Gun node (contains # property)
     if (typeof card.values === 'object' && (card.values as any)['#']) {
         console.log(`Values is a reference to another Gun node: ${(card.values as any)['#']}`);
         
         // Create a promise to collect all values
         return new Promise((resolveAll) => {
             const valuesPath = (card.values as any)['#'] as string;
+            let timeoutId: NodeJS.Timeout;
+            
+            // Set a timeout in case Gun operations hang
+            timeoutId = setTimeout(() => {
+                console.warn(`⚠️ Timeout retrieving value names for card ${card.card_id} - returning partial results: ${valueNames.length} names`);
+                resolveAll(valueNames);
+            }, 3000); // 3 second timeout
             
             gun.get(valuesPath).map().once(async (value: any, valueId: string) => {
                 if (value === true) {
                     console.log(`Found value ID from reference: ${valueId}`);
                     
-                    // Look up the value name using the ID
+                    // Look up the value name using the ID with timeout
                     await new Promise<void>(resolve => {
+                        let valueTimeoutId = setTimeout(() => {
+                            console.warn(`⚠️ Timeout retrieving name for value ID ${valueId}`);
+                            resolve();
+                        }, 1000); // 1 second timeout for individual value lookup
+                        
                         gun.get(nodes.values).get(valueId).once((valueData: any) => {
+                            clearTimeout(valueTimeoutId);
                             if (valueData && valueData.name) {
                                 console.log(`Found value name: ${valueData.name} for ID: ${valueId}`);
                                 valueNames.push(valueData.name);
@@ -820,14 +839,15 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                 }
             });
             
-            // Give Gun time to process all values
+            // Give Gun time to process all values, but also clear our main timeout
             setTimeout(() => {
+                clearTimeout(timeoutId);
                 console.log(`Retrieved ${valueNames.length} value names:`, valueNames);
                 resolveAll(valueNames);
-            }, 500);
+            }, 1000); // Reduced from 500ms to 1000ms for more reliable results
         });
     }
-    // Case 2: Handle both array and object format
+    // Case 3: Handle both array and object format
     else {
         const valueIds: string[] = Array.isArray(card.values) 
             ? card.values 
@@ -837,10 +857,16 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         
         console.log(`Value IDs to look up:`, valueIds);
         
-        // Get each value's name
+        // Get each value's name with timeouts
         for (const valueId of valueIds) {
             await new Promise<void>(resolve => {
+                const valueTimeoutId = setTimeout(() => {
+                    console.warn(`⚠️ Timeout retrieving name for value ID ${valueId}`);
+                    resolve();
+                }, 1000); // 1 second timeout
+                
                 gun.get(nodes.values).get(valueId).once((valueData: any) => {
+                    clearTimeout(valueTimeoutId);
                     if (valueData && valueData.name) {
                         console.log(`Found value name: ${valueData.name} for ID: ${valueId}`);
                         valueNames.push(valueData.name);
@@ -852,6 +878,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
             });
         }
         
+        console.log(`Retrieved ${valueNames.length} value names from direct lookup:`, valueNames);
         return valueNames;
     }
 }
@@ -872,6 +899,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
     
     // Case 1: If capabilities is a string (old format), just return it split into an array
     if (typeof card.capabilities === 'string') {
+        console.log(`Capabilities is a string, splitting into array: ${card.capabilities}`);
         return (card.capabilities as string).split(',').map((c: string) => c.trim()).filter((c: string) => c);
     }
     
@@ -882,14 +910,27 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         // Create a promise to collect all capabilities
         return new Promise((resolveAll) => {
             const capabilitiesPath = (card.capabilities as any)['#'] as string;
+            let timeoutId: NodeJS.Timeout;
+            
+            // Set a timeout in case Gun operations hang
+            timeoutId = setTimeout(() => {
+                console.warn(`⚠️ Timeout retrieving capability names for card ${card.card_id} - returning partial results: ${capabilityNames.length} names`);
+                resolveAll(capabilityNames);
+            }, 3000); // 3 second timeout
             
             gun.get(capabilitiesPath).map().once(async (value: any, capabilityId: string) => {
                 if (value === true) {
                     console.log(`Found capability ID from reference: ${capabilityId}`);
                     
-                    // Look up the capability name using the ID
+                    // Look up the capability name using the ID with timeout
                     await new Promise<void>(resolve => {
+                        let capabilityTimeoutId = setTimeout(() => {
+                            console.warn(`⚠️ Timeout retrieving name for capability ID ${capabilityId}`);
+                            resolve();
+                        }, 1000); // 1 second timeout for individual capability lookup
+                        
                         gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: any) => {
+                            clearTimeout(capabilityTimeoutId);
                             if (capabilityData && capabilityData.name) {
                                 console.log(`Found capability name: ${capabilityData.name} for ID: ${capabilityId}`);
                                 capabilityNames.push(capabilityData.name);
@@ -902,11 +943,12 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                 }
             });
             
-            // Give Gun time to process all capabilities
+            // Give Gun time to process all capabilities, but also clear our main timeout
             setTimeout(() => {
+                clearTimeout(timeoutId);
                 console.log(`Retrieved ${capabilityNames.length} capability names:`, capabilityNames);
                 resolveAll(capabilityNames);
-            }, 500);
+            }, 1000); // Increased from 500ms for more reliable results
         });
     }
     // Case 3: Handle both array and object format
@@ -919,10 +961,16 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         
         console.log(`Capability IDs to look up:`, capabilityIds);
         
-        // Get each capability's name
+        // Get each capability's name with timeouts
         for (const capabilityId of capabilityIds) {
             await new Promise<void>(resolve => {
+                const capabilityTimeoutId = setTimeout(() => {
+                    console.warn(`⚠️ Timeout retrieving name for capability ID ${capabilityId}`);
+                    resolve();
+                }, 1000); // 1 second timeout
+                
                 gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: any) => {
+                    clearTimeout(capabilityTimeoutId);
                     if (capabilityData && capabilityData.name) {
                         console.log(`Found capability name: ${capabilityData.name} for ID: ${capabilityId}`);
                         capabilityNames.push(capabilityData.name);
@@ -934,6 +982,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
             });
         }
         
+        console.log(`Retrieved ${capabilityNames.length} capability names from direct lookup:`, capabilityNames);
         return capabilityNames;
     }
 }
