@@ -21,7 +21,18 @@ export async function getDeck(deckId: string): Promise<Deck | null> {
                     return;
                 }
                 
-                console.log(`Found deck: ${deckId}`);
+                console.log(`Found deck: ${deckId}`, deckData);
+                // Log cards information
+                if (deckData.cards) {
+                    if (Array.isArray(deckData.cards)) {
+                        console.log(`Deck has ${deckData.cards.length} cards (array format):`, deckData.cards);
+                    } else {
+                        console.log(`Deck has ${Object.keys(deckData.cards).length} cards (object format):`, deckData.cards);
+                    }
+                } else {
+                    console.log(`Deck ${deckId} has no cards property`);
+                }
+                
                 resolve(deckData);
             });
         });

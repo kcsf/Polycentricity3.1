@@ -86,31 +86,74 @@
       
       // Extract card IDs from the deck data
       const cardIds: string[] = [];
+      
+      // Handle different ways cards can be stored in decks
       if (deck.cards) {
+        console.log('Deck cards object:', deck.cards);
+        
+        // Case 1: Cards stored as an array
         if (Array.isArray(deck.cards)) {
+          console.log('Cards is an array');
           cardIds.push(...deck.cards);
-        } else {
+        } 
+        // Case 2: Cards is a reference to another Gun node (contains # property)
+        else if (typeof deck.cards === 'object' && deck.cards['#']) {
+          console.log('Cards is a reference to another Gun node:', deck.cards['#']);
+          
+          // We need to fetch the actual cards from the referenced node
+          await new Promise<void>(resolve => {
+            const cardsPath = deck.cards['#'];
+            console.log(`Fetching cards from path: ${cardsPath}`);
+            
+            gun.get(cardsPath).map().once((value: any, cardId: string) => {
+              if (value === true) {
+                console.log(`Found card ID from reference: ${cardId}`);
+                cardIds.push(cardId);
+              }
+            });
+            
+            // Give Gun time to process
+            setTimeout(() => {
+              console.log(`Found ${cardIds.length} cards from reference`);
+              resolve();
+            }, 500);
+          });
+        } 
+        // Case 3: Cards stored as direct object with card_id: true format
+        else {
+          console.log('Cards is a direct object');
           cardIds.push(...Object.keys(deck.cards as Record<string, boolean>));
         }
       }
       
+      console.log(`Final card IDs to fetch: ${cardIds.length}`, cardIds);
+      
       // Load each card individually
       const loadedCards: Card[] = [];
       
+      console.log(`Loading cards for deck ${deckId}. Found ${cardIds.length} card IDs:`, cardIds);
+      
       for (const cardId of cardIds) {
         await new Promise<void>(resolve => {
+          console.log(`Fetching card data for ${cardId}...`);
           gun.get(nodes.cards).get(cardId).once(async (cardData: Card) => {
+            console.log(`Card data for ${cardId}:`, cardData);
             if (cardData && cardData.card_id) {
               loadedCards.push(cardData);
               
               // Get values and capabilities for this card
               cardValues[cardData.card_id] = await getCardValueNames(cardData);
               cardCapabilities[cardData.card_id] = await getCardCapabilityNames(cardData);
+              console.log(`Added card ${cardData.card_id} with values:`, cardValues[cardData.card_id]);
+            } else {
+              console.warn(`Card ${cardId} data invalid or not found`);
             }
             resolve();
           });
         });
       }
+      
+      console.log(`Loaded ${loadedCards.length} cards:`, loadedCards);
       
       // Sort cards by card_number
       cards = loadedCards.sort((a, b) => a.card_number - b.card_number);
