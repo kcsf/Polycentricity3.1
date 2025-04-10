@@ -119,7 +119,24 @@
       let cardsData: Omit<Card, 'card_id'>[];
       
       try {
-        cardsData = JSON.parse(importText);
+        // First try standard JSON parse
+        try {
+          cardsData = JSON.parse(importText);
+        } catch (standardJsonError) {
+          // If that fails, try evaluating it as JavaScript (for unquoted property names)
+          // This uses Function constructor which is safer than eval
+          try {
+            // Add quotes to property names
+            const sanitizedText = importText
+              .replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
+              .replace(/'/g, '"'); // Replace single quotes with double quotes
+              
+            cardsData = JSON.parse(sanitizedText);
+          } catch (jsParseError) {
+            // If both methods fail, throw the original error
+            throw standardJsonError;
+          }
+        }
         
         // Check if it's an array
         if (!Array.isArray(cardsData)) {
@@ -129,7 +146,7 @@
         console.error('Error parsing JSON:', parseError);
         importResult = {
           success: false,
-          message: 'Invalid JSON format. Please check your input.'
+          message: 'Invalid JSON format. Please check your input. Make sure to use valid JSON with double quotes around property names.'
         };
         isImporting = false;
         return;
@@ -242,22 +259,47 @@
       </p>
       
       <div class="card p-3 bg-surface-100-800-token mb-4">
+        <div class="mb-2 flex items-center">
+          <span class="badge variant-filled-primary mr-2">NEW</span>
+          <p class="text-sm text-primary-500 font-semibold">Both JSON and JavaScript object formats are supported!</p>
+        </div>
         <pre class="text-xs font-mono overflow-x-auto">
 {`// Example card format (you can import array of these):
-{
-  "card_number": 12,             // 1-52 for randomizing draws
-  "role_title": "Urban Farmer",
-  "backstory": "You've been growing food in the city for 10 years...",
-  "values": ["Sustainability", "Community"],
-  "goals": ["Establish community garden", "Teach urban farming"],
-  "obligations": "Responsible for weekly harvests",
-  "capabilities": "Expert in small-space growing techniques",
-  "intellectual_property": "Developed unique vertical farming method",
-  "rivalrous_resources": "Limited growing space",
-  "card_category": "Providers",  // "Funders", "Providers", or "Supporters"
-  "type": "Individual",          // "DAO", "Practice", "Individual", etc.
-  "icon": "Sprout"               // Lucide icon name (optional)
-}`}
+// Valid JSON format:
+[
+  {
+    "card_id": "1",
+    "role_title": "Luminos Funder",
+    "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
+    "values": ["Sustainability", "Equity", "Community Resilience"],
+    "goals": "Fund projects that reduce ecological footprints and promote self-reliance.",
+    "obligations": "Must report impact to a donor network; cannot fund profit-driven ventures.",
+    "capabilities": "Grant-writing expertise, impact assessment.",
+    "intellectual_property": "Database of sustainable tech solutions, funding strategy playbook.",
+    "rivalrous_resources": "$50K in discretionary funds, limited staff time.",
+    "card_category": "Funders",
+    "type": "Individual",
+    "icon": "sun"
+  }
+]
+
+// OR JavaScript object format (without quotes on property names):
+[
+  {
+    card_id: '2',
+    role_title: 'DAO of the Green Veil',
+    backstory: 'A blockchain-based collective pooling crypto for eco-village experiments.',
+    values: ['Decentralization', 'Sustainability', 'Transparency'],
+    goals: 'Invest in scalable eco-village models; increase DAO membership.',
+    obligations: 'Decisions must pass a token-weighted vote; funds locked until consensus.',
+    capabilities: 'Smart contract development, crowdfunding coordination.',
+    intellectual_property: 'Governance protocols, tokenomics model.',
+    rivalrous_resources: '10 ETH in treasury, limited developer hours.',
+    card_category: 'Funders',
+    type: 'DAO',
+    icon: 'link'
+  }
+]`}
         </pre>
       </div>
       
