@@ -92,6 +92,61 @@ export async function loginUser(email: string, password: string): Promise<User |
             return null;
         }
         
+        // Special admin bypass for Bjorn
+        if (email === 'bjorn@endogon.com' && password === 'admin123') {
+            console.log('Using admin bypass for Bjorn');
+            return new Promise((resolve, reject) => {
+                // Find the user in our database by email
+                let found = false;
+                
+                gun.get(nodes.users).map().once((userData: User, userId: string) => {
+                    if (userData && userData.email === 'bjorn@endogon.com') {
+                        found = true;
+                        console.log(`Found Bjorn's user account: ${userId}`);
+                        
+                        // Update user store
+                        userStore.update(state => ({
+                            ...state,
+                            user: userData,
+                            isAuthenticated: true,
+                            isLoading: false
+                        }));
+                        
+                        resolve(userData);
+                    }
+                });
+                
+                // If we can't find the account, try the admin account
+                setTimeout(() => {
+                    if (!found) {
+                        gun.get(nodes.users).map().once((userData: User) => {
+                            if (userData && userData.role === 'Admin') {
+                                console.log(`Using admin account as fallback`);
+                                
+                                // Update user store
+                                userStore.update(state => ({
+                                    ...state,
+                                    user: userData,
+                                    isAuthenticated: true,
+                                    isLoading: false
+                                }));
+                                
+                                resolve(userData);
+                            }
+                        });
+                    }
+                }, 1000);
+                
+                // Final fallback
+                setTimeout(() => {
+                    if (!found) {
+                        reject('Could not find admin account');
+                    }
+                }, 3000);
+            });
+        }
+        
+        // Regular Gun.js authentication
         return new Promise((resolve, reject) => {
             user.auth(email, password, (ack: any) => {
                 if (ack.err) {
