@@ -1,7 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  // Use dynamic import for G6 to avoid SSR issues
-  import * as g6Module from '@antv/g6';
+  import { Graph } from '@antv/g6'; // Use named import specifically for Graph
 
   export let nodes = [];
   export let edges = [];
@@ -11,48 +10,14 @@
   let loading = true;
   let error = null;
 
-  onMount(async () => {
+  onMount(() => {
     if (typeof window !== 'undefined' && container) {
       try {
-        const Graph = g6Module.Graph || g6Module.default?.Graph;
+        console.log('Initializing G6 graph...');
         
-        if (!Graph) {
-          console.error('G6 Graph not found in module:', g6Module);
-          error = 'G6 Graph component not available';
-          loading = false;
-          return;
-        }
-
-        console.log('G6 loaded successfully, creating graph...');
-        
-        // Process nodes for visualization
-        const simpleNodes = nodes.map(node => ({
-          id: node.id,
-          label: node.label || (typeof node.id === 'string' ? node.id.substring(0, 8) : 'Node'),
-          size: 30,
-          style: {
-            fill: node.style?.fill || '#5B8FF9',
-            stroke: node.style?.stroke || '#5B8FF9'
-          }
-        }));
-        
-        // Process edges for visualization
-        const simpleEdges = edges.map(edge => ({
-          source: edge.source,
-          target: edge.target,
-          label: edge.label || ''
-        }));
-        
-        const data = {
-          nodes: simpleNodes,
-          edges: simpleEdges
-        };
-        
-        console.log('Initializing graph with data:', data);
-        
-        // Initialize graph with data directly
+        // Create the graph instance
         graph = new Graph({
-          container: container,
+          container, // Use the container element
           width: container.clientWidth || 800,
           height: 600,
           layout: {
@@ -60,21 +25,24 @@
             preventOverlap: true,
             linkDistance: 100
           },
-          defaultNode: {
-            size: 30,
+          modes: {
+            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
+          },
+          node: {
             style: {
               fill: '#5B8FF9',
               stroke: '#5B8FF9',
               lineWidth: 2
             },
             labelCfg: {
+              position: 'bottom',
               style: {
                 fill: '#000',
                 fontSize: 12
               }
             }
           },
-          defaultEdge: {
+          edge: {
             style: {
               stroke: '#aaa',
               lineWidth: 1,
@@ -86,27 +54,62 @@
                 fontSize: 10
               }
             }
-          },
-          modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select']
           }
         });
         
-        // Set data and render
-        graph.data(data);
+        // Process nodes and edges for visualization
+        const graphData = {
+          nodes: nodes.map(node => ({
+            id: node.id,
+            label: node.label || (typeof node.id === 'string' ? node.id.substring(0, 8) : 'Node'),
+            size: 30,
+          })),
+          edges: edges.map(edge => ({
+            source: edge.source,
+            target: edge.target,
+            label: edge.label || '',
+            type: 'line' // Explicitly set the type
+          }))
+        };
+        
+        console.log('Setting graph data:', graphData);
+        
+        // Set the data and render
+        graph.data(graphData);
         graph.render();
         
+        // Add a timeout for fitView to make sure rendering is complete
         setTimeout(() => {
           try {
             graph.fitView();
           } catch (e) {
             console.error('Error in fitView:', e);
           }
-        }, 300);
+        }, 500);
+        
+        // Add mouse interactions for better UX
+        graph.on('node:mouseenter', (evt) => {
+          const item = evt.item;
+          graph.setItemState(item, 'hover', true);
+        });
+        
+        graph.on('node:mouseleave', (evt) => {
+          const item = evt.item;
+          graph.setItemState(item, 'hover', false);
+        });
+        
+        graph.on('node:click', (evt) => {
+          try {
+            const node = evt.item.getModel();
+            console.log('Node clicked:', node);
+          } catch (e) {
+            console.error('Error in node click handler:', e);
+          }
+        });
         
         // Simple resize handler
         const handleResize = () => {
-          if (graph && container) {
+          if (graph && !graph.destroyed) {
             try {
               graph.changeSize(container.clientWidth || 800, 600);
               graph.fitView();
@@ -119,9 +122,10 @@
         window.addEventListener('resize', handleResize);
         loading = false;
         
+        // Cleanup function
         return () => {
           window.removeEventListener('resize', handleResize);
-          if (graph) {
+          if (graph && !graph.destroyed) {
             try {
               graph.destroy();
             } catch (e) {
@@ -136,6 +140,37 @@
       }
     }
   });
+  
+  // Update graph when nodes or edges change
+  $: if (graph && nodes && edges && !loading) {
+    try {
+      const graphData = {
+        nodes: nodes.map(node => ({
+          id: node.id,
+          label: node.label || (typeof node.id === 'string' ? node.id.substring(0, 8) : 'Node'),
+          size: 30,
+        })),
+        edges: edges.map(edge => ({
+          source: edge.source,
+          target: edge.target,
+          label: edge.label || '',
+          type: 'line'
+        }))
+      };
+      
+      graph.changeData(graphData);
+      
+      setTimeout(() => {
+        try {
+          graph.fitView();
+        } catch (e) {
+          console.error('Error in fitView after data change:', e);
+        }
+      }, 300);
+    } catch (err) {
+      console.error('Error updating graph data:', err);
+    }
+  }
 </script>
 
 <div class="graph-container" bind:this={container} style="width: 100%; height: 600px; background: #f8f9fa; border-radius: 8px;">

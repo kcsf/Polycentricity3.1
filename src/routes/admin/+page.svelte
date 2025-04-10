@@ -3,7 +3,7 @@
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
-  import G6SimpleGraph from '$lib/components/admin/G6SimpleGraph.svelte';
+  import FallbackGraph from '$lib/components/admin/FallbackGraph.svelte';
   
   // For visualization
   let isG6Loading = false;
@@ -309,7 +309,7 @@
                   </p>
                 </div>
                 
-                <G6SimpleGraph nodes={graphData.nodes} edges={graphData.edges} />
+                <FallbackGraph nodes={graphData.nodes} edges={graphData.edges} />
                 
                 <div class="graph-stats mt-4 p-4 bg-surface-100-800-token rounded">
                   <h4 class="font-semibold mb-2">Database Overview</h4>
