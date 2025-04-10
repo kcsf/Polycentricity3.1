@@ -17,9 +17,17 @@
       loading = true;
       error = null;
       
-      // Dynamically import cytoscape to avoid SSR issues
-      const cytoscape = await import('cytoscape');
+      // Dynamically import cytoscape and cise layout to avoid SSR issues
+      const [cytoscape, ciseLayout] = await Promise.all([
+        import('cytoscape'),
+        import('cytoscape-cise')
+      ]);
+      
       const cytoscapeCore = cytoscape.default || cytoscape;
+      const cise = ciseLayout.default || ciseLayout;
+      
+      // Register the cise layout
+      cytoscapeCore.use(cise);
       
       // Process data for cytoscape format
       const elements = [];
@@ -177,23 +185,46 @@
           }
         ],
         layout: {
-          name: 'cose',
-          componentSpacing: 40,
-          nodeOverlap: 20,
-          nodeRepulsion: 400000,
-          gravity: 80,
-          edgeElasticity: 100,
-          // Group nodes by type
-          idealEdgeLength: function(edge) {
-            const sourceType = edge.source().data('type');
-            const targetType = edge.target().data('type');
-            // Shorter edge length for same type, longer for different types
-            return sourceType === targetType ? 100 : 200;
-          },
-          nestingFactor: 1.2,
-          initialTemp: 200,
-          coolingFactor: 0.95,
-          animate: false
+          // Use CISE layout - Circular / Spring Embedder specifically for clustered graphs
+          name: 'cise',
+          
+          // CLUSTERING OPTIONS
+          // Define clusters based on node type
+          clusters: (function() {
+            const clusterMap = {};
+            nodes.forEach(node => {
+              if (node.type) {
+                if (!clusterMap[node.type]) {
+                  clusterMap[node.type] = [];
+                }
+                clusterMap[node.type].push(node.id);
+              }
+            });
+            return Object.values(clusterMap);
+          })(),
+          
+          // LAYOUT OPTIONS
+          // Circular layout of clusters
+          allowNodesInsideCircle: false,
+          // Quality vs performance (0.0 - 1.0)
+          quality: 0.8,
+          // Make clusters more compact
+          nodeSeparation: 20,
+          // Animation
+          animate: true,
+          animationDuration: 500,
+          // Physics parameters
+          gravity: 0.4,
+          gravityRange: 3.8,
+          // Prevent overlapping
+          idealInterClusterEdgeLengthCoefficient: 1.5,
+          // Other parameters
+          refresh: 10,
+          fit: true,
+          padding: 30,
+          // Show cluster circles (boundaries)
+          // Disabled because it conflicts with our styling
+          showClusters: false
         }
       });
       
