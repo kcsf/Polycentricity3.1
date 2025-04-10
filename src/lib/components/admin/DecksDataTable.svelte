@@ -5,6 +5,7 @@
   import { getDeck, updateDeck } from '$lib/services/deckService';
   import DeckEditModal from './DeckEditModal.svelte';
   import type { Deck } from '$lib/types';
+  import { tick } from 'svelte';
   
   export let refreshTrigger = 0; // Increment this to trigger a refresh
   
@@ -162,6 +163,17 @@
                     title="Import Cards to Deck"
                   >
                     <span class="icon">📤</span> Import
+                  </button>
+                  <button 
+                    on:click={() => {
+                      if (confirm(`Are you sure you want to delete deck "${deck.data.name || deck.id}"? This cannot be undone.`)) {
+                        deleteDeck(deck.id);
+                      }
+                    }}
+                    class="action-button delete-button"
+                    title="Delete Deck"
+                  >
+                    <span class="icon">❌</span> Delete
                   </button>
                 </div>
               </td>
