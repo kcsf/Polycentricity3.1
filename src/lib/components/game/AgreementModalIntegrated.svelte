@@ -290,7 +290,7 @@
                         class="btn btn-sm btn-icon variant-ghost-error"
                         on:click={() => removeObligation(index)}
                       >
-                        <X class="w-3 h-3" />
+                        <svelte:component this={icons.X} class="w-3 h-3" />
                       </button>
                     </li>
                   {/each}
@@ -336,7 +336,7 @@
                         class="btn btn-sm btn-icon variant-ghost-error"
                         on:click={() => removeBenefit(index)}
                       >
-                        <X class="w-3 h-3" />
+                        <svelte:component this={icons.X} class="w-3 h-3" />
                       </button>
                     </li>
                   {/each}

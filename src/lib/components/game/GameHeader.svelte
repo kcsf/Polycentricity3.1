@@ -1,6 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Menu } from 'svelte-lucide';
+  import * as icons from 'svelte-lucide';
+  
+  export let game = { name: 'Polycentricity', game_id: 'demo' };
   
   const dispatch = createEventDispatcher();
   
@@ -16,12 +18,12 @@
       class="hidden md:flex w-8 h-8 items-center justify-center rounded-md hover:bg-gray-200"
       aria-label="Toggle Sidebar"
     >
-      <Menu class="w-5 h-5 text-gray-700" />
+      <svelte:component this={icons.Menu} class="w-5 h-5 text-gray-700" />
     </button>
-    <h1 class="text-xl font-semibold text-gray-800">Polycentricity</h1>
+    <h1 class="text-xl font-semibold text-gray-800">{game.name || 'Polycentricity'}</h1>
   </div>
   
   <div class="flex items-center gap-4">
-    <span class="text-sm text-gray-600">Game Session: Demo</span>
+    <span class="text-sm text-gray-600">Game ID: {game.game_id}</span>
   </div>
 </header>
