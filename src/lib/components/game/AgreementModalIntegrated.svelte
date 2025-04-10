@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import gameStore from '$lib/stores/enhancedGameStore';
   import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
-  import { X } from 'svelte-lucide';
+  import * as icons from 'svelte-lucide';
   
   // Props
   export let editMode = false;
@@ -173,7 +173,7 @@
     <div class="p-4 border-b border-surface-200 dark:border-surface-700 flex justify-between items-center">
       <h2 class="text-xl font-semibold">{editMode ? 'Edit' : 'Create'} Agreement</h2>
       <button class="btn btn-sm btn-icon variant-ghost-surface" on:click={closeModal}>
-        <X class="w-4 h-4" />
+        <svelte:component this={icons.X} class="w-4 h-4" />
       </button>
     </div>
     
@@ -239,7 +239,7 @@
                   on:click={() => removeTerm(index)}
                   disabled={terms.length === 1}
                 >
-                  <X class="w-4 h-4" />
+                  <svelte:component this={icons.X} class="w-4 h-4" />
                 </button>
               </div>
             {/each}

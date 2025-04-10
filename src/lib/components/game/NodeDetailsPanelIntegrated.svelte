@@ -1,7 +1,7 @@
 <script lang="ts">
   import gameStore from '$lib/stores/enhancedGameStore';
   import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
-  import { X } from 'svelte-lucide';
+  import * as icons from 'svelte-lucide';
   import { derived } from 'svelte/store';
   
   // Props
@@ -78,7 +78,7 @@
       on:click={closePanel}
       title="Close Panel"
     >
-      <X class="w-4 h-4" />
+      <svelte:component this={icons.X} class="w-4 h-4" />
     </button>
   </div>
   

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
-  import { PlusCircle, ZoomIn, ZoomOut, Maximize, Search } from 'svelte-lucide';
+  import * as icons from 'svelte-lucide';
   import gameStore from '$lib/stores/enhancedGameStore';
   import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
   import AgreementModalIntegrated from './AgreementModalIntegrated.svelte';
@@ -518,7 +518,7 @@
   <div class="flex items-center justify-between p-2 border-b border-surface-200 dark:border-surface-700 bg-surface-100 dark:bg-surface-800">
     <div class="relative flex-grow max-w-md">
       <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-        <Search class="w-4 h-4 text-surface-400" />
+        <svelte:component this={icons.Search} class="w-4 h-4 text-surface-400" />
       </div>
       <input
         type="text"
@@ -530,20 +530,20 @@
     
     <div class="flex space-x-2">
       <button class="btn btn-sm variant-ghost-surface" title="Zoom In">
-        <ZoomIn class="w-4 h-4" />
+        <svelte:component this={icons.ZoomIn} class="w-4 h-4" />
       </button>
       <button class="btn btn-sm variant-ghost-surface" title="Zoom Out">
-        <ZoomOut class="w-4 h-4" />
+        <svelte:component this={icons.ZoomOut} class="w-4 h-4" />
       </button>
       <button class="btn btn-sm variant-ghost-surface" title="Reset Zoom">
-        <Maximize class="w-4 h-4" />
+        <svelte:component this={icons.Maximize} class="w-4 h-4" />
       </button>
       <button 
         class="btn btn-sm variant-filled-primary" 
         title="Add Agreement"
         on:click={handleAddAgreement}
       >
-        <PlusCircle class="w-4 h-4 mr-1" />
+        <svelte:component this={icons.PlusCircle} class="w-4 h-4 mr-1" />
         <span>Agreement</span>
       </button>
     </div>
