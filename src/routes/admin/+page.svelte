@@ -66,7 +66,9 @@
     ['actors', '#5D7092'],     // Purple
     ['chat', '#F6BD16'],       // Yellow
     ['agreements', '#E8684A'], // Red
-    ['node_positions', '#FF9D4D'] // Orange
+    ['node_positions', '#FF9D4D'], // Orange
+    ['values', '#9254DE'],     // Purple
+    ['capabilities', '#36CFC9'] // Teal
   ]);
   
   // Prepare graph data from the database nodes
@@ -159,6 +161,12 @@
         return node.data.role_title || `Actor ${node.id.substring(0, 6)}`;
       case 'chat':
         return `Chat ${node.id.substring(0, 6)}`;
+      case 'values':
+        return node.data.name || `Value ${node.id.substring(0, 6)}`;
+      case 'capabilities':
+        return node.data.name || `Capability ${node.id.substring(0, 6)}`;
+      case 'cards':
+        return node.data.role_title || `Card ${node.id.substring(0, 6)}`;
       default:
         return `${nodeType} ${node.id.substring(0, 6)}`;
     }
@@ -554,6 +562,14 @@
                   <div class="flex items-center">
                     <span class="w-3 h-3 mr-2 rounded-full bg-[#FF9D4D]"></span>
                     <span class="text-sm">Node Positions</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#9254DE]"></span>
+                    <span class="text-sm">Values</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#36CFC9]"></span>
+                    <span class="text-sm">Capabilities</span>
                   </div>
                 </div>
               </div>

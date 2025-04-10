@@ -121,7 +121,7 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
                 valuesRecord = card.values as Record<string, boolean>;
             } else if (typeof card.values === 'string') {
                 // Handle single string value
-                const valueArray = card.values.split(',').map(v => v.trim()).filter(v => v);
+                const valueArray = (card.values as string).split(',').map((v: string) => v.trim()).filter((v: string) => v);
                 valuesRecord = await createOrGetValues(valueArray);
             }
         }
@@ -267,4 +267,77 @@ export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'c
         console.error('Import cards error:', error);
         return { success: false, added: 0 };
     }
+}
+
+// Get value names for a card
+export async function getCardValueNames(card: Card): Promise<string[]> {
+    if (!card.values) return [];
+    
+    const valueNames: string[] = [];
+    const gun = getGun();
+    
+    if (!gun) {
+        console.error('Gun not initialized');
+        return [];
+    }
+    
+    // Handle both array and object format
+    const valueIds: string[] = Array.isArray(card.values) 
+        ? card.values 
+        : Object.keys(card.values as Record<string, boolean>);
+        
+    if (valueIds.length === 0) return [];
+    
+    // Get each value's name
+    for (const valueId of valueIds) {
+        await new Promise<void>(resolve => {
+            gun.get(nodes.values).get(valueId).once((valueData: any) => {
+                if (valueData && valueData.name) {
+                    valueNames.push(valueData.name);
+                }
+                resolve();
+            });
+        });
+    }
+    
+    return valueNames;
+}
+
+// Get capability names for a card
+export async function getCardCapabilityNames(card: Card): Promise<string[]> {
+    if (!card.capabilities) return [];
+    
+    const capabilityNames: string[] = [];
+    const gun = getGun();
+    
+    if (!gun) {
+        console.error('Gun not initialized');
+        return [];
+    }
+    
+    // If capabilities is a string (old format), just return it split into an array
+    if (typeof card.capabilities === 'string') {
+        return (card.capabilities as string).split(',').map((c: string) => c.trim()).filter((c: string) => c);
+    }
+    
+    // Handle both array and object format
+    const capabilityIds: string[] = Array.isArray(card.capabilities) 
+        ? card.capabilities 
+        : Object.keys(card.capabilities as Record<string, boolean>);
+        
+    if (capabilityIds.length === 0) return [];
+    
+    // Get each capability's name
+    for (const capabilityId of capabilityIds) {
+        await new Promise<void>(resolve => {
+            gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: any) => {
+                if (capabilityData && capabilityData.name) {
+                    capabilityNames.push(capabilityData.name);
+                }
+                resolve();
+            });
+        });
+    }
+    
+    return capabilityNames;
 }
