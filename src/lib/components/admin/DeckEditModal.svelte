@@ -54,7 +54,7 @@
 
 <!-- Modal Backdrop -->
 {#if isOpen}
-<div class="modal-backdrop" on:click|self={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="dialog">
+<div class="modal-backdrop" on:click|self={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="dialog" tabindex="-1">
   <!-- Modal Container -->
   <div class="modal-container card variant-filled-surface p-4 w-full max-w-md" aria-modal="true">
     <header class="modal-header">
@@ -100,12 +100,13 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.9);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
     padding: 1rem;
+    backdrop-filter: blur(4px);
   }
   
   .modal-container {

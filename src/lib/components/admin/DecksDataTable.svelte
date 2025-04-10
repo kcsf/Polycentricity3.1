@@ -148,18 +148,22 @@
               <td>
                 <div class="flex space-x-2">
                   <button 
-                    class="btn btn-sm variant-soft-primary" 
+                    class="btn btn-sm variant-filled-primary" 
                     on:click={() => openEditModal(deck.data)}
                     title="Edit Deck Info"
                   >
-                    <svelte:component this={icons.Edit} class="w-4 h-4" />
+                    <span class="flex items-center">
+                      <svelte:component this={icons.Edit} class="w-4 h-4" />
+                    </span>
                   </button>
                   <a 
                     href="/admin?tab=overview&deckId={deck.id}" 
-                    class="btn btn-sm variant-soft-success"
+                    class="btn btn-sm variant-filled-success"
                     title="Import Cards to Deck"
                   >
-                    <svelte:component this={icons.FileUp} class="w-4 h-4" />
+                    <span class="flex items-center">
+                      <svelte:component this={icons.FileUp} class="w-4 h-4" />
+                    </span>
                   </a>
                 </div>
               </td>
