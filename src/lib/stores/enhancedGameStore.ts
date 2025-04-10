@@ -277,12 +277,15 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
     const agreementId = generateId();
     const timestamp = Date.now();
     
+    // Extract all properties except game_id from the agreement parameter
+    const { game_id: _, ...agreementProps } = agreement as any;
+    
     const newAgreement: AgreementWithPosition = {
         id: agreementId,
         game_id: gameId,
         created_at: timestamp,
         updated_at: timestamp,
-        ...agreement
+        ...agreementProps
     };
     
     // Save to Gun.js
@@ -417,6 +420,7 @@ export default {
     agreements,
     activeActorId,
     selectedNode,
+    selectedNodeType,
     updateNodePosition,
     selectNode,
     clearSelectedNode,

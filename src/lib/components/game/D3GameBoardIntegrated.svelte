@@ -565,7 +565,7 @@
   
   <!-- Agreement modal (comes up when creating/editing an agreement) -->
   {#if showAgreementModal}
-    <AgreementModal on:close={() => showAgreementModal = false} />
+    <AgreementModalIntegrated on:close={() => showAgreementModal = false} />
   {/if}
 </div>
 
