@@ -1,0 +1,106 @@
+<script lang="ts">
+  import { updateUserToAdmin } from '$lib/services/authService';
+  import * as icons from 'svelte-lucide';
+  
+  let isUpdating = false;
+  let result: { success: boolean; message: string } | null = null;
+  let adminEmail = '';
+  
+  async function makeAdmin() {
+    if (!adminEmail.trim()) {
+      result = {
+        success: false,
+        message: 'Please enter an email address'
+      };
+      return;
+    }
+    
+    try {
+      isUpdating = true;
+      result = null;
+      
+      const success = await updateUserToAdmin(adminEmail);
+      
+      if (success) {
+        result = {
+          success: true,
+          message: `Successfully updated ${adminEmail} to Admin role`
+        };
+      } else {
+        result = {
+          success: false,
+          message: `User with email ${adminEmail} not found or update failed`
+        };
+      }
+    } catch (error) {
+      console.error('Error updating user to admin:', error);
+      result = {
+        success: false,
+        message: `Failed to update user: ${error instanceof Error ? error.message : String(error)}`
+      };
+    } finally {
+      isUpdating = false;
+    }
+  }
+</script>
+
+<div class="card p-4 bg-surface-50-900-token">
+  <h3 class="h4 mb-4 flex items-center">
+    <svelte:component this={icons.UserCog} class="w-5 h-5 mr-2 text-primary-500" />
+    Admin Tools
+  </h3>
+  
+  <p class="mb-4">
+    Use this tool to promote a user to Admin role. Enter the user's email address below.
+  </p>
+  
+  <div class="flex flex-col gap-4">
+    <div class="input-group input-group-divider grid-cols-[1fr_auto]">
+      <input 
+        type="email"
+        bind:value={adminEmail}
+        placeholder="Enter user email"
+        class="input"
+      />
+      <button 
+        class="btn variant-filled-primary" 
+        on:click={makeAdmin}
+        disabled={isUpdating}
+      >
+        {#if isUpdating}
+          <div class="spinner-third w-4 h-4 mr-2"></div>
+          Updating...
+        {:else}
+          <svelte:component this={icons.ShieldCheck} class="w-4 h-4 mr-2" />
+          Make Admin
+        {/if}
+      </button>
+    </div>
+    
+    {#if result}
+      <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
+        <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+        <div class="alert-message">
+          <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
+          <p>{result.message}</p>
+        </div>
+      </div>
+    {/if}
+    
+    <div class="p-4 bg-surface-100-800-token rounded-lg">
+      <h4 class="font-semibold mb-2">Quick Admin Setup</h4>
+      <p class="text-sm mb-2">For your convenience, click the button below to set <strong>bjorn@endogon.com</strong> as Admin.</p>
+      <button 
+        class="btn variant-filled-secondary" 
+        on:click={() => {
+          adminEmail = 'bjorn@endogon.com';
+          makeAdmin();
+        }}
+        disabled={isUpdating}
+      >
+        <svelte:component this={icons.Zap} class="w-4 h-4 mr-2" />
+        Make Bjorn Admin
+      </button>
+    </div>
+  </div>
+</div>

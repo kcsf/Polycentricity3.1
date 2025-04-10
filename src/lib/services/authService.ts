@@ -166,6 +166,47 @@ export function getCurrentUser(): User | null {
     return user;
 }
 
+// Update a user's role to Admin
+export async function updateUserToAdmin(email: string): Promise<boolean> {
+    try {
+        console.log(`Attempting to update user to admin: ${email}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return false;
+        }
+        
+        return new Promise((resolve) => {
+            // Find the user by email
+            gun.get(nodes.users).map().once((userData: User, key: string) => {
+                if (userData && userData.email === email) {
+                    // Update the user's role to Admin
+                    gun.get(nodes.users).get(key).put({
+                        role: 'Admin'
+                    }, (ack: any) => {
+                        if (ack.err) {
+                            console.error('Error updating user role:', ack.err);
+                            resolve(false);
+                        } else {
+                            console.log(`Updated role for user: ${key}`);
+                            resolve(true);
+                        }
+                    });
+                }
+            });
+            
+            // Set a timeout in case user is not found
+            setTimeout(() => {
+                resolve(false);
+            }, 2000);
+        });
+    } catch (error) {
+        console.error('Update user role error:', error);
+        return false;
+    }
+}
+
 // Initialize authentication from stored credentials
 export async function initializeAuth(): Promise<void> {
     try {

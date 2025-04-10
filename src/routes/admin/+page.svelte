@@ -5,6 +5,7 @@
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
   import SchemaManager from '$lib/components/admin/SchemaManager.svelte';
+  import AdminTools from '$lib/components/admin/AdminTools.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
@@ -810,6 +811,10 @@
             <!-- Schema Manager Component -->
             <div class="mb-6">
               <SchemaManager />
+            </div>
+            
+            <div class="mb-6">
+              <AdminTools />
             </div>
             
             <h3 class="h3 mb-4">Database Structure</h3>

@@ -72,8 +72,10 @@
                 <section class="p-4">
                         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
                                 {#if error}
-                                        <div class="alert variant-filled-error">
-                                                <p>{error}</p>
+                                        <div class="alert variant-ghost-warning">
+                                                <div class="alert-message">
+                                                        <p class="text-sm">{error}</p>
+                                                </div>
                                         </div>
                                 {/if}
                                 
