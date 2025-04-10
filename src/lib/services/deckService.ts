@@ -59,6 +59,10 @@ export async function updateDeck(deckId: string, updates: Partial<Deck>): Promis
     }
 }
 
+// Import the value and capability services
+import { createOrGetValues } from './valueService';
+import { createOrGetCapabilities } from './capabilityService';
+
 // Create a new card
 export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | null> {
     try {
@@ -104,10 +108,43 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
             }
         }
         
-        // Fix for Gun.js array storage issues
-        // Convert arrays to comma-separated strings
-        const valuesStr = Array.isArray(card.values) ? card.values.join(',') : card.values;
+        // Process values: convert from array to record of value_id -> true
+        let valuesRecord: Record<string, boolean> = {};
+        
+        // Handle values based on its type
+        if (card.values) {
+            if (Array.isArray(card.values)) {
+                // Create value nodes and get their IDs
+                valuesRecord = await createOrGetValues(card.values);
+            } else if (typeof card.values === 'object') {
+                // Already in the correct format
+                valuesRecord = card.values as Record<string, boolean>;
+            } else if (typeof card.values === 'string') {
+                // Handle single string value
+                const valueArray = card.values.split(',').map(v => v.trim()).filter(v => v);
+                valuesRecord = await createOrGetValues(valueArray);
+            }
+        }
+        
+        // Process goals: convert array to comma-separated strings for Gun.js
         const goalsStr = Array.isArray(card.goals) ? card.goals.join(',') : card.goals;
+        
+        // Process capabilities: convert from string to record of capability_id -> true
+        let capabilitiesRecord: Record<string, boolean> = {};
+        
+        // Handle capabilities based on its type
+        if (card.capabilities) {
+            if (typeof card.capabilities === 'string') {
+                // Create capability nodes from the string
+                capabilitiesRecord = await createOrGetCapabilities(card.capabilities);
+            } else if (Array.isArray(card.capabilities)) {
+                // If passed as array, join and create capability nodes
+                capabilitiesRecord = await createOrGetCapabilities(card.capabilities.join(', '));
+            } else if (typeof card.capabilities === 'object') {
+                // Already in the correct format
+                capabilitiesRecord = card.capabilities as Record<string, boolean>;
+            }
+        }
         
         // Create a Gun.js compatible object (no arrays)
         const gunCompatibleCard = {
@@ -115,10 +152,10 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
             card_number: card.card_number,
             role_title: card.role_title,
             backstory: card.backstory,
-            values: valuesStr,
+            values: valuesRecord, // Now a record of value_id -> true
             goals: goalsStr,
             obligations: card.obligations || '',
-            capabilities: card.capabilities || '',
+            capabilities: capabilitiesRecord, // Now a record of capability_id -> true
             intellectual_property: card.intellectual_property || '',
             rivalrous_resources: card.rivalrous_resources || '',
             card_category: card.card_category,
@@ -126,16 +163,17 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
             icon: card.icon || 'User'
         };
         
-        // Create a typed object for the return value
+        // For the return value (to match the interface), convert back to arrays if needed
+        // We'll get the actual value/capability names later in the UI
         const cardData: Card = {
             card_id: cardId,
             card_number: card.card_number,
             role_title: card.role_title,
             backstory: card.backstory,
-            values: Array.isArray(card.values) ? card.values : [card.values as string],
-            goals: Array.isArray(card.goals) ? card.goals : [card.goals as string],
+            values: valuesRecord, // We keep as Record in the interface now
+            goals: Array.isArray(card.goals) ? card.goals : goalsStr.split(',').map(g => g.trim()).filter(g => g),
             obligations: card.obligations,
-            capabilities: card.capabilities,
+            capabilities: capabilitiesRecord, // We keep as Record in the interface now
             intellectual_property: card.intellectual_property,
             rivalrous_resources: card.rivalrous_resources,
             card_category: card.card_category,

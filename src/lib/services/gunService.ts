@@ -86,6 +86,8 @@ export function generateId() {
 
 // Export the gun nodes for different data types
 export const nodes = {
+  values: 'values', // New node type for values
+  capabilities: 'capabilities', // New node type for capabilities
     users: 'users',
     games: 'games',
     cards: 'cards',       // New: static role templates
