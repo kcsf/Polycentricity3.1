@@ -148,22 +148,18 @@
               <td>
                 <div class="flex space-x-2">
                   <button 
-                    class="btn btn-sm variant-filled-primary" 
+                    class="action-button edit-button"
                     on:click={() => openEditModal(deck.data)}
                     title="Edit Deck Info"
                   >
-                    <span class="flex items-center">
-                      <svelte:component this={icons.Edit} class="w-4 h-4" />
-                    </span>
+                    <span class="icon">✏️</span> Edit
                   </button>
                   <a 
                     href="/admin?tab=overview&deckId={deck.id}" 
-                    class="btn btn-sm variant-filled-success"
+                    class="action-button import-button"
                     title="Import Cards to Deck"
                   >
-                    <span class="flex items-center">
-                      <svelte:component this={icons.FileUp} class="w-4 h-4" />
-                    </span>
+                    <span class="icon">📤</span> Import
                   </a>
                 </div>
               </td>
@@ -210,5 +206,39 @@
   
   .table-compact th, .table-compact td {
     padding: 0.5rem 0.75rem;
+  }
+  
+  .action-button {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+  }
+  
+  .edit-button {
+    background-color: #3b82f6;
+    border: none;
+  }
+  
+  .edit-button:hover {
+    background-color: #2563eb;
+  }
+  
+  .import-button {
+    background-color: #10b981;
+  }
+  
+  .import-button:hover {
+    background-color: #059669;
+  }
+  
+  .icon {
+    margin-right: 0.5rem;
+    font-size: 1rem;
   }
 </style>

@@ -56,11 +56,11 @@
 {#if isOpen}
 <div class="modal-backdrop" on:click|self={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="dialog" tabindex="-1">
   <!-- Modal Container -->
-  <div class="modal-container card variant-filled-surface p-4 w-full max-w-md" aria-modal="true">
+  <div class="modal-container card custom-modal p-4 w-full max-w-md" aria-modal="true">
     <header class="modal-header">
-      <h3 class="h3">Edit Deck</h3>
-      <button class="btn btn-sm variant-ghost-surface" on:click={closeModal}>
-        <svelte:component this={icons.X} />
+      <h3 class="h3">✏️ Edit Deck</h3>
+      <button class="close-button" on:click={closeModal}>
+        ❌
       </button>
     </header>
     
@@ -77,13 +77,13 @@
         </label>
         
         <div class="flex justify-end space-x-2">
-          <button type="button" class="btn variant-ghost" on:click={closeModal}>Cancel</button>
-          <button type="submit" class="btn variant-filled-primary" disabled={isLoading}>
+          <button type="button" class="cancel-button" on:click={closeModal}>❌ Cancel</button>
+          <button type="submit" class="save-button" disabled={isLoading}>
             {#if isLoading}
-              <div class="spinner-third w-4 h-4 mr-2"></div>
+              <span class="loading-icon">⏳</span>
               Saving...
             {:else}
-              Save Changes
+              💾 Save Changes
             {/if}
           </button>
         </div>
@@ -127,5 +127,82 @@
   @keyframes modal-pop {
     0% { transform: scale(0.95); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
+  }
+  
+  .custom-modal {
+    background-color: #1e293b;
+    color: white;
+    border: 2px solid #3b82f6;
+  }
+  
+  .custom-modal input {
+    background-color: #334155;
+    color: white;
+    border: 1px solid #475569;
+  }
+  
+  .custom-modal .modal-header {
+    border-bottom: 2px solid #3b82f6;
+  }
+  
+  .close-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0.25rem;
+    transition: transform 0.2s ease;
+  }
+  
+  .close-button:hover {
+    transform: scale(1.2);
+  }
+  
+  .save-button, .cancel-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+  }
+  
+  .save-button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+  }
+  
+  .save-button:hover:not([disabled]) {
+    background-color: #2563eb;
+    transform: translateY(-2px);
+  }
+  
+  .save-button[disabled] {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  .cancel-button {
+    background-color: transparent;
+    color: #f87171;
+    border: 1px solid #f87171;
+  }
+  
+  .cancel-button:hover {
+    background-color: rgba(248, 113, 113, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  .loading-icon {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 </style>
