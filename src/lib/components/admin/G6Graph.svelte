@@ -12,17 +12,12 @@
     if (typeof window !== 'undefined') {
       try {
         // Import G6 only in browser
-        try {
-          const g6Module = await import('@antv/g6');
-          // Handle both ESM and CommonJS exports
-          G6 = g6Module.default || g6Module;
-          
-          if (!G6 || !G6.Graph) {
-            console.error('G6 Graph class is not available!', g6Module);
-            return;
-          }
-        } catch (err) {
-          console.error('Failed to import G6:', err);
+        const g6Module = await import('@antv/g6');
+        // Handle both ESM and CommonJS exports
+        G6 = g6Module.default || g6Module;
+        
+        if (!G6 || !G6.Graph) {
+          console.error('G6 Graph class is not available!', g6Module);
           return;
         }
         
@@ -116,6 +111,9 @@
             graph.destroy();
           }
         };
+        } catch (err) {
+          console.error('Error creating G6 graph instance:', err);
+        }
       } catch (error) {
         console.error('Error initializing G6:', error);
       }
