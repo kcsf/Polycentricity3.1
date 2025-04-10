@@ -80,6 +80,87 @@
               'text-outline-color': '#555'
             }
           },
+          // Different node shapes based on type
+          {
+            selector: 'node[type = "users"]',
+            style: {
+              'shape': 'ellipse'
+            }
+          },
+          {
+            selector: 'node[type = "games"]',
+            style: {
+              'shape': 'diamond'
+            }
+          },
+          {
+            selector: 'node[type = "actors"]',
+            style: {
+              'shape': 'triangle'
+            }
+          },
+          {
+            selector: 'node[type = "chat"]',
+            style: {
+              'shape': 'round-rectangle'
+            }
+          },
+          {
+            selector: 'node[type = "agreements"]',
+            style: {
+              'shape': 'hexagon'
+            }
+          },
+          // Highlighting styles
+          {
+            selector: '.highlighted',
+            style: {
+              'background-color': '#FF5722',
+              'border-width': 3,
+              'border-color': '#FF5722',
+              'border-opacity': 0.8,
+              'width': 40,
+              'height': 40,
+              'font-size': '14px',
+              'color': '#fff',
+              'text-outline-width': 2,
+              'text-outline-color': '#333',
+              'z-index': 999
+            }
+          },
+          {
+            selector: '.related',
+            style: {
+              'background-color': 'data(color)',
+              'border-width': 2,
+              'border-color': '#FFC107',
+              'border-opacity': 0.8,
+              'width': 35,
+              'height': 35,
+              'font-size': '12px',
+              'color': '#fff',
+              'text-outline-width': 2,
+              'text-outline-color': '#555',
+              'z-index': 900
+            }
+          },
+          {
+            selector: 'edge.related',
+            style: {
+              'width': 3,
+              'line-color': '#FFC107',
+              'target-arrow-color': '#FFC107',
+              'z-index': 900,
+              'opacity': 1
+            }
+          },
+          {
+            selector: '.faded',
+            style: {
+              'opacity': 0.3,
+              'z-index': 0
+            }
+          },
           {
             selector: 'edge',
             style: {
@@ -96,15 +177,53 @@
           }
         ],
         layout: {
-          name: 'grid',
-          rows: Math.ceil(Math.sqrt(nodes.length)),
+          name: 'cose',
+          componentSpacing: 40,
+          nodeOverlap: 20,
+          nodeRepulsion: 400000,
+          gravity: 80,
+          edgeElasticity: 100,
+          // Group nodes by type
+          idealEdgeLength: function(edge) {
+            const sourceType = edge.source().data('type');
+            const targetType = edge.target().data('type');
+            // Shorter edge length for same type, longer for different types
+            return sourceType === targetType ? 100 : 200;
+          },
+          nestingFactor: 1.2,
+          initialTemp: 200,
+          coolingFactor: 0.95,
           animate: false
         }
       });
       
-      // Add basic interactivity
+      // Add enhanced interactivity
       cy.on('tap', 'node', function(evt){
-        console.log('Node clicked: ' + evt.target.id());
+        const node = evt.target;
+        console.log('Node clicked: ' + node.id());
+        
+        // Clear all previous highlighting
+        cy.elements().removeClass('highlighted related faded');
+        
+        // Highlight the selected node
+        node.addClass('highlighted');
+        
+        // Highlight connected nodes and edges
+        const connectedEdges = node.connectedEdges();
+        const connectedNodes = node.neighborhood('node');
+        
+        connectedEdges.addClass('related');
+        connectedNodes.addClass('related');
+        
+        // Fade all other elements
+        cy.elements().not(node).not(connectedEdges).not(connectedNodes).addClass('faded');
+      });
+      
+      // Reset highlighting when clicking on background
+      cy.on('tap', function(evt){
+        if (evt.target === cy) {
+          cy.elements().removeClass('highlighted related faded');
+        }
       });
       
       // Fit the view to show all elements
