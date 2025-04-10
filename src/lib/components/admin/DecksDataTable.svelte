@@ -146,14 +146,21 @@
                 {/if}
               </td>
               <td>
-                <div class="flex space-x-1">
+                <div class="flex space-x-2">
                   <button 
                     class="btn btn-sm variant-soft-primary" 
                     on:click={() => openEditModal(deck.data)}
-                    title="Edit Deck"
+                    title="Edit Deck Info"
                   >
                     <svelte:component this={icons.Edit} class="w-4 h-4" />
                   </button>
+                  <a 
+                    href="/admin?tab=decks&deckId={deck.id}" 
+                    class="btn btn-sm variant-soft-success"
+                    title="Import Cards to Deck"
+                  >
+                    <svelte:component this={icons.FileUp} class="w-4 h-4" />
+                  </a>
                 </div>
               </td>
             </tr>

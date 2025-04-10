@@ -8,8 +8,8 @@
   
   let isLoading = false;
   let result: { success: boolean; message: string } | null = null;
+  export let deckId = 'd1'; // Default deck ID, can be overridden by parent
   let deck: Deck | null = null;
-  let deckId = 'd1';
   let userId = '';
   
   // Card import variables

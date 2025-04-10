@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
+  import { page } from '$app/stores';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
   import SchemaManager from '$lib/components/admin/SchemaManager.svelte';
@@ -828,7 +829,7 @@
             </div>
             
             <div class="mb-6">
-              <DeckManager />
+              <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
             </div>
             
             <h3 class="h3 mb-4">Database Structure</h3>
