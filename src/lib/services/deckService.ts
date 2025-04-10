@@ -72,6 +72,30 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
         
         const cardId = `card_${generateId()}`;
         
+        // Ensure card_number is set and within valid range
+        if (!card.card_number || isNaN(card.card_number) || card.card_number < 1 || card.card_number > 52) {
+            console.warn('Invalid card number, setting to random value', card.card_number);
+            card.card_number = Math.floor(Math.random() * 52) + 1;
+        }
+        
+        // Set default icon if not provided
+        if (!card.icon) {
+            // Set a default icon based on card category
+            switch (card.card_category) {
+                case 'Funders':
+                    card.icon = 'CircleDollarSign';
+                    break;
+                case 'Providers':
+                    card.icon = 'Hammer';
+                    break;
+                case 'Supporters':
+                    card.icon = 'Heart';
+                    break;
+                default:
+                    card.icon = 'User';
+            }
+        }
+        
         const cardData: Card = {
             card_id: cardId,
             ...card

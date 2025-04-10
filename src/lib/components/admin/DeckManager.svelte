@@ -245,6 +245,7 @@
         <pre class="text-xs font-mono overflow-x-auto">
 {`// Example card format (you can import array of these):
 {
+  "card_number": 12,             // 1-52 for randomizing draws
   "role_title": "Urban Farmer",
   "backstory": "You've been growing food in the city for 10 years...",
   "values": ["Sustainability", "Community"],
@@ -253,8 +254,9 @@
   "capabilities": "Expert in small-space growing techniques",
   "intellectual_property": "Developed unique vertical farming method",
   "rivalrous_resources": "Limited growing space",
-  "card_category": "Providers",
-  "type": "Individual"
+  "card_category": "Providers",  // "Funders", "Providers", or "Supporters"
+  "type": "Individual",          // "DAO", "Practice", "Individual", etc.
+  "icon": "Sprout"               // Lucide icon name (optional)
 }`}
         </pre>
       </div>

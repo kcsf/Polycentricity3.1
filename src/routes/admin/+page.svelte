@@ -8,6 +8,7 @@
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
   import DatabaseFixer from '$lib/components/admin/DatabaseFixer.svelte';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
+  import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
