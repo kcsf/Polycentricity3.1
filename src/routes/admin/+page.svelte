@@ -320,33 +320,39 @@
     </p>
   </header>
   
-  <div class="card p-4 bg-white dark:bg-surface-800 shadow rounded-lg">
-    <div class="tabs mb-4 border-b border-surface-300-600-token">
+  <div class="card p-0 bg-white dark:bg-surface-800 shadow rounded-lg overflow-hidden">
+    <div class="admin-tabs">
       <button 
-        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'overview' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+        class="admin-tab {activeTab === 'overview' ? 'active' : ''}" 
         on:click={() => handleTabChange('overview')}
       >
+        <svelte:component this={icons.Eye} class="w-4 h-4 mr-2" />
         Overview
       </button>
       <button 
-        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'data' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+        class="admin-tab {activeTab === 'data' ? 'active' : ''}" 
         on:click={() => handleTabChange('data')}
       >
+        <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
         Data
       </button>
       <button 
-        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'visualize' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+        class="admin-tab {activeTab === 'visualize' ? 'active' : ''}" 
         on:click={() => handleTabChange('visualize')}
       >
+        <svelte:component this={icons.Network} class="w-4 h-4 mr-2" />
         Visualize
       </button>
       <button 
-        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'cleanup' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+        class="admin-tab {activeTab === 'cleanup' ? 'active' : ''}" 
         on:click={() => handleTabChange('cleanup')}
       >
+        <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
         Cleanup
       </button>
     </div>
+    
+    <div class="p-4">
     
     <div class="tab-content">
       {#if activeTab === 'visualize'}
@@ -614,12 +620,13 @@
           {:else}
             <!-- Inner tabs for data types -->
             <div class="card p-4 bg-surface-50-900-token">
-              <div class="tabs border-b border-surface-300-600-token mb-4">
+              <div class="data-tabs mb-4">
                 {#each databaseNodes as nodeType}
                   <button 
-                    class="tab tab-sm tab-border-b-2 py-2 px-4 {activeDataTab === nodeType.type ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+                    class="data-tab {activeDataTab === nodeType.type ? 'active' : ''}" 
                     on:click={() => handleDataTabChange(nodeType.type)}
                   >
+                    <span class="w-3 h-3 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
                     {nodeType.type}
                     <span class="badge ml-2">{nodeType.count}</span>
                   </button>
@@ -834,6 +841,7 @@
         </div>
       {/if}
     </div>
+    </div>
   </div>
 </div>
 
@@ -844,5 +852,83 @@
   
   .table-container {
     overflow-x: auto;
+  }
+  
+  .admin-tabs {
+    display: flex;
+    background: var(--color-surface-200-700-token);
+    position: relative;
+    border-bottom: 1px solid var(--color-surface-300-600-token);
+  }
+  
+  .admin-tab {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    font-weight: 500;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+    border-right: 1px solid var(--color-surface-300-600-token);
+    color: var(--color-surface-700-300-token);
+    background: transparent;
+    border-radius: 0;
+  }
+  
+  .admin-tab:hover {
+    color: var(--color-primary-500);
+    background-color: var(--color-surface-100-800-token);
+  }
+  
+  .admin-tab.active {
+    color: var(--color-primary-500);
+    background-color: var(--color-surface-50-900-token);
+    border-top: 3px solid var(--color-primary-500);
+    padding-top: calc(0.75rem - 3px);
+  }
+  
+  .admin-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--color-surface-50-900-token);
+  }
+  
+  /* Data tab styles */
+  .data-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--color-surface-300-600-token);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .data-tab {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    background-color: var(--color-surface-200-700-token);
+    color: var(--color-surface-700-300-token);
+  }
+  
+  .data-tab:hover {
+    background-color: var(--color-surface-300-600-token);
+  }
+  
+  .data-tab.active {
+    color: white;
+    background-color: var(--color-primary-500);
+  }
+  
+  .data-tab.active .badge {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: white;
   }
 </style>
