@@ -24,14 +24,37 @@ export async function createValue(name: string): Promise<Value | null> {
         };
         
         return new Promise((resolve) => {
-            gun.get(nodes.values).get(valueId).once((existingValue: Value) => {
-                if (existingValue && existingValue.value_id) {
-                    console.log(`Value already exists: ${valueId}`);
-                    resolve(existingValue);
-                    return;
+            let checkTimeoutHandled = false;
+            let putTimeoutHandled = false;
+            
+            // Timeout for the check operation
+            const checkTimeoutId = setTimeout(() => {
+                if (!checkTimeoutHandled) {
+                    console.warn(`Timeout checking if value ${valueId} exists - moving to create`);
+                    checkTimeoutHandled = true;
+                    
+                    // Move to creating the value
+                    createValueWithTimeout();
                 }
+            }, 3000); // 3 second timeout
+            
+            // Function to create value with its own timeout
+            const createValueWithTimeout = () => {
+                // Timeout for the put operation
+                const putTimeoutId = setTimeout(() => {
+                    if (!putTimeoutHandled) {
+                        console.warn(`Timeout creating value ${valueId} - assuming success anyway`);
+                        putTimeoutHandled = true;
+                        resolve(valueData); // Resolve with value data anyway to continue the process
+                    }
+                }, 5000); // 5 second timeout
                 
                 gun.get(nodes.values).get(valueId).put(valueData, (ack: any) => {
+                    if (putTimeoutHandled) return; // Skip if timeout already triggered
+                    
+                    clearTimeout(putTimeoutId); // Clear the timeout
+                    putTimeoutHandled = true;
+                    
                     if (ack.err) {
                         console.error('Error creating value:', ack.err);
                         resolve(null);
@@ -40,6 +63,22 @@ export async function createValue(name: string): Promise<Value | null> {
                         resolve(valueData);
                     }
                 });
+            };
+            
+            // First check if it already exists
+            gun.get(nodes.values).get(valueId).once((existingValue: Value) => {
+                if (checkTimeoutHandled) return; // Skip if timeout already triggered
+                
+                clearTimeout(checkTimeoutId); // Clear the timeout
+                checkTimeoutHandled = true;
+                
+                if (existingValue && existingValue.value_id) {
+                    console.log(`Value already exists: ${valueId}`);
+                    resolve(existingValue);
+                } else {
+                    // Now create the value
+                    createValueWithTimeout();
+                }
             });
         });
     } catch (error) {
