@@ -52,6 +52,8 @@ export interface Card {
     card_category: 'Funders' | 'Providers' | 'Supporters';
     type: 'DAO' | 'Practice' | 'Individual' | string;
     icon?: string;          // Lucide icon name
+    // Bidirectional relationship - references to decks containing this card
+    decks?: Record<string, boolean> | string[]; // Links to deck_ids
 }
 
 // Deck interface (collection of cards)

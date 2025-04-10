@@ -171,7 +171,8 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
             rivalrous_resources: card.rivalrous_resources || '',
             card_category: card.card_category,
             type: card.type,
-            icon: card.icon || 'User'
+            icon: card.icon || 'User',
+            decks: card.decks || {} // Initialize the decks object for bidirectional relationships
         };
         
         // For the return value (to match the interface), convert back to arrays if needed
@@ -189,7 +190,8 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
             rivalrous_resources: card.rivalrous_resources,
             card_category: card.card_category,
             type: card.type,
-            icon: card.icon
+            icon: card.icon,
+            decks: card.decks || {} // Include the decks in the returned object
         };
         
         return new Promise((resolve) => {
@@ -209,10 +211,10 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
     }
 }
 
-// Add a card to a deck
+// Add a card to a deck (bidirectional relationship)
 export async function addCardToDeck(deckId: string, cardId: string): Promise<boolean> {
     try {
-        console.log(`Adding card ${cardId} to deck ${deckId}`);
+        console.log(`Adding card ${cardId} to deck ${deckId} with bidirectional relationship`);
         const gun = getGun();
         
         if (!gun) {
@@ -228,7 +230,7 @@ export async function addCardToDeck(deckId: string, cardId: string): Promise<boo
             return false;
         }
         
-        // Create or update the cards object
+        // Create or update the cards object in the deck
         let cards: Record<string, boolean> = {};
         
         if (deck.cards) {
@@ -242,14 +244,206 @@ export async function addCardToDeck(deckId: string, cardId: string): Promise<boo
             }
         }
         
-        // Add the new card
+        // Step 1: Add the card to the deck
         cards[cardId] = true;
         
-        // Update the deck
-        return updateDeck(deckId, { cards });
+        // Step 2: Also add the deck to the card's decks property (bidirectional)
+        await new Promise<void>((resolve) => {
+            // First check if the card exists and get its current decks
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+                if (!cardData) {
+                    console.error(`Card not found: ${cardId}`);
+                    resolve();
+                    return;
+                }
+                
+                console.log(`Found card: ${cardId}, adding deck reference`);
+                
+                // Create or update the decks object in the card
+                let decks: Record<string, boolean> = {};
+                
+                if (cardData.decks) {
+                    // Handle both array and object format
+                    if (Array.isArray(cardData.decks)) {
+                        cardData.decks.forEach((id: string) => {
+                            decks[id] = true;
+                        });
+                    } else {
+                        decks = { ...cardData.decks };
+                    }
+                }
+                
+                // Add the deck reference to the card
+                decks[deckId] = true;
+                
+                // Update the card with the deck reference
+                gun.get(nodes.cards).get(cardId).put({ decks }, (ack: any) => {
+                    if (ack.err) {
+                        console.error(`Error adding deck ${deckId} to card ${cardId}:`, ack.err);
+                    } else {
+                        console.log(`Added deck ${deckId} to card ${cardId}`);
+                    }
+                    resolve();
+                });
+            });
+        });
+        
+        // Step 3: Update the deck with the card reference
+        const updated = await updateDeck(deckId, { cards });
+        
+        return updated;
     } catch (error) {
         console.error('Add card to deck error:', error);
         return false;
+    }
+}
+
+// Function to initialize bidirectional relationships for existing cards and decks
+export async function initializeBidirectionalRelationships(): Promise<{success: boolean, processed: number}> {
+    try {
+        console.log('Initializing bidirectional relationships between cards and decks');
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return { success: false, processed: 0 };
+        }
+        
+        let processedCount = 0;
+        
+        // Get all decks
+        const decks: Record<string, Deck> = {};
+        await new Promise<void>((resolve) => {
+            gun.get(nodes.decks).map().once((deck: Deck, deckId: string) => {
+                if (deck) {
+                    decks[deckId] = deck;
+                }
+            });
+            
+            // Give Gun time to process all decks
+            setTimeout(resolve, 1000);
+        });
+        
+        console.log(`Found ${Object.keys(decks).length} decks to process`);
+        
+        // Process each deck
+        for (const [deckId, deck] of Object.entries(decks)) {
+            if (!deck.cards) {
+                console.log(`Deck ${deckId} has no cards, skipping`);
+                continue;
+            }
+            
+            let cardIds: string[] = [];
+            
+            // Extract card IDs from the deck
+            if (Array.isArray(deck.cards)) {
+                cardIds = deck.cards;
+            } else if (typeof deck.cards === 'object') {
+                // Handle Gun.js reference
+                if ((deck.cards as any)['#']) {
+                    const cardsPath = (deck.cards as any)['#'] as string;
+                    await new Promise<void>((resolve) => {
+                        gun.get(cardsPath).map().once((value: boolean, cardId: string) => {
+                            if (value === true) {
+                                cardIds.push(cardId);
+                            }
+                        });
+                        
+                        // Give Gun time to process all cards
+                        setTimeout(resolve, 500);
+                    });
+                } else {
+                    // Standard object format
+                    cardIds = Object.keys(deck.cards as Record<string, boolean>);
+                }
+            }
+            
+            console.log(`Processing ${cardIds.length} cards for deck ${deckId}`);
+            
+            // Update each card with a reference to this deck
+            for (const cardId of cardIds) {
+                await new Promise<void>((resolve) => {
+                    gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+                        if (!cardData) {
+                            console.log(`Card ${cardId} not found, skipping`);
+                            resolve();
+                            return;
+                        }
+                        
+                        // Create or update the decks object in the card
+                        let decks: Record<string, boolean> = {};
+                        
+                        if (cardData.decks) {
+                            // Handle both array and object format
+                            if (Array.isArray(cardData.decks)) {
+                                cardData.decks.forEach((id: string) => {
+                                    decks[id] = true;
+                                });
+                            } else if (typeof cardData.decks === 'object') {
+                                // Handle Gun.js reference
+                                if ((cardData.decks as any)['#']) {
+                                    console.log(`Card ${cardId} has decks reference with soul: ${(cardData.decks as any)['#']}, will update there`);
+                                    
+                                    // Get the existing decks and add this deck
+                                    const decksPath = (cardData.decks as any)['#'] as string;
+                                    gun.get(decksPath).once((existingDecks: any) => {
+                                        // Add this deck to the existing decks
+                                        existingDecks[deckId] = true;
+                                        
+                                        // Update the decks node
+                                        gun.get(decksPath).put(existingDecks, (ack: any) => {
+                                            if (ack.err) {
+                                                console.error(`Error updating decks for card ${cardId}:`, ack.err);
+                                            } else {
+                                                console.log(`Added deck ${deckId} to card ${cardId}'s decks reference`);
+                                                processedCount++;
+                                            }
+                                            resolve();
+                                        });
+                                    });
+                                    return;
+                                }
+                                // Standard object format
+                                else {
+                                    decks = { ...cardData.decks };
+                                }
+                            }
+                        }
+                        
+                        // Add the deck reference to the card if not already present
+                        if (!decks[deckId]) {
+                            decks[deckId] = true;
+                            
+                            // Update the card with the deck reference
+                            gun.get(nodes.cards).get(cardId).put({ decks }, (ack: any) => {
+                                if (ack.err) {
+                                    console.error(`Error adding deck ${deckId} to card ${cardId}:`, ack.err);
+                                } else {
+                                    console.log(`Added deck ${deckId} to card ${cardId}`);
+                                    processedCount++;
+                                }
+                                resolve();
+                            });
+                        } else {
+                            console.log(`Deck ${deckId} already in card ${cardId}'s decks`);
+                            resolve();
+                        }
+                    });
+                });
+            }
+        }
+        
+        console.log(`Bidirectional relationships initialized for ${processedCount} card-deck pairs`);
+        return {
+            success: processedCount > 0,
+            processed: processedCount
+        };
+    } catch (error) {
+        console.error('Initialize bidirectional relationships error:', error);
+        return {
+            success: false,
+            processed: 0
+        };
     }
 }
 
@@ -277,6 +471,131 @@ export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'c
     } catch (error) {
         console.error('Import cards error:', error);
         return { success: false, added: 0 };
+    }
+}
+
+// Get all decks that contain a specific card
+export async function getDecksForCard(cardId: string): Promise<Deck[]> {
+    try {
+        console.log(`Getting all decks for card ${cardId}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return [];
+        }
+        
+        // First, check if the card has bidirectional deck references
+        return new Promise((resolve) => {
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+                if (!cardData) {
+                    console.error(`Card not found: ${cardId}`);
+                    resolve([]);
+                    return;
+                }
+                
+                // If the card has decks property with bidirectional references
+                if (cardData.decks) {
+                    console.log(`Card ${cardId} has deck references:`, cardData.decks);
+                    const deckIds: string[] = [];
+                    
+                    // Handle both array and object format
+                    if (Array.isArray(cardData.decks)) {
+                        deckIds.push(...cardData.decks);
+                    } else if (typeof cardData.decks === 'object') {
+                        // Handle Gun.js reference
+                        if (cardData.decks['#']) {
+                            console.log(`Card has deck reference with soul: ${cardData.decks['#']}`);
+                            
+                            // Create a promise to collect all deck IDs from the reference
+                            const decksPath = cardData.decks['#'] as string;
+                            const decks: Deck[] = [];
+                            
+                            // Fetch decks from the reference
+                            gun.get(decksPath).map().once(async (value: boolean, deckId: string) => {
+                                if (value === true) {
+                                    console.log(`Found deck ID from reference: ${deckId}`);
+                                    // Look up the deck using the ID
+                                    const deck = await getDeck(deckId);
+                                    if (deck) decks.push(deck);
+                                }
+                            });
+                            
+                            // Give Gun time to process all decks
+                            setTimeout(() => {
+                                console.log(`Retrieved ${decks.length} decks for card ${cardId}`);
+                                resolve(decks);
+                            }, 1000);
+                            return;
+                        }
+                        // Standard object format
+                        else {
+                            deckIds.push(...Object.keys(cardData.decks));
+                        }
+                    }
+                    
+                    if (deckIds.length > 0) {
+                        console.log(`Found ${deckIds.length} deck IDs:`, deckIds);
+                        // Fetch each deck
+                        Promise.all(deckIds.map(deckId => getDeck(deckId)))
+                            .then(decks => {
+                                // Filter out nulls
+                                const validDecks = decks.filter(d => d !== null) as Deck[];
+                                console.log(`Retrieved ${validDecks.length} decks for card ${cardId}`);
+                                resolve(validDecks);
+                            });
+                        return;
+                    }
+                }
+                
+                // Fallback: Search all decks for the card ID
+                console.log(`Card ${cardId} doesn't have deck references, searching all decks...`);
+                const decks: Deck[] = [];
+                
+                gun.get(nodes.decks).map().once((deckData: Deck, deckId: string) => {
+                    if (deckData) {
+                        let containsCard = false;
+                        
+                        // Check if deck contains the card
+                        if (deckData.cards) {
+                            if (Array.isArray(deckData.cards)) {
+                                containsCard = deckData.cards.includes(cardId);
+                            } else if (typeof deckData.cards === 'object') {
+                                // Handle Gun.js reference
+                                if (deckData.cards['#']) {
+                                    // We'll need to check this reference separately
+                                    gun.get(deckData.cards['#']).once((cardsData: any) => {
+                                        if (cardsData && cardsData[cardId] === true) {
+                                            console.log(`Deck ${deckId} contains card ${cardId} via reference`);
+                                            decks.push(deckData);
+                                        }
+                                    });
+                                    return;
+                                }
+                                // Standard object format
+                                else {
+                                    containsCard = deckData.cards[cardId] === true;
+                                }
+                            }
+                        }
+                        
+                        if (containsCard) {
+                            console.log(`Deck ${deckId} contains card ${cardId}`);
+                            decks.push(deckData);
+                        }
+                    }
+                });
+                
+                // Give Gun time to process all decks
+                setTimeout(() => {
+                    console.log(`Found ${decks.length} decks containing card ${cardId}`);
+                    resolve(decks);
+                }, 1000);
+            });
+        });
+    } catch (error) {
+        console.error('Get decks for card error:', error);
+        return [];
     }
 }
 
