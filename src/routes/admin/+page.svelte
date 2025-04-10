@@ -6,6 +6,7 @@
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
   import SchemaManager from '$lib/components/admin/SchemaManager.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
+  import DatabaseFixer from '$lib/components/admin/DatabaseFixer.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
@@ -815,6 +816,10 @@
             
             <div class="mb-6">
               <AdminTools />
+            </div>
+            
+            <div class="mb-6">
+              <DatabaseFixer />
             </div>
             
             <h3 class="h3 mb-4">Database Structure</h3>
