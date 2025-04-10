@@ -93,9 +93,17 @@
 
         // Handle resize
         const resizeObserver = new ResizeObserver(() => {
-          if (graph && !graph.get('destroyed')) {
-            graph.changeSize(container.clientWidth, 600);
-            graph.fitView();
+          if (graph) {
+            try {
+              // Check if graph is destroyed using try/catch instead of get method
+              const destroyed = graph.destroyed || false;
+              if (!destroyed) {
+                graph.changeSize(container.clientWidth, 600);
+                graph.fitView();
+              }
+            } catch (err) {
+              console.error('Error in resize handler:', err);
+            }
           }
         });
 
@@ -107,8 +115,12 @@
         // Cleanup
         return () => {
           resizeObserver.disconnect();
-          if (graph && !graph.get('destroyed')) {
-            graph.destroy();
+          if (graph) {
+            try {
+              graph.destroy();
+            } catch (err) {
+              console.error('Error in cleanup function:', err);
+            }
           }
         };
       } catch (err) {
@@ -124,26 +136,47 @@
   function updateGraph() {
     if (!graph || !nodes || !edges) return;
 
-    // Map Gun.js data to G6 format
+    // Create a clean data structure with only the properties G6 expects
+    const cleanNodes = nodes.map((node) => {
+      return {
+        id: node.id,
+        label: node.label || (typeof node.id === 'string' ? node.id.substring(0, 8) : 'Node'),
+        size: 30,
+        isLeaf: false,
+        style: {
+          fill: node.style?.fill || '#5B8FF9',
+          stroke: node.style?.stroke || '#5B8FF9'
+        }
+      };
+    });
+    
+    const cleanEdges = edges.map((edge) => {
+      return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.label || '',
+        type: 'line'
+      };
+    });
+    
+    // Create the data object
     const data = {
-      nodes: nodes.map((node) => ({
-        ...node,
-        size: node.size || 30,
-        isLeaf: node.isLeaf || false,
-      })),
-      edges: edges.map((edge) => ({
-        ...edge,
-        type: 'line',
-      })),
+      nodes: cleanNodes,
+      edges: cleanEdges
     };
 
-    console.log('Updating graph with data:', data);
+    console.log('Updating graph with clean data:', data);
 
     try {
+      // Clear previous data first
+      graph.clear();
+      // Then set new data
       graph.data(data);
       graph.render();
     } catch (error) {
       console.error('Error rendering graph:', error);
+      console.error('Error details:', error.message, error.stack);
     }
 
     setTimeout(() => {
@@ -152,8 +185,12 @@
   }
 
   onDestroy(() => {
-    if (graph && !graph.get('destroyed')) {
-      graph.destroy();
+    if (graph) {
+      try {
+        graph.destroy();
+      } catch (err) {
+        console.error('Error destroying graph:', err);
+      }
     }
   });
 </script>
