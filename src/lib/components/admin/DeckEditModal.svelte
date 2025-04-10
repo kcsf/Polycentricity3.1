@@ -54,9 +54,9 @@
 
 <!-- Modal Backdrop -->
 {#if isOpen}
-<div class="modal-backdrop" on:click|self={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()}>
+<div class="modal-backdrop" on:click|self={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="dialog">
   <!-- Modal Container -->
-  <div class="modal-container card variant-filled-surface p-4 w-full max-w-md" role="dialog" aria-modal="true">
+  <div class="modal-container card variant-filled-surface p-4 w-full max-w-md" aria-modal="true">
     <header class="modal-header">
       <h3 class="h3">Edit Deck</h3>
       <button class="btn btn-sm variant-ghost-surface" on:click={closeModal}>

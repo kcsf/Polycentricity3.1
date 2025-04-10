@@ -700,6 +700,9 @@
                 <div class="p-8 text-center">
                   <p class="text-surface-500">No data available</p>
                 </div>
+              {:else if activeDataTab === 'decks'}
+                <!-- Special handling for decks with our enhanced component -->
+                <DecksDataTable refreshTrigger={nodeCount} />
               {:else}
                 {#each databaseNodes.filter(n => n.type === activeDataTab) as nodeType}
                   {#if nodeType.count === 0}
