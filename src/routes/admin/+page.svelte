@@ -1,13 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import G6Graph from '$lib/components/admin/G6Graph.svelte';
-  import NodeDetailsPanel from '$lib/components/admin/NodeDetailsPanel.svelte';
   import * as icons from 'svelte-lucide';
+  import { browser } from '$app/environment';
+  
+  // Dynamically import browser-only components
+  let G6Graph: any;
+  let NodeDetailsPanel: any;
   
   // State variables
   let selectedNode: any = null;
   let isPanelOpen = false;
-  let graphComponent: G6Graph;
+  let graphComponent: any;
+  let isMounted = false;
+  
+  onMount(async () => {
+    // Import components only in the browser
+    G6Graph = (await import('$lib/components/admin/G6Graph.svelte')).default;
+    NodeDetailsPanel = (await import('$lib/components/admin/NodeDetailsPanel.svelte')).default;
+    isMounted = true;
+  });
   
   // Handle node selection from the graph
   function handleNodeSelected(node: any) {
@@ -52,18 +63,27 @@
     
     <div class="tab-content">
       <div class="graph-view relative" style="height: 700px;">
-        <G6Graph 
-          height="700px" 
-          showControls={true} 
-          bind:this={graphComponent} 
-          on:nodeClick={(e) => handleNodeSelected(e.detail.node)}
-        />
-        
-        <NodeDetailsPanel 
-          bind:node={selectedNode} 
-          bind:isOpen={isPanelOpen}
-          on:close={handlePanelClose}
-        />
+        {#if isMounted && G6Graph}
+          <svelte:component this={G6Graph}
+            height="700px" 
+            showControls={true} 
+            bind:this={graphComponent} 
+            on:nodeClick={(e) => handleNodeSelected(e.detail.node)}
+          />
+          
+          {#if NodeDetailsPanel}
+            <svelte:component this={NodeDetailsPanel}
+              bind:node={selectedNode} 
+              bind:isOpen={isPanelOpen}
+              on:close={handlePanelClose}
+            />
+          {/if}
+        {:else}
+          <div class="flex items-center justify-center h-full">
+            <div class="spinner-third w-8 h-8"></div>
+            <span class="ml-3">Loading Graph Visualization...</span>
+          </div>
+        {/if}
       </div>
     </div>
   </div>

@@ -69,8 +69,8 @@
       <div class="mb-4">
         <h5 class="font-semibold mb-2">Properties</h5>
         <div class="space-y-2">
-          {#if node.data}
-            {#each Object.entries(node.data) as [key, value]}
+          {#if node.data && typeof node.data === 'object'}
+            {#each Object.entries(node.data || {}) as [key, value]}
               {#if key !== '_' && key !== '#'}
                 <div class="property-item border border-surface-200 dark:border-surface-700 rounded p-2">
                   <div class="property-name text-sm font-medium text-surface-700 dark:text-surface-300">
@@ -79,7 +79,11 @@
                   <div class="property-value mt-1 text-sm">
                     {#if typeof value === 'object' && value !== null}
                       <pre class="bg-surface-100 dark:bg-surface-700 p-2 rounded text-xs overflow-x-auto">
-                        {JSON.stringify(value, null, 2)}
+                        {try {
+                          JSON.stringify(value, null, 2)
+                        } catch (e) {
+                          '[Complex Object - Cannot Display]'
+                        }}
                       </pre>
                     {:else}
                       <div class="bg-surface-100 dark:bg-surface-700 p-2 rounded font-mono text-xs break-all">

@@ -343,21 +343,27 @@
   
   // Component lifecycle
   onMount(() => {
-    if (container) {
-      fetchGunData();
-      window.addEventListener('resize', handleResize);
+    // Make sure we're in the browser environment
+    if (typeof window !== 'undefined' && container) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        fetchGunData();
+        window.addEventListener('resize', handleResize);
+      }, 100);
     }
     
     return () => {
-      window.removeEventListener('resize', handleResize);
-      if (graph) {
-        graph.destroy();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+        if (graph) {
+          graph.destroy();
+        }
       }
     };
   });
   
   onDestroy(() => {
-    if (graph) {
+    if (typeof window !== 'undefined' && graph) {
       graph.destroy();
     }
   });
