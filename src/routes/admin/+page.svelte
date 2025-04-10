@@ -3,7 +3,7 @@
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
-  import FallbackGraph from '$lib/components/admin/FallbackGraph.svelte';
+  import CytoscapeGraph from '$lib/components/admin/CytoscapeGraph.svelte';
   
   // For visualization
   let isG6Loading = false;
@@ -305,11 +305,11 @@
               <div class="visualization-section">
                 <div class="mb-4 p-4 bg-surface-100-800-token rounded">
                   <p class="text-sm">
-                    Visualizing {graphData.nodes.length} nodes and {graphData.edges.length} edges with G6.
+                    Visualizing {graphData.nodes.length} nodes and {graphData.edges.length} edges with Cytoscape.
                   </p>
                 </div>
                 
-                <FallbackGraph nodes={graphData.nodes} edges={graphData.edges} />
+                <CytoscapeGraph nodes={graphData.nodes} edges={graphData.edges} />
                 
                 <div class="graph-stats mt-4 p-4 bg-surface-100-800-token rounded">
                   <h4 class="font-semibold mb-2">Database Overview</h4>
