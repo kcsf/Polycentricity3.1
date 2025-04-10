@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
-  import { cleanupUsers, removeUser } from '$lib/services/cleanupService';
+  import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
   // For visualization
@@ -224,6 +224,35 @@
     } catch (err) {
       console.error('Error removing user:', err);
       alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Function to remove all users (no login required)
+  async function performCleanupAllUsers() {
+    if (!confirm('WARNING: This action will permanently remove ALL user nodes from the database. This is an admin function that does not require login. This cannot be undone. Are you sure you want to continue?')) {
+      return;
+    }
+    
+    isCleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    cleanupResult = null;
+    
+    try {
+      const result = await cleanupAllUsers();
+      cleanupResult = result;
+      cleanupSuccess = result.success;
+      if (!result.success) {
+        cleanupError = result.error || 'Unknown error during cleanup';
+      }
+    } catch (err) {
+      console.error('Error cleaning up all users:', err);
+      cleanupError = err instanceof Error ? err.message : String(err);
+      cleanupSuccess = false;
+    } finally {
+      isCleanupLoading = false;
+      // Refresh stats after cleanup
+      fetchDatabaseStats();
     }
   }
   
@@ -524,14 +553,30 @@
               </p>
             </div>
             
-            <button 
-              class="btn variant-filled-error" 
-              on:click={performCleanup}
-              disabled={isCleanupLoading || !currentUser}
-            >
-              <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
-              Remove All Other User Nodes
-            </button>
+            <div class="flex gap-4 flex-wrap">
+              <button 
+                class="btn variant-filled-error" 
+                on:click={performCleanup}
+                disabled={isCleanupLoading || !currentUser}
+              >
+                <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+                Remove All Other User Nodes
+              </button>
+              
+              <div class="divider-vertical h-8 mx-2"></div>
+              
+              <div>
+                <button 
+                  class="btn variant-filled-error border-4 border-error-900" 
+                  on:click={performCleanupAllUsers}
+                  disabled={isCleanupLoading}
+                >
+                  <svelte:component this={icons.AlertTriangle} class="w-4 h-4 mr-2" />
+                  ADMIN: Remove ALL Users
+                </button>
+                <p class="text-xs text-error-500 mt-1">No login required for this action. Use with caution!</p>
+              </div>
+            </div>
           </div>
           
           <div class="card p-4 bg-surface-50-900-token">

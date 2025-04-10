@@ -2,25 +2,28 @@ import { getGun, nodes } from './gunService';
 import { getCurrentUser } from './authService';
 
 /**
- * Removes all users except the currently logged in user
+ * Removes all users except for an optional preserved user ID
+ * @param preserveUserId Optional user ID to preserve (if not provided, removes all users)
  * @returns Promise<{success: boolean, removed: number, error?: string}>
  */
-export async function cleanupUsers(): Promise<{success: boolean, removed: number, error?: string}> {
+export async function cleanupUsers(preserveUserId?: string): Promise<{success: boolean, removed: number, error?: string}> {
   try {
     const gun = getGun();
     if (!gun) {
       return { success: false, removed: 0, error: 'Gun database is not initialized' };
     }
 
-    // Get current user data
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      return { success: false, removed: 0, error: 'No user is logged in' };
+    // Get current user data if we're not passing a specific user ID to preserve
+    let currentUserId = preserveUserId;
+    if (!currentUserId) {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        currentUserId = currentUser.user_id;
+        console.log(`Keeping current user: ${currentUserId}`);
+      } else {
+        console.log('No user preserved - removing all users');
+      }
     }
-
-    // Current user ID that we want to keep
-    const currentUserId = currentUser.user_id;
-    console.log(`Keeping current user: ${currentUserId}`);
 
     // Count of how many users were removed
     let removedCount = 0;
@@ -28,9 +31,9 @@ export async function cleanupUsers(): Promise<{success: boolean, removed: number
     return new Promise((resolve) => {
       // This will get all user nodes
       gun.get(nodes.users).map().once((userData: any, userId: string) => {
-        // Skip the current user
-        if (userId === currentUserId) {
-          console.log(`Skipping current user: ${userId}`);
+        // Skip the user to preserve if one was specified
+        if (currentUserId && userId === currentUserId) {
+          console.log(`Skipping preserved user: ${userId}`);
           return;
         }
         
@@ -56,6 +59,14 @@ export async function cleanupUsers(): Promise<{success: boolean, removed: number
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+/**
+ * Removes all users (admin function, no authentication required)
+ * @returns Promise<{success: boolean, removed: number, error?: string}>
+ */
+export async function cleanupAllUsers(): Promise<{success: boolean, removed: number, error?: string}> {
+  return cleanupUsers(undefined); // Pass undefined to remove all users
 }
 
 /**
