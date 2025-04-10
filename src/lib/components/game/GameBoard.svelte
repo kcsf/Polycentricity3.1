@@ -2,6 +2,8 @@
     import { onMount } from 'svelte';
     import type { Game, Actor } from '$lib/types';
     import { getGame, subscribeToGame } from '$lib/services/gameService';
+    import D3GameBoardIntegrated from './D3GameBoardIntegrated.svelte';
+    import GameHeader from './GameHeader.svelte';
     
     export let gameId: string;
     
@@ -50,15 +52,12 @@
             <p>{error}</p>
         </div>
     {:else if game}
-        <div class="bg-surface-100-800-token rounded-lg p-6 h-full">
-            <h2 class="h2 mb-4">Game Board: {game.name}</h2>
+        <div class="bg-surface-100-800-token rounded-lg p-4 h-full flex flex-col">
+            <GameHeader {game} />
             
-            <!-- Add your game board visualization here -->
-            <div class="game-visualization bg-surface-200-700-token rounded-lg p-4 h-4/5 flex items-center justify-center">
-                <p class="text-lg text-center">
-                    Game board visualization will be implemented here.<br>
-                    This is where players will see the eco-village simulation.
-                </p>
+            <!-- D3 Game Board Visualization -->
+            <div class="flex-grow overflow-hidden">
+                <D3GameBoardIntegrated {gameId} />
             </div>
         </div>
     {:else}

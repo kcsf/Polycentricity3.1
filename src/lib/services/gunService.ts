@@ -89,5 +89,10 @@ export const nodes = {
     users: 'users',
     games: 'games',
     actors: 'actors',
-    chat: 'chat'
+    chat: 'chat',
+    // D3GameBoard related nodes
+    agreements: 'agreements',
+    obligations: 'obligations',
+    benefits: 'benefits',
+    positions: 'node_positions'
 };
