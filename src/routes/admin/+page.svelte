@@ -4,6 +4,8 @@
   import { browser } from '$app/environment';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
+  import { cleanupUsers, removeUser } from '$lib/services/cleanupService';
+  import { getCurrentUser } from '$lib/services/authService';
   
   // For visualization
   let isG6Loading = false;
@@ -19,6 +21,13 @@
   let databaseNodes: any[] = [];
   let nodeCount = 0;
   let activeTab = 'overview';
+  
+  // Cleanup variables
+  let isCleanupLoading = false;
+  let cleanupError: string | null = null;
+  let cleanupSuccess: boolean = false;
+  let cleanupResult: { success: boolean; removed: number; error?: string } | null = null;
+  let currentUser = null;
   
   // Simplified visualization loading
   function loadGraphVisualization() {
@@ -159,6 +168,57 @@
     if (tab === 'visualize' && typeof window !== 'undefined') {
       // Prepare graph data when switching to visualization tab
       loadGraphVisualization();
+    } else if (tab === 'cleanup' && typeof window !== 'undefined') {
+      // Get current user when switching to cleanup tab
+      currentUser = getCurrentUser();
+    }
+  }
+  
+  // Database cleanup functions
+  async function performCleanup() {
+    if (!confirm('WARNING: This action will permanently remove all user nodes from the database except your own. This cannot be undone. Are you sure you want to continue?')) {
+      return;
+    }
+    
+    isCleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    cleanupResult = null;
+    
+    try {
+      const result = await cleanupUsers();
+      cleanupResult = result;
+      cleanupSuccess = result.success;
+      if (!result.success) {
+        cleanupError = result.error || 'Unknown error during cleanup';
+      }
+    } catch (err) {
+      console.error('Error cleaning up users:', err);
+      cleanupError = err instanceof Error ? err.message : String(err);
+      cleanupSuccess = false;
+    } finally {
+      isCleanupLoading = false;
+      // Refresh stats after cleanup
+      fetchDatabaseStats();
+    }
+  }
+  
+  async function removeSpecificUser(userId: string) {
+    if (!confirm(`Are you sure you want to remove user ${userId}? This cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const result = await removeUser(userId);
+      if (result.success) {
+        // Refresh stats after removing user
+        fetchDatabaseStats();
+      } else {
+        alert(`Error removing user: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error removing user:', err);
+      alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   
@@ -269,6 +329,12 @@
       >
         Visualize
       </button>
+      <button 
+        class="tab {activeTab === 'cleanup' ? 'variant-filled-primary' : 'variant-ghost'}" 
+        on:click={() => handleTabChange('cleanup')}
+      >
+        Database Cleanup
+      </button>
     </div>
     
     <div class="tab-content">
@@ -370,6 +436,141 @@
               </div>
             </div>
           {/if}
+        </div>
+      {:else if activeTab === 'cleanup'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Trash2} class="text-error-500" />
+              <div>
+                <h3 class="h4">Database Cleanup</h3>
+                <p class="text-sm">This tool allows you to remove unnecessary user nodes from the database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isCleanupLoading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Processing Database Cleanup...</span>
+            </div>
+          {:else if cleanupError}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{cleanupError}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={performCleanup}>Retry</button>
+              </div>
+            </div>
+          {:else if cleanupSuccess}
+            <div class="alert variant-filled-success">
+              <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Success</h3>
+                <p>Successfully removed {cleanupResult?.removed} user nodes from the database.</p>
+              </div>
+            </div>
+          {/if}
+          
+          <div class="card p-4 bg-surface-50-900-token mb-6">
+            <h3 class="h4 mb-4">User Node Cleanup</h3>
+            <p class="mb-4">
+              There are currently <span class="font-bold text-primary-500">
+              {databaseNodes.find(n => n.type === 'users')?.count || 0}
+              </span> user nodes in the database. Many of these could be unused or bot-generated.
+            </p>
+            
+            <div class="warning-box p-4 bg-error-500/10 border border-error-500 rounded-lg mb-4">
+              <h4 class="font-bold flex items-center text-error-500">
+                <svelte:component this={icons.AlertTriangle} class="w-5 h-5 mr-2" />
+                Warning
+              </h4>
+              <p class="text-sm mt-2">
+                This action will permanently remove all user nodes except the currently logged in user.
+                This cannot be undone. Make sure you have a backup of any important data.
+              </p>
+            </div>
+            
+            <div class="current-user-box p-4 bg-primary-500/10 border border-primary-500 rounded-lg mb-4">
+              <h4 class="font-bold flex items-center text-primary-500">
+                <svelte:component this={icons.User} class="w-5 h-5 mr-2" />
+                Your User Account
+              </h4>
+              <p class="text-sm mt-2">
+                Your user ID: <code class="font-mono bg-surface-100-800-token px-2 py-1 rounded">{currentUser?.user_id || 'Not logged in'}</code>
+              </p>
+              <p class="text-sm mt-1">
+                This account will be preserved during the cleanup process.
+              </p>
+            </div>
+            
+            <button 
+              class="btn variant-filled-error" 
+              on:click={performCleanup}
+              disabled={isCleanupLoading || !currentUser}
+            >
+              <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+              Remove All Other User Nodes
+            </button>
+          </div>
+          
+          <div class="card p-4 bg-surface-50-900-token">
+            <h3 class="h4 mb-4">User Node List</h3>
+            
+            {#if !databaseNodes.find(n => n.type === 'users') || databaseNodes.find(n => n.type === 'users')?.count === 0}
+              <p class="text-center py-8 text-surface-500">No user nodes found in the database.</p>
+            {:else}
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>User ID</th>
+                      <th>Name</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each databaseNodes.find(n => n.type === 'users')?.nodes || [] as node}
+                      {@const isCurrentUser = currentUser?.user_id === node.id}
+                      <tr class={isCurrentUser ? 'bg-primary-500/10' : ''}>
+                        <td class="font-mono text-xs">{node.id.substring(0, 14)}...</td>
+                        <td>
+                          {#if isCurrentUser}
+                            <span class="badge variant-filled-primary">You</span>
+                          {:else}
+                            {node.data?.name || 'Unnamed User'}
+                          {/if}
+                        </td>
+                        <td>
+                          {#if node.data?.created_at}
+                            {new Date(node.data.created_at).toLocaleString()}
+                          {:else}
+                            Unknown
+                          {/if}
+                        </td>
+                        <td>
+                          {#if isCurrentUser}
+                            <span class="text-sm text-primary-500">Current User</span>
+                          {:else}
+                            <button 
+                              class="btn btn-sm variant-soft-error" 
+                              on:click={() => removeSpecificUser(node.id)}
+                            >
+                              Remove
+                            </button>
+                          {/if}
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          </div>
         </div>
       {:else}
         <div class="p-2">
