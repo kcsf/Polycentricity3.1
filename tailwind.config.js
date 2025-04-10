@@ -1,24 +1,22 @@
 /** @type {import('tailwindcss').Config} */
-const { join } = require('path');
-const { skeleton } = require('@skeletonlabs/tw-plugin');
-const { fennecTheme } = require('./src/lib/theme/theme');
-
 module.exports = {
   darkMode: 'class',
   content: [
     './src/**/*.{html,js,svelte,ts}',
-    join(require.resolve('@skeletonlabs/skeleton'), '../**/*.{html,js,svelte,ts}')
+    './node_modules/@skeletonlabs/skeleton/**/*.{html,js,svelte,ts}'
   ],
   theme: {
-    extend: {},
+    extend: {
+      screens: {
+        'sm': '640px',
+        'md': '768px',
+        'lg': '1024px',
+        'xl': '1280px',
+        '2xl': '1536px',
+      },
+    },
   },
   plugins: [
-    skeleton({
-      themes: {
-        custom: [
-          fennecTheme
-        ]
-      }
-    })
+    require('@skeletonlabs/skeleton/tailwind/skeleton.cjs')
   ]
 };
