@@ -11,6 +11,7 @@
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
   import DeckBrowser from '$lib/components/admin/DeckBrowser.svelte';
   import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
+  import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
