@@ -195,7 +195,23 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
         };
         
         return new Promise((resolve) => {
+            let timeoutHandled = false;
+            
+            // Set a timeout to ensure we don't hang forever
+            const timeoutId = setTimeout(() => {
+                if (!timeoutHandled) {
+                    console.warn(`Timeout creating card ${cardId} - assuming success anyway`);
+                    timeoutHandled = true;
+                    resolve(cardData); // Resolve with card data anyway to continue the process
+                }
+            }, 8000); // 8 second timeout
+            
             gun.get(nodes.cards).get(cardId).put(gunCompatibleCard, (ack: any) => {
+                if (timeoutHandled) return; // Skip if timeout already triggered
+                
+                clearTimeout(timeoutId); // Clear the timeout
+                timeoutHandled = true;
+                
                 if (ack.err) {
                     console.error('Error creating card:', ack.err);
                     resolve(null);

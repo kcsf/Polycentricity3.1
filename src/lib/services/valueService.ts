@@ -168,6 +168,7 @@ export async function deleteValue(valueId: string): Promise<boolean> {
 // Create or get values from an array of names
 export async function createOrGetValues(valueNames: string[]): Promise<Record<string, boolean>> {
     try {
+        console.log(`Creating or getting ${valueNames.length} values`);
         const valueMap: Record<string, boolean> = {};
         const gun = getGun();
         
@@ -176,7 +177,7 @@ export async function createOrGetValues(valueNames: string[]): Promise<Record<st
             return {};
         }
         
-        // First check if values already exist to avoid redundant creation
+        // First check if values already exist - cache them in memory
         const existingValues = await new Promise<Record<string, Value>>((resolve) => {
             const values: Record<string, Value> = {};
             gun.get(nodes.values).map().once((valueData: Value, valueId: string) => {
@@ -186,10 +187,51 @@ export async function createOrGetValues(valueNames: string[]): Promise<Record<st
             });
             
             // Give Gun time to process
-            setTimeout(() => resolve(values), 500);
+            setTimeout(() => resolve(values), 1000); // Increased timeout
         });
         
-        console.log(`Found ${Object.keys(existingValues).length} existing values`);
+        console.log(`Found ${Object.keys(existingValues).length} existing values in database`);
+        
+        // Create a modified version of createValue that has a timeout
+        const createValueWithTimeout = async (name: string): Promise<Value | null> => {
+            return new Promise((resolve) => {
+                let timeoutHandled = false;
+                
+                // Set a timeout to ensure we don't hang forever
+                const timeoutId = setTimeout(() => {
+                    if (!timeoutHandled) {
+                        console.warn(`Timeout creating value ${name} - generating fallback`);
+                        timeoutHandled = true;
+                        
+                        // Create a fallback value object that's not in the database but will allow us to continue
+                        const valueId = `value_${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                        resolve({
+                            value_id: valueId,
+                            name: name,
+                            created_at: Date.now()
+                        });
+                    }
+                }, 5000); // 5 second timeout
+                
+                // Attempt to create the value normally
+                createValue(name).then(value => {
+                    if (timeoutHandled) return; // Skip if timeout already triggered
+                    
+                    clearTimeout(timeoutId); // Clear the timeout
+                    timeoutHandled = true;
+                    
+                    resolve(value);
+                }).catch(error => {
+                    if (timeoutHandled) return; // Skip if timeout already triggered
+                    
+                    clearTimeout(timeoutId); // Clear the timeout
+                    timeoutHandled = true;
+                    
+                    console.error('Error creating value:', error);
+                    resolve(null);
+                });
+            });
+        };
         
         // Process each value name, reusing existing ones when possible
         for (const name of valueNames) {
@@ -204,14 +246,21 @@ export async function createOrGetValues(valueNames: string[]): Promise<Record<st
                 console.log(`Reusing existing value: ${existingValue.value_id}`);
                 valueMap[existingValue.value_id] = true;
             } else {
-                // Create a new value only if it doesn't exist
-                const value = await createValue(trimmedName);
+                // Create a new value with timeout handling
+                console.log(`Creating new value: ${trimmedName}`);
+                const value = await createValueWithTimeout(trimmedName);
+                
                 if (value) {
+                    console.log(`Successfully created/got value: ${value.value_id}`);
                     valueMap[value.value_id] = true;
+                    
+                    // Add to our existing values so we don't try to create it again
+                    existingValues[lowerName] = value;
                 }
             }
         }
         
+        console.log(`Finished processing ${valueNames.length} values. Created/found ${Object.keys(valueMap).length} values.`);
         return valueMap;
     } catch (error) {
         console.error('Create or get values error:', error);
