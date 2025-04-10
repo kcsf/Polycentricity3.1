@@ -1,96 +1,96 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  
+  import { Graph } from '@antv/g6'; // Named import for Graph
+
   export let nodes = [];
   export let edges = [];
-  
+
   let container;
   let graph;
-  let G6;
-  
+
   onMount(async () => {
     if (typeof window !== 'undefined') {
       try {
-        // Import G6 only in browser
-        const g6Module = await import('@antv/g6');
-        // Handle both ESM and CommonJS exports
-        G6 = g6Module.default || g6Module;
-        
-        if (!G6 || !G6.Graph) {
-          console.error('G6 Graph class is not available!', g6Module);
-          return;
-        }
-        
-        console.log('G6 loaded:', G6);
-        console.log('G6 Graph class methods:', Object.getOwnPropertyNames(G6.Graph.prototype));
-        
-        if (!G6 || !container) {
-          console.error('G6 or container not available');
-          return;
-        }
-        
-        console.log('Graph constructor:', G6.Graph);
-
         // Initialize graph
-        try {
-          graph = new G6.Graph({
+        graph = new Graph({
           container,
           width: container.clientWidth,
           height: 600,
+          plugins: ['toolbar'], // Use string name for ToolBar
           modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
+            default: ['drag-element-force', 'zoom-canvas', 'click-select'],
           },
           layout: {
-            type: 'force',
-            preventOverlap: true,
-            linkDistance: 200,
-            nodeStrength: -100
+            type: 'd3-force',
+            link: {
+              distance: (d) => {
+                if (d.source.id === 'node0') {
+                  return 100;
+                }
+                return 30;
+              },
+              strength: (d) => {
+                if (['node1', 'node2', 'node3'].includes(d.source.id)) {
+                  return 0.7;
+                }
+                return 0.1;
+              },
+            },
+            manyBody: {
+              strength: (d) => {
+                if (d.isLeaf) {
+                  return -50;
+                }
+                return -10;
+              },
+            },
           },
-          defaultNode: {
-            size: 30,
+          node: {
             style: {
+              size: (d) => d.size || 30,
               fill: '#5B8FF9',
               stroke: '#5B8FF9',
-              lineWidth: 2
+              lineWidth: 2,
             },
             labelCfg: {
+              position: 'bottom',
               style: {
                 fill: '#000',
-                fontSize: 12
-              }
-            }
+                fontSize: 12,
+              },
+            },
           },
-          defaultEdge: {
+          edge: {
             style: {
               stroke: '#aaa',
               lineWidth: 1,
-              endArrow: true
+              endArrow: true,
             },
             labelCfg: {
               style: {
                 fill: '#666',
-                fontSize: 10
-              }
-            }
-          }
+                fontSize: 10,
+              },
+            },
+          },
         });
-        
-        // Add event listeners
+
+        // Add event listeners for interactivity
         graph.on('node:mouseenter', (evt) => {
           const nodeItem = evt.item;
           graph.setItemState(nodeItem, 'hover', true);
         });
-        
+
         graph.on('node:mouseleave', (evt) => {
           const nodeItem = evt.item;
           graph.setItemState(nodeItem, 'hover', false);
         });
-        
+
         graph.on('node:click', (evt) => {
           const node = evt.item.getModel();
           console.log('Node clicked:', node);
         });
-        
+
         // Handle resize
         const resizeObserver = new ResizeObserver(() => {
           if (graph && !graph.get('destroyed')) {
@@ -98,12 +98,12 @@
             graph.fitView();
           }
         });
-        
+
         resizeObserver.observe(container);
-        
+
         // Initial render
         updateGraph();
-        
+
         // Cleanup
         return () => {
           resizeObserver.disconnect();
@@ -111,60 +111,46 @@
             graph.destroy();
           }
         };
-        } catch (err) {
-          console.error('Error creating G6 graph instance:', err);
-        }
-      } catch (error) {
-        console.error('Error initializing G6:', error);
+      } catch (err) {
+        console.error('Error creating G6 graph instance:', err);
       }
     }
   });
-  
+
   $: if (graph && nodes && edges) {
     updateGraph();
   }
-  
+
   function updateGraph() {
     if (!graph || !nodes || !edges) return;
-    
+
+    // Map Gun.js data to G6 format
     const data = {
-      nodes: nodes.map(node => ({
+      nodes: nodes.map((node) => ({
         ...node,
-        type: 'circle',
-        size: 30
+        size: node.size || 30,
+        isLeaf: node.isLeaf || false,
       })),
-      edges: edges.map(edge => ({
+      edges: edges.map((edge) => ({
         ...edge,
-        type: 'line'
-      }))
+        type: 'line',
+      })),
     };
-    
+
     console.log('Updating graph with data:', data);
-    
-    // Use the correct method based on the found API
+
     try {
-      console.log('Graph prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(graph)));
-      
-      if (typeof graph.setData === 'function') {
-        console.log('Using graph.setData() method');
-        graph.setData(data);
-      } else if (typeof graph.data === 'function') {
-        console.log('Using graph.data() method');
-        graph.data(data);
-      } else {
-        console.error('No compatible method found to set graph data');
-      }
-      
+      graph.data(data);
       graph.render();
     } catch (error) {
       console.error('Error rendering graph:', error);
     }
-    
+
     setTimeout(() => {
       graph.fitView();
     }, 300);
   }
-  
+
   onDestroy(() => {
     if (graph && !graph.get('destroyed')) {
       graph.destroy();

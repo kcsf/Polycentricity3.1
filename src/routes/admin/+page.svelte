@@ -302,18 +302,19 @@
             </div>
           {:else}
             <div class="card p-4 bg-surface-50-900-token">
-              <div class="visualization-container" style="width: 100%; height: 700px; background: #f8f9fa; border-radius: 8px;">
-                <p class="text-center p-4">
-                  Visualizing {graphData.nodes.length} nodes and {graphData.edges.length} edges.
-                  <br>
-                  <span class="text-sm text-surface-500">
-                    Native D3 visualization coming soon. The G6 graph library is currently experiencing compatibility issues.
-                  </span>
-                </p>
-                <div class="graph-stats p-4">
+              <div class="visualization-section">
+                <div class="mb-4 p-4 bg-surface-100-800-token rounded">
+                  <p class="text-sm">
+                    Visualizing {graphData.nodes.length} nodes and {graphData.edges.length} edges with G6.
+                  </p>
+                </div>
+                
+                <G6Graph nodes={graphData.nodes} edges={graphData.edges} />
+                
+                <div class="graph-stats mt-4 p-4 bg-surface-100-800-token rounded">
                   <h4 class="font-semibold mb-2">Database Overview</h4>
                   <div class="grid grid-cols-2 gap-2">
-                    <div class="p-3 rounded bg-surface-100-800-token">
+                    <div class="p-3 rounded bg-surface-50-900-token">
                       <h5 class="text-sm font-semibold">Most Connected Nodes</h5>
                       <ul class="mt-2 space-y-1 text-sm">
                         {#each graphData.nodes.slice(0, 5) as node}
@@ -324,7 +325,7 @@
                         {/each}
                       </ul>
                     </div>
-                    <div class="p-3 rounded bg-surface-100-800-token">
+                    <div class="p-3 rounded bg-surface-50-900-token">
                       <h5 class="text-sm font-semibold">Node Type Distribution</h5>
                       <ul class="mt-2 space-y-1 text-sm">
                         {#each databaseNodes as nodeType}
