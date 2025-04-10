@@ -5,12 +5,29 @@
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   
   // For G6 visualization
-  let G6: any;
+  let G6: any = null;
   let graph: any;
   let graphContainer: HTMLElement;
   let isG6Loading = false;
   let g6Error: string | null = null;
   let graphData: any = { nodes: [], edges: [] };
+  
+  // Load G6 library on mount
+  async function loadG6Library() {
+    try {
+      // Only import in browser environment
+      if (typeof window !== 'undefined') {
+        const G6Module = await import('@antv/g6');
+        G6 = G6Module.default || G6Module;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to load G6 library:', error);
+      g6Error = `Failed to load G6 library: ${error}`;
+      return false;
+    }
+  }
   
   // State variables
   let isMounted = false;
@@ -28,11 +45,15 @@
     g6Error = null;
     
     try {
-      // Dynamically import G6
+      // Load G6 library if not already loaded
       if (!G6) {
-        const module = await import('@antv/g6');
-        G6 = module.default;
+        const success = await loadG6Library();
+        if (!success) {
+          throw new Error("Failed to load G6 library");
+        }
       }
+      
+      console.log("G6 library loaded successfully:", G6);
       
       // Prepare graph data
       prepareGraphData();
@@ -237,10 +258,15 @@
   }
   
   // Tab switching and cleanup
-  function handleTabChange(tab: string) {
+  async function handleTabChange(tab: string) {
     activeTab = tab;
     
     if (tab === 'visualize' && typeof window !== 'undefined') {
+      // Preload G6 library when switching to visualization tab
+      if (!G6) {
+        await loadG6Library();
+      }
+      
       // Initialize G6 when switching to visualization tab
       setTimeout(() => {
         if (graphContainer) {
