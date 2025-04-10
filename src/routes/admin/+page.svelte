@@ -56,7 +56,7 @@
           height="700px" 
           showControls={true} 
           bind:this={graphComponent} 
-          on:nodeClick={e => handleNodeSelected(e.detail.node)}
+          on:nodeClick={(e) => handleNodeSelected(e.detail.node)}
         />
         
         <NodeDetailsPanel 

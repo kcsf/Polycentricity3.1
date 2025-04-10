@@ -298,9 +298,19 @@
     // Register node and edge events
     graph.on('node:click', (evt: any) => {
       const nodeItem = evt.item;
-      const nodeData = nodeItem.getModel().data;
-      console.log('Node clicked:', nodeData);
-      // You could dispatch an event or update a store here to show details
+      const model = nodeItem.getModel();
+      console.log('Node clicked:', model);
+      
+      // Dispatch the node click event
+      dispatch('nodeClick', { 
+        node: {
+          id: model.id,
+          nodeId: model.nodeId,
+          label: model.label,
+          type: model.type,
+          data: model.data
+        }
+      });
     });
     
     graph.on('node:mouseenter', (evt: any) => {
