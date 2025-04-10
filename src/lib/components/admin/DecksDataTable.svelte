@@ -154,13 +154,15 @@
                   >
                     <span class="icon">✏️</span> Edit
                   </button>
-                  <a 
-                    href="/admin?tab=overview&deckId={deck.id}" 
+                  <button 
+                    on:click={() => {
+                      window.location.href = `/admin?tab=overview&deckId=${deck.id}`;
+                    }}
                     class="action-button import-button"
                     title="Import Cards to Deck"
                   >
                     <span class="icon">📤</span> Import
-                  </a>
+                  </button>
                 </div>
               </td>
             </tr>

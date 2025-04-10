@@ -179,6 +179,14 @@
       // Get current user when switching to cleanup tab
       currentUser = getCurrentUser();
     }
+    
+    // Update URL with tab parameter
+    if (browser) {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set('tab', tab);
+      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+    }
   }
   
   function handleDataTabChange(tab: string) {
@@ -269,6 +277,29 @@
     if (typeof window !== 'undefined') {
       try {
         await fetchDatabaseStats();
+        
+        // Check for URL parameters to set initial tab
+        if (browser) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const tabParam = urlParams.get('tab');
+          const deckIdParam = urlParams.get('deckId');
+          
+          // If deckId is present, switch to overview tab
+          if (deckIdParam) {
+            activeTab = 'overview';
+          } 
+          // Otherwise use the tab parameter if present
+          else if (tabParam) {
+            activeTab = tabParam;
+          }
+          
+          // Initialize visualization if needed
+          if (activeTab === 'visualize') {
+            loadGraphVisualization();
+          } else if (activeTab === 'cleanup') {
+            currentUser = getCurrentUser();
+          }
+        }
       } catch (err) {
         console.error('Error loading database stats:', err);
         error = 'Failed to load database information.';
