@@ -33,13 +33,22 @@ export async function registerUser(name: string, email: string, password: string
                     }
                     
                     const user_id = user.is.pub;
+                    // Set role based on email
+                    let role: 'Guest' | 'Member' | 'Admin' = 'Guest';
+                    
+                    // Special case for your email
+                    if (email === 'bjorn@endogon.com') {
+                        role = 'Admin';
+                    }
+                    
                     const userData: User = {
                         user_id,
                         name,
                         email,
                         magic_key: generateId(), // Generate a unique key for the user
                         devices: navigator.userAgent, // Store as string instead of array
-                        created_at: Date.now()
+                        created_at: Date.now(),
+                        role: role
                     };
                     
                     // Save user data
