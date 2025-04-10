@@ -567,7 +567,7 @@
         class="admin-tab {activeTab === 'json' ? 'active' : ''}" 
         on:click={() => handleTabChange('json')}
       >
-        <svelte:component this={icons.Code} class="w-4 h-4 mr-2" />
+        <svelte:component this={icons.FileBadge} class="w-4 h-4 mr-2" />
         JSON
       </button>
     </div>
