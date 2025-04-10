@@ -72,6 +72,12 @@
     ['capabilities', '#36CFC9'] // Teal
   ]);
   
+  // Color mapping for edge types
+  const EDGE_COLOR_MAP = new Map<string, string>([
+    ['contains', '#E8684A'],   // Red (for deck-card relationships)
+    ['default', '#b8b8b8']     // Gray (default)
+  ]);
+  
   // Prepare graph data from the database nodes
   function prepareGraphData() {
     const nodes: any[] = [];
@@ -112,30 +118,116 @@
             if (typeof value === 'string' && value.length > 8) {
               const targetNode = findNodeById(nodes, value);
               if (targetNode) {
+                // Apply styling for edges based on node relationships
+                const edgeStyle = {};
+                
+                // Apply special colors for certain relationships
+                if (nodeType.type === 'cards' && targetNode.type === 'values') {
+                  edgeStyle.stroke = '#9254DE'; // Purple for card-value relations
+                  edgeStyle.lineWidth = 2;
+                } else if (nodeType.type === 'cards' && targetNode.type === 'capabilities') {
+                  edgeStyle.stroke = '#36CFC9'; // Teal for card-capability relations
+                  edgeStyle.lineWidth = 2;
+                } else {
+                  edgeStyle.stroke = EDGE_COLOR_MAP.get('default'); // Default gray
+                }
+                
                 edges.push({
                   id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}`,
                   source: `${nodeType.type}_${node.id}`,
                   target: `${targetNode.type}_${targetNode.nodeId}`,
-                  label: key
+                  label: key,
+                  style: edgeStyle
                 });
               }
             }
             
             // Handle objects with references (Gun.js {id: true} pattern)
             if (value && typeof value === 'object') {
-              Object.keys(value).forEach(refKey => {
-                if (value[refKey] === true) {
-                  const targetNode = findNodeById(nodes, refKey);
-                  if (targetNode) {
-                    edges.push({
-                      id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}_${key}`,
-                      source: `${nodeType.type}_${node.id}`,
-                      target: `${targetNode.type}_${targetNode.nodeId}`,
-                      label: key
+              // Special case for deck cards with a Gun.js soul reference (#)
+              if (nodeType.type === 'decks' && key === 'cards' && value['#']) {
+                console.log(`Deck ${node.id} has cards reference with soul: ${value['#']}`);
+                
+                // Find cards that belong to this deck by looking at the soul reference
+                const deckSoul = value['#'];
+                const deckPrefix = `${deckSoul}/`;
+                
+                // Look for card nodes that might be part of this deck
+                databaseNodes.forEach(cardNodeType => {
+                  if (cardNodeType.type === 'cards') {
+                    cardNodeType.nodes.forEach(cardNode => {
+                      // Create an edge from deck to card
+                      edges.push({
+                        id: `edge_deck_${node.id}_card_${cardNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${cardNodeType.type}_${cardNode.id}`,
+                        label: 'contains',
+                        style: {
+                          stroke: '#E8684A', // Color for deck-card relationship
+                          lineWidth: 2
+                        }
+                      });
                     });
                   }
-                }
-              });
+                });
+              } 
+              // Standard object with key-value pairs
+              else {
+                Object.keys(value).forEach(refKey => {
+                  // Handle special case for decks with cards as direct references
+                  if (nodeType.type === 'decks' && key === 'cards') {
+                    // Look for card with this ID
+                    databaseNodes.forEach(cardNodeType => {
+                      if (cardNodeType.type === 'cards') {
+                        const matchingCard = cardNodeType.nodes.find(cardNode => cardNode.id === refKey);
+                        if (matchingCard) {
+                          // Create an edge from deck to card
+                          edges.push({
+                            id: `edge_deck_${node.id}_card_${refKey}`,
+                            source: `${nodeType.type}_${node.id}`,
+                            target: `${cardNodeType.type}_${refKey}`,
+                            label: 'contains',
+                            style: {
+                              stroke: '#E8684A', // Color for deck-card relationship
+                              lineWidth: 2
+                            }
+                          });
+                        }
+                      }
+                    });
+                  }
+                  // Standard reference handling
+                  else if (value[refKey] === true) {
+                    const targetNode = findNodeById(nodes, refKey);
+                    if (targetNode) {
+                      // Apply styling for edges based on node relationships
+                      const edgeStyle = {};
+                      
+                      // Apply special colors for certain relationships
+                      if (nodeType.type === 'cards' && targetNode.type === 'values') {
+                        edgeStyle.stroke = '#9254DE'; // Purple for card-value relations
+                        edgeStyle.lineWidth = 2;
+                      } else if (nodeType.type === 'cards' && targetNode.type === 'capabilities') {
+                        edgeStyle.stroke = '#36CFC9'; // Teal for card-capability relations
+                        edgeStyle.lineWidth = 2;
+                      } else if (nodeType.type === 'decks' && key === 'cards') {
+                        edgeStyle.stroke = '#E8684A'; // Red for deck-card relations
+                        edgeStyle.lineWidth = 2;
+                      } else {
+                        edgeStyle.stroke = EDGE_COLOR_MAP.get('default'); // Default gray
+                      }
+                      
+                      edges.push({
+                        id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}_${key}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${targetNode.type}_${targetNode.nodeId}`,
+                        label: key,
+                        style: edgeStyle
+                      });
+                    }
+                  }
+                });
+              }
             }
           });
         }
@@ -578,6 +670,26 @@
                   <div class="flex items-center">
                     <span class="w-3 h-3 mr-2 rounded-full bg-[#36CFC9]"></span>
                     <span class="text-sm">Capabilities</span>
+                  </div>
+                </div>
+                
+                <h5 class="font-semibold mb-2 mt-4">Relationship Types</h5>
+                <div class="flex flex-wrap gap-3">
+                  <div class="flex items-center">
+                    <div class="w-8 h-0.5 mr-2 bg-[#b8b8b8]"></div>
+                    <span class="text-sm">Standard Relationship</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-8 h-1 mr-2 bg-[#E8684A]"></div>
+                    <span class="text-sm">Deck Contains Card</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-8 h-1 mr-2 bg-[#9254DE]"></div>
+                    <span class="text-sm">Card Has Value</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-8 h-1 mr-2 bg-[#36CFC9]"></div>
+                    <span class="text-sm">Card Has Capability</span>
                   </div>
                 </div>
               </div>
