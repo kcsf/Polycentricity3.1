@@ -20,6 +20,7 @@
                         <div class="hidden md:flex items-center space-x-4">
                                 <a href="/dashboard" class="hover:text-green-300">Dashboard</a>
                                 <a href="/games" class="hover:text-green-300">Games</a>
+                                <a href="/admin" class="hover:text-purple-300">Admin</a>
                                 
                                 {#if $userStore.isAuthenticated}
                                     <button class="text-red-300 hover:text-red-100" on:click={handleLogout}>Logout</button>
