@@ -453,14 +453,47 @@ export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'c
         console.log(`Importing ${cardsData.length} cards to deck ${deckId}`);
         let addedCount = 0;
         
-        for (const cardData of cardsData) {
-            const card = await createCard(cardData);
+        // Process cards in smaller batches to avoid overwhelming Gun.js
+        const batchSize = 5;
+        const batches = [];
+        
+        // Split cards into batches
+        for (let i = 0; i < cardsData.length; i += batchSize) {
+            batches.push(cardsData.slice(i, i + batchSize));
+        }
+        
+        console.log(`Processing ${batches.length} batches of cards`);
+        
+        // Process each batch sequentially
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} cards`);
             
-            if (card) {
-                const added = await addCardToDeck(deckId, card.card_id);
-                if (added) {
-                    addedCount++;
+            // Process cards in this batch
+            for (const cardData of batch) {
+                try {
+                    const card = await createCard(cardData);
+                    
+                    if (card) {
+                        const added = await addCardToDeck(deckId, card.card_id);
+                        if (added) {
+                            addedCount++;
+                            console.log(`Successfully added card ${card.card_id} to deck ${deckId} (${addedCount}/${cardsData.length})`);
+                        } else {
+                            console.warn(`Failed to add card ${card.card_id} to deck ${deckId}`);
+                        }
+                    } else {
+                        console.warn('Failed to create card:', cardData.role_title);
+                    }
+                } catch (cardError) {
+                    console.error('Error processing individual card:', cardError);
+                    // Continue with next card even if one fails
                 }
+            }
+            
+            // Add a small delay between batches to let Gun.js breathe
+            if (batchIndex < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
         

@@ -178,17 +178,55 @@ export function parseCapabilitiesText(capabilitiesText: string): string[] {
 
 // Create or get capabilities from a capabilities text string
 export async function createOrGetCapabilities(capabilitiesText: string): Promise<Record<string, boolean>> {
-    const capabilityNames = parseCapabilitiesText(capabilitiesText);
-    const capabilityMap: Record<string, boolean> = {};
-    
-    for (const name of capabilityNames) {
-        if (!name || name.trim() === '') continue;
+    try {
+        const capabilityNames = parseCapabilitiesText(capabilitiesText);
+        const capabilityMap: Record<string, boolean> = {};
+        const gun = getGun();
         
-        const capability = await createCapability(name.trim());
-        if (capability) {
-            capabilityMap[capability.capability_id] = true;
+        if (!gun) {
+            console.error('Gun not initialized');
+            return {};
         }
+        
+        // First check if capabilities already exist to avoid redundant creation
+        const existingCapabilities = await new Promise<Record<string, Capability>>((resolve) => {
+            const capabilities: Record<string, Capability> = {};
+            gun.get(nodes.capabilities).map().once((capabilityData: Capability, capabilityId: string) => {
+                if (capabilityData && capabilityData.name) {
+                    capabilities[capabilityData.name.toLowerCase()] = capabilityData;
+                }
+            });
+            
+            // Give Gun time to process
+            setTimeout(() => resolve(capabilities), 500);
+        });
+        
+        console.log(`Found ${Object.keys(existingCapabilities).length} existing capabilities`);
+        
+        // Process each capability name, reusing existing ones when possible
+        for (const name of capabilityNames) {
+            if (!name || name.trim() === '') continue;
+            
+            const trimmedName = name.trim();
+            const lowerName = trimmedName.toLowerCase();
+            
+            // Check if this capability already exists
+            if (existingCapabilities[lowerName]) {
+                const existingCapability = existingCapabilities[lowerName];
+                console.log(`Reusing existing capability: ${existingCapability.capability_id}`);
+                capabilityMap[existingCapability.capability_id] = true;
+            } else {
+                // Create a new capability only if it doesn't exist
+                const capability = await createCapability(trimmedName);
+                if (capability) {
+                    capabilityMap[capability.capability_id] = true;
+                }
+            }
+        }
+        
+        return capabilityMap;
+    } catch (error) {
+        console.error('Create or get capabilities error:', error);
+        return {};
     }
-    
-    return capabilityMap;
 }

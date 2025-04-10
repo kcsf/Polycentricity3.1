@@ -167,16 +167,54 @@ export async function deleteValue(valueId: string): Promise<boolean> {
 
 // Create or get values from an array of names
 export async function createOrGetValues(valueNames: string[]): Promise<Record<string, boolean>> {
-    const valueMap: Record<string, boolean> = {};
-    
-    for (const name of valueNames) {
-        if (!name || name.trim() === '') continue;
+    try {
+        const valueMap: Record<string, boolean> = {};
+        const gun = getGun();
         
-        const value = await createValue(name.trim());
-        if (value) {
-            valueMap[value.value_id] = true;
+        if (!gun) {
+            console.error('Gun not initialized');
+            return {};
         }
+        
+        // First check if values already exist to avoid redundant creation
+        const existingValues = await new Promise<Record<string, Value>>((resolve) => {
+            const values: Record<string, Value> = {};
+            gun.get(nodes.values).map().once((valueData: Value, valueId: string) => {
+                if (valueData && valueData.name) {
+                    values[valueData.name.toLowerCase()] = valueData;
+                }
+            });
+            
+            // Give Gun time to process
+            setTimeout(() => resolve(values), 500);
+        });
+        
+        console.log(`Found ${Object.keys(existingValues).length} existing values`);
+        
+        // Process each value name, reusing existing ones when possible
+        for (const name of valueNames) {
+            if (!name || name.trim() === '') continue;
+            
+            const trimmedName = name.trim();
+            const lowerName = trimmedName.toLowerCase();
+            
+            // Check if this value already exists
+            if (existingValues[lowerName]) {
+                const existingValue = existingValues[lowerName];
+                console.log(`Reusing existing value: ${existingValue.value_id}`);
+                valueMap[existingValue.value_id] = true;
+            } else {
+                // Create a new value only if it doesn't exist
+                const value = await createValue(trimmedName);
+                if (value) {
+                    valueMap[value.value_id] = true;
+                }
+            }
+        }
+        
+        return valueMap;
+    } catch (error) {
+        console.error('Create or get values error:', error);
+        return {};
     }
-    
-    return valueMap;
 }
