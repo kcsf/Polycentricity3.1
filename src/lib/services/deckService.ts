@@ -448,7 +448,7 @@ export async function initializeBidirectionalRelationships(): Promise<{success: 
 }
 
 // Import multiple cards and add them to a deck
-export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'card_id'>[]): Promise<{success: boolean, added: number}> {
+export async function importCardsToDeck(deckId: string, cardsData: any[]): Promise<{success: boolean, added: number}> {
     try {
         console.log(`Importing ${cardsData.length} cards to deck ${deckId}`);
         let addedCount = 0;
@@ -459,50 +459,155 @@ export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'c
             return { success: false, added: 0 };
         }
         
-        // Use an extremely small batch size for Gun.js to avoid overwhelming it
-        const batchSize = 1; // Process one card at a time
-        const timeout = 1000; // 1 second timeout between cards
+        // Longer timeout between operations to reduce Gun.js pressure
+        const timeout = 2000; 
         
-        // Make a copy of the data to avoid modifying the original
-        const cardQueue = [...cardsData];
+        // Step 1: Load all existing values into memory for faster processing
+        const valueMap: Record<string, string> = {};
         
-        // Function to process a single card with proper error handling
-        const processNextCard = async (): Promise<void> => {
-            if (cardQueue.length === 0) {
-                return; // Queue is empty, we're done
-            }
+        await new Promise<void>((resolve) => {
+            gun.get(nodes.values).map().once((valueData: any, valueId: string) => {
+                if (valueData && valueData.name) {
+                    // Store lowercased name -> id mapping for faster lookups
+                    valueMap[valueData.name.toLowerCase()] = valueId;
+                }
+            });
             
-            const cardData = cardQueue.shift();
-            if (!cardData) return;
+            // Wait a bit to make sure we get everything
+            setTimeout(resolve, 1000);
+        });
+        
+        console.log(`Pre-loaded ${Object.keys(valueMap).length} value IDs for faster lookups`);
+        
+        // Step 2: Load all existing capabilities for faster processing
+        const capabilityMap: Record<string, string> = {};
+        
+        await new Promise<void>((resolve) => {
+            gun.get(nodes.capabilities).map().once((capabilityData: any, capabilityId: string) => {
+                if (capabilityData && capabilityData.name) {
+                    // Store lowercased name -> id mapping for faster lookups
+                    capabilityMap[capabilityData.name.toLowerCase()] = capabilityId;
+                }
+            });
             
+            // Wait a bit to make sure we get everything
+            setTimeout(resolve, 1000);
+        });
+        
+        console.log(`Pre-loaded ${Object.keys(capabilityMap).length} capability IDs for faster lookups`);
+        
+        // Process cards one at a time
+        for (let i = 0; i < cardsData.length; i++) {
             try {
-                console.log(`Processing card: ${cardData.role_title} (${cardsData.length - cardQueue.length}/${cardsData.length})`);
+                const cardData = cardsData[i];
                 
-                // Pre-process values and capabilities to ensure they exist
-                if (cardData.values_text) {
-                    const valueNames = cardData.values_text.split(',').map(v => v.trim()).filter(v => v);
-                    if (valueNames.length > 0) {
-                        console.log(`Pre-processing ${valueNames.length} values for card`);
-                        gun.get(nodes.values).map().once(); // Trigger a data load
-                        // Wait a moment for Gun to load values
-                        await new Promise(resolve => setTimeout(resolve, 200));
+                // Skip if missing required fields
+                if (!cardData.role_title || !cardData.card_category) {
+                    console.warn('Skipping card with missing required fields:', cardData);
+                    continue;
+                }
+                
+                console.log(`Processing card ${i+1}/${cardsData.length}: "${cardData.role_title}"`);
+                
+                // Create a clean version of card data with proper typing
+                const cleanCardData: Partial<Card> = {
+                    card_number: cardData.card_number || Math.floor(Math.random() * 52) + 1,
+                    role_title: cardData.role_title,
+                    backstory: cardData.backstory || '',
+                    goals: cardData.goals || [],
+                    obligations: cardData.obligations || '',
+                    intellectual_property: cardData.intellectual_property || '',
+                    rivalrous_resources: cardData.rivalrous_resources || '',
+                    card_category: cardData.card_category,
+                    type: cardData.type || 'Individual',
+                    icon: cardData.icon || 'User'
+                };
+                
+                // Handle values - convert from various formats to record format
+                cleanCardData.values = {};
+                
+                if (Array.isArray(cardData.values)) {
+                    // Values provided as array of strings
+                    for (const value of cardData.values) {
+                        const normalized = value.toLowerCase();
+                        if (valueMap[normalized]) {
+                            // Use existing value ID if found
+                            (cleanCardData.values as Record<string, boolean>)[valueMap[normalized]] = true;
+                        } else {
+                            // Create the value if needed
+                            const newValue = await createValue(value);
+                            if (newValue) {
+                                (cleanCardData.values as Record<string, boolean>)[newValue.value_id] = true;
+                                // Add to our map for future lookups
+                                valueMap[value.toLowerCase()] = newValue.value_id;
+                            }
+                        }
+                    }
+                } else if (typeof cardData.values === 'string') {
+                    // Values provided as comma-separated string
+                    const valueNames = cardData.values.split(',').map(v => v.trim()).filter(v => v);
+                    for (const value of valueNames) {
+                        const normalized = value.toLowerCase();
+                        if (valueMap[normalized]) {
+                            // Use existing value ID if found
+                            (cleanCardData.values as Record<string, boolean>)[valueMap[normalized]] = true;
+                        } else {
+                            // Create the value if needed
+                            const newValue = await createValue(value);
+                            if (newValue) {
+                                (cleanCardData.values as Record<string, boolean>)[newValue.value_id] = true;
+                                // Add to our map for future lookups
+                                valueMap[value.toLowerCase()] = newValue.value_id;
+                            }
+                        }
                     }
                 }
                 
-                if (cardData.capabilities_text) {
-                    const capabilityNames = cardData.capabilities_text.split(',').map(c => c.trim()).filter(c => c);
-                    if (capabilityNames.length > 0) {
-                        console.log(`Pre-processing ${capabilityNames.length} capabilities for card`);
-                        gun.get(nodes.capabilities).map().once(); // Trigger a data load
-                        // Wait a moment for Gun to load capabilities
-                        await new Promise(resolve => setTimeout(resolve, 200));
+                // Handle capabilities - convert from various formats to record format
+                cleanCardData.capabilities = {};
+                
+                if (typeof cardData.capabilities === 'string') {
+                    // Capabilities provided as comma-separated string
+                    const capabilityNames = cardData.capabilities.split(',').map(c => c.trim()).filter(c => c);
+                    for (const capability of capabilityNames) {
+                        const normalized = capability.toLowerCase();
+                        if (capabilityMap[normalized]) {
+                            // Use existing capability ID if found
+                            (cleanCardData.capabilities as Record<string, boolean>)[capabilityMap[normalized]] = true;
+                        } else {
+                            // Create the capability if needed
+                            const newCapability = await createCapability(capability);
+                            if (newCapability) {
+                                (cleanCardData.capabilities as Record<string, boolean>)[newCapability.capability_id] = true;
+                                // Add to our map for future lookups
+                                capabilityMap[capability.toLowerCase()] = newCapability.capability_id;
+                            }
+                        }
+                    }
+                } else if (Array.isArray(cardData.capabilities)) {
+                    // Capabilities provided as array of strings
+                    for (const capability of cardData.capabilities) {
+                        const normalized = capability.toLowerCase();
+                        if (capabilityMap[normalized]) {
+                            // Use existing capability ID if found
+                            (cleanCardData.capabilities as Record<string, boolean>)[capabilityMap[normalized]] = true;
+                        } else {
+                            // Create the capability if needed
+                            const newCapability = await createCapability(capability);
+                            if (newCapability) {
+                                (cleanCardData.capabilities as Record<string, boolean>)[newCapability.capability_id] = true;
+                                // Add to our map for future lookups
+                                capabilityMap[capability.toLowerCase()] = newCapability.capability_id;
+                            }
+                        }
                     }
                 }
                 
-                // Create the card
-                const card = await createCard(cardData);
+                // Create card with our clean data
+                const card = await createCard(cleanCardData as Omit<Card, 'card_id'>);
                 
                 if (card) {
+                    // Add to deck
                     const added = await addCardToDeck(deckId, card.card_id);
                     if (added) {
                         addedCount++;
@@ -513,20 +618,15 @@ export async function importCardsToDeck(deckId: string, cardsData: Omit<Card, 'c
                 } else {
                     console.warn('Failed to create card:', cardData.role_title);
                 }
+                
+                // Wait between cards to let Gun.js breathe
+                if (i < cardsData.length - 1) {
+                    console.log(`Waiting ${timeout}ms before processing next card. ${cardsData.length - i - 1} cards remaining.`);
+                    await new Promise(resolve => setTimeout(resolve, timeout));
+                }
             } catch (cardError) {
                 console.error('Error processing individual card:', cardError);
                 // Continue with next card even if one fails
-            }
-        };
-        
-        // Process cards one by one with timeouts in between
-        while (cardQueue.length > 0) {
-            await processNextCard();
-            
-            // Add a timeout between each card to let Gun.js breathe
-            if (cardQueue.length > 0) {
-                console.log(`Waiting ${timeout}ms before processing next card. ${cardQueue.length} cards remaining.`);
-                await new Promise(resolve => setTimeout(resolve, timeout));
             }
         }
         
