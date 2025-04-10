@@ -1137,6 +1137,24 @@
                             <span class="w-2 h-2 rounded-full bg-[#5D7092]"></span>
                             <span class="text-xs">Agreement involves Actors</span>
                           </div>
+                        {:else if nodeType.type === 'cards'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#E8684A]"></span>
+                            <span class="text-xs">Card belongs to Decks</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#9254DE]"></span>
+                            <span class="text-xs">Card has Values</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#36CFC9]"></span>
+                            <span class="text-xs">Card has Capabilities</span>
+                          </div>
+                        {:else if nodeType.type === 'decks'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#F6BD16]"></span>
+                            <span class="text-xs">Deck contains Cards</span>
+                          </div>
                         {:else}
                           <div class="text-surface-500 text-xs">No defined relationships</div>
                         {/if}
