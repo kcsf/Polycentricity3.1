@@ -268,7 +268,7 @@
 // Valid JSON format:
 [
   {
-    "card_id": "1",
+    "card_number": 1,    // Important: This is a numeric value (1-52) used for card sorting
     "role_title": "Luminos Funder",
     "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
     "values": ["Sustainability", "Equity", "Community Resilience"],
@@ -286,7 +286,7 @@
 // OR JavaScript object format (without quotes on property names):
 [
   {
-    card_id: '2',
+    card_number: 2,    // Your cards will use this exact number (1-52)
     role_title: 'DAO of the Green Veil',
     backstory: 'A blockchain-based collective pooling crypto for eco-village experiments.',
     values: ['Decentralization', 'Sustainability', 'Transparency'],

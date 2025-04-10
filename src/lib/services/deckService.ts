@@ -73,9 +73,17 @@ export async function createCard(card: Omit<Card, 'card_id'>): Promise<Card | nu
         const cardId = `card_${generateId()}`;
         
         // Ensure card_number is set and within valid range
-        if (!card.card_number || isNaN(Number(card.card_number)) || card.card_number < 1 || card.card_number > 52) {
-            console.warn('Invalid card number, setting to random value', card.card_number);
+        // If card_number is explicitly provided, use it as-is
+        // Only generate random if completely missing
+        if (card.card_number === undefined || card.card_number === null) {
+            console.log('No card number provided, generating random number');
             card.card_number = Math.floor(Math.random() * 52) + 1;
+        } else {
+            // Convert to number if it's a string
+            if (typeof card.card_number === 'string') {
+                card.card_number = parseInt(card.card_number, 10);
+            }
+            console.log(`Using provided card number: ${card.card_number}`);
         }
         
         // Set default icon if not provided
