@@ -7,6 +7,7 @@
   import SchemaManager from '$lib/components/admin/SchemaManager.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
   import DatabaseFixer from '$lib/components/admin/DatabaseFixer.svelte';
+  import DeckManager from '$lib/components/admin/DeckManager.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
@@ -820,6 +821,10 @@
             
             <div class="mb-6">
               <DatabaseFixer />
+            </div>
+            
+            <div class="mb-6">
+              <DeckManager />
             </div>
             
             <h3 class="h3 mb-4">Database Structure</h3>
