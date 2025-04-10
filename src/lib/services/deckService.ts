@@ -222,76 +222,69 @@ export async function addCardToDeck(deckId: string, cardId: string): Promise<boo
             return false;
         }
         
-        // Get the current deck
-        const deck = await getDeck(deckId);
+        // Step 1: Simple approach - just directly set the relationships without checking existing state
+        console.log(`Direct approach: Adding card ${cardId} to deck's cards at path ${nodes.decks}/${deckId}/cards/${cardId}`);
         
-        if (!deck) {
-            console.error(`Deck not found: ${deckId}`);
-            return false;
-        }
-        
-        // Create or update the cards object in the deck
-        let cards: Record<string, boolean> = {};
-        
-        if (deck.cards) {
-            // Handle both array and object format
-            if (Array.isArray(deck.cards)) {
-                deck.cards.forEach(id => {
-                    cards[id] = true;
-                });
-            } else {
-                cards = { ...deck.cards };
-            }
-        }
-        
-        // Step 1: Add the card to the deck
-        cards[cardId] = true;
-        
-        // Step 2: Also add the deck to the card's decks property (bidirectional)
-        await new Promise<void>((resolve) => {
-            // First check if the card exists and get its current decks
-            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
-                if (!cardData) {
-                    console.error(`Card not found: ${cardId}`);
-                    resolve();
-                    return;
+        // First promise: Add card to deck
+        const step1Promise = new Promise<boolean>((resolve) => {
+            let timeoutHandled = false;
+            
+            // Direct approach to set the relationship
+            gun.get(nodes.decks).get(deckId).get('cards').get(cardId).put(true, (ack: any) => {
+                if (ack.err) {
+                    console.error(`Error adding card ${cardId} to deck ${deckId}:`, ack.err);
+                    !timeoutHandled && resolve(false);
+                } else {
+                    console.log(`Successfully added card ${cardId} to deck ${deckId} directly`);
+                    !timeoutHandled && resolve(true);
                 }
-                
-                console.log(`Found card: ${cardId}, adding deck reference`);
-                
-                // Create or update the decks object in the card
-                let decks: Record<string, boolean> = {};
-                
-                if (cardData.decks) {
-                    // Handle both array and object format
-                    if (Array.isArray(cardData.decks)) {
-                        cardData.decks.forEach((id: string) => {
-                            decks[id] = true;
-                        });
-                    } else {
-                        decks = { ...cardData.decks };
-                    }
-                }
-                
-                // Add the deck reference to the card
-                decks[deckId] = true;
-                
-                // Update the card with the deck reference
-                gun.get(nodes.cards).get(cardId).put({ decks }, (ack: any) => {
-                    if (ack.err) {
-                        console.error(`Error adding deck ${deckId} to card ${cardId}:`, ack.err);
-                    } else {
-                        console.log(`Added deck ${deckId} to card ${cardId}`);
-                    }
-                    resolve();
-                });
+                timeoutHandled = true;
             });
+            
+            // Add a timeout in case Gun.js doesn't respond
+            setTimeout(() => {
+                if (!timeoutHandled) {
+                    console.warn(`Timeout adding card ${cardId} to deck ${deckId} directly`);
+                    resolve(false);
+                    timeoutHandled = true;
+                }
+            }, 5000);
         });
         
-        // Step 3: Update the deck with the card reference
-        const updated = await updateDeck(deckId, { cards });
+        // Step 2: Add the deck to the card's decks property for bidirectional relationship
+        console.log(`Direct approach: Adding deck ${deckId} to card's decks at path ${nodes.cards}/${cardId}/decks/${deckId}`);
         
-        return updated;
+        // Second promise: Add deck to card
+        const step2Promise = new Promise<boolean>((resolve) => {
+            let timeoutHandled = false;
+            
+            // Direct approach to set the relationship
+            gun.get(nodes.cards).get(cardId).get('decks').get(deckId).put(true, (ack: any) => {
+                if (ack.err) {
+                    console.error(`Error adding deck ${deckId} to card ${cardId}:`, ack.err);
+                    !timeoutHandled && resolve(false);
+                } else {
+                    console.log(`Successfully added deck ${deckId} to card ${cardId} directly`);
+                    !timeoutHandled && resolve(true);
+                }
+                timeoutHandled = true;
+            });
+            
+            // Add a timeout in case Gun.js doesn't respond
+            setTimeout(() => {
+                if (!timeoutHandled) {
+                    console.warn(`Timeout adding deck ${deckId} to card ${cardId} directly`);
+                    resolve(false);
+                    timeoutHandled = true;
+                }
+            }, 5000);
+        });
+        
+        // Wait for both operations to complete
+        const [step1Result, step2Result] = await Promise.all([step1Promise, step2Promise]);
+        
+        console.log(`Completed adding card ${cardId} to deck ${deckId} - Success status: ${step1Result || step2Result}`);
+        return step1Result || step2Result; // Consider it a success if either direction works
     } catch (error) {
         console.error('Add card to deck error:', error);
         return false;
@@ -463,8 +456,8 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
         const { createValue } = await import('./valueService');
         const { createCapability } = await import('./capabilityService');
         
-        // Longer timeout between operations to reduce Gun.js pressure
-        const timeout = 2000; 
+        // Much longer timeout between operations to reduce Gun.js pressure
+        const timeout = 3500; // Increased to 3.5 seconds to ensure Gun.js can finish each operation
         
         // Step 1: Load all existing values into memory for faster processing
         const valueMap: Record<string, string> = {};
