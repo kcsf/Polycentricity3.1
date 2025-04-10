@@ -21,6 +21,7 @@
   let databaseNodes: any[] = [];
   let nodeCount = 0;
   let activeTab = 'overview';
+  let activeDataTab = 'users';
   
   // Cleanup variables
   let isCleanupLoading = false;
@@ -174,6 +175,10 @@
     }
   }
   
+  function handleDataTabChange(tab: string) {
+    activeDataTab = tab;
+  }
+  
   // Database cleanup functions
   async function performCleanup() {
     if (!confirm('WARNING: This action will permanently remove all user nodes from the database except your own. This cannot be undone. Are you sure you want to continue?')) {
@@ -316,24 +321,30 @@
   </header>
   
   <div class="card p-4 bg-white dark:bg-surface-800 shadow rounded-lg">
-    <div class="tabs mb-4">
+    <div class="tabs mb-4 border-b border-surface-300-600-token">
       <button 
-        class="tab {activeTab === 'overview' ? 'variant-filled-primary' : 'variant-ghost'}" 
+        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'overview' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
         on:click={() => handleTabChange('overview')}
       >
-        Database Overview
+        Overview
       </button>
       <button 
-        class="tab {activeTab === 'visualize' ? 'variant-filled-primary' : 'variant-ghost'}" 
+        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'data' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+        on:click={() => handleTabChange('data')}
+      >
+        Data
+      </button>
+      <button 
+        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'visualize' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
         on:click={() => handleTabChange('visualize')}
       >
         Visualize
       </button>
       <button 
-        class="tab {activeTab === 'cleanup' ? 'variant-filled-primary' : 'variant-ghost'}" 
+        class="tab tab-border-b-2 py-3 px-6 {activeTab === 'cleanup' ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
         on:click={() => handleTabChange('cleanup')}
       >
-        Database Cleanup
+        Cleanup
       </button>
     </div>
     
@@ -572,6 +583,112 @@
             {/if}
           </div>
         </div>
+      {:else if activeTab === 'data'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Database} class="text-primary-500" />
+              <div>
+                <h3 class="h4">Database Data</h3>
+                <p class="text-sm">Browse and explore the raw data stored in your Gun.js database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isLoading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Loading Database Data...</span>
+            </div>
+          {:else if error}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{error}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={fetchDatabaseStats}>Retry</button>
+              </div>
+            </div>
+          {:else}
+            <!-- Inner tabs for data types -->
+            <div class="card p-4 bg-surface-50-900-token">
+              <div class="tabs border-b border-surface-300-600-token mb-4">
+                {#each databaseNodes as nodeType}
+                  <button 
+                    class="tab tab-sm tab-border-b-2 py-2 px-4 {activeDataTab === nodeType.type ? 'variant-filled-primary' : 'hover:variant-soft-primary'}" 
+                    on:click={() => handleDataTabChange(nodeType.type)}
+                  >
+                    {nodeType.type}
+                    <span class="badge ml-2">{nodeType.count}</span>
+                  </button>
+                {/each}
+              </div>
+              
+              <!-- Data table for the selected type -->
+              {#if databaseNodes.length === 0}
+                <div class="p-8 text-center">
+                  <p class="text-surface-500">No data available</p>
+                </div>
+              {:else}
+                {#each databaseNodes.filter(n => n.type === activeDataTab) as nodeType}
+                  {#if nodeType.count === 0}
+                    <div class="p-8 text-center">
+                      <p class="text-surface-500">No {nodeType.type} nodes found</p>
+                    </div>
+                  {:else}
+                    <div class="table-container">
+                      <table class="table table-compact table-hover table-interactive">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Properties</th>
+                            <th>Created</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {#each nodeType.nodes as node}
+                            <tr>
+                              <td class="font-mono text-xs">{node.id.substring(0, 12)}...</td>
+                              <td>
+                                <div class="max-h-32 overflow-y-auto text-xs">
+                                  {#if typeof node.data === 'object'}
+                                    {#each Object.entries(node.data).filter(([key]) => !['_', '#'].includes(key)) as [key, value]}
+                                      <div class="mb-1">
+                                        <span class="font-semibold">{key}:</span> 
+                                        {#if typeof value === 'object'}
+                                          {JSON.stringify(value).substring(0, 50)}
+                                          {#if JSON.stringify(value).length > 50}...{/if}
+                                        {:else}
+                                          {String(value).substring(0, 50)}
+                                          {#if String(value).length > 50}...{/if}
+                                        {/if}
+                                      </div>
+                                    {/each}
+                                  {:else}
+                                    <span class="text-surface-500">No structured data</span>
+                                  {/if}
+                                </div>
+                              </td>
+                              <td>
+                                {#if node.data?.created_at}
+                                  {new Date(node.data.created_at).toLocaleDateString()}
+                                {:else}
+                                  -
+                                {/if}
+                              </td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    </div>
+                  {/if}
+                {/each}
+              {/if}
+            </div>
+          {/if}
+        </div>
       {:else}
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800-token mb-4">
@@ -640,45 +757,75 @@
                 </div>
               </div>
             {:else}
-              <div class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {#each databaseNodes as nodeType}
                   <div class="card p-4 variant-ghost-surface">
-                    <div class="flex justify-between items-center">
-                      <h4 class="font-semibold">{nodeType.type}</h4>
+                    <div class="flex justify-between items-center mb-3">
+                      <h4 class="font-semibold flex items-center">
+                        <span class="w-3 h-3 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
+                        {nodeType.type}
+                      </h4>
                       <span class="badge variant-filled">{nodeType.count} nodes</span>
                     </div>
                     
-                    {#if nodeType.count > 0}
-                      <div class="mt-2">
-                        <div class="table-container">
-                          <table class="table">
-                            <thead>
-                              <tr>
-                                <th>ID</th>
-                                <th>Data</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {#each nodeType.nodes.slice(0, 5) as node}
-                                <tr>
-                                  <td class="font-mono text-xs">{node.id.substring(0, 10)}...</td>
-                                  <td class="truncate max-w-md">
-                                    {JSON.stringify(node.data).substring(0, 50)}...
-                                  </td>
-                                </tr>
-                              {/each}
-                              {#if nodeType.nodes.length > 5}
-                                <tr>
-                                  <td colspan="2" class="text-center text-sm text-surface-500">
-                                    ...and {nodeType.nodes.length - 5} more
-                                  </td>
-                                </tr>
-                              {/if}
-                            </tbody>
-                          </table>
-                        </div>
+                    <div class="mb-2">
+                      <h5 class="text-sm font-semibold mb-1">Schema Structure</h5>
+                      <div class="bg-surface-100-800-token p-2 rounded font-mono text-xs">
+                        {#if nodeType.count > 0 && nodeType.nodes[0].data}
+                          {#each Object.keys(typeof nodeType.nodes[0].data === 'object' ? nodeType.nodes[0].data : {}) as key}
+                            <div><span class="text-primary-500">{key}</span>: {typeof nodeType.nodes[0].data[key]}</div>
+                          {/each}
+                        {:else}
+                          <div class="text-surface-500">No schema information available</div>
+                        {/if}
                       </div>
-                    {/if}
+                    </div>
+                    
+                    <div>
+                      <h5 class="text-sm font-semibold mb-1">Relationships</h5>
+                      <div class="bg-surface-100-800-token p-2 rounded">
+                        {#if nodeType.type === 'users'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">User belongs to many Games</span>
+                          </div>
+                        {:else if nodeType.type === 'games'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5B8FF9]"></span>
+                            <span class="text-xs">Game has many Users</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#5D7092]"></span>
+                            <span class="text-xs">Game has many Actors</span>
+                          </div>
+                        {:else if nodeType.type === 'chat'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5B8FF9]"></span>
+                            <span class="text-xs">Chat belongs to Users</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">Chat belongs to Game</span>
+                          </div>
+                        {:else if nodeType.type === 'actors'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">Actor belongs to Game</span>
+                          </div>
+                        {:else if nodeType.type === 'agreements'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">Agreement belongs to Game</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#5D7092]"></span>
+                            <span class="text-xs">Agreement involves Actors</span>
+                          </div>
+                        {:else}
+                          <div class="text-surface-500 text-xs">No defined relationships</div>
+                        {/if}
+                      </div>
+                    </div>
                   </div>
                 {/each}
               </div>
