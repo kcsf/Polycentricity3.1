@@ -12,18 +12,33 @@
     if (typeof window !== 'undefined') {
       try {
         // Import G6 only in browser
-        const g6Module = await import('@antv/g6');
-        G6 = g6Module;
+        try {
+          const g6Module = await import('@antv/g6');
+          // Handle both ESM and CommonJS exports
+          G6 = g6Module.default || g6Module;
+          
+          if (!G6 || !G6.Graph) {
+            console.error('G6 Graph class is not available!', g6Module);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to import G6:', err);
+          return;
+        }
         
         console.log('G6 loaded:', G6);
+        console.log('G6 Graph class methods:', Object.getOwnPropertyNames(G6.Graph.prototype));
         
         if (!G6 || !container) {
           console.error('G6 or container not available');
           return;
         }
         
+        console.log('Graph constructor:', G6.Graph);
+
         // Initialize graph
-        graph = new G6.Graph({
+        try {
+          graph = new G6.Graph({
           container,
           width: container.clientWidth,
           height: 600,
@@ -128,8 +143,24 @@
     
     console.log('Updating graph with data:', data);
     
-    graph.data(data);
-    graph.render();
+    // Use the correct method based on the found API
+    try {
+      console.log('Graph prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(graph)));
+      
+      if (typeof graph.setData === 'function') {
+        console.log('Using graph.setData() method');
+        graph.setData(data);
+      } else if (typeof graph.data === 'function') {
+        console.log('Using graph.data() method');
+        graph.data(data);
+      } else {
+        console.error('No compatible method found to set graph data');
+      }
+      
+      graph.render();
+    } catch (error) {
+      console.error('Error rendering graph:', error);
+    }
     
     setTimeout(() => {
       graph.fitView();
