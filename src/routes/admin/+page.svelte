@@ -12,6 +12,7 @@
   import DeckBrowser from '$lib/components/admin/DeckBrowser.svelte';
   import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
   import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
+  import DatabaseJson from '$lib/components/admin/DatabaseJson.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
@@ -561,6 +562,14 @@
         <svelte:component this={icons.Tool} class="w-4 h-4 mr-2" />
         Maintenance
       </button>
+      
+      <button 
+        class="admin-tab {activeTab === 'json' ? 'active' : ''}" 
+        on:click={() => handleTabChange('json')}
+      >
+        <svelte:component this={icons.Code} class="w-4 h-4 mr-2" />
+        JSON
+      </button>
     </div>
     
     <div class="p-4">
@@ -864,6 +873,9 @@
       {:else if activeTab === 'maintenance'}
         <!-- Render the DatabaseMaintenance component -->
         <DatabaseMaintenance />
+      {:else if activeTab === 'json'}
+        <!-- Render the DatabaseJson component -->
+        <DatabaseJson />
       {:else if activeTab === 'data'}
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800-token mb-4">
