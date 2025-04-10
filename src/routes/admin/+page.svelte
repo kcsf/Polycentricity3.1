@@ -553,6 +553,14 @@
         <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
         Cleanup
       </button>
+      
+      <button 
+        class="admin-tab {activeTab === 'maintenance' ? 'active' : ''}" 
+        on:click={() => handleTabChange('maintenance')}
+      >
+        <svelte:component this={icons.Tool} class="w-4 h-4 mr-2" />
+        Maintenance
+      </button>
     </div>
     
     <div class="p-4">
