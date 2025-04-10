@@ -9,6 +9,7 @@
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
   import DatabaseFixer from '$lib/components/admin/DatabaseFixer.svelte';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
+  import DeckBrowser from '$lib/components/admin/DeckBrowser.svelte';
   import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
@@ -439,6 +440,13 @@
         Data
       </button>
       <button 
+        class="admin-tab {activeTab === 'decks' ? 'active' : ''}" 
+        on:click={() => handleTabChange('decks')}
+      >
+        <svelte:component this={icons.Layout} class="w-4 h-4 mr-2" />
+        Decks
+      </button>
+      <button 
         class="admin-tab {activeTab === 'visualize' ? 'active' : ''}" 
         on:click={() => handleTabChange('visualize')}
       >
@@ -726,6 +734,11 @@
               </div>
             {/if}
           </div>
+        </div>
+      {:else if activeTab === 'decks'}
+        <div class="p-2">
+          <!-- Render the DeckBrowser component -->
+          <DeckBrowser />
         </div>
       {:else if activeTab === 'data'}
         <div class="p-2">
