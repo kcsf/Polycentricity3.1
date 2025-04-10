@@ -459,6 +459,10 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
             return { success: false, added: 0 };
         }
         
+        // Import support functions to handle value/capability creation
+        const { createValue } = await import('./valueService');
+        const { createCapability } = await import('./capabilityService');
+        
         // Longer timeout between operations to reduce Gun.js pressure
         const timeout = 2000; 
         
@@ -545,7 +549,7 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                     }
                 } else if (typeof cardData.values === 'string') {
                     // Values provided as comma-separated string
-                    const valueNames = cardData.values.split(',').map(v => v.trim()).filter(v => v);
+                    const valueNames = cardData.values.split(',').map((v: string) => v.trim()).filter((v: string) => v);
                     for (const value of valueNames) {
                         const normalized = value.toLowerCase();
                         if (valueMap[normalized]) {
@@ -568,7 +572,7 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                 
                 if (typeof cardData.capabilities === 'string') {
                     // Capabilities provided as comma-separated string
-                    const capabilityNames = cardData.capabilities.split(',').map(c => c.trim()).filter(c => c);
+                    const capabilityNames = cardData.capabilities.split(',').map((c: string) => c.trim()).filter((c: string) => c);
                     for (const capability of capabilityNames) {
                         const normalized = capability.toLowerCase();
                         if (capabilityMap[normalized]) {

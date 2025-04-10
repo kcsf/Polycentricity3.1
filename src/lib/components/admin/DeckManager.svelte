@@ -115,24 +115,34 @@
     importResult = null;
     
     try {
+      // Log the length of the input for debugging
+      console.log(`Import text length: ${importText.length} characters`);
+      
       // Try to parse the JSON
       let cardsData: Omit<Card, 'card_id'>[];
       
       try {
+        console.log('Attempting to parse card data...');
+        
         // First try standard JSON parse
         try {
           cardsData = JSON.parse(importText);
+          console.log('Successfully parsed as standard JSON');
         } catch (standardJsonError) {
+          console.log('Standard JSON parse failed, trying with JavaScript object format');
+          
           // If that fails, try evaluating it as JavaScript (for unquoted property names)
-          // This uses Function constructor which is safer than eval
           try {
             // Add quotes to property names
             const sanitizedText = importText
               .replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
               .replace(/'/g, '"'); // Replace single quotes with double quotes
               
+            console.log('Sanitized text for parsing');
             cardsData = JSON.parse(sanitizedText);
+            console.log('Successfully parsed as sanitized JavaScript object format');
           } catch (jsParseError) {
+            console.error('Both parsing methods failed', jsParseError);
             // If both methods fail, throw the original error
             throw standardJsonError;
           }
@@ -140,7 +150,20 @@
         
         // Check if it's an array
         if (!Array.isArray(cardsData)) {
+          console.log('Data is not an array, converting single object to array');
           cardsData = [cardsData]; // Convert single object to array
+        }
+        
+        // Log the parsed data length
+        console.log(`Successfully parsed ${cardsData.length} cards from input data`);
+        
+        // Debug: show a sample of the data
+        if (cardsData.length > 0) {
+          console.log('Sample of first card:', JSON.stringify(cardsData[0]).substring(0, 100) + '...');
+        }
+        
+        if (cardsData.length > 10) {
+          console.log(`Large import detected: ${cardsData.length} cards`);
         }
       } catch (parseError) {
         console.error('Error parsing JSON:', parseError);
@@ -153,18 +176,26 @@
       }
       
       // Validate card data
+      console.log('Validating card data...');
+      let validCards = 0;
+      
       for (const card of cardsData) {
         if (!card.role_title || !card.card_category || !card.type) {
           importResult = {
             success: false,
             message: 'Each card must have a role_title, card_category, and type'
           };
+          console.error('Validation failed - missing required fields', card);
           isImporting = false;
           return;
         }
+        validCards++;
       }
       
+      console.log(`Validation passed for all ${validCards} cards`);
+      
       // Import the cards
+      console.log(`Starting import of ${cardsData.length} cards to deck ${deckId}`);
       const result = await importCardsToDeck(deckId, cardsData);
       
       if (result.success) {
@@ -172,6 +203,7 @@
           success: true,
           message: `Successfully imported ${result.added} cards`
         };
+        console.log(`Import completed successfully. Added ${result.added} cards`);
         
         // Clear the import text
         importText = '';
@@ -183,6 +215,7 @@
           success: false,
           message: 'Failed to import cards'
         };
+        console.error('Import failed with result:', result);
       }
     } catch (error) {
       console.error('Error importing cards:', error);
@@ -309,10 +342,12 @@
           <textarea 
             class="textarea" 
             bind:value={importText}
-            rows="10"
+            rows="20"
             placeholder="Paste JSON data here..."
+            style="min-height: 300px; max-height: 600px;"
           ></textarea>
         </label>
+        <p class="text-xs mt-1">{importText.length} characters • Supports large imports (50+ cards)</p>
       </div>
       
       <button 
