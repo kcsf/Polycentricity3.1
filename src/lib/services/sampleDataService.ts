@@ -1,6 +1,15 @@
-import { getGun, nodes, generateId, put, createRelationship } from './gunService';
+import { getGun, nodes, generateId, put, createRelationship, type GunAck } from './gunService';
 
 // Sample data for initializing the database with the new schema
+// Helper function to handle Gun.js callbacks with proper typing
+function handleGunCallback(nodePath: string, ackName: string, ack: any): void {
+  if (ack && ack.err) {
+    console.warn(`Warning while saving ${nodePath} (${ackName}):`, ack.err);
+  } else {
+    console.log(`Successfully saved: ${nodePath} (${ackName})`);
+  }
+}
+
 export async function initializeSampleData() {
   console.log('Initializing sample data for the new database schema...');
   const gun = getGun();
@@ -165,16 +174,27 @@ export async function initializeSampleData() {
       }
     ];
 
-    // Use our improved put function to save data with proper timeouts
+    // Use direct GunJS methods for initialization to avoid Promise timeouts
     console.log('Saving users...');
     for (const user of users) {
       console.log(`Saving user: ${user.name}...`);
-      const result = await put(`${nodes.users}/${user.user_id}`, user);
-      if (result.err) {
-        console.error(`Error saving user ${user.name}:`, result.err);
-      } else {
-        console.log(`Successfully saved user: ${user.name}`);
-      }
+      await new Promise<void>(resolve => {
+        gun.get(nodes.users).get(user.user_id).put(user, (ack: any) => {
+          if (ack && ack.err) {
+            console.warn(`Warning while saving user ${user.name}:`, ack.err);
+          } else {
+            console.log(`Successfully saved user: ${user.name}`);
+          }
+          resolve(); // Continue regardless of errors so we can make progress
+        });
+        
+        // Set timeout to continue even if Gun never responds
+        setTimeout(() => {
+          console.log(`Continuing after user ${user.name} - Gun might still be processing`);
+          resolve();
+        }, 5000);
+      });
+      
       // Add delay between operations
       await new Promise(resolve => setTimeout(resolve, 500));
     }
@@ -182,23 +202,44 @@ export async function initializeSampleData() {
     console.log('Saving cards...');
     for (const card of cards) {
       console.log(`Saving card: ${card.role_title}...`);
-      const result = await put(`${nodes.cards}/${card.card_id}`, card);
-      if (result.err) {
-        console.error(`Error saving card ${card.role_title}:`, result.err);
-      } else {
-        console.log(`Successfully saved card: ${card.role_title}`);
-      }
+      await new Promise<void>(resolve => {
+        gun.get(nodes.cards).get(card.card_id).put(card, (ack: any) => {
+          if (ack && ack.err) {
+            console.warn(`Warning while saving card ${card.role_title}:`, ack.err);
+          } else {
+            console.log(`Successfully saved card: ${card.role_title}`);
+          }
+          resolve(); // Continue regardless of errors so we can make progress
+        });
+        
+        // Set timeout to continue even if Gun never responds
+        setTimeout(() => {
+          console.log(`Continuing after card ${card.role_title} - Gun might still be processing`);
+          resolve();
+        }, 5000);
+      });
+      
       // Add delay between operations
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     console.log('Saving deck...');
-    const deckResult = await put(`${nodes.decks}/${deck.deck_id}`, deck);
-    if (deckResult.err) {
-      console.error(`Error saving deck ${deck.name}:`, deckResult.err);
-    } else {
-      console.log(`Successfully saved deck: ${deck.name}`);
-    }
+    await new Promise<void>(resolve => {
+      gun.get(nodes.decks).get(deck.deck_id).put(deck, (ack: any) => {
+        if (ack && ack.err) {
+          console.warn(`Warning while saving deck ${deck.name}:`, ack.err);
+        } else {
+          console.log(`Successfully saved deck: ${deck.name}`);
+        }
+        resolve(); // Continue regardless of errors so we can make progress
+      });
+      
+      // Set timeout to continue even if Gun never responds
+      setTimeout(() => {
+        console.log(`Continuing after deck ${deck.name} - Gun might still be processing`);
+        resolve();
+      }, 5000);
+    });
     
     // Wait before creating relationships
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -208,36 +249,48 @@ export async function initializeSampleData() {
     for (const card of cards) {
       console.log(`Setting up relationship between deck ${deck.deck_id} and card ${card.card_id}...`);
       
-      // Create bidirectional relationships using our createRelationship function
+      // Create bidirectional relationships using direct Gun.js calls
       try {
-        // 1. Deck to Card relationship
-        const rel1 = await createRelationship(
-          `${nodes.decks}/${deck.deck_id}`,
-          'cards',
-          `${nodes.cards}/${card.card_id}`
-        );
-        
-        if (rel1.err) {
-          console.error(`Error creating deck->card relationship:`, rel1.err);
-        } else {
-          console.log(`Successfully created deck->card relationship`);
-        }
+        // 1. Deck to Card relationship - direct Gun.js set() method
+        await new Promise<void>(resolve => {
+          console.log(`Creating deck->card relationship: ${deck.deck_id} -> ${card.card_id}`);
+          gun.get(nodes.decks).get(deck.deck_id).get('cards').set(gun.get(nodes.cards).get(card.card_id), ack => {
+            if (ack.err) {
+              console.warn(`Warning creating deck->card relationship:`, ack.err);
+            } else {
+              console.log(`Successfully created deck->card relationship`);
+            }
+            resolve(); // Continue regardless of errors
+          });
+          
+          // Safety timeout
+          setTimeout(() => {
+            console.log(`Continuing after relationship creation - Gun might still be processing`);
+            resolve();
+          }, 5000);
+        });
         
         // Wait before creating reverse relationship
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // 2. Card to Deck relationship
-        const rel2 = await createRelationship(
-          `${nodes.cards}/${card.card_id}`,
-          'decks',
-          `${nodes.decks}/${deck.deck_id}`
-        );
-        
-        if (rel2.err) {
-          console.error(`Error creating card->deck relationship:`, rel2.err);
-        } else {
-          console.log(`Successfully created card->deck relationship`);
-        }
+        // 2. Card to Deck relationship - direct Gun.js set() method
+        await new Promise<void>(resolve => {
+          console.log(`Creating card->deck relationship: ${card.card_id} -> ${deck.deck_id}`);
+          gun.get(nodes.cards).get(card.card_id).get('decks').set(gun.get(nodes.decks).get(deck.deck_id), ack => {
+            if (ack.err) {
+              console.warn(`Warning creating card->deck relationship:`, ack.err);
+            } else {
+              console.log(`Successfully created card->deck relationship`);
+            }
+            resolve(); // Continue regardless of errors
+          });
+          
+          // Safety timeout
+          setTimeout(() => {
+            console.log(`Continuing after relationship creation - Gun might still be processing`);
+            resolve();
+          }, 5000);
+        });
       } catch (error) {
         console.error(`Error creating card-deck relationships:`, error);
       }
@@ -247,12 +300,21 @@ export async function initializeSampleData() {
     }
     
     console.log('Saving game...');
-    const gameResult = await put(`${nodes.games}/${game.game_id}`, game);
-    if (gameResult.err) {
-      console.error(`Error saving game ${game.name}:`, gameResult.err);
-    } else {
-      console.log(`Successfully saved game: ${game.name}`);
-    }
+    await new Promise<void>(resolve => {
+      gun.get(nodes.games).get(game.game_id).put(game, ack => {
+        if (ack.err) {
+          console.warn(`Warning while saving game ${game.name}:`, ack.err);
+        } else {
+          console.log(`Successfully saved game: ${game.name}`);
+        }
+        resolve();
+      });
+      
+      setTimeout(() => {
+        console.log(`Continuing after game ${game.name} - Gun might still be processing`);
+        resolve();
+      }, 5000);
+    });
     
     // Wait before continuing
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -260,34 +322,62 @@ export async function initializeSampleData() {
     console.log('Saving actors...');
     for (const actor of actors) {
       console.log(`Saving actor: ${actor.actor_id}...`);
-      const result = await put(`${nodes.actors}/${actor.actor_id}`, actor);
-      if (result.err) {
-        console.error(`Error saving actor ${actor.actor_id}:`, result.err);
-      } else {
-        console.log(`Successfully saved actor: ${actor.actor_id}`);
-      }
+      await new Promise<void>(resolve => {
+        gun.get(nodes.actors).get(actor.actor_id).put(actor, ack => {
+          if (ack.err) {
+            console.warn(`Warning while saving actor ${actor.actor_id}:`, ack.err);
+          } else {
+            console.log(`Successfully saved actor: ${actor.actor_id}`);
+          }
+          resolve();
+        });
+        
+        setTimeout(() => {
+          console.log(`Continuing after actor ${actor.actor_id} - Gun might still be processing`);
+          resolve();
+        }, 5000);
+      });
+      
       // Add delay between operations
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     console.log('Saving agreement...');
-    const agreementResult = await put(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
-    if (agreementResult.err) {
-      console.error(`Error saving agreement ${agreement.title}:`, agreementResult.err);
-    } else {
-      console.log(`Successfully saved agreement: ${agreement.title}`);
-    }
+    await new Promise<void>(resolve => {
+      gun.get(nodes.agreements).get(agreement.agreement_id).put(agreement, ack => {
+        if (ack.err) {
+          console.warn(`Warning while saving agreement ${agreement.title}:`, ack.err);
+        } else {
+          console.log(`Successfully saved agreement: ${agreement.title}`);
+        }
+        resolve();
+      });
+      
+      setTimeout(() => {
+        console.log(`Continuing after agreement ${agreement.title} - Gun might still be processing`);
+        resolve();
+      }, 5000);
+    });
     
     // Wait before continuing
     await new Promise(resolve => setTimeout(resolve, 500));
 
     console.log('Saving chat...');
-    const chatResult = await put(`${nodes.chat}/${chat.chat_id}`, chat);
-    if (chatResult.err) {
-      console.error(`Error saving chat ${chat.chat_id}:`, chatResult.err);
-    } else {
-      console.log(`Successfully saved chat: ${chat.chat_id}`);
-    }
+    await new Promise<void>(resolve => {
+      gun.get(nodes.chat).get(chat.chat_id).put(chat, ack => {
+        if (ack.err) {
+          console.warn(`Warning while saving chat ${chat.chat_id}:`, ack.err);
+        } else {
+          console.log(`Successfully saved chat: ${chat.chat_id}`);
+        }
+        resolve();
+      });
+      
+      setTimeout(() => {
+        console.log(`Continuing after chat ${chat.chat_id} - Gun might still be processing`);
+        resolve();
+      }, 5000);
+    });
     
     // Wait before continuing
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -295,12 +385,22 @@ export async function initializeSampleData() {
     console.log('Saving node positions...');
     for (const position of nodePositions) {
       console.log(`Saving position for: ${position.node_id}...`);
-      const result = await put(`${nodes.positions}/${position.node_id}`, position);
-      if (result.err) {
-        console.error(`Error saving position for ${position.node_id}:`, result.err);
-      } else {
-        console.log(`Successfully saved position for: ${position.node_id}`);
-      }
+      await new Promise<void>(resolve => {
+        gun.get(nodes.positions).get(position.node_id).put(position, ack => {
+          if (ack.err) {
+            console.warn(`Warning while saving position for ${position.node_id}:`, ack.err);
+          } else {
+            console.log(`Successfully saved position for: ${position.node_id}`);
+          }
+          resolve();
+        });
+        
+        setTimeout(() => {
+          console.log(`Continuing after position ${position.node_id} - Gun might still be processing`);
+          resolve();
+        }, 5000);
+      });
+      
       // Add delay between operations
       await new Promise(resolve => setTimeout(resolve, 500));
     }
