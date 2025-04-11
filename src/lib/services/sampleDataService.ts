@@ -535,7 +535,6 @@ export async function initializeSampleData() {
     );
     logAck(`card->cap ${c2.card_id} -> ${capId}`, cardToCapAck);
   }
-  }
 
   console.log("[seed] Sample data (with edges) initialized ✅");
   return { success: true, message: "Sample data initialized (edge style)" };

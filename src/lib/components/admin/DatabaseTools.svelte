@@ -53,7 +53,7 @@
     }
   }
   
-  // Initialize sample data function
+  // Initialize sample data function with enhanced debugging
   async function initializeData() {
     if (!confirm('Are you sure you want to initialize sample data with the new schema? This will add sample users, cards, decks, games, actors, agreements, chats, and node positions.')) {
       return;
@@ -62,9 +62,14 @@
     try {
       isInitializing = true;
       result = null;
+      console.log('[Admin UI] Starting sample data initialization...');
+      
+      // Call the enhanced sample data initialization function
       result = await initializeSampleData();
+      
+      console.log('[Admin UI] Sample data initialization complete:', result);
     } catch (error) {
-      console.error('Error initializing sample data:', error);
+      console.error('[Admin UI] Error initializing sample data:', error);
       result = {
         success: false,
         message: `Failed to initialize sample data: ${error instanceof Error ? error.message : String(error)}`
