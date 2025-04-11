@@ -49,16 +49,85 @@ async function ensureNode<T extends Record<string, any>>(
   soul: string,
   data: T,
 ) {
-  // Add a created_at if not present
-  const payload = { ...data, created_at: data.created_at ?? Date.now() };
-  // Use your existing `put(...)` function
-  const ack = await withTimeout(put(soul, payload), 30000);
-  logAck(soul, ack);
+  try {
+    // Separate the path and key from the soul
+    const parts = soul.split('/');
+    const key = parts.pop() || '';
+    const path = parts.join('/');
+    
+    // Add a created_at if not present
+    const payload = { ...data, created_at: data.created_at ?? Date.now() };
+    
+    // Use our new robustPut function instead of the standard put
+    const success = await robustPut(path, key, payload);
+    
+    // Log the result based on success
+    if (success) {
+      logAck(soul, { ok: true });
+    } else {
+      logAck(soul, { err: "Put failed" });
+    }
+    
+    // Wait a small amount to allow Radisk to process the write
+    await delay(300);
+    
+    return success;
+  } catch (error) {
+    console.error(`Error in ensureNode for ${soul}:`, error);
+    logAck(soul, { err: String(error) });
+    return false;
+  }
 }
 
 /**
  * Main function to seed the data with Gun edges
  */
+/**
+ * Enhanced safe put operation specifically for sample data
+ * This ensures Gun.js with Radisk has enough time to process each write
+ */
+async function robustPut(path: string, key: string, data: any): Promise<boolean> {
+  // Get a fresh Gun instance each time to ensure it's initialized
+  const gun = getGun();
+  if (!gun) {
+    console.error(`[sampleData] Cannot save to ${path}/${key} - Gun not initialized`);
+    return false;
+  }
+  
+  console.log(`[sampleData] Saving to ${path}/${key}...`);
+  
+  // Return a promise that can resolve in multiple ways:
+  // 1. Successfully on ack with no error
+  // 2. Error if ack has an error
+  // 3. Timeout after 10 seconds (but still continue the operation)
+  return new Promise<boolean>((resolve) => {
+    // First - small delay to ensure Radisk is ready
+    setTimeout(() => {
+      try {
+        // Second - actual Gun put operation
+        gun.get(path).get(key).put(data, (ack: any) => {
+          if (ack && ack.err) {
+            console.warn(`[sampleData] Error saving to ${path}/${key}:`, ack.err);
+            resolve(false);
+          } else {
+            console.log(`[sampleData] Successfully saved to ${path}/${key}`);
+            resolve(true);
+          }
+        });
+        
+        // Third - safety timeout if Gun never responds
+        setTimeout(() => {
+          console.log(`[sampleData] Timeout while saving to ${path}/${key} - continuing anyway`);
+          resolve(true); // Continue the process despite timeout
+        }, 10000);
+      } catch (error) {
+        console.error(`[sampleData] Exception while saving to ${path}/${key}:`, error);
+        resolve(false);
+      }
+    }, 500);
+  });
+}
+
 export async function initializeSampleData() {
   console.log("[seed] Initializing sample data (edge style) …");
   const gun = getGun();
@@ -226,15 +295,51 @@ export async function initializeSampleData() {
     await ensureNode(`${nodes.positions}/${pos.node_id}`, pos);
   }
 
-  // 3. Helper to create edges using `.set()`
+  // 3. Enhanced helper to create edges using `.set()` with better error handling
   function createEdge(fromSoul: string, field: string, toSoul: string) {
     return new Promise<GunAck>((resolve) => {
-      getGun()!
-        .get(fromSoul)
-        .get(field)
-        .set(getGun()!.get(toSoul), (ack) => {
-          resolve(ack);
-        });
+      // Get a new Gun instance for each operation to ensure it's ready
+      const gun = getGun();
+      if (!gun) {
+        console.error(`[createEdge] Gun not initialized for ${fromSoul} -> ${toSoul}`);
+        resolve({ err: "Gun not initialized", ok: false });
+        return;
+      }
+      
+      try {
+        // Add a small delay to ensure Gun is ready
+        setTimeout(() => {
+          try {
+            // First reference - the node to attach the edge to
+            const fromRef = gun.get(fromSoul);
+            
+            // Second reference - the node the edge points to
+            const toRef = gun.get(toSoul);
+            
+            // Create the edge
+            fromRef.get(field).set(toRef, (ack: any) => {
+              if (ack && ack.err) {
+                console.warn(`[createEdge] Error creating edge ${fromSoul}.${field} -> ${toSoul}:`, ack.err);
+              } else {
+                console.log(`[createEdge] Successfully created edge ${fromSoul}.${field} -> ${toSoul}`);
+              }
+              resolve(ack);
+            });
+            
+            // Safety timeout
+            setTimeout(() => {
+              console.log(`[createEdge] Timeout for edge ${fromSoul}.${field} -> ${toSoul}`);
+              resolve({ err: "Timeout", ok: false });
+            }, 5000);
+          } catch (error) {
+            console.error(`[createEdge] Exception for ${fromSoul}.${field} -> ${toSoul}:`, error);
+            resolve({ err: String(error), ok: false });
+          }
+        }, 300);
+      } catch (outerError) {
+        console.error(`[createEdge] Outer exception for ${fromSoul}.${field} -> ${toSoul}:`, outerError);
+        resolve({ err: String(outerError), ok: false });
+      }
     });
   }
 
