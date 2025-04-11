@@ -9,6 +9,7 @@
 	],
 	"/admin": [
 		"src/routes/admin/+page.ts",
+		"src/routes/+layout.ts",
 		"src/routes/+layout.ts"
 	],
 	"/api/db-json": [

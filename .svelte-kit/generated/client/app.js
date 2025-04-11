@@ -15,23 +15,24 @@ export const nodes = [
 	() => import('./nodes/11'),
 	() => import('./nodes/12'),
 	() => import('./nodes/13'),
-	() => import('./nodes/14')
+	() => import('./nodes/14'),
+	() => import('./nodes/15')
 ];
 
 export const server_loads = [];
 
 export const dictionary = {
-		"/": [4],
-		"/admin-simple": [6,[2]],
-		"/admin": [5],
-		"/dashboard": [7],
-		"/dbjson": [8,[3]],
-		"/games": [9],
-		"/games/create": [12],
-		"/games/[gameId]": [10],
-		"/games/[gameId]/chat": [11],
-		"/login": [13],
-		"/register": [14]
+		"/": [5],
+		"/admin-simple": [7,[3]],
+		"/admin": [6,[2]],
+		"/dashboard": [8],
+		"/dbjson": [9,[4]],
+		"/games": [10],
+		"/games/create": [13],
+		"/games/[gameId]": [11],
+		"/games/[gameId]/chat": [12],
+		"/login": [14],
+		"/register": [15]
 	};
 
 export const hooks = {
