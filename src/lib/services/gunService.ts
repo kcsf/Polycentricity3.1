@@ -5,13 +5,31 @@
  * 3. Single initialization point for the entire application
  */
 
+console.log("[Gun Imports] Starting import of Gun.js modules");
+
 // IMPORTANT - Import order matters! Radisk must be first
+try {
+  console.log("[Gun Imports] Loading Radisk adapter (IndexedDB)");
+  
+  // This import will register the Radisk adapter with Gun
+  import("gun/lib/radisk").then(() => {
+    console.log("[Gun Imports] ✓ Radisk adapter loaded successfully");
+  }).catch(err => {
+    console.error("[Gun Imports] ✗ Failed to load Radisk:", err);
+  });
+} catch (error) {
+  console.error("[Gun Imports] ✗ Exception loading Radisk:", error);
+}
+
+// Move these to top-level so they still execute in the right order
 import "gun/lib/radisk";          // IndexedDB adapter (MUST be first)
 import Gun from "gun";            // Core Gun import (after radisk)
 import "gun/sea";                 // SEA auth
 import "gun/lib/radix";           // Radix search helper
 import { browser } from "$app/environment";
 import type { IGunInstance, IGunUserInstance } from "gun";
+
+console.log("[Gun Imports] Finished importing Gun.js modules");
 
 /* ───────────────────────────── basics ───────────────────────────── */
 
@@ -38,25 +56,54 @@ export interface GunAck {
 export function initializeGun(): IGunInstance | undefined {
   // Skip if not in browser or already initialized or currently initializing
   if (!browser || isInitialized || isInitializing) {
+    console.log("[initializeGun] Skipping initialization - already initialized:", isInitialized, "or initializing:", isInitializing);
     return gun;
   }
   
   // Set flag to prevent concurrent initializations
   isInitializing = true;
+  console.log("[initializeGun] Starting Gun.js initialization");
+  
+  // Check if Gun global object has the expected methods
+  console.log("[initializeGun] Gun constructor available:", typeof Gun === 'function');
+  console.log("[initializeGun] Gun.on available:", typeof Gun.on === 'function');
+  console.log("[initializeGun] Gun.chain available:", !!Gun.chain);
+  
+  // Critical - check if Radisk is registered with Gun
+  const radiskRegistered = !!(Gun.RAD && Gun.on && Gun.chain);
+  console.log("[initializeGun] *** RADISK ADAPTER REGISTERED:", radiskRegistered, "***");
+  
+  if (!radiskRegistered) {
+    console.warn("[initializeGun] WARNING: Radisk adapter may not be properly registered");
+    console.warn("[initializeGun] Gun.RAD:", !!Gun.RAD, "- This must be true for IndexedDB to work");
+  }
   
   try {
     console.log("[initializeGun] Initializing Gun.js with peers:", PEERS);
     
     // Create the Gun instance with explicit options
-    gun = Gun({
+    const gunOpts = {
       radisk: true,        // Enable IndexedDB (Radisk)
       localStorage: false, // Disable localStorage (slower & blocking)
       peers: PEERS,        // Optional peer connections
-    });
+    };
+    
+    console.log("[initializeGun] Gun options:", gunOpts);
+    gun = Gun(gunOpts);
+    
+    if (!gun) {
+      console.error("[initializeGun] Failed to create Gun instance - returned undefined");
+      isInitializing = false;
+      return undefined;
+    }
+    
+    // Verify the Gun instance has expected methods
+    console.log("[initializeGun] Gun instance created with get:", typeof gun.get === 'function');
+    console.log("[initializeGun] Gun instance with put:", typeof gun.put === 'function');
     
     // Set initialization flags
     isInitialized = true;
-    console.log("[initializeGun] Gun initialized");
+    console.log("[initializeGun] Gun initialized successfully");
     
   } catch (error) {
     console.error("[initializeGun] Error initializing Gun:", error);
