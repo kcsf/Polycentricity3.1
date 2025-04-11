@@ -1,6 +1,15 @@
 import { getGun, nodes, generateId, put, createRelationship, type GunAck } from './gunService';
 
-// Sample data for initializing the database with the new schema
+/**
+ * SIMPLIFIED APPROACH FOR GUN.JS DATA INITIALIZATION
+ * 
+ * 1. No arrays anywhere (Gun.js doesn't handle them well)
+ * 2. Use direct put operations with very simple data
+ * 3. Add significant delays between operations
+ * 4. Use a simpler pattern less dependent on callbacks
+ * 5. Pay careful attention to Gun.js error patterns
+ */
+
 // Helper function to handle Gun.js callbacks with proper typing
 function handleGunCallback(nodePath: string, ackName: string, ack: any): void {
   if (ack && ack.err) {
@@ -10,78 +19,125 @@ function handleGunCallback(nodePath: string, ackName: string, ack: any): void {
   }
 }
 
+// Helper function to wait between Gun operations
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Simplified Gun put that doesn't rely on callbacks as much
+async function safePut(path: string, key: string, data: any): Promise<boolean> {
+  const gun = getGun();
+  if (!gun) return false;
+  
+  return new Promise<boolean>(resolve => {
+    console.log(`Saving to ${path}/${key}...`);
+    
+    gun.get(path).get(key).put(data, (ack: any) => {
+      if (ack && ack.err) {
+        console.warn(`Warning while saving to ${path}/${key}:`, ack.err);
+        resolve(false);
+      } else {
+        console.log(`Successfully saved to ${path}/${key}`);
+        resolve(true);
+      }
+    });
+    
+    // Safety timeout
+    setTimeout(() => {
+      console.log(`Timeout while saving to ${path}/${key} - continuing anyway`);
+      resolve(true); // Still continue the process
+    }, 3000);
+  });
+}
+
 export async function initializeSampleData() {
-  console.log('Initializing sample data for the new database schema...');
+  console.log('Initializing sample data with SIMPLIFIED Gun.js patterns...');
   const gun = getGun();
   if (!gun) {
     console.error('Failed to get Gun instance');
-    return;
+    return {
+      success: false,
+      message: 'Failed to get Gun instance'
+    };
   }
 
   try {
-    // Create sample users
-    const users = [
-      {
+    // STEP 1: Create and save users (one at a time with delays)
+    const users = {
+      'u123': {
         user_id: 'u123',
         name: 'Member User',
         email: 'member@example.com',
         created_at: Date.now(),
         role: 'Member'
       },
-      {
+      'u124': {
         user_id: 'u124',
         name: 'Guest User',
         email: 'guest@example.com',
         created_at: Date.now(),
         role: 'Guest'
       },
-      {
+      'u125': {
         user_id: 'u125',
         name: 'Admin User',
         email: 'admin@example.com',
         created_at: Date.now(),
         role: 'Admin'
       }
-    ];
+    };
 
-    // Create sample cards 
-    // Note: Storing goals as a string now instead of arrays
-    const cards = [
-      {
+    console.log('Saving users...');
+    for (const userId in users) {
+      const user = users[userId];
+      await safePut(nodes.users, userId, user);
+      await delay(1000); // Wait 1s between user saves
+    }
+    
+    // STEP 2: Create and save cards (one at a time with delays)
+    const cards = {
+      'c1': {
         card_id: 'c1',
         card_number: 1,
         role_title: 'Verdant Weaver',
         backstory: 'A skilled cultivator who weaves plant life into sustainable systems.',
-        values: {}, // Will be filled with relationship edges
+        values: {}, // Will be filled with relationship edges later
         goals: 'Create a self-sustaining garden, Train others in permaculture', // Stored as a string
         obligations: 'Must share knowledge with the community',
-        capabilities: {}, // Will be filled with relationship edges
+        capabilities: {}, // Will be filled with relationship edges later
         intellectual_property: 'Seed storage techniques',
         rivalrous_resources: 'Limited water supply',
         card_category: 'Providers',
         type: 'Practice',
         icon: 'Hammer',
-        decks: {} // Will be filled with relationship edges
+        decks: {} // Will be filled with relationship edges later
       },
-      {
+      'c2': {
         card_id: 'c2',
         card_number: 2,
         role_title: 'Luminos Funder',
         backstory: 'A visionary investor who funds innovative ecological projects.',
-        values: {}, // Will be filled with relationship edges
+        values: {}, // Will be filled with relationship edges later
         goals: 'Fund 5 eco-projects, Create a funding network', // Stored as a string
         obligations: 'Must transparently report all funding allocations',
-        capabilities: {}, // Will be filled with relationship edges
+        capabilities: {}, // Will be filled with relationship edges later
         intellectual_property: 'Investment strategy methodologies',
         rivalrous_resources: 'Limited investment capital',
         card_category: 'Funders',
         type: 'DAO',
         icon: 'CircleDollarSign',
-        decks: {} // Will be filled with relationship edges
+        decks: {} // Will be filled with relationship edges later
       }
-    ];
+    };
 
-    // Create sample deck (base data first)
+    console.log('Saving cards...');
+    for (const cardId in cards) {
+      const card = cards[cardId];
+      await safePut(nodes.cards, cardId, card);
+      await delay(1000); // Wait 1s between card saves
+    }
+    
+    // STEP 3: Create and save a deck
     const deck = {
       deck_id: 'd1',
       name: 'Eco-Village Standard Deck',
@@ -89,46 +145,97 @@ export async function initializeSampleData() {
       creator: 'u125', // Created by Admin user
       created_at: Date.now(),
       updated_at: Date.now(),
-      cards: {} // Will be filled with relationship edges
+      cards: {} // Will be filled with relationship edges later
     };
-
-    // Create sample game
+    
+    console.log('Saving deck...');
+    await safePut(nodes.decks, 'd1', deck);
+    await delay(1000); // Wait 1s before next operation
+    
+    // STEP 4: Set up relationships between deck and cards
+    console.log('Creating deck-card relationships...');
+    // Simple way to create a relationship - for each card, add a reference in the deck
+    for (const cardId in cards) {
+      // Create a simple reference from deck to card (id: true pattern)
+      await new Promise<void>(resolve => {
+        gun.get(nodes.decks).get('d1').get('cards').get(cardId).put(true, (ack: any) => {
+          if (ack && ack.err) {
+            console.warn(`Warning creating deck->card relationship for ${cardId}:`, ack.err);
+          } else {
+            console.log(`Successfully created deck->card relationship for ${cardId}`);
+          }
+          resolve();
+        });
+        
+        // Safety timeout
+        setTimeout(resolve, 3000);
+      });
+      
+      // Create reverse relationship (card to deck)
+      await new Promise<void>(resolve => {
+        gun.get(nodes.cards).get(cardId).get('decks').get('d1').put(true, (ack: any) => {
+          if (ack && ack.err) {
+            console.warn(`Warning creating card->deck relationship for ${cardId}:`, ack.err);
+          } else {
+            console.log(`Successfully created card->deck relationship for ${cardId}`);
+          }
+          resolve();
+        });
+        
+        // Safety timeout
+        setTimeout(resolve, 3000);
+      });
+      
+      await delay(1000); // Wait 1s between relationship sets
+    }
+    
+    // STEP 5: Create and save a game
     const game = {
       game_id: 'g456',
       name: 'Test Eco-Village',
       creator: 'u125', // Created by Admin user
       deck_id: 'd1',
       role_assignment: 'choice',
-      players: { u123: true, u124: true },
+      players: { u123: true, u124: true }, // Object format instead of array
       created_at: Date.now(),
       status: 'active'
     };
-
-    // Create sample actors
-    const actors = [
-      {
+    
+    console.log('Saving game...');
+    await safePut(nodes.games, 'g456', game);
+    await delay(1000); // Wait 1s before next operation
+    
+    // STEP 6: Create and save actors
+    const actors = {
+      'a1': {
         actor_id: 'a1',
         game_id: 'g456',
         user_id: 'u123',
         card_id: 'c1'
       },
-      {
+      'a2': {
         actor_id: 'a2',
         game_id: 'g456',
         user_id: 'u124',
         card_id: 'c2'
       }
-    ];
-
-    // Create sample agreement - NO ARRAYS, Gun.js can't handle them
+    };
+    
+    console.log('Saving actors...');
+    for (const actorId in actors) {
+      const actor = actors[actorId];
+      await safePut(nodes.actors, actorId, actor);
+      await delay(1000); // Wait 1s between actor saves
+    }
+    
+    // STEP 7: Create and save agreement
     const agreement = {
       agreement_id: 'ag1',
       game_id: 'g456',
       title: 'Funding for Garden Initiative',
       summary: 'Luminos Funder provides capital to Verdant Weaver for a community garden',
       type: 'asymmetric',
-      // Convert array to object with numbered keys
-      parties: { 0: 'a1', 1: 'a2' },
+      parties: { 0: 'a1', 1: 'a2' }, // Object format for the parties (not array)
       obligations: {
         a1: 'Create and maintain community garden for one year',
         a2: 'Provide 5000 credits of funding and quarterly reviews'
@@ -140,14 +247,17 @@ export async function initializeSampleData() {
       status: 'accepted',
       created_at: Date.now()
     };
-
-    // Create sample chat - NO ARRAYS for Gun.js
+    
+    console.log('Saving agreement...');
+    await safePut(nodes.agreements, 'ag1', agreement);
+    await delay(1000); // Wait 1s before next operation
+    
+    // STEP 8: Create and save chat
     const chat = {
       chat_id: 'g456_group',
       game_id: 'g456',
       type: 'group',
-      // Convert arrays to objects with numbered keys
-      participants: { 0: 'u123', 1: 'u124' },
+      participants: { 0: 'u123', 1: 'u124' }, // Object format (not array)
       messages: {
         0: {
           id: generateId(),
@@ -159,9 +269,13 @@ export async function initializeSampleData() {
         }
       }
     };
-
-    // Create sample node positions - No arrays for Gun.js
-    const nodePositions = {
+    
+    console.log('Saving chat...');
+    await safePut(nodes.chat, 'g456_group', chat);
+    await delay(1000); // Wait 1s before next operation
+    
+    // STEP 9: Create and save node positions
+    const positions = {
       'a1': {
         node_id: 'a1',
         game_id: 'g456',
@@ -175,244 +289,18 @@ export async function initializeSampleData() {
         y: 200
       }
     };
-
-    // Use direct GunJS methods for initialization to avoid Promise timeouts
-    console.log('Saving users...');
-    for (const user of users) {
-      console.log(`Saving user: ${user.name}...`);
-      await new Promise<void>(resolve => {
-        gun.get(nodes.users).get(user.user_id).put(user, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`Warning while saving user ${user.name}:`, ack.err);
-          } else {
-            console.log(`Successfully saved user: ${user.name}`);
-          }
-          resolve(); // Continue regardless of errors so we can make progress
-        });
-        
-        // Set timeout to continue even if Gun never responds
-        setTimeout(() => {
-          console.log(`Continuing after user ${user.name} - Gun might still be processing`);
-          resolve();
-        }, 5000);
-      });
-      
-      // Add delay between operations
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
     
-    console.log('Saving cards...');
-    for (const card of cards) {
-      console.log(`Saving card: ${card.role_title}...`);
-      await new Promise<void>(resolve => {
-        gun.get(nodes.cards).get(card.card_id).put(card, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`Warning while saving card ${card.role_title}:`, ack.err);
-          } else {
-            console.log(`Successfully saved card: ${card.role_title}`);
-          }
-          resolve(); // Continue regardless of errors so we can make progress
-        });
-        
-        // Set timeout to continue even if Gun never responds
-        setTimeout(() => {
-          console.log(`Continuing after card ${card.role_title} - Gun might still be processing`);
-          resolve();
-        }, 5000);
-      });
-      
-      // Add delay between operations
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    console.log('Saving deck...');
-    await new Promise<void>(resolve => {
-      gun.get(nodes.decks).get(deck.deck_id).put(deck, (ack: any) => {
-        if (ack && ack.err) {
-          console.warn(`Warning while saving deck ${deck.name}:`, ack.err);
-        } else {
-          console.log(`Successfully saved deck: ${deck.name}`);
-        }
-        resolve(); // Continue regardless of errors so we can make progress
-      });
-      
-      // Set timeout to continue even if Gun never responds
-      setTimeout(() => {
-        console.log(`Continuing after deck ${deck.name} - Gun might still be processing`);
-        resolve();
-      }, 5000);
-    });
-    
-    // Wait before creating relationships
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Create card-to-deck relationships using the proper method
-    console.log('Setting up card-deck relationships...');
-    for (const card of cards) {
-      console.log(`Setting up relationship between deck ${deck.deck_id} and card ${card.card_id}...`);
-      
-      // Create bidirectional relationships using direct Gun.js calls
-      try {
-        // 1. Deck to Card relationship - direct Gun.js set() method
-        await new Promise<void>(resolve => {
-          console.log(`Creating deck->card relationship: ${deck.deck_id} -> ${card.card_id}`);
-          gun.get(nodes.decks).get(deck.deck_id).get('cards').set(gun.get(nodes.cards).get(card.card_id), (ack: any) => {
-            if (ack && ack.err) {
-              console.warn(`Warning creating deck->card relationship:`, ack.err);
-            } else {
-              console.log(`Successfully created deck->card relationship`);
-            }
-            resolve(); // Continue regardless of errors
-          });
-          
-          // Safety timeout
-          setTimeout(() => {
-            console.log(`Continuing after relationship creation - Gun might still be processing`);
-            resolve();
-          }, 5000);
-        });
-        
-        // Wait before creating reverse relationship
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // 2. Card to Deck relationship - direct Gun.js set() method
-        await new Promise<void>(resolve => {
-          console.log(`Creating card->deck relationship: ${card.card_id} -> ${deck.deck_id}`);
-          gun.get(nodes.cards).get(card.card_id).get('decks').set(gun.get(nodes.decks).get(deck.deck_id), (ack: any) => {
-            if (ack && ack.err) {
-              console.warn(`Warning creating card->deck relationship:`, ack.err);
-            } else {
-              console.log(`Successfully created card->deck relationship`);
-            }
-            resolve(); // Continue regardless of errors
-          });
-          
-          // Safety timeout
-          setTimeout(() => {
-            console.log(`Continuing after relationship creation - Gun might still be processing`);
-            resolve();
-          }, 5000);
-        });
-      } catch (error) {
-        console.error(`Error creating card-deck relationships:`, error);
-      }
-      
-      // Add delay between cards
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    console.log('Saving game...');
-    await new Promise<void>(resolve => {
-      gun.get(nodes.games).get(game.game_id).put(game, (ack: any) => {
-        if (ack && ack.err) {
-          console.warn(`Warning while saving game ${game.name}:`, ack.err);
-        } else {
-          console.log(`Successfully saved game: ${game.name}`);
-        }
-        resolve();
-      });
-      
-      setTimeout(() => {
-        console.log(`Continuing after game ${game.name} - Gun might still be processing`);
-        resolve();
-      }, 5000);
-    });
-    
-    // Wait before continuing
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    console.log('Saving actors...');
-    for (const actor of actors) {
-      console.log(`Saving actor: ${actor.actor_id}...`);
-      await new Promise<void>(resolve => {
-        gun.get(nodes.actors).get(actor.actor_id).put(actor, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`Warning while saving actor ${actor.actor_id}:`, ack.err);
-          } else {
-            console.log(`Successfully saved actor: ${actor.actor_id}`);
-          }
-          resolve();
-        });
-        
-        setTimeout(() => {
-          console.log(`Continuing after actor ${actor.actor_id} - Gun might still be processing`);
-          resolve();
-        }, 5000);
-      });
-      
-      // Add delay between operations
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    console.log('Saving agreement...');
-    await new Promise<void>(resolve => {
-      gun.get(nodes.agreements).get(agreement.agreement_id).put(agreement, (ack: any) => {
-        if (ack && ack.err) {
-          console.warn(`Warning while saving agreement ${agreement.title}:`, ack.err);
-        } else {
-          console.log(`Successfully saved agreement: ${agreement.title}`);
-        }
-        resolve();
-      });
-      
-      setTimeout(() => {
-        console.log(`Continuing after agreement ${agreement.title} - Gun might still be processing`);
-        resolve();
-      }, 5000);
-    });
-    
-    // Wait before continuing
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    console.log('Saving chat...');
-    await new Promise<void>(resolve => {
-      gun.get(nodes.chat).get(chat.chat_id).put(chat, (ack: any) => {
-        if (ack && ack.err) {
-          console.warn(`Warning while saving chat ${chat.chat_id}:`, ack.err);
-        } else {
-          console.log(`Successfully saved chat: ${chat.chat_id}`);
-        }
-        resolve();
-      });
-      
-      setTimeout(() => {
-        console.log(`Continuing after chat ${chat.chat_id} - Gun might still be processing`);
-        resolve();
-      }, 5000);
-    });
-    
-    // Wait before continuing
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     console.log('Saving node positions...');
-    // Since nodePositions is now an object, we need to iterate differently
-    for (const nodeId in nodePositions) {
-      const position = nodePositions[nodeId];
-      console.log(`Saving position for: ${position.node_id}...`);
-      await new Promise<void>(resolve => {
-        gun.get(nodes.positions).get(position.node_id).put(position, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`Warning while saving position for ${position.node_id}:`, ack.err);
-          } else {
-            console.log(`Successfully saved position for: ${position.node_id}`);
-          }
-          resolve();
-        });
-        
-        setTimeout(() => {
-          console.log(`Continuing after position ${position.node_id} - Gun might still be processing`);
-          resolve();
-        }, 5000);
-      });
-      
-      // Add delay between operations
-      await new Promise(resolve => setTimeout(resolve, 500));
+    for (const nodeId in positions) {
+      const position = positions[nodeId];
+      await safePut(nodes.positions, nodeId, position);
+      await delay(1000); // Wait 1s between position saves
     }
-
+    
     console.log('Sample data initialization complete!');
     return { 
       success: true, 
-      message: 'Sample data initialized successfully' 
+      message: 'Sample data initialized successfully using simplified Gun.js patterns' 
     };
   } catch (error) {
     console.error('Error initializing sample data:', error);
@@ -423,44 +311,72 @@ export async function initializeSampleData() {
   }
 }
 
-// Verify the sample data by logging each node type
+// Verify the sample data by logging and counting each node type
 export async function verifySampleData() {
-  console.log('Verifying sample data...');
+  console.log('Verifying sample data with improved counting...');
   const gun = getGun();
   if (!gun) {
     console.error('Failed to get Gun instance');
-    return;
+    return {
+      success: false,
+      message: 'Failed to get Gun instance'
+    };
   }
 
   try {
-    console.log('Verifying users...');
-    gun.get(nodes.users).map().once(console.log);
+    const stats: Record<string, { count: number; items: string[] }> = {};
     
-    console.log('Verifying cards...');
-    gun.get(nodes.cards).map().once(console.log);
+    // Helper function to check a node type
+    async function checkNodeType(nodeType: string): Promise<void> {
+      return new Promise((resolve) => {
+        console.log(`Checking ${nodeType}...`);
+        const items: string[] = [];
+        let count = 0;
+        
+        gun.get(nodeType).map().once((data: any, key: string) => {
+          if (data) {
+            count++;
+            items.push(key);
+            console.log(`Found ${nodeType} with key:`, key, data);
+          }
+        });
+        
+        // Need a timeout since Gun's once() doesn't tell us when it's done
+        setTimeout(() => {
+          console.log(`Found ${count} items in ${nodeType}: ${items.join(', ')}`);
+          stats[nodeType] = { count, items };
+          resolve();
+        }, 2000);
+      });
+    }
     
-    console.log('Verifying decks...');
-    gun.get(nodes.decks).map().once(console.log);
+    // Check all node types
+    await checkNodeType(nodes.users);
+    await checkNodeType(nodes.cards);
+    await checkNodeType(nodes.decks);
+    await checkNodeType(nodes.games);
+    await checkNodeType(nodes.actors);
+    await checkNodeType(nodes.agreements);
+    await checkNodeType(nodes.chat);
+    await checkNodeType(nodes.positions);
     
-    console.log('Verifying games...');
-    gun.get(nodes.games).map().once(console.log);
+    console.log('Verification summary:');
+    for (const nodeType in stats) {
+      console.log(`${nodeType}: ${stats[nodeType].count} items`);
+      if (stats[nodeType].items.length > 0) {
+        console.log(`  Items: ${stats[nodeType].items.join(', ')}`);
+      }
+    }
     
-    console.log('Verifying actors...');
-    gun.get(nodes.actors).map().once(console.log);
+    // Check if we have data
+    const hasData = Object.values(stats).some(stat => stat.count > 0);
     
-    console.log('Verifying agreements...');
-    gun.get(nodes.agreements).map().once(console.log);
-    
-    console.log('Verifying chat...');
-    gun.get(nodes.chat).map().once(console.log);
-    
-    console.log('Verifying node positions...');
-    gun.get(nodes.positions).map().once(console.log);
-
     console.log('Verification complete!');
     return { 
-      success: true, 
-      message: 'Sample data verification completed' 
+      success: hasData, 
+      message: hasData 
+        ? 'Sample data verification completed successfully'
+        : 'No data found in the database'
     };
   } catch (error) {
     console.error('Error verifying sample data:', error);
