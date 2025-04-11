@@ -89,7 +89,7 @@ async function ensureNode<T extends Record<string, any>>(
  */
 /**
  * Enhanced safe put operation specifically for sample data
- * This ensures Gun.js with Radisk has enough time to process each write
+ * This ensures Gun.js has enough time to process each write
  */
 async function robustPut(path: string, key: string, data: any): Promise<boolean> {
   // Get a fresh Gun instance each time to ensure it's initialized
@@ -101,33 +101,42 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
   
   console.log(`[sampleData] Saving to ${path}/${key}...`);
   
-  // Clean the data to ensure there are no undefined values
-  // This is critical for Gun.js to work properly
-  const cleanData: Record<string, any> = {};
-  
-  for (const k in data) {
-    if (data[k] !== undefined) {
-      // For objects, recursively clean them
-      if (typeof data[k] === 'object' && data[k] !== null) {
-        // Handle nested objects
-        const cleanNested: Record<string, any> = {};
-        for (const nestedKey in data[k]) {
-          if (data[k][nestedKey] !== undefined) {
-            cleanNested[nestedKey] = data[k][nestedKey];
-          }
+  // Helper function to deep clean an object
+  function deepClean(obj: any): any {
+    // Handle null case
+    if (obj === null) return null;
+    
+    // Handle non-object values
+    if (typeof obj !== 'object') return obj;
+    
+    // Handle arrays by converting to Gun-compatible indexed objects
+    if (Array.isArray(obj)) {
+      const result: Record<string, any> = {};
+      obj.forEach((val, idx) => {
+        if (val !== undefined) {
+          result[idx] = deepClean(val);
         }
-        cleanData[k] = cleanNested;
-      } else {
-        // For primitive values, just copy them
-        cleanData[k] = data[k];
-      }
-    } else {
-      // Skip undefined fields
-      console.log(`[sampleData] Skipping undefined field ${k} in ${path}/${key}`);
+      });
+      return result;
     }
+    
+    // Handle regular objects with recursive cleaning
+    const cleanObj: Record<string, any> = {};
+    for (const key in obj) {
+      // Only include properties that exist and aren't undefined
+      if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined) {
+        // Recursively clean nested values
+        cleanObj[key] = deepClean(obj[key]);
+      }
+    }
+    
+    return cleanObj;
   }
   
-  // Print the cleaned data object
+  // Clean the data object thoroughly
+  const cleanData = deepClean(data);
+  
+  // Print the cleaned data object for debugging
   console.log(`[sampleData] Cleaned data for ${path}/${key}:`, JSON.stringify(cleanData));
   
   // Return a promise that can resolve in multiple ways:
@@ -135,7 +144,7 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
   // 2. Error if ack has an error
   // 3. Timeout after 10 seconds (but still continue the operation)
   return new Promise<boolean>((resolve) => {
-    // First - small delay to ensure Radisk is ready
+    // First - small delay to ensure Gun is ready
     setTimeout(() => {
       try {
         // Second - actual Gun put operation with clean data
