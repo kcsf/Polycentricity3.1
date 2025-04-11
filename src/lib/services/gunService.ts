@@ -5,31 +5,43 @@
  * 3. Single initialization point for the entire application
  */
 
-console.log("[Gun Imports] Starting import of Gun.js modules");
+// IMPORTANT: This import order is critical for Radisk to work correctly
+console.log("[Gun Imports] Loading modules in the proper order for Radisk support");
 
-// IMPORTANT - Import order matters! Radisk must be first
-try {
-  console.log("[Gun Imports] Loading Radisk adapter (IndexedDB)");
-  
-  // This import will register the Radisk adapter with Gun
-  import("gun/lib/radisk").then(() => {
-    console.log("[Gun Imports] ✓ Radisk adapter loaded successfully");
-  }).catch(err => {
-    console.error("[Gun Imports] ✗ Failed to load Radisk:", err);
-  });
-} catch (error) {
-  console.error("[Gun Imports] ✗ Exception loading Radisk:", error);
-}
+// FIRST: Import Radisk adapter from our separate file
+// This ensures the adapter loads before any Gun constructor
+import { radiskLoaded } from './gunRadiskAdapter'; 
+console.log("[Gun Imports] Radisk pre-loaded:", radiskLoaded);
 
-// Move these to top-level so they still execute in the right order
-import "gun/lib/radisk";          // IndexedDB adapter (MUST be first)
-import Gun from "gun";            // Core Gun import (after radisk)
-import "gun/sea";                 // SEA auth
-import "gun/lib/radix";           // Radix search helper
+// SECOND: Now import Gun core - this should see the Radisk adapter
+import Gun from "gun";
+console.log("[Gun Imports] Gun core module loaded");
+
+// THIRD: Import the remaining Gun modules
+import "gun/sea";
+console.log("[Gun Imports] SEA authentication loaded");
+import "gun/lib/radix";
+console.log("[Gun Imports] Radix search plugin loaded");
+
+// Finally, import environment
 import { browser } from "$app/environment";
 import type { IGunInstance, IGunUserInstance } from "gun";
 
-console.log("[Gun Imports] Finished importing Gun.js modules");
+// Check if Gun has the expected properties
+// Using type assertion to access non-standard properties
+const GunAny = Gun as any;
+
+// Verify Radisk is available
+if (GunAny.RAD) {
+  console.log("[Gun Imports] ✓ SUCCESS: Gun.RAD adapter is properly registered");
+} else {
+  console.warn("[Gun Imports] ⚠️ WARNING: Gun.RAD adapter is NOT registered!");
+  console.warn("[Gun Imports] Local database will use in-memory storage only!");
+}
+
+// Check if essential Gun components are available 
+console.log("[Gun Imports] Gun chain available:", !!GunAny.chain);
+console.log("[Gun Imports] Gun.on available:", typeof Gun.on === 'function');
 
 /* ───────────────────────────── basics ───────────────────────────── */
 
@@ -67,15 +79,16 @@ export function initializeGun(): IGunInstance | undefined {
   // Check if Gun global object has the expected methods
   console.log("[initializeGun] Gun constructor available:", typeof Gun === 'function');
   console.log("[initializeGun] Gun.on available:", typeof Gun.on === 'function');
-  console.log("[initializeGun] Gun.chain available:", !!Gun.chain);
+  console.log("[initializeGun] Gun.chain available:", !!(Gun as any).chain);
   
   // Critical - check if Radisk is registered with Gun
-  const radiskRegistered = !!(Gun.RAD && Gun.on && Gun.chain);
+  // Use any type assertion to access Gun.RAD which TypeScript doesn't know about
+  const radiskRegistered = !!((Gun as any).RAD && Gun.on && (Gun as any).chain);
   console.log("[initializeGun] *** RADISK ADAPTER REGISTERED:", radiskRegistered, "***");
   
   if (!radiskRegistered) {
     console.warn("[initializeGun] WARNING: Radisk adapter may not be properly registered");
-    console.warn("[initializeGun] Gun.RAD:", !!Gun.RAD, "- This must be true for IndexedDB to work");
+    console.warn("[initializeGun] Gun.RAD:", !!(Gun as any).RAD, "- This must be true for IndexedDB to work");
   }
   
   try {
