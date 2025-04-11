@@ -120,14 +120,15 @@ export async function initializeSampleData() {
       }
     ];
 
-    // Create sample agreement
+    // Create sample agreement - NO ARRAYS, Gun.js can't handle them
     const agreement = {
       agreement_id: 'ag1',
       game_id: 'g456',
       title: 'Funding for Garden Initiative',
       summary: 'Luminos Funder provides capital to Verdant Weaver for a community garden',
       type: 'asymmetric',
-      parties: ['a1', 'a2'],
+      // Convert array to object with numbered keys
+      parties: { 0: 'a1', 1: 'a2' },
       obligations: {
         a1: 'Create and maintain community garden for one year',
         a2: 'Provide 5000 credits of funding and quarterly reviews'
@@ -140,14 +141,15 @@ export async function initializeSampleData() {
       created_at: Date.now()
     };
 
-    // Create sample chat
+    // Create sample chat - NO ARRAYS for Gun.js
     const chat = {
       chat_id: 'g456_group',
       game_id: 'g456',
       type: 'group',
-      participants: ['u123', 'u124'],
-      messages: [
-        {
+      // Convert arrays to objects with numbered keys
+      participants: { 0: 'u123', 1: 'u124' },
+      messages: {
+        0: {
           id: generateId(),
           user_id: 'u123',
           user_name: 'Member User',
@@ -155,24 +157,24 @@ export async function initializeSampleData() {
           timestamp: Date.now(),
           type: 'group'
         }
-      ]
+      }
     };
 
-    // Create sample node positions
-    const nodePositions = [
-      {
+    // Create sample node positions - No arrays for Gun.js
+    const nodePositions = {
+      'a1': {
         node_id: 'a1',
         game_id: 'g456',
         x: 100,
         y: 100
       },
-      {
+      'ag1': {
         node_id: 'ag1',
         game_id: 'g456',
         x: 300,
         y: 200
       }
-    ];
+    };
 
     // Use direct GunJS methods for initialization to avoid Promise timeouts
     console.log('Saving users...');
@@ -254,8 +256,8 @@ export async function initializeSampleData() {
         // 1. Deck to Card relationship - direct Gun.js set() method
         await new Promise<void>(resolve => {
           console.log(`Creating deck->card relationship: ${deck.deck_id} -> ${card.card_id}`);
-          gun.get(nodes.decks).get(deck.deck_id).get('cards').set(gun.get(nodes.cards).get(card.card_id), ack => {
-            if (ack.err) {
+          gun.get(nodes.decks).get(deck.deck_id).get('cards').set(gun.get(nodes.cards).get(card.card_id), (ack: any) => {
+            if (ack && ack.err) {
               console.warn(`Warning creating deck->card relationship:`, ack.err);
             } else {
               console.log(`Successfully created deck->card relationship`);
@@ -276,8 +278,8 @@ export async function initializeSampleData() {
         // 2. Card to Deck relationship - direct Gun.js set() method
         await new Promise<void>(resolve => {
           console.log(`Creating card->deck relationship: ${card.card_id} -> ${deck.deck_id}`);
-          gun.get(nodes.cards).get(card.card_id).get('decks').set(gun.get(nodes.decks).get(deck.deck_id), ack => {
-            if (ack.err) {
+          gun.get(nodes.cards).get(card.card_id).get('decks').set(gun.get(nodes.decks).get(deck.deck_id), (ack: any) => {
+            if (ack && ack.err) {
               console.warn(`Warning creating card->deck relationship:`, ack.err);
             } else {
               console.log(`Successfully created card->deck relationship`);
@@ -301,8 +303,8 @@ export async function initializeSampleData() {
     
     console.log('Saving game...');
     await new Promise<void>(resolve => {
-      gun.get(nodes.games).get(game.game_id).put(game, ack => {
-        if (ack.err) {
+      gun.get(nodes.games).get(game.game_id).put(game, (ack: any) => {
+        if (ack && ack.err) {
           console.warn(`Warning while saving game ${game.name}:`, ack.err);
         } else {
           console.log(`Successfully saved game: ${game.name}`);
@@ -323,8 +325,8 @@ export async function initializeSampleData() {
     for (const actor of actors) {
       console.log(`Saving actor: ${actor.actor_id}...`);
       await new Promise<void>(resolve => {
-        gun.get(nodes.actors).get(actor.actor_id).put(actor, ack => {
-          if (ack.err) {
+        gun.get(nodes.actors).get(actor.actor_id).put(actor, (ack: any) => {
+          if (ack && ack.err) {
             console.warn(`Warning while saving actor ${actor.actor_id}:`, ack.err);
           } else {
             console.log(`Successfully saved actor: ${actor.actor_id}`);
@@ -344,8 +346,8 @@ export async function initializeSampleData() {
 
     console.log('Saving agreement...');
     await new Promise<void>(resolve => {
-      gun.get(nodes.agreements).get(agreement.agreement_id).put(agreement, ack => {
-        if (ack.err) {
+      gun.get(nodes.agreements).get(agreement.agreement_id).put(agreement, (ack: any) => {
+        if (ack && ack.err) {
           console.warn(`Warning while saving agreement ${agreement.title}:`, ack.err);
         } else {
           console.log(`Successfully saved agreement: ${agreement.title}`);
@@ -364,8 +366,8 @@ export async function initializeSampleData() {
 
     console.log('Saving chat...');
     await new Promise<void>(resolve => {
-      gun.get(nodes.chat).get(chat.chat_id).put(chat, ack => {
-        if (ack.err) {
+      gun.get(nodes.chat).get(chat.chat_id).put(chat, (ack: any) => {
+        if (ack && ack.err) {
           console.warn(`Warning while saving chat ${chat.chat_id}:`, ack.err);
         } else {
           console.log(`Successfully saved chat: ${chat.chat_id}`);
@@ -383,11 +385,13 @@ export async function initializeSampleData() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     console.log('Saving node positions...');
-    for (const position of nodePositions) {
+    // Since nodePositions is now an object, we need to iterate differently
+    for (const nodeId in nodePositions) {
+      const position = nodePositions[nodeId];
       console.log(`Saving position for: ${position.node_id}...`);
       await new Promise<void>(resolve => {
-        gun.get(nodes.positions).get(position.node_id).put(position, ack => {
-          if (ack.err) {
+        gun.get(nodes.positions).get(position.node_id).put(position, (ack: any) => {
+          if (ack && ack.err) {
             console.warn(`Warning while saving position for ${position.node_id}:`, ack.err);
           } else {
             console.log(`Successfully saved position for: ${position.node_id}`);
