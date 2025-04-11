@@ -167,6 +167,7 @@ export async function initializeSampleData() {
     },
   ];
 
+  // Prepare cards with Gun.js-compatible formats (no arrays, no undefined values)
   const cards = [
     {
       card_id: "c1",
@@ -174,8 +175,9 @@ export async function initializeSampleData() {
       role_title: "Verdant Weaver",
       backstory:
         "A skilled cultivator who weaves plant life into sustainable systems.",
-      rawValues: ["Sustainability", "Community Resilience"],
-      rawCapabilities: ["Permaculture Design", "Project Management"], // <-- "Project Management" is shared
+      // Store these as comma-separated strings for Gun compatibility
+      rawValues: "Sustainability,Community Resilience",
+      rawCapabilities: "Permaculture Design,Project Management", // <-- "Project Management" is shared
       goals: "Create a self-sustaining garden; Train others in permaculture",
       obligations: "Must share knowledge with the community",
       intellectual_property: "Seed storage techniques",
@@ -191,8 +193,9 @@ export async function initializeSampleData() {
       role_title: "Luminos Funder",
       backstory:
         "A visionary investor who funds innovative ecological projects.",
-      rawValues: ["Sustainability", "Transparency"], // <-- "Sustainability" is shared
-      rawCapabilities: ["Smart Contract Development", "Project Management"],
+      // Store these as comma-separated strings for Gun compatibility
+      rawValues: "Sustainability,Transparency", // <-- "Sustainability" is shared
+      rawCapabilities: "Smart Contract Development,Project Management",
       goals: "Fund 5 eco-projects; Create a funding network",
       obligations: "Must transparently report all funding allocations",
       intellectual_property: "Investment strategy methodologies",
@@ -224,11 +227,11 @@ export async function initializeSampleData() {
     status: "active",
   };
 
-  const actors = [
-    { actor_id: "a1", game_id: game.game_id, user_id: "u123", card_id: "c1" },
-    { actor_id: "a2", game_id: game.game_id, user_id: "u124", card_id: "c2" },
-  ];
+  // Define actors individually instead of using an array
+  const actor1 = { actor_id: "a1", game_id: game.game_id, user_id: "u123", card_id: "c1" };
+  const actor2 = { actor_id: "a2", game_id: game.game_id, user_id: "u124", card_id: "c2" };
 
+  // Convert array formats to objects for Gun.js compatibility
   const agreement = {
     agreement_id: "ag1",
     game_id: game.game_id,
@@ -236,7 +239,8 @@ export async function initializeSampleData() {
     summary:
       "Luminos Funder provides capital to Verdant Weaver for a community garden",
     type: "asymmetric",
-    parties: ["a1", "a2"],
+    // Convert array to object with numbered properties
+    parties: { 0: "a1", 1: "a2" },
     obligations: {
       a1: "Create and maintain community garden for one year",
       a2: "Provide 5000 credits of funding and quarterly reviews",
@@ -249,56 +253,66 @@ export async function initializeSampleData() {
     created_at: now,
   };
 
+  // Make chat data Gun.js friendly (convert arrays to objects)
+  const messageId = generateId();
   const chat = {
     chat_id: `${game.game_id}_group`,
     game_id: game.game_id,
     type: "group",
-    participants: ["u123", "u124"],
-    messages: [
-      {
-        id: generateId(),
+    // Convert array to object with numbered keys
+    participants: { 0: "u123", 1: "u124" },
+    // Store messages as an object with message IDs as keys
+    messages: {
+      [messageId]: {
+        id: messageId,
         user_id: "u123",
         user_name: "Member User",
         content: "Hello! Let's start planning our eco-village!",
         timestamp: now,
         type: "group",
-      },
-    ],
+      }
+    },
   };
 
-  const nodePositions = [
-    { node_id: "a1", game_id: game.game_id, x: 100, y: 100 },
-    { node_id: "ag1", game_id: game.game_id, x: 300, y: 200 },
-  ];
+  // Define node positions without using arrays
+  const nodePosition1 = { node_id: "a1", game_id: game.game_id, x: 100, y: 100 };
+  const nodePosition2 = { node_id: "ag1", game_id: game.game_id, x: 300, y: 200 };
 
   // 2. Persist the base nodes
   for (const u of users) {
     await ensureNode(`${nodes.users}/${u.user_id}`, u);
   }
 
-  for (const card of cards) {
-    const baseCardData = {
-      ...card,
-      // Remove the rawValues/rawCapabilities so we don't store them as direct fields
-      rawValues: undefined,
-      rawCapabilities: undefined,
-    };
-    await ensureNode(`${nodes.cards}/${card.card_id}`, baseCardData);
-  }
+  // Save individual card nodes
+  const baseCardData1 = {
+    ...cards[0],
+    // Remove the rawValues/rawCapabilities so we don't store them as direct fields
+    rawValues: undefined,
+    rawCapabilities: undefined,
+  };
+  await ensureNode(`${nodes.cards}/${cards[0].card_id}`, baseCardData1);
+  
+  const baseCardData2 = {
+    ...cards[1],
+    // Remove the rawValues/rawCapabilities so we don't store them as direct fields
+    rawValues: undefined,
+    rawCapabilities: undefined,
+  };
+  await ensureNode(`${nodes.cards}/${cards[1].card_id}`, baseCardData2);
 
   await ensureNode(`${nodes.decks}/${deck.deck_id}`, deck);
   await ensureNode(`${nodes.games}/${game.game_id}`, game);
 
-  for (const actor of actors) {
-    await ensureNode(`${nodes.actors}/${actor.actor_id}`, actor);
-  }
+  // Save individual actor nodes
+  await ensureNode(`${nodes.actors}/${actor1.actor_id}`, actor1);
+  await ensureNode(`${nodes.actors}/${actor2.actor_id}`, actor2);
 
   await ensureNode(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
   await ensureNode(`${nodes.chat}/${chat.chat_id}`, chat);
 
-  for (const pos of nodePositions) {
-    await ensureNode(`${nodes.positions}/${pos.node_id}`, pos);
-  }
+  // Save individual position nodes
+  await ensureNode(`${nodes.positions}/${nodePosition1.node_id}`, nodePosition1);
+  await ensureNode(`${nodes.positions}/${nodePosition2.node_id}`, nodePosition2);
 
   // 3. Enhanced helper to create edges using `.set()` with better error handling
   function createEdge(fromSoul: string, field: string, toSoul: string) {
@@ -348,88 +362,179 @@ export async function initializeSampleData() {
     });
   }
 
-  // 4. Deck <--> Card edges
-  for (const c of cards) {
-    const deckToCard = await withTimeout(
-      createEdge(
-        `${nodes.decks}/${deck.deck_id}`,
-        "cards",
-        `${nodes.cards}/${c.card_id}`,
-      ),
-    );
-    logAck(`deck->card ${deck.deck_id} -> ${c.card_id}`, deckToCard);
+  // 4. Deck <--> Card edges - process cards individually
+  
+  // Process card 1
+  const c1 = cards[0];
+  const deckToCard1 = await withTimeout(
+    createEdge(
+      `${nodes.decks}/${deck.deck_id}`,
+      "cards",
+      `${nodes.cards}/${c1.card_id}`,
+    ),
+  );
+  logAck(`deck->card ${deck.deck_id} -> ${c1.card_id}`, deckToCard1);
 
-    const cardToDeck = await withTimeout(
+  const cardToDeck1 = await withTimeout(
+    createEdge(
+      `${nodes.cards}/${c1.card_id}`,
+      "decks",
+      `${nodes.decks}/${deck.deck_id}`,
+    ),
+  );
+  logAck(`card->deck ${c1.card_id} -> ${deck.deck_id}`, cardToDeck1);
+  
+  // Process card 2
+  const c2 = cards[1];
+  const deckToCard2 = await withTimeout(
+    createEdge(
+      `${nodes.decks}/${deck.deck_id}`,
+      "cards",
+      `${nodes.cards}/${c2.card_id}`,
+    ),
+  );
+  logAck(`deck->card ${deck.deck_id} -> ${c2.card_id}`, deckToCard2);
+
+  const cardToDeck2 = await withTimeout(
+    createEdge(
+      `${nodes.cards}/${c2.card_id}`,
+      "decks",
+      `${nodes.decks}/${deck.deck_id}`,
+    ),
+  );
+  logAck(`card->deck ${c2.card_id} -> ${deck.deck_id}`, cardToDeck2);
+
+  // 5. Values & Capabilities for each card - process individually
+  
+  // Process values and capabilities for card 1
+  const valueNames1 = c1.rawValues.split(',').map(v => v.trim()).filter(Boolean);
+  
+  // Process each value for card 1
+  for (const vName of valueNames1) {
+    const vId = `value_${vName.toLowerCase().replace(/\s+/g, "-")}`;
+    // If value node doesn't exist, create it
+    await ensureNode(`${nodes.values}/${vId}`, {
+      value_id: vId,
+      name: vName,
+      created_at: now,
+    });
+
+    // edges: value->card and card->value
+    const valToCardAck = await withTimeout(
       createEdge(
-        `${nodes.cards}/${c.card_id}`,
-        "decks",
-        `${nodes.decks}/${deck.deck_id}`,
+        `${nodes.values}/${vId}`,
+        "cards",
+        `${nodes.cards}/${c1.card_id}`,
       ),
     );
-    logAck(`card->deck ${c.card_id} -> ${deck.deck_id}`, cardToDeck);
+    logAck(`value->card ${vId} -> ${c1.card_id}`, valToCardAck);
+
+    const cardToValAck = await withTimeout(
+      createEdge(
+        `${nodes.cards}/${c1.card_id}`,
+        "values",
+        `${nodes.values}/${vId}`,
+      ),
+    );
+    logAck(`card->value ${c1.card_id} -> ${vId}`, cardToValAck);
   }
 
-  // 5. Values & Capabilities as actual nodes + edges
-  for (const c of cards) {
-    // For each Value
-    for (const vName of c.rawValues) {
-      const vId = `value_${vName.toLowerCase().replace(/\s+/g, "-")}`;
-      // If value node doesn't exist, create it
-      await ensureNode(`${nodes.values}/${vId}`, {
-        value_id: vId,
-        name: vName,
-        created_at: now,
-      });
+  // Process capabilities for card 1
+  const capabilityNames1 = c1.rawCapabilities.split(',').map(cap => cap.trim()).filter(Boolean);
+  
+  for (const capName of capabilityNames1) {
+    const capId = `capability_${capName.toLowerCase().replace(/\s+/g, "-")}`;
+    // If capability node doesn't exist, create it
+    await ensureNode(`${nodes.capabilities}/${capId}`, {
+      capability_id: capId,
+      name: capName,
+      created_at: now,
+    });
 
-      // edges: value->card and card->value
-      const valToCardAck = await withTimeout(
-        createEdge(
-          `${nodes.values}/${vId}`,
-          "cards",
-          `${nodes.cards}/${c.card_id}`,
-        ),
-      );
-      logAck(`value->card ${vId} -> ${c.card_id}`, valToCardAck);
+    // edges: capability->card and card->capability
+    const capToCardAck = await withTimeout(
+      createEdge(
+        `${nodes.capabilities}/${capId}`,
+        "cards",
+        `${nodes.cards}/${c1.card_id}`,
+      ),
+    );
+    logAck(`cap->card ${capId} -> ${c1.card_id}`, capToCardAck);
 
-      const cardToValAck = await withTimeout(
-        createEdge(
-          `${nodes.cards}/${c.card_id}`,
-          "values",
-          `${nodes.values}/${vId}`,
-        ),
-      );
-      logAck(`card->value ${c.card_id} -> ${vId}`, cardToValAck);
-    }
+    const cardToCapAck = await withTimeout(
+      createEdge(
+        `${nodes.cards}/${c1.card_id}`,
+        "capabilities",
+        `${nodes.capabilities}/${capId}`,
+      ),
+    );
+    logAck(`card->cap ${c1.card_id} -> ${capId}`, cardToCapAck);
+  }
+  
+  // Process values and capabilities for card 2
+  const valueNames2 = c2.rawValues.split(',').map(v => v.trim()).filter(Boolean);
+  
+  // Process each value for card 2
+  for (const vName of valueNames2) {
+    const vId = `value_${vName.toLowerCase().replace(/\s+/g, "-")}`;
+    // If value node doesn't exist, create it
+    await ensureNode(`${nodes.values}/${vId}`, {
+      value_id: vId,
+      name: vName,
+      created_at: now,
+    });
 
-    // For each Capability
-    for (const capName of c.rawCapabilities) {
-      const capId = `capability_${capName.toLowerCase().replace(/\s+/g, "-")}`;
-      // If capability node doesn't exist, create it
-      await ensureNode(`${nodes.capabilities}/${capId}`, {
-        capability_id: capId,
-        name: capName,
-        created_at: now,
-      });
+    // edges: value->card and card->value
+    const valToCardAck = await withTimeout(
+      createEdge(
+        `${nodes.values}/${vId}`,
+        "cards",
+        `${nodes.cards}/${c2.card_id}`,
+      ),
+    );
+    logAck(`value->card ${vId} -> ${c2.card_id}`, valToCardAck);
 
-      // edges: capability->card and card->capability
-      const capToCardAck = await withTimeout(
-        createEdge(
-          `${nodes.capabilities}/${capId}`,
-          "cards",
-          `${nodes.cards}/${c.card_id}`,
-        ),
-      );
-      logAck(`cap->card ${capId} -> ${c.card_id}`, capToCardAck);
+    const cardToValAck = await withTimeout(
+      createEdge(
+        `${nodes.cards}/${c2.card_id}`,
+        "values",
+        `${nodes.values}/${vId}`,
+      ),
+    );
+    logAck(`card->value ${c2.card_id} -> ${vId}`, cardToValAck);
+  }
 
-      const cardToCapAck = await withTimeout(
-        createEdge(
-          `${nodes.cards}/${c.card_id}`,
-          "capabilities",
-          `${nodes.capabilities}/${capId}`,
-        ),
-      );
-      logAck(`card->cap ${c.card_id} -> ${capId}`, cardToCapAck);
-    }
+  // Process capabilities for card 2
+  const capabilityNames2 = c2.rawCapabilities.split(',').map(cap => cap.trim()).filter(Boolean);
+  
+  for (const capName of capabilityNames2) {
+    const capId = `capability_${capName.toLowerCase().replace(/\s+/g, "-")}`;
+    // If capability node doesn't exist, create it
+    await ensureNode(`${nodes.capabilities}/${capId}`, {
+      capability_id: capId,
+      name: capName,
+      created_at: now,
+    });
+
+    // edges: capability->card and card->capability
+    const capToCardAck = await withTimeout(
+      createEdge(
+        `${nodes.capabilities}/${capId}`,
+        "cards",
+        `${nodes.cards}/${c2.card_id}`,
+      ),
+    );
+    logAck(`cap->card ${capId} -> ${c2.card_id}`, capToCardAck);
+
+    const cardToCapAck = await withTimeout(
+      createEdge(
+        `${nodes.cards}/${c2.card_id}`,
+        "capabilities",
+        `${nodes.capabilities}/${capId}`,
+      ),
+    );
+    logAck(`card->cap ${c2.card_id} -> ${capId}`, cardToCapAck);
+  }
   }
 
   console.log("[seed] Sample data (with edges) initialized ✅");
