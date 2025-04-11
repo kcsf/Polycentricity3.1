@@ -1,38 +1,43 @@
+/**
+ * Optimized Gun.js schema interfaces for Polycentricity
+ * 
+ * Key changes:
+ * - Uses Record<string, boolean> consistently for all collection references
+ * - Adds proper typing for status fields with string literals
+ * - Includes improved typing for chat messages
+ * - Optimizes game player references
+ */
+
 // User interface
 export interface User {
     user_id: string;
     name: string;
     email: string;
     magic_key?: string;
-    devices?: string; // Changed from string[] to string to avoid Gun.js storage issues
+    devices?: Record<string, boolean>; // Device IDs as keys with boolean values
     created_at: number;
-    role?: 'Guest' | 'Member' | 'Admin'; // Default is 'Guest'
-}
-
-// Game interface
-export interface Game {
-    game_id: string;
-    name: string;
-    creator: string; // user_id of creator
-    deck_id: string; // Reference to deck used in this game
-    role_assignment: 'random' | 'choice'; // How roles are assigned
-    players: Record<string, boolean> | string[]; // Object with user_id keys, or array of user_ids for backward compatibility
-    created_at: number;
-    status: GameStatus;
+    role: 'Guest' | 'Member' | 'Admin'; // Default is 'Guest'
+    last_login?: number;
 }
 
 // Value interface (values as separate nodes)
 export interface Value {
     value_id: string;       // Unique identifier for the value
     name: string;           // Descriptive name ("Sustainability", "Equity", etc.)
+    description?: string;   // Optional detailed description
     created_at: number;     // Timestamp for when the value was created
+    creator?: string;       // Optional user_id of creator
+    cards?: Record<string, boolean>; // Cards that reference this value
 }
 
 // Capability interface (capabilities as separate nodes)
 export interface Capability {
     capability_id: string;  // Unique identifier for the capability
     name: string;           // Descriptive name ("Grant-writing expertise", etc.)
+    description?: string;   // Optional detailed description
     created_at: number;     // Timestamp for when the capability was created
+    creator?: string;       // Optional user_id of creator
+    cards?: Record<string, boolean>; // Cards that reference this capability
 }
 
 // Card interface (static role templates)
@@ -41,28 +46,48 @@ export interface Card {
     card_number: number;    // 1-52 for randomizing draws, etc.
     role_title: string;
     backstory: string;
-    // Changed from string[] to a Record of string (value_id) keys for Gun.js compatibility
-    values: Record<string, boolean> | string[]; // Links to value_ids
-    // Goals are stored as a simple string in Gun.js
+    values: Record<string, boolean>; // Links to value_ids
     goals: string;
     obligations?: string;
-    // Changed from string to a Record of string (capability_id) keys for Gun.js compatibility
-    capabilities: Record<string, boolean> | string[]; // Links to capability_ids
+    capabilities: Record<string, boolean>; // Links to capability_ids
     intellectual_property?: string;
     rivalrous_resources?: string;
     card_category: 'Funders' | 'Providers' | 'Supporters';
     type: 'DAO' | 'Practice' | 'Individual' | string;
     icon?: string;          // Lucide icon name
-    // Bidirectional relationship - references to decks containing this card
-    decks?: Record<string, boolean> | string[]; // Links to deck_ids
+    decks?: Record<string, boolean>; // Links to deck_ids
+    created_at: number;
+    creator?: string;       // user_id of creator
 }
 
 // Deck interface (collection of cards)
 export interface Deck {
     deck_id: string;
     name: string;
-    cards: Record<string, boolean> | string[]; // Card IDs
+    description?: string;
+    cards: Record<string, boolean>; // Card IDs as keys with boolean values
     creator: string; // user_id
+    created_at: number;
+    updated_at?: number;
+    is_public?: boolean;
+    image_url?: string;
+}
+
+// Game interface
+export interface Game {
+    game_id: string;
+    name: string;
+    description?: string;
+    creator: string; // user_id of creator
+    deck_id: string; // Reference to deck used in this game
+    role_assignment: 'random' | 'choice'; // How roles are assigned
+    players: Record<string, string>; // Map of user_id to actor_id
+    created_at: number;
+    updated_at?: number;
+    status: GameStatus;
+    end_date?: number;
+    max_players?: number;
+    password?: string; // Optional password for private games
 }
 
 // Actor interface (instance of card in game)
@@ -71,6 +96,10 @@ export interface Actor {
     game_id: string;
     user_id: string;
     card_id: string;
+    created_at: number;
+    custom_name?: string; // Optional custom name for this instance
+    status?: 'active' | 'inactive'; // Status of this actor in the game
+    agreements?: Record<string, boolean>; // Agreements this actor is part of
 }
 
 // Chat message interface
@@ -83,23 +112,27 @@ export interface ChatMessage {
     timestamp: number;
     type: 'group' | 'private';
     recipient_id?: string; // For private messages
+    read_by?: Record<string, boolean>; // Track which users have read this message
 }
 
 // Chat room interface
 export interface ChatRoom {
+    chat_id: string; // Format: g{game_id}_group or g{game_id}_p_{user1_id}_{user2_id} for private
     game_id: string;
     type: 'group' | 'private';
-    participants: string[]; // user_ids
-    messages: ChatMessage[];
+    participants: Record<string, boolean>; // user_ids as keys with boolean values
+    messages: Record<string, ChatMessage>; // message_ids as keys with message objects as values
+    created_at: number;
+    last_message_at?: number;
 }
 
 // Game status enum
 export enum GameStatus {
-    CREATED = 'created',
-    SETUP = 'setup',
-    ACTIVE = 'active',
-    PAUSED = 'paused',
-    COMPLETED = 'completed'
+    CREATED = 'created',   // Initial state
+    SETUP = 'setup',       // Players joining, roles being assigned 
+    ACTIVE = 'active',     // Game in progress
+    PAUSED = 'paused',     // Temporarily paused
+    COMPLETED = 'completed' // Game finished
 }
 
 // User session
@@ -109,12 +142,6 @@ export interface UserSession {
     isLoading: boolean;
 }
 
-// Role assignment
-export interface RoleAssignment {
-    user_id: string;
-    actor_id: string;
-}
-
 // Agreement interface
 export interface Agreement {
     agreement_id: string;
@@ -122,12 +149,14 @@ export interface Agreement {
     title: string;
     summary: string;
     type: 'symmetric' | 'asymmetric';
-    parties: string[]; // actor_ids
+    parties: Record<string, boolean>; // actor_ids as keys with boolean values
     obligations: Record<string, string>; // actor_id to obligation text
     benefits: Record<string, string>; // actor_id to benefit text
-    status?: 'proposed' | 'accepted' | 'rejected' | 'completed';
+    status: 'proposed' | 'accepted' | 'rejected' | 'completed';
     created_at: number;
     updated_at?: number;
+    created_by: string; // actor_id or user_id of creator
+    votes?: Record<string, 'accept' | 'reject'>; // actor_id to vote
 }
 
 // Node Position interface for graph layout
@@ -136,4 +165,6 @@ export interface NodePosition {
     game_id: string;
     x: number;
     y: number;
+    type: 'actor' | 'agreement'; // Type of node
+    last_updated: number;
 }

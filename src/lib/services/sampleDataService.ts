@@ -188,6 +188,7 @@ export async function initializeSampleData() {
       email: "member@example.com",
       role: "Member",
       created_at: now,
+      last_login: now
     },
     {
       user_id: "u124",
@@ -195,6 +196,7 @@ export async function initializeSampleData() {
       email: "guest@example.com",
       role: "Guest",
       created_at: now,
+      last_login: now
     },
     {
       user_id: "u125",
@@ -202,20 +204,83 @@ export async function initializeSampleData() {
       email: "admin@example.com",
       role: "Admin",
       created_at: now,
+      last_login: now
     },
   ];
 
-  // Prepare cards with Gun.js-compatible formats (no arrays, no undefined values)
+  // Define values with improved structure
+  const values = [
+    {
+      value_id: "value_sustainability",
+      name: "Sustainability",
+      description: "Practices that can be maintained indefinitely without depleting resources",
+      created_at: now,
+      creator: "u125",
+      cards: {} // Will be populated with references
+    },
+    {
+      value_id: "value_community-resilience",
+      name: "Community Resilience",
+      description: "The ability of a community to withstand, adapt to, and recover from adversity",
+      created_at: now,
+      creator: "u125",
+      cards: {} // Will be populated with references
+    },
+    {
+      value_id: "value_transparency",
+      name: "Transparency",
+      description: "Open and clear communication about decisions, processes, and results",
+      created_at: now,
+      creator: "u125",
+      cards: {} // Will be populated with references
+    }
+  ];
+
+  // Define capabilities with improved structure
+  const capabilities = [
+    {
+      capability_id: "capability_permaculture-design",
+      name: "Permaculture Design",
+      description: "Ability to design sustainable agricultural ecosystems",
+      created_at: now,
+      creator: "u125",
+      cards: {} // Will be populated with references
+    },
+    {
+      capability_id: "capability_project-management",
+      name: "Project Management",
+      description: "Skills in planning, organizing, and managing resources to achieve specific goals",
+      created_at: now,
+      creator: "u125",
+      cards: {} // Will be populated with references
+    },
+    {
+      capability_id: "capability_smart-contract-development",
+      name: "Smart Contract Development",
+      description: "Ability to create and deploy blockchain-based automated agreements",
+      created_at: now,
+      creator: "u125",
+      cards: {} // Will be populated with references
+    }
+  ];
+
+  // Prepare cards with Gun.js-compatible formats
   const cards = [
     {
       card_id: "c1",
       card_number: 1,
       role_title: "Verdant Weaver",
-      backstory:
-        "A skilled cultivator who weaves plant life into sustainable systems.",
-      // Store these as comma-separated strings for Gun compatibility
-      rawValues: "Sustainability,Community Resilience",
-      rawCapabilities: "Permaculture Design,Project Management", // <-- "Project Management" is shared
+      backstory: "A skilled cultivator who weaves plant life into sustainable systems.",
+      values: {
+        // Instead of arrays, use object with value_id keys
+        "value_sustainability": true,
+        "value_community-resilience": true
+      },
+      capabilities: {
+        // Instead of arrays, use object with capability_id keys 
+        "capability_permaculture-design": true,
+        "capability_project-management": true
+      },
       goals: "Create a self-sustaining garden; Train others in permaculture",
       obligations: "Must share knowledge with the community",
       intellectual_property: "Seed storage techniques",
@@ -224,16 +289,24 @@ export async function initializeSampleData() {
       type: "Practice",
       icon: "Hammer",
       created_at: now,
+      creator: "u125",
+      decks: {} // Will be populated with references
     },
     {
       card_id: "c2",
       card_number: 2,
       role_title: "Luminos Funder",
-      backstory:
-        "A visionary investor who funds innovative ecological projects.",
-      // Store these as comma-separated strings for Gun compatibility
-      rawValues: "Sustainability,Transparency", // <-- "Sustainability" is shared
-      rawCapabilities: "Smart Contract Development,Project Management",
+      backstory: "A visionary investor who funds innovative ecological projects.",
+      values: {
+        // Instead of arrays, use object with value_id keys
+        "value_sustainability": true,
+        "value_transparency": true
+      },
+      capabilities: {
+        // Instead of arrays, use object with capability_id keys
+        "capability_smart-contract-development": true,
+        "capability_project-management": true
+      },
       goals: "Fund 5 eco-projects; Create a funding network",
       obligations: "Must transparently report all funding allocations",
       intellectual_property: "Investment strategy methodologies",
@@ -242,6 +315,8 @@ export async function initializeSampleData() {
       type: "DAO",
       icon: "CircleDollarSign",
       created_at: now,
+      creator: "u125",
+      decks: {} // Will be populated with references
     },
   ];
 
@@ -252,33 +327,61 @@ export async function initializeSampleData() {
     creator: "u125",
     created_at: now,
     updated_at: now,
+    is_public: true,
+    cards: {} // Will be populated with references
   };
 
   const game = {
     game_id: "g456",
     name: "Test Eco-Village",
+    description: "A test game for our eco-village simulation",
     creator: "u125",
     deck_id: deck.deck_id,
     role_assignment: "choice",
-    players: { u123: true, u124: true },
+    // Map user_ids to actor_ids
+    players: { 
+      "u123": "a1", 
+      "u124": "a2" 
+    },
     created_at: now,
+    updated_at: now,
     status: "active",
+    max_players: 10
   };
 
-  // Define actors individually instead of using an array
-  const actor1 = { actor_id: "a1", game_id: game.game_id, user_id: "u123", card_id: "c1" };
-  const actor2 = { actor_id: "a2", game_id: game.game_id, user_id: "u124", card_id: "c2" };
+  // Define actors with improved structure
+  const actor1 = { 
+    actor_id: "a1", 
+    game_id: game.game_id, 
+    user_id: "u123", 
+    card_id: "c1",
+    created_at: now,
+    custom_name: "Alice's Garden Steward",
+    status: "active",
+    agreements: {} // Will be populated with references
+  };
+  
+  const actor2 = { 
+    actor_id: "a2", 
+    game_id: game.game_id, 
+    user_id: "u124", 
+    card_id: "c2",
+    created_at: now,
+    status: "active",
+    agreements: {} // Will be populated with references
+  };
 
-  // Convert array formats to objects for Gun.js compatibility
+  // Improved agreement structure
   const agreement = {
     agreement_id: "ag1",
     game_id: game.game_id,
     title: "Funding for Garden Initiative",
-    summary:
-      "Luminos Funder provides capital to Verdant Weaver for a community garden",
+    summary: "Luminos Funder provides capital to Verdant Weaver for a community garden",
     type: "asymmetric",
-    // Convert array to object with numbered properties
-    parties: { 0: "a1", 1: "a2" },
+    parties: { 
+      "a1": true, 
+      "a2": true 
+    },
     obligations: {
       a1: "Create and maintain community garden for one year",
       a2: "Provide 5000 credits of funding and quarterly reviews",
@@ -289,17 +392,24 @@ export async function initializeSampleData() {
     },
     status: "accepted",
     created_at: now,
+    updated_at: now,
+    created_by: "u123",
+    votes: {
+      "a1": "accept",
+      "a2": "accept"
+    }
   };
 
-  // Make chat data Gun.js friendly (convert arrays to objects)
+  // Improved chat structure
   const messageId = generateId();
   const chat = {
     chat_id: `${game.game_id}_group`,
     game_id: game.game_id,
     type: "group",
-    // Convert array to object with numbered keys
-    participants: { 0: "u123", 1: "u124" },
-    // Store messages as an object with message IDs as keys
+    participants: { 
+      "u123": true, 
+      "u124": true 
+    },
     messages: {
       [messageId]: {
         id: messageId,
@@ -308,13 +418,34 @@ export async function initializeSampleData() {
         content: "Hello! Let's start planning our eco-village!",
         timestamp: now,
         type: "group",
+        read_by: {
+          "u123": true,
+          "u124": false
+        }
       }
     },
+    created_at: now,
+    last_message_at: now
   };
 
-  // Define node positions without using arrays
-  const nodePosition1 = { node_id: "a1", game_id: game.game_id, x: 100, y: 100 };
-  const nodePosition2 = { node_id: "ag1", game_id: game.game_id, x: 300, y: 200 };
+  // Improved node position structure
+  const nodePosition1 = { 
+    node_id: "a1", 
+    game_id: game.game_id, 
+    x: 100, 
+    y: 100,
+    type: "actor",
+    last_updated: now
+  };
+  
+  const nodePosition2 = { 
+    node_id: "ag1", 
+    game_id: game.game_id, 
+    x: 300, 
+    y: 200,
+    type: "agreement",
+    last_updated: now
+  };
 
   // 2. Persist the base nodes
   for (const u of users) {
