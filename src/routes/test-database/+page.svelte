@@ -30,12 +30,30 @@
     testData = null;
     
     try {
+      // Get a reference to Gun directly
+      const gun = getGun();
+      if (!gun) {
+        testStatus = 'Gun not initialized!';
+        testInProgress = false;
+        return;
+      }
+      
       // Save a simple test item
       const saveResult = await saveSimpleItem(simpleTestData);
       
       if (saveResult.success) {
         testId = saveResult.id;
         testStatus = `Test item saved with ID: ${testId}`;
+        
+        // Add extra delay before attempting to retrieve - give Gun time to process
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Set up a direct listener for debugging
+        gun.get('test_data').map().once((data, key) => {
+          if (key && key !== '_') {
+            console.log(`[DirectTest] Found item with key ${key}:`, data);
+          }
+        });
         
         // Try to get it back
         const getResult = await getSimpleItem(testId);
@@ -44,7 +62,10 @@
           testData = getResult.data;
           testStatus = 'Basic test successful!';
         } else {
-          testStatus = `Error retrieving test item: ${getResult.error}`;
+          // Still show what was saved
+          testResultsText = JSON.stringify(simpleTestData, null, 2);
+          testData = simpleTestData;
+          testStatus = `Error retrieving test item (but saved): ${getResult.error}`;
         }
       } else {
         testStatus = `Error saving test item: ${saveResult.error}`;

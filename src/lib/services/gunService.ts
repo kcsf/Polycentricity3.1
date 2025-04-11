@@ -133,8 +133,16 @@ export function initializeGun(): IGunInstance | undefined {
  */
 export function getGun(): IGunInstance | undefined {
   if (!gun && browser && !isInitializing) {
+    console.log("[getGun] Gun instance not found, initializing...");
     initializeGun();
   }
+  
+  if (!gun) {
+    console.warn("[getGun] ⚠️ Still no Gun instance available after initialization!");
+  } else {
+    console.log("[getGun] ✓ Gun instance available", typeof gun.get === 'function');
+  }
+  
   return gun;
 }
 
