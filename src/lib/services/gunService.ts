@@ -2,7 +2,8 @@ import Gun from "gun";
 import "gun/sea"; // Import SEA for authentication
 import { browser } from "$app/environment";
 import type { IGunInstance, IGunUserInstance } from "gun";
-import "gun/lib/radix"; // Enable IndexedDB support
+import "gun/lib/radix"; // Import radix for internal tree structure
+import "gun/lib/radisk"; // Import radisk for IndexedDB adapter
 
 // Gun instance
 let gun: IGunInstance | undefined;
@@ -25,13 +26,13 @@ export function initializeGun(): IGunInstance | undefined {
             "[initializeGun] Initializing Gun.js with peers:",
             GUN_PEERS,
         );
-        // Hybrid storage approach:
-        // - localStorage: true = enables access to existing data stored prior to IndexedDB
-        // - radisk: true = enables IndexedDB for faster future storage
-        // This approach allows accessing old data while transitioning to the new storage method
+        // Using IndexedDB only for better performance:
+        // - localStorage: false = disable localStorage to avoid dual-write performance issues
+        // - radisk: true = enable IndexedDB for persistent storage
+        // This approach gives better performance by avoiding duplicate writes to localStorage
         gun = Gun({
-            radisk: true, // Use IndexedDB for faster storage
-            localStorage: true, // Keep localStorage enabled for backward compatibility
+            radisk: true, // Use IndexedDB for persistent storage
+            localStorage: false, // Disable localStorage to avoid dual-write performance issues
             peers: GUN_PEERS,
         });
         console.log("[initializeGun] Gun initialized");
@@ -96,16 +97,34 @@ export function put<T>(
             let completed = false;
             
             // Add a timeout safety in case Gun never calls back
+            // Using 30s timeout for write operations which is more appropriate for Radisk's first transactions
             const safetyTimeout = setTimeout(() => {
                 if (!completed) {
-                    console.warn(`[put] Safety timeout after 10s for ${node}`);
+                    console.warn(`[put] Safety timeout after 30s for ${node}`);
+                    // Even after timeout, we register a late callback listener that will log if Gun responds later
+                    const lateAckHandler = (ack: any) => {
+                        console.log(`[put] Got LATE acknowledgment after timeout for ${node}:`, ack);
+                    };
+                    // Register the late handler but don't wait for it
+                    try {
+                        // Using a simpler approach to register a listener for future callbacks
+                        setTimeout(() => {
+                            gunInstance.get(node).once((data) => {
+                                console.log(`[put] LATE check for ${node}:`, data ? 'data exists' : 'no data');
+                                if (data) lateAckHandler({ok: true, late: true});
+                            });
+                        }, 5000);
+                    } catch (e) {
+                        console.warn(`[put] Could not register late ack handler:`, e);
+                    }
+                    // Resolve with timeout error
                     completed = true;
                     resolve({
                         err: "Operation timed out",
                         ok: false,
                     });
                 }
-            }, 10000);
+            }, 30000); // 30 seconds timeout for write operations
             
             // Use direct put with no chaining, following Gun's API docs exactly
             gunInstance.get(node).put(data, (ack: any) => {
@@ -301,16 +320,28 @@ export function setField<T>(
             let completed = false;
             
             // Add a timeout safety in case Gun never calls back
+            // Using 30s timeout for write operations which is more appropriate for Radisk's first transactions
             const safetyTimeout = setTimeout(() => {
                 if (!completed) {
-                    console.warn(`[setField] Safety timeout after 10s for ${nodePath}/${key}`);
+                    console.warn(`[setField] Safety timeout after 30s for ${nodePath}/${key}`);
+                    // Even after timeout, we register a late callback listener that will log if Gun responds later
+                    const lateAckHandler = (ack: any) => {
+                        console.log(`[setField] Got LATE acknowledgment after timeout for ${nodePath}/${key}:`, ack);
+                    };
+                    // Register the late handler but don't wait for it
+                    try {
+                        gunInstance.get(nodePath).get(key).on('out', {'#': 'lateAck', get: {'.': `${nodePath}/${key}`}, cb: lateAckHandler});
+                    } catch (e) {
+                        console.warn(`[setField] Could not register late ack handler:`, e);
+                    }
+                    // Resolve with timeout error
                     completed = true;
                     resolve({
                         err: "Operation timed out",
                         ok: false,
                     });
                 }
-            }, 10000);
+            }, 30000); // 30 seconds timeout for write operations
             
             // Using Gun's direct callback pattern
             gunInstance
