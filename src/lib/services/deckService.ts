@@ -94,6 +94,12 @@ export async function createCard(
               ? card.goals.join(",")
               : "";
 
+    // Convert goals string to array
+    const goalsArray = goalsStr
+        .split(",")
+        .map((g) => g.trim())
+        .filter(Boolean);
+
     const valuesRecord = await createOrGetValues(
         valuesStr
             .split(",")
@@ -102,13 +108,14 @@ export async function createCard(
     );
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
 
+    // Properly structured to match Card type
     const gunCard = {
         card_id: cardId,
         card_number: cardNumber,
         role_title: card.role_title,
         backstory: card.backstory || "",
         values: valuesRecord, // Record<string, boolean> for Gun.js
-        goals: goalsStr,
+        goals: goalsArray, // Properly as string[] now
         obligations: card.obligations || "",
         capabilities: capabilitiesRecord, // Record<string, boolean> for Gun.js
         intellectual_property: card.intellectual_property || "",
@@ -122,24 +129,46 @@ export async function createCard(
     try {
         console.log(`[createCard] Creating card with ID: ${cardId} and title: ${gunCard.role_title}`);
         
-        // STEP 1: Save base card with retry logic and longer waits
+        // STEP 1: Save base card with retry logic
+        let cardSaved = false;
         let attempts = 0;
         const maxAttempts = 3;
-        while (attempts < maxAttempts) {
+        
+        while (!cardSaved && attempts < maxAttempts) {
             try {
                 console.log(`[createCard] Attempt ${attempts+1}/${maxAttempts} to save base card`);
-                await put(`${nodes.cards}/${cardId}`, gunCard);
-                console.log(`[createCard] Successfully saved base card: ${cardId}`);
-                break; // Exit loop on success
-            } catch (putError) {
+                const result = await put(`${nodes.cards}/${cardId}`, gunCard);
+                
+                if (result.err) {
+                    console.warn(
+                        `[createCard] Attempt ${attempts+1}/${maxAttempts} had error:`,
+                        result.err
+                    );
+                    attempts++;
+                    
+                    if (attempts === maxAttempts) {
+                        console.error(`[createCard] Failed to save card after ${maxAttempts} attempts`);
+                        throw new Error(`Failed to save card: ${result.err}`);
+                    }
+                    
+                    // Exponential backoff
+                    const waitTime = 1000 * attempts;
+                    console.log(`[createCard] Waiting ${waitTime}ms before retry...`);
+                    await new Promise((resolve) => setTimeout(resolve, waitTime));
+                } else {
+                    console.log(`[createCard] Successfully saved base card: ${cardId}`);
+                    cardSaved = true;
+                }
+            } catch (error) {
+                console.error(`[createCard] Exception during save:`, error);
                 attempts++;
-                console.warn(
-                    `[createCard] Attempt ${attempts}/${maxAttempts} failed:`,
-                    putError,
-                );
-                if (attempts === maxAttempts) throw putError;
-                // Exponential backoff: wait longer between retries
-                const waitTime = 1000 * attempts; 
+                
+                if (attempts === maxAttempts) {
+                    console.error(`[createCard] Failed after ${maxAttempts} attempts`);
+                    throw error;
+                }
+                
+                const waitTime = 1000 * attempts;
                 console.log(`[createCard] Waiting ${waitTime}ms before retry...`);
                 await new Promise((resolve) => setTimeout(resolve, waitTime));
             }
@@ -154,14 +183,18 @@ export async function createCard(
         for (const valueId of Object.keys(valuesRecord)) {
             try {
                 console.log(`[createCard] Setting value relationship: ${valueId} -> ${cardId}`);
-                await setField(`${nodes.values}/${valueId}/cards`, cardId, true);
-                console.log(
-                    `[createCard] Successfully set reverse value edge: ${valueId} -> ${cardId}`,
-                );
+                const result = await setField(`${nodes.values}/${valueId}/cards`, cardId, true);
+                
+                if (result.err) {
+                    console.error(`[createCard] Error setting value relationship for ${valueId}:`, result.err);
+                } else {
+                    console.log(`[createCard] Successfully set reverse value edge: ${valueId} -> ${cardId}`);
+                }
+                
                 // Small delay between each value relationship
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 300));
             } catch (valueError) {
-                console.error(`[createCard] Failed to set value relationship for ${valueId}:`, valueError);
+                console.error(`[createCard] Exception setting value relationship for ${valueId}:`, valueError);
                 // Continue with other values even if one fails
             }
         }
@@ -175,24 +208,34 @@ export async function createCard(
         for (const capId of Object.keys(capabilitiesRecord)) {
             try {
                 console.log(`[createCard] Setting capability relationship: ${capId} -> ${cardId}`);
-                await setField(
+                const result = await setField(
                     `${nodes.capabilities}/${capId}/cards`,
                     cardId,
-                    true,
+                    true
                 );
-                console.log(
-                    `[createCard] Successfully set reverse capability edge: ${capId} -> ${cardId}`,
-                );
+                
+                if (result.err) {
+                    console.error(`[createCard] Error setting capability relationship for ${capId}:`, result.err);
+                } else {
+                    console.log(`[createCard] Successfully set reverse capability edge: ${capId} -> ${cardId}`);
+                }
+                
                 // Small delay between each capability relationship
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 300));
             } catch (capError) {
-                console.error(`[createCard] Failed to set capability relationship for ${capId}:`, capError);
+                console.error(`[createCard] Exception setting capability relationship for ${capId}:`, capError);
                 // Continue with other capabilities even if one fails
             }
         }
 
         console.log(`[createCard] Card creation completed successfully: ${cardId}`);
-        const cardData: Card = { ...gunCard };
+        // Type-safe return value
+        const cardData: Card = { 
+            ...gunCard, 
+            values: valuesRecord as Record<string, boolean>,
+            capabilities: capabilitiesRecord as Record<string, boolean>,
+            goals: goalsArray 
+        };
         return cardData;
     } catch (error) {
         console.error(
@@ -224,12 +267,33 @@ export async function addCardToDeck(
         while (!deckSuccess && attempts < maxAttempts) {
             try {
                 console.log(`[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} to add card to deck`);
-                await setField(`${nodes.decks}/${deckId}/cards`, cardId, true);
-                deckSuccess = true;
-                console.log(`[addCardToDeck] Successfully added card reference to deck`);
-            } catch (deckError) {
+                const result = await setField(`${nodes.decks}/${deckId}/cards`, cardId, true);
+                
+                if (result.err) {
+                    console.warn(
+                        `[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} had error:`,
+                        result.err
+                    );
+                    attempts++;
+                    
+                    if (attempts === maxAttempts) {
+                        console.error(`[addCardToDeck] Failed to add card to deck after ${maxAttempts} attempts`);
+                        return false;
+                    }
+                } else {
+                    console.log(`[addCardToDeck] Successfully added card reference to deck`);
+                    deckSuccess = true;
+                }
+                
+                if (!deckSuccess) {
+                    // Wait before retrying
+                    const waitTime = 1000 * attempts;
+                    console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+            } catch (error) {
                 attempts++;
-                console.warn(`[addCardToDeck] Attempt ${attempts}/${maxAttempts} failed:`, deckError);
+                console.warn(`[addCardToDeck] Exception in attempt ${attempts}/${maxAttempts}:`, error);
                 
                 if (attempts === maxAttempts) {
                     console.error(`[addCardToDeck] Failed to add card to deck after ${maxAttempts} attempts`);
@@ -254,27 +318,51 @@ export async function addCardToDeck(
         while (!cardSuccess && attempts < maxAttempts) {
             try {
                 console.log(`[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} to add deck to card`);
-                await setField(`${nodes.cards}/${cardId}/decks`, deckId, true);
-                cardSuccess = true;
-                console.log(`[addCardToDeck] Successfully added deck reference to card`);
-            } catch (cardError) {
+                const result = await setField(`${nodes.cards}/${cardId}/decks`, deckId, true);
+                
+                if (result.err) {
+                    console.warn(
+                        `[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} had error:`,
+                        result.err
+                    );
+                    attempts++;
+                    
+                    if (attempts === maxAttempts) {
+                        console.error(`[addCardToDeck] Failed to add deck to card after ${maxAttempts} attempts`);
+                        // Continue even if this fails, as the primary relationship (card->deck) is established
+                    }
+                } else {
+                    console.log(`[addCardToDeck] Successfully added deck reference to card`);
+                    cardSuccess = true;
+                }
+                
+                if (!cardSuccess && attempts < maxAttempts) {
+                    // Wait before retrying
+                    const waitTime = 1000 * attempts;
+                    console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+            } catch (error) {
                 attempts++;
-                console.warn(`[addCardToDeck] Attempt ${attempts}/${maxAttempts} failed:`, cardError);
+                console.warn(`[addCardToDeck] Exception in attempt ${attempts}/${maxAttempts}:`, error);
                 
                 if (attempts === maxAttempts) {
                     console.error(`[addCardToDeck] Failed to add deck to card after ${maxAttempts} attempts`);
                     // Continue even if this fails, as the primary relationship (card->deck) is established
                 }
                 
-                // Wait before retrying
-                const waitTime = 1000 * attempts;
-                console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
+                if (attempts < maxAttempts) {
+                    // Wait before retrying
+                    const waitTime = 1000 * attempts;
+                    console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
             }
         }
 
+        // Consider the operation a success if the primary relationship was established
         console.log(`[addCardToDeck] Successfully added ${cardId} to ${deckId}`);
-        return true;
+        return deckSuccess;
     } catch (error) {
         console.error("[addCardToDeck] Unexpected error:", error);
         return false;
@@ -314,7 +402,7 @@ export async function initializeBidirectionalRelationships(): Promise<{
             const cardIds =
                 typeof deck.cards === "object"
                     ? Object.keys(deck.cards).filter(
-                          (id) => deck.cards[id] === true,
+                          (id) => typeof deck.cards === "object" && deck.cards[id] === true,
                       )
                     : [];
             console.log(
@@ -330,19 +418,36 @@ export async function initializeBidirectionalRelationships(): Promise<{
                     continue;
                 }
 
-                const decksOnCard = cardData.decks || {};
+                // TypeScript safety: ensure decks exists as an object
+                const decksOnCard = (cardData.decks as Record<string, boolean>) || {};
+                
                 if (!decksOnCard[deckId]) {
-                    await setField(
+                    const result = await setField(
                         `${nodes.cards}/${cardId}/decks`,
                         deckId,
                         true,
                     );
-                    console.log(
-                        `[initializeBidirectionalRelationships] Added ${deckId} to ${cardId}`,
-                    );
-                    processedCount++;
+                    
+                    if (result.err) {
+                        console.error(
+                            `[initializeBidirectionalRelationships] Error adding ${deckId} to ${cardId}:`,
+                            result.err
+                        );
+                    } else {
+                        console.log(
+                            `[initializeBidirectionalRelationships] Added ${deckId} to ${cardId}`
+                        );
+                        processedCount++;
+                    }
+                    
+                    // Add a small delay between operations
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
             }
+            
+            // Add delay between processing decks
+            console.log(`[initializeBidirectionalRelationships] Finished processing deck ${deckId}, waiting 1s before next deck`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         console.log(
@@ -455,18 +560,31 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
     }
 
     const cardData = await get(`${nodes.cards}/${cardId}`);
-    if (!cardData || !cardData.decks) {
+    if (!cardData) {
+        console.log(`[getDecksForCard] Card not found: ${cardId}`);
+        return [];
+    }
+    
+    // TypeScript safety: ensure decks exists and is the right type
+    const cardDecks = cardData.decks as Record<string, boolean> | undefined;
+    
+    if (!cardDecks || Object.keys(cardDecks).length === 0) {
         console.log(`[getDecksForCard] No decks found for ${cardId}`);
         return [];
     }
 
-    const deckIds = Object.keys(cardData.decks).filter(
-        (id) => cardData.decks[id] === true,
+    const deckIds = Object.keys(cardDecks).filter(
+        (id) => cardDecks[id] === true,
     );
+    
+    console.log(`[getDecksForCard] Found ${deckIds.length} deck references for ${cardId}`);
+    
+    // Fetch each deck and filter out any nulls
     const decks = await Promise.all(deckIds.map(getDeck));
     const validDecks = decks.filter((d) => d !== null) as Deck[];
+    
     console.log(
-        `[getDecksForCard] Found ${validDecks.length} decks for ${cardId}`,
+        `[getDecksForCard] Retrieved ${validDecks.length} valid decks for ${cardId}`,
     );
     return validDecks;
 }
