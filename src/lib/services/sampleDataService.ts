@@ -101,6 +101,35 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
   
   console.log(`[sampleData] Saving to ${path}/${key}...`);
   
+  // Clean the data to ensure there are no undefined values
+  // This is critical for Gun.js to work properly
+  const cleanData: Record<string, any> = {};
+  
+  for (const k in data) {
+    if (data[k] !== undefined) {
+      // For objects, recursively clean them
+      if (typeof data[k] === 'object' && data[k] !== null) {
+        // Handle nested objects
+        const cleanNested: Record<string, any> = {};
+        for (const nestedKey in data[k]) {
+          if (data[k][nestedKey] !== undefined) {
+            cleanNested[nestedKey] = data[k][nestedKey];
+          }
+        }
+        cleanData[k] = cleanNested;
+      } else {
+        // For primitive values, just copy them
+        cleanData[k] = data[k];
+      }
+    } else {
+      // Skip undefined fields
+      console.log(`[sampleData] Skipping undefined field ${k} in ${path}/${key}`);
+    }
+  }
+  
+  // Print the cleaned data object
+  console.log(`[sampleData] Cleaned data for ${path}/${key}:`, JSON.stringify(cleanData));
+  
   // Return a promise that can resolve in multiple ways:
   // 1. Successfully on ack with no error
   // 2. Error if ack has an error
@@ -109,8 +138,8 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
     // First - small delay to ensure Radisk is ready
     setTimeout(() => {
       try {
-        // Second - actual Gun put operation
-        gun.get(path).get(key).put(data, (ack: any) => {
+        // Second - actual Gun put operation with clean data
+        gun.get(path).get(key).put(cleanData, (ack: any) => {
           if (ack && ack.err) {
             console.warn(`[sampleData] Error saving to ${path}/${key}:`, ack.err);
             resolve(false);
@@ -283,21 +312,49 @@ export async function initializeSampleData() {
     await ensureNode(`${nodes.users}/${u.user_id}`, u);
   }
 
-  // Save individual card nodes
+  // Create explicit card objects with no undefined values and no spread operator
   const baseCardData1 = {
-    ...cards[0],
-    // Remove the rawValues/rawCapabilities so we don't store them as direct fields
-    rawValues: undefined,
-    rawCapabilities: undefined,
+    card_id: cards[0].card_id,
+    card_number: cards[0].card_number,
+    role_title: cards[0].role_title,
+    backstory: cards[0].backstory || "",
+    goals: cards[0].goals || "",
+    obligations: cards[0].obligations || "",
+    intellectual_property: cards[0].intellectual_property || "",
+    rivalrous_resources: cards[0].rivalrous_resources || "",
+    card_category: cards[0].card_category || "",
+    type: cards[0].type || "Practice",
+    icon: cards[0].icon || "",
+    created_at: cards[0].created_at,
+    // Initialize empty objects for relationships
+    values: {},
+    capabilities: {},
+    decks: {}
   };
+  
+  console.log("[sampleData] Prepared Card 1 data:", JSON.stringify(baseCardData1));
   await ensureNode(`${nodes.cards}/${cards[0].card_id}`, baseCardData1);
   
   const baseCardData2 = {
-    ...cards[1],
-    // Remove the rawValues/rawCapabilities so we don't store them as direct fields
-    rawValues: undefined,
-    rawCapabilities: undefined,
+    card_id: cards[1].card_id,
+    card_number: cards[1].card_number,
+    role_title: cards[1].role_title,
+    backstory: cards[1].backstory || "",
+    goals: cards[1].goals || "",
+    obligations: cards[1].obligations || "",
+    intellectual_property: cards[1].intellectual_property || "",
+    rivalrous_resources: cards[1].rivalrous_resources || "",
+    card_category: cards[1].card_category || "",
+    type: cards[1].type || "DAO",
+    icon: cards[1].icon || "",
+    created_at: cards[1].created_at,
+    // Initialize empty objects for relationships
+    values: {},
+    capabilities: {},
+    decks: {}
   };
+  
+  console.log("[sampleData] Prepared Card 2 data:", JSON.stringify(baseCardData2));
   await ensureNode(`${nodes.cards}/${cards[1].card_id}`, baseCardData2);
 
   await ensureNode(`${nodes.decks}/${deck.deck_id}`, deck);
