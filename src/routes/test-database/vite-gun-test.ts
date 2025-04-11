@@ -226,13 +226,24 @@ export async function cleanupTestData(): Promise<{ success: boolean, error?: str
  */
 export function isPersistentStorage(): boolean {
   try {
-    // If Gun.RAD is true, it means Radisk is active
-    const usingRadisk = !!(db.back as any)?.opt?.radisk && !!(db as any)?._.opt?.radisk;
+    // Access Gun internals using any type to avoid TypeScript errors
+    const gunInternal = db as any;
     
-    // Additional check for the actual RAD property, which might be in a different location
-    const hasRADProperty = !!(db as any).RAD === true || !!(db as any).back?.RAD === true;
+    // If the radisk option is set to true, it means Radisk is attempted to be used
+    const usingRadisk = !!gunInternal?.opt?.radisk === true;
     
-    return usingRadisk || hasRADProperty;
+    // Check if we can detect IndexedDB activity
+    const hasIndexedDB = typeof window !== 'undefined' && 
+                        window.indexedDB && 
+                        gunInternal?.opt?.file !== false;
+    
+    console.log('[ViteGunTest] Storage check:', {
+      usingRadisk,
+      hasIndexedDB,
+      dbOpt: gunInternal?.opt || {}
+    });
+    
+    return usingRadisk && hasIndexedDB;
   } catch (error) {
     console.error('[ViteGunTest] Error checking storage type:', error);
     return false;

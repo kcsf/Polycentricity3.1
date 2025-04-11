@@ -1,43 +1,29 @@
 /* gunService.ts - Central access point for Gun.js database
  * This module ensures proper Gun.js initialization and usage.
  * 
- * CRITICAL: We must import from gunRadiskAdapter first to ensure
- * the correct module load order for the Radisk adapter.
+ * Uses the Vite-compatible approach from https://github.com/amark/gun/wiki/Vite
+ * We import directly from gun-db.js which initializes Gun.js properly for Vite
  */
 
-// CRITICAL: Import Gun directly from our radiskAdapter
-// This ensures the adapter is loaded before we use Gun
-import { Gun, radiskLoaded } from './gunRadiskAdapter'; 
-console.log("[Gun Imports] Using Gun from radiskAdapter:", !!Gun);
-console.log("[Gun Imports] Radisk adapter registered:", radiskLoaded);
+// Import the pre-initialized Gun instance from gun-db.js
+// This instance is already properly configured for Vite
+import db from './gun-db.js';
+import type Gun from 'gun';
 
-// Finally, import environment
+// Import environment
 import { browser } from "$app/environment";
 import type { IGunInstance, IGunUserInstance } from "gun";
 
-// Check if Gun has the expected properties
-// Using type assertion to access non-standard properties
-const GunAny = Gun as any;
-
-// Verify Radisk is available
-if (GunAny.RAD) {
-  console.log("[Gun Imports] ✓ SUCCESS: Gun.RAD adapter is properly registered");
-} else {
-  console.warn("[Gun Imports] ⚠️ WARNING: Gun.RAD adapter is NOT registered!");
-  console.warn("[Gun Imports] Local database will use in-memory storage only!");
-}
-
-// Check if essential Gun components are available 
-console.log("[Gun Imports] Gun chain available:", !!GunAny.chain);
-console.log("[Gun Imports] Gun.on available:", typeof Gun.on === 'function');
+// Check if the db instance is a valid Gun instance
+const isPersistentStorage = db && (db as any).opt?.radisk === true;
+console.log("[gunService] Gun db instance loaded:", !!db);
+console.log("[gunService] Using persistent storage:", isPersistentStorage);
 
 /* ───────────────────────────── basics ───────────────────────────── */
 
-// Global singleton Gun instance - shared across the application
-let gun: IGunInstance | undefined;
-const PEERS: string[] = [];       // add peer URLs if you have them
-let isInitializing = false;       // Flag to prevent multiple initializations
-let isInitialized = false;        // Flag to track if Gun is ready
+// Global singleton Gun instance reference from our gun-db.js
+// This is already initialized and shared across the application
+const gun = db as unknown as IGunInstance;
 
 /**
  * GunAck interface defining the expected structure of Gun.js acknowledgment messages
@@ -51,84 +37,20 @@ export interface GunAck {
 
 /**
  * Initialize the Gun.js database with Radisk adapter.
- * This should only be called once at application startup.
+ * This is now just a reference method that returns the pre-initialized Gun instance.
  */
 export function initializeGun(): IGunInstance | undefined {
-  // Skip if not in browser or already initialized or currently initializing
-  if (!browser || isInitialized || isInitializing) {
-    console.log("[initializeGun] Skipping initialization - already initialized:", isInitialized, "or initializing:", isInitializing);
-    return gun;
-  }
-  
-  // Set flag to prevent concurrent initializations
-  isInitializing = true;
-  console.log("[initializeGun] Starting Gun.js initialization");
-  
-  // Check if Gun global object has the expected methods
-  console.log("[initializeGun] Gun constructor available:", typeof Gun === 'function');
-  console.log("[initializeGun] Gun.on available:", typeof Gun.on === 'function');
-  console.log("[initializeGun] Gun.chain available:", !!(Gun as any).chain);
-  
-  // Critical - use radiskLoaded to determine if Radisk adapter is registered
-  console.log("[initializeGun] *** RADISK ADAPTER REGISTERED:", radiskLoaded, "***");
-  
-  if (!radiskLoaded) {
-    console.warn("[initializeGun] WARNING: Radisk adapter may not be properly registered");
-    console.warn("[initializeGun] Gun.RAD:", (Gun as any).RAD || false, "- This must be true for IndexedDB to work");
-  }
-  
-  try {
-    console.log("[initializeGun] Initializing Gun.js with peers:", PEERS);
-    
-    // Create the Gun instance with explicit options
-    const gunOpts = {
-      radisk: true,        // Enable IndexedDB (Radisk)
-      localStorage: false, // Disable localStorage (slower & blocking)
-      peers: PEERS,        // Optional peer connections
-    };
-    
-    console.log("[initializeGun] Gun options:", gunOpts);
-    gun = Gun(gunOpts);
-    
-    if (!gun) {
-      console.error("[initializeGun] Failed to create Gun instance - returned undefined");
-      isInitializing = false;
-      return undefined;
-    }
-    
-    // Verify the Gun instance has expected methods
-    console.log("[initializeGun] Gun instance created with get:", typeof gun.get === 'function');
-    console.log("[initializeGun] Gun instance with put:", typeof gun.put === 'function');
-    
-    // Set initialization flags
-    isInitialized = true;
-    console.log("[initializeGun] Gun initialized successfully");
-    
-  } catch (error) {
-    console.error("[initializeGun] Error initializing Gun:", error);
-  } finally {
-    isInitializing = false;
-  }
-  
+  // Just return the pre-initialized Gun instance from gun-db.js
+  console.log("[initializeGun] Using pre-initialized Gun instance from gun-db.js");
   return gun;
 }
 
 /**
- * Get the Gun instance, initializing if needed.
+ * Get the Gun instance, already initialized.
  * This is the only way to access Gun throughout the application.
  */
 export function getGun(): IGunInstance | undefined {
-  if (!gun && browser && !isInitializing) {
-    console.log("[getGun] Gun instance not found, initializing...");
-    initializeGun();
-  }
-  
-  if (!gun) {
-    console.warn("[getGun] ⚠️ Still no Gun instance available after initialization!");
-  } else {
-    console.log("[getGun] ✓ Gun instance available", typeof gun.get === 'function');
-  }
-  
+  console.log("[getGun] ✓ Gun instance available from gun-db.js");
   return gun;
 }
 

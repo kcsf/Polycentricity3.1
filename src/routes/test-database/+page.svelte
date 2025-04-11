@@ -206,16 +206,13 @@
   
   <!-- Database information panel -->
   <div class="card p-4 variant-ghost mt-4">
-    <h2 class="font-semibold mb-2">Gun.js Database Structure</h2>
+    <h2 class="font-semibold mb-2">Gun.js Database Paths</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-      {#each nodeTypes as type}
+      {#each dbPaths as path}
         <div class="p-2 rounded bg-surface-100-800-token">
-          <span class="font-mono text-primary-500">{type}:</span> {nodes[type as keyof typeof nodes]}
+          <span class="font-mono text-primary-500">{path}:</span> (database node)
         </div>
       {/each}
-      <div class="p-2 rounded bg-surface-100-800-token">
-        <span class="font-mono text-primary-500">test_data:</span> (temporary test root)
-      </div>
     </div>
   </div>
 </div>
