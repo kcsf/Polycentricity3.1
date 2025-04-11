@@ -384,7 +384,7 @@
           </p>
           <button 
             type="button"
-            class="btn preset-glass-error w-full" 
+            class="btn preset-filled-primary-500 w-full" 
             on:click={handleCleanupGames}
             disabled={cleanupLoading}
           >
@@ -400,7 +400,7 @@
           </p>
           <button 
             type="button"
-            class="btn preset-glass-error w-full" 
+            class="btn preset-filled-primary-500 w-full" 
             on:click={handleCleanupUsers}
             disabled={cleanupLoading}
           >
@@ -416,7 +416,7 @@
           </p>
           <button 
             type="button"
-            class="btn preset-glass-error w-full" 
+            class="btn preset-filled-primary-500 w-full" 
             on:click={handleCleanupDecks}
             disabled={cleanupLoading}
           >
@@ -432,7 +432,7 @@
           </p>
           <button 
             type="button"
-            class="btn preset-glass-error w-full" 
+            class="btn preset-filled-primary-500 w-full" 
             on:click={handleCleanupCards}
             disabled={cleanupLoading}
           >
