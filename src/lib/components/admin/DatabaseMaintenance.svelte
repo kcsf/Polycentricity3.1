@@ -383,7 +383,8 @@
             This will permanently delete all games in the database. This action cannot be undone.
           </p>
           <button 
-            class="btn preset-outlined-primary-300-700/90 w-full" 
+            type="button"
+            class="btn preset-glass-error w-full" 
             on:click={handleCleanupGames}
             disabled={cleanupLoading}
           >
@@ -398,7 +399,8 @@
             This will permanently delete all users except your current user. This action cannot be undone.
           </p>
           <button 
-            class="btn preset-outlined-primary-300-700/90 w-full" 
+            type="button"
+            class="btn preset-glass-error w-full" 
             on:click={handleCleanupUsers}
             disabled={cleanupLoading}
           >
@@ -413,7 +415,8 @@
             This will permanently delete all decks in the database. This action cannot be undone.
           </p>
           <button 
-            class="btn preset-outlined-primary-300-700/90 w-full" 
+            type="button"
+            class="btn preset-glass-error w-full" 
             on:click={handleCleanupDecks}
             disabled={cleanupLoading}
           >
@@ -428,7 +431,8 @@
             This will permanently delete all cards in the database. This action cannot be undone.
           </p>
           <button 
-            class="btn preset-outlined-primary-300-700/90 w-full" 
+            type="button"
+            class="btn preset-glass-error w-full" 
             on:click={handleCleanupCards}
             disabled={cleanupLoading}
           >
