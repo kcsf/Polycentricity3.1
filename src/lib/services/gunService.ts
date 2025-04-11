@@ -93,9 +93,26 @@ export function put<T>(
     return new Promise((resolve) => {
         try {
             const startTime = Date.now();
+            let completed = false;
             
-            // Simplify: don't use a chain of methods, go directly to the node and put
+            // Add a timeout safety in case Gun never calls back
+            const safetyTimeout = setTimeout(() => {
+                if (!completed) {
+                    console.warn(`[put] Safety timeout after 10s for ${node}`);
+                    completed = true;
+                    resolve({
+                        err: "Operation timed out",
+                        ok: false,
+                    });
+                }
+            }, 10000);
+            
+            // Use direct put with no chaining, following Gun's API docs exactly
             gunInstance.get(node).put(data, (ack: any) => {
+                if (completed) return; // Already resolved by timeout
+                completed = true;
+                clearTimeout(safetyTimeout);
+                
                 console.log(`[put] Got acknowledgment in ${Date.now() - startTime}ms:`, ack);
                 
                 // Standard acknowledgment format
@@ -141,7 +158,22 @@ export function get<T>(node: string): Promise<T | null> {
 
     console.log(`[get] Fetching from ${node}`);
     return new Promise((resolve) => {
+        let completed = false;
+        
+        // Add timeout safety
+        const safetyTimeout = setTimeout(() => {
+            if (!completed) {
+                console.warn(`[get] Safety timeout after 5s for ${node}`);
+                completed = true;
+                resolve(null);
+            }
+        }, 5000);
+        
         gunInstance.get(node).once((data: any) => {
+            if (completed) return; // Already resolved by timeout
+            completed = true;
+            clearTimeout(safetyTimeout);
+            
             // Remove Gun metadata from the result
             const result =
                 data && typeof data === "object"
@@ -210,10 +242,25 @@ export function getField<T>(
 
     console.log(`[getField] Fetching ${nodePath}/${key}`);
     return new Promise((resolve) => {
+        let completed = false;
+        
+        // Add timeout safety
+        const safetyTimeout = setTimeout(() => {
+            if (!completed) {
+                console.warn(`[getField] Safety timeout after 5s for ${nodePath}/${key}`);
+                completed = true;
+                resolve(null);
+            }
+        }, 5000);
+        
         gunInstance
             .get(nodePath)
             .get(key)
             .once((data: any) => {
+                if (completed) return; // Already resolved by timeout
+                completed = true;
+                clearTimeout(safetyTimeout);
+                
                 // Remove Gun metadata from the result
                 const result =
                     data && typeof data === "object"
@@ -251,11 +298,29 @@ export function setField<T>(
     return new Promise((resolve) => {
         try {
             const startTime = Date.now();
+            let completed = false;
+            
+            // Add a timeout safety in case Gun never calls back
+            const safetyTimeout = setTimeout(() => {
+                if (!completed) {
+                    console.warn(`[setField] Safety timeout after 10s for ${nodePath}/${key}`);
+                    completed = true;
+                    resolve({
+                        err: "Operation timed out",
+                        ok: false,
+                    });
+                }
+            }, 10000);
+            
             // Using Gun's direct callback pattern
             gunInstance
                 .get(nodePath)
                 .get(key)
                 .put(value, (ack: any) => {
+                    if (completed) return; // Already resolved by timeout
+                    completed = true;
+                    clearTimeout(safetyTimeout);
+                    
                     console.log(`[setField] Got acknowledgment in ${Date.now() - startTime}ms:`, ack);
                     
                     // Standardize the acknowledgment
@@ -341,7 +406,22 @@ export function nodeExists(nodePath: string): Promise<boolean> {
 
     console.log(`[nodeExists] Checking if ${nodePath} exists`);
     return new Promise((resolve) => {
+        let completed = false;
+        
+        // Add timeout safety
+        const safetyTimeout = setTimeout(() => {
+            if (!completed) {
+                console.warn(`[nodeExists] Safety timeout after 5s for ${nodePath}`);
+                completed = true;
+                resolve(false);
+            }
+        }, 5000);
+        
         gunInstance.get(nodePath).once((data: any) => {
+            if (completed) return; // Already resolved by timeout
+            completed = true;
+            clearTimeout(safetyTimeout);
+            
             const exists =
                 data !== undefined &&
                 data !== null &&

@@ -414,9 +414,10 @@ export async function initializeBidirectionalRelationships(): Promise<{
             }
 
             const cardIds =
-                typeof deck.cards === "object"
+                typeof deck.cards === "object" && deck.cards !== null
                     ? Object.keys(deck.cards).filter(
-                          (id) => typeof deck.cards === "object" && deck.cards[id] === true,
+                          (id) => typeof deck.cards === "object" && deck.cards !== null && 
+                          id in deck.cards && deck.cards[id as keyof typeof deck.cards] === true,
                       )
                     : [];
             console.log(
@@ -433,7 +434,8 @@ export async function initializeBidirectionalRelationships(): Promise<{
                 }
 
                 // TypeScript safety: ensure decks exists as an object
-                const decksOnCard = (cardData.decks as Record<string, boolean>) || {};
+                const cardDataWithDecks = cardData as { decks?: Record<string, boolean> };
+                const decksOnCard = cardDataWithDecks.decks || {};
                 
                 if (!decksOnCard[deckId]) {
                     const result = await setField(
@@ -580,7 +582,8 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
     }
     
     // TypeScript safety: ensure decks exists and is the right type
-    const cardDecks = cardData.decks as Record<string, boolean> | undefined;
+    const cardDataWithDecks = cardData as { decks?: Record<string, boolean> };
+    const cardDecks = cardDataWithDecks.decks;
     
     if (!cardDecks || Object.keys(cardDecks).length === 0) {
         console.log(`[getDecksForCard] No decks found for ${cardId}`);
