@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { saveSimpleItem, getSimpleItem, getAllSimpleItems, deleteSimpleItem, cleanupTestData } from './simple-test';
-  import { nodes } from '$lib/services/gunService';
+  import { nodes, getGun } from '$lib/services/gunService';
   
   let testStatus = '';
   let testId = '';
