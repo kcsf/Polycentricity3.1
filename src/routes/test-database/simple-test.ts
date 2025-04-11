@@ -5,6 +5,10 @@
  */
 
 import { getGun, generateId } from '$lib/services/gunService';
+import { Gun, radiskLoaded } from '$lib/services/gunRadiskAdapter';
+
+// Check if Radisk is properly registered with Gun
+console.log('[SimpleTest] *** Radisk adapter status:', radiskLoaded ? 'ACTIVE ✓' : 'INACTIVE ✗', '***');
 
 // Root location for test data
 const TEST_ROOT = 'test_data';

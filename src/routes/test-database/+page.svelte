@@ -1,15 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { saveSimpleItem, getSimpleItem, getAllSimpleItems, deleteSimpleItem, cleanupTestData } from './indexeddb-test';
-  import { stores } from '$lib/services/indexedDBService';
-  import { initializeDB } from '$lib/services/indexedDBService';
+  import { saveSimpleItem, getSimpleItem, getAllSimpleItems, deleteSimpleItem, cleanupTestData } from './simple-test';
+  import { nodes } from '$lib/services/gunService';
+  import { radiskLoaded } from '$lib/services/gunRadiskAdapter';
   
   let testStatus = '';
   let testId = '';
   let testResultsText = '';
   let testInProgress = false;
   let testData: any = null;
-  let dbInitialized = false;
   
   // Simple test data examples - using minimal data for basic tests
   const simpleTestData = {
@@ -19,21 +18,14 @@
     tags: ['tag1', 'tag2']
   };
   
-  // Store names for exploration
-  const storeNames = Object.keys(stores);
+  // Node types for exploration
+  const nodeTypes = Object.keys(nodes);
   
-  onMount(async () => {
+  onMount(() => {
     console.log('Test Database page mounted');
-    
-    try {
-      // Initialize the database when the page loads
-      await initializeDB();
-      dbInitialized = true;
-      console.log('IndexedDB initialized successfully');
-    } catch (error) {
-      console.error('Error initializing IndexedDB:', error);
-      testStatus = `Error initializing database: ${error instanceof Error ? error.message : String(error)}`;
-    }
+    testStatus = radiskLoaded 
+      ? 'Gun.js initialized with Radisk adapter' 
+      : 'Gun.js initialized (Radisk not activated)';
   });
   
   async function runBasicTest() {
@@ -42,11 +34,6 @@
     testData = null;
     
     try {
-      if (!dbInitialized) {
-        await initializeDB();
-        dbInitialized = true;
-      }
-      
       // Create a new test item with current timestamp
       const testItem = {
         ...simpleTestData,
@@ -60,14 +47,20 @@
         testId = saveResult.id;
         testStatus = `Test item saved with ID: ${testId}`;
         
-        // Try to get it back immediately
+        // Add a slight delay before retrieving
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Try to get it back
         const getResult = await getSimpleItem(testId);
         if (getResult.success) {
           testResultsText = JSON.stringify(getResult.data, null, 2);
           testData = getResult.data;
           testStatus = 'Basic test successful!';
         } else {
-          testStatus = `Error retrieving test item: ${getResult.error}`;
+          // Still show what was attempted to save
+          testResultsText = JSON.stringify(testItem, null, 2);
+          testData = testItem;
+          testStatus = `Error retrieving test item (but saved): ${getResult.error}`;
         }
       } else {
         testStatus = `Error saving test item: ${saveResult.error}`;
@@ -85,11 +78,6 @@
     testStatus = 'Cleaning up all test data...';
     
     try {
-      if (!dbInitialized) {
-        await initializeDB();
-        dbInitialized = true;
-      }
-      
       const result = await cleanupTestData();
       
       if (result.success) {
@@ -113,11 +101,6 @@
     testStatus = 'Retrieving all test items...';
     
     try {
-      if (!dbInitialized) {
-        await initializeDB();
-        dbInitialized = true;
-      }
-      
       const result = await getAllSimpleItems();
       
       if (result.success) {
@@ -139,9 +122,18 @@
 </script>
 
 <div class="container mx-auto p-4">
-  <h1 class="text-2xl font-bold mb-4">IndexedDB Database Test</h1>
+  <h1 class="text-2xl font-bold mb-4">Gun.js Database Test</h1>
   
   <div class="card p-4 mb-6 variant-soft">
+    <div class="mb-2 p-2 variant-filled-primary rounded-sm">
+      <p class="font-bold">Radisk Status: 
+        <span class:text-success-500={radiskLoaded} class:text-error-500={!radiskLoaded}>
+          {radiskLoaded ? 'ACTIVE ✓' : 'INACTIVE ✗'}
+        </span>
+      </p>
+      <p class="text-sm">{radiskLoaded ? 'IndexedDB storage activated' : 'Using in-memory storage only'}</p>
+    </div>
+    
     <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
       <button 
         class="btn variant-filled-primary" 
@@ -189,13 +181,16 @@
   
   <!-- Database information panel -->
   <div class="card p-4 variant-ghost mt-4">
-    <h2 class="font-semibold mb-2">IndexedDB Database Structure</h2>
+    <h2 class="font-semibold mb-2">Gun.js Database Structure</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-      {#each storeNames as store}
+      {#each nodeTypes as type}
         <div class="p-2 rounded bg-surface-100-800-token">
-          <span class="font-mono text-primary-500">{store}:</span> {stores[store as keyof typeof stores]}
+          <span class="font-mono text-primary-500">{type}:</span> {nodes[type as keyof typeof nodes]}
         </div>
       {/each}
+      <div class="p-2 rounded bg-surface-100-800-token">
+        <span class="font-mono text-primary-500">test_data:</span> (temporary test root)
+      </div>
     </div>
   </div>
 </div>
