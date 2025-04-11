@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { saveSimpleItem, getSimpleItem, getAllSimpleItems, deleteSimpleItem, cleanupTestData } from './simple-test';
-  import { nodes, getGun } from '$lib/services/gunService';
+  import { saveSimpleItem, getSimpleItem, getAllSimpleItems, deleteSimpleItem, cleanupTestData } from './indexeddb-test';
+  import { stores } from '$lib/services/indexedDBService';
+  import { initializeDB } from '$lib/services/indexedDBService';
   
   let testStatus = '';
   let testId = '';
   let testResultsText = '';
   let testInProgress = false;
   let testData: any = null;
+  let dbInitialized = false;
   
   // Simple test data examples - using minimal data for basic tests
   const simpleTestData = {
@@ -17,11 +19,21 @@
     tags: ['tag1', 'tag2']
   };
   
-  // Node types for exploration
-  const nodeTypes = Object.keys(nodes);
+  // Store names for exploration
+  const storeNames = Object.keys(stores);
   
-  onMount(() => {
+  onMount(async () => {
     console.log('Test Database page mounted');
+    
+    try {
+      // Initialize the database when the page loads
+      await initializeDB();
+      dbInitialized = true;
+      console.log('IndexedDB initialized successfully');
+    } catch (error) {
+      console.error('Error initializing IndexedDB:', error);
+      testStatus = `Error initializing database: ${error instanceof Error ? error.message : String(error)}`;
+    }
   });
   
   async function runBasicTest() {
@@ -30,42 +42,32 @@
     testData = null;
     
     try {
-      // Get a reference to Gun directly
-      const gun = getGun();
-      if (!gun) {
-        testStatus = 'Gun not initialized!';
-        testInProgress = false;
-        return;
+      if (!dbInitialized) {
+        await initializeDB();
+        dbInitialized = true;
       }
       
+      // Create a new test item with current timestamp
+      const testItem = {
+        ...simpleTestData,
+        timestamp: Date.now()
+      };
+      
       // Save a simple test item
-      const saveResult = await saveSimpleItem(simpleTestData);
+      const saveResult = await saveSimpleItem(testItem);
       
       if (saveResult.success) {
         testId = saveResult.id;
         testStatus = `Test item saved with ID: ${testId}`;
         
-        // Add extra delay before attempting to retrieve - give Gun time to process
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Set up a direct listener for debugging
-        gun.get('test_data').map().once((data, key) => {
-          if (key && key !== '_') {
-            console.log(`[DirectTest] Found item with key ${key}:`, data);
-          }
-        });
-        
-        // Try to get it back
+        // Try to get it back immediately
         const getResult = await getSimpleItem(testId);
         if (getResult.success) {
           testResultsText = JSON.stringify(getResult.data, null, 2);
           testData = getResult.data;
           testStatus = 'Basic test successful!';
         } else {
-          // Still show what was saved
-          testResultsText = JSON.stringify(simpleTestData, null, 2);
-          testData = simpleTestData;
-          testStatus = `Error retrieving test item (but saved): ${getResult.error}`;
+          testStatus = `Error retrieving test item: ${getResult.error}`;
         }
       } else {
         testStatus = `Error saving test item: ${saveResult.error}`;
@@ -83,6 +85,11 @@
     testStatus = 'Cleaning up all test data...';
     
     try {
+      if (!dbInitialized) {
+        await initializeDB();
+        dbInitialized = true;
+      }
+      
       const result = await cleanupTestData();
       
       if (result.success) {
@@ -106,6 +113,11 @@
     testStatus = 'Retrieving all test items...';
     
     try {
+      if (!dbInitialized) {
+        await initializeDB();
+        dbInitialized = true;
+      }
+      
       const result = await getAllSimpleItems();
       
       if (result.success) {
@@ -127,7 +139,7 @@
 </script>
 
 <div class="container mx-auto p-4">
-  <h1 class="text-2xl font-bold mb-4">Simplified Gun.js Database Test</h1>
+  <h1 class="text-2xl font-bold mb-4">IndexedDB Database Test</h1>
   
   <div class="card p-4 mb-6 variant-soft">
     <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
@@ -177,16 +189,13 @@
   
   <!-- Database information panel -->
   <div class="card p-4 variant-ghost mt-4">
-    <h2 class="font-semibold mb-2">Gun.js Database Structure</h2>
+    <h2 class="font-semibold mb-2">IndexedDB Database Structure</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-      {#each nodeTypes as type}
+      {#each storeNames as store}
         <div class="p-2 rounded bg-surface-100-800-token">
-          <span class="font-mono text-primary-500">{type}:</span> {nodes[type as keyof typeof nodes]}
+          <span class="font-mono text-primary-500">{store}:</span> {stores[store as keyof typeof stores]}
         </div>
       {/each}
-      <div class="p-2 rounded bg-surface-100-800-token">
-        <span class="font-mono text-primary-500">test_data:</span> (temporary test root)
-      </div>
     </div>
   </div>
 </div>
