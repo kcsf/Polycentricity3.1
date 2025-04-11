@@ -1,14 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { saveSimpleItem, getSimpleItem, getAllSimpleItems, deleteSimpleItem, cleanupTestData } from './simple-test';
-  import { nodes } from '$lib/services/gunService';
-  import { radiskLoaded } from '$lib/services/gunRadiskAdapter';
+  import { 
+    saveSimpleItem, 
+    getSimpleItem, 
+    getAllSimpleItems, 
+    deleteSimpleItem, 
+    cleanupTestData,
+    isPersistentStorage 
+  } from './vite-gun-test';
+  
+  // Import the Gun-DB instance directly (this is a pre-initialized instance)
+  import gunDb from '$lib/services/gun-db.js';
   
   let testStatus = '';
   let testId = '';
   let testResultsText = '';
   let testInProgress = false;
   let testData: any = null;
+  let persistentStorage = false;
   
   // Simple test data examples - using minimal data for basic tests
   const simpleTestData = {
@@ -18,14 +27,33 @@
     tags: ['tag1', 'tag2']
   };
   
-  // Node types for exploration
-  const nodeTypes = Object.keys(nodes);
+  // Database paths to explore
+  const dbPaths = [
+    'test_data',
+    'debug',
+    'users',
+    'cards',
+    'decks',
+    'games'
+  ];
   
   onMount(() => {
     console.log('Test Database page mounted');
-    testStatus = radiskLoaded 
-      ? 'Gun.js initialized with Radisk adapter' 
-      : 'Gun.js initialized (Radisk not activated)';
+    
+    // Check if we're using persistent storage
+    persistentStorage = isPersistentStorage();
+    
+    // Set initial status
+    testStatus = persistentStorage 
+      ? 'Gun.js initialized with persistent storage (IndexedDB)' 
+      : 'Gun.js initialized with in-memory storage only';
+    
+    // Let's test the debug node too
+    gunDb.get('debug').once((data) => {
+      if (data) {
+        console.log('Debug node:', data);
+      }
+    });
   });
   
   async function runBasicTest() {
@@ -46,9 +74,6 @@
       if (saveResult.success) {
         testId = saveResult.id;
         testStatus = `Test item saved with ID: ${testId}`;
-        
-        // Add a slight delay before retrieving
-        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Try to get it back
         const getResult = await getSimpleItem(testId);
@@ -126,12 +151,12 @@
   
   <div class="card p-4 mb-6 variant-soft">
     <div class="mb-2 p-2 variant-filled-primary rounded-sm">
-      <p class="font-bold">Radisk Status: 
-        <span class:text-success-500={radiskLoaded} class:text-error-500={!radiskLoaded}>
-          {radiskLoaded ? 'ACTIVE ✓' : 'INACTIVE ✗'}
+      <p class="font-bold">Persistent Storage: 
+        <span class:text-success-500={persistentStorage} class:text-error-500={!persistentStorage}>
+          {persistentStorage ? 'ACTIVE ✓' : 'INACTIVE ✗'}
         </span>
       </p>
-      <p class="text-sm">{radiskLoaded ? 'IndexedDB storage activated' : 'Using in-memory storage only'}</p>
+      <p class="text-sm">{persistentStorage ? 'IndexedDB storage activated' : 'Using in-memory storage only'}</p>
     </div>
     
     <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">

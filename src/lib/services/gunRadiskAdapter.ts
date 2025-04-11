@@ -1,54 +1,76 @@
 /**
- * CRITICAL: This file MUST be imported before any Gun.js usage.
+ * Gun.js Adapter for Vite
  * 
- * It ensures the Radisk adapter is registered properly before Gun is
- * accessed. According to Gun.js docs, the correct order is:
- * 1. Load gun/lib/radix
- * 2. Load gun/lib/radisk
- * 3. Load gun/lib/store
- * 4. Load gun/lib/rindexed
- * 5. THEN load Gun core
+ * This file initializes Gun.js with Radisk adapter support for Vite/SvelteKit.
+ * Following the recommended approach from: https://github.com/amark/gun/wiki/Vite
  * 
- * Reference: https://gun.eco/docs/Radisk#radisk-storage-engine
+ * The key issue is that Vite's ESM bundling doesn't work well with Gun.js's
+ * CommonJS module pattern and global registrations. This adapter ensures
+ * everything is loaded in the correct order.
  */
 
-// This file is critically important for Gun.js initialization
-console.log('[GUN RADISK] Loading Radisk adapter and required modules...');
-
-// IMPORTANT: First import Gun to make it globally available
+// First import Gun directly to ensure it's available in global scope
 import Gun from 'gun';
 
-// Then load Radisk dependencies in the specific order
+// Signal start of adapter initialization
+console.log('[GUN RADISK] Initializing Gun.js with Radisk adapter for Vite...');
+
+// Import Gun modules in the correct order according to the Vite wiki docs
+// The order is critical for Radisk to register properly
+// Manually load the modules individually
 import 'gun/lib/radix';
 import 'gun/lib/radisk';
 import 'gun/lib/store';
 import 'gun/lib/rindexed';
 
-// Finally import SEA for authentication
+// Import SEA authentication module
 import 'gun/sea';
 
-// Export Gun and radisk status
+// Standard interface for our application
 let radiskLoaded = false;
 
 try {
-  // Check if Gun is properly loaded
-  if (!Gun) {
-    console.error('[GUN RADISK] Gun failed to load properly');
+  // Validate Gun.js is properly loaded
+  if (typeof Gun !== 'function') {
+    console.error('[GUN RADISK] Gun failed to load properly - not a function');
   } else {
-    console.log('[GUN RADISK] Gun loaded successfully');
+    console.log('[GUN RADISK] Gun constructor loaded successfully');
     
-    // Check for Gun.RAD to verify Radisk
-    radiskLoaded = (Gun as any).RAD === true;
+    // Check for specific Gun properties that indicate successful initialization
+    // Gun.window is added by imports on browser, Gun.RAD is added by radisk
+    const hasWindow = typeof (Gun as any).window !== 'undefined';
+    const hasRAD = hasWindow && (Gun as any).window.RAD === true;
+    
+    // In the browser with Vite, the RAD property might be on Gun directly
+    const hasDirectRAD = typeof (Gun as any).RAD === 'boolean' && (Gun as any).RAD === true;
+    
+    // Check Gun.chain and Gun.on to verify core functionality
+    const hasChain = typeof (Gun as any).chain === 'object';
+    const hasOn = typeof Gun.on === 'function';
+    
+    // Set radiskLoaded based on all checks
+    radiskLoaded = (hasRAD || hasDirectRAD) && hasChain && hasOn;
+    
+    // Log detailed status
+    console.log('[GUN RADISK] Status check:', {
+      hasWindow,
+      hasRAD: hasRAD || hasDirectRAD,
+      hasChain,
+      hasOn,
+      radiskLoaded
+    });
     
     if (radiskLoaded) {
       console.log('[GUN RADISK] Radisk adapter loaded and registered successfully ✓');
     } else {
-      console.warn('[GUN RADISK] Radisk loaded but not registered properly. Gun.RAD =', 
-                 (Gun as any).RAD || false);
+      console.warn('[GUN RADISK] Radisk loaded but not registered properly.',
+                 'Gun.window.RAD =', hasWindow ? ((Gun as any).window?.RAD || false) : 'N/A', 
+                 'Gun.RAD =', (Gun as any).RAD || false);
     }
   }
 } catch (error) {
   console.error('[GUN RADISK] Error checking Radisk status:', error);
 }
 
+// Export the initialized Gun and radisk status
 export { Gun, radiskLoaded };
