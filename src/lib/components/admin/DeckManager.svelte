@@ -131,20 +131,56 @@
         } catch (standardJsonError) {
           console.log('Standard JSON parse failed, trying with JavaScript object format');
           
+          // Clean the input text before attempting to fix it
+          const cleanedText = importText
+            .replace(/\n/g, ' ')              // Replace newlines with spaces
+            .replace(/\t/g, ' ')              // Replace tabs with spaces
+            .replace(/\s+/g, ' ')             // Collapse multiple spaces
+            .replace(/,\s*]/g, ']')           // Remove trailing commas in arrays
+            .replace(/,\s*}/g, '}')           // Remove trailing commas in objects
+            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'); // Ensure property names are quoted
+            
           // If that fails, try evaluating it as JavaScript (for unquoted property names)
           try {
-            // Add quotes to property names
-            const sanitizedText = importText
-              .replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
-              .replace(/'/g, '"'); // Replace single quotes with double quotes
-              
+            // Add quotes to property names and handle single quotes
+            const sanitizedText = cleanedText
+              .replace(/'/g, '"')             // Replace single quotes with double quotes
+              .replace(/:\s*"([^"]+)"/g, (match, p1) => {
+                // Handle string values with embedded quotes
+                return ': "' + p1.replace(/"/g, '\\"') + '"';
+              });
+            
             console.log('Sanitized text for parsing');
             cardsData = JSON.parse(sanitizedText);
             console.log('Successfully parsed as sanitized JavaScript object format');
           } catch (jsParseError) {
-            console.error('Both parsing methods failed', jsParseError);
-            // If both methods fail, throw the original error
-            throw standardJsonError;
+            // Try a more aggressive approach - extract just what looks like JSON objects
+            try {
+              console.log('Standard sanitization failed, trying more aggressive parsing');
+              
+              // Find all objects that look like {property: value} patterns
+              const objects = importText.match(/\{[^{}]*\}/g);
+              if (objects && objects.length > 0) {
+                // Process each object to ensure it has proper JSON format
+                const processedObjects = objects.map(obj => {
+                  return obj
+                    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure property names are quoted
+                    .replace(/'/g, '"')         // Replace single quotes with double quotes
+                    .replace(/,\s*}/g, '}');    // Remove trailing commas
+                });
+                
+                // Try to parse the array of objects
+                cardsData = JSON.parse('[' + processedObjects.join(',') + ']');
+                console.log('Successfully parsed using object extraction method');
+              } else {
+                console.error('Object extraction failed, no valid objects found');
+                throw new Error('No valid JSON objects found in the input');
+              }
+            } catch (extractionError) {
+              console.error('All parsing methods failed', extractionError);
+              // If all methods fail, throw the original error
+              throw standardJsonError;
+            }
           }
         }
         
@@ -169,7 +205,11 @@
         console.error('Error parsing JSON:', parseError);
         importResult = {
           success: false,
-          message: 'Invalid JSON format. Please check your input. Make sure to use valid JSON with double quotes around property names.'
+          message: `Invalid JSON format. Please check your input format and ensure it follows one of the examples. Common issues: 
+          1. Missing or mismatched quotes
+          2. Extra/trailing commas
+          3. Unquoted property names (should be "property": value)
+          4. Values containing quotes need to be escaped`
         };
         isImporting = false;
         return;
@@ -307,12 +347,30 @@
     "values": ["Sustainability", "Equity", "Community Resilience"],
     "goals": "Fund projects that reduce ecological footprints and promote self-reliance.",
     "obligations": "Must report impact to a donor network; cannot fund profit-driven ventures.",
-    "capabilities": "Grant-writing expertise, impact assessment.",
+    "capabilities": "Grant-writing expertise, impact assessment",
     "intellectual_property": "Database of sustainable tech solutions, funding strategy playbook.",
     "rivalrous_resources": "$50K in discretionary funds, limited staff time.",
     "card_category": "Funders",
     "type": "Individual",
     "icon": "sun"
+  }
+]
+
+// OR you can use format with comma-separated values in strings:
+[
+  {
+    "card_number": 3,
+    "role_title": "Community Gardener",
+    "backstory": "A permaculture expert who develops shared growing spaces.",
+    "values": "Sustainability, Community Resilience, Health",
+    "goals": "Build 5 community gardens, establish seed saving network.",
+    "obligations": "Must share harvest with community members.",
+    "capabilities": "Permaculture design, seed saving, harvest planning",
+    "intellectual_property": "Garden design plans, seed library.",
+    "rivalrous_resources": "Garden tools, limited water access.",
+    "card_category": "Providers",
+    "type": "Individual",
+    "icon": "leaf"
   }
 ]
 
@@ -325,7 +383,7 @@
     values: ['Decentralization', 'Sustainability', 'Transparency'],
     goals: 'Invest in scalable eco-village models; increase DAO membership.',
     obligations: 'Decisions must pass a token-weighted vote; funds locked until consensus.',
-    capabilities: 'Smart contract development, crowdfunding coordination.',
+    capabilities: 'Smart contract development, crowdfunding coordination',
     intellectual_property: 'Governance protocols, tokenomics model.',
     rivalrous_resources: '10 ETH in treasury, limited developer hours.',
     card_category: 'Funders',
