@@ -8,7 +8,7 @@ import "gun/lib/radix"; // Enable IndexedDB support
 let gun: IGunInstance | undefined;
 
 const GUN_PEERS: string[] = []; // Add peers later if needed
-export const DB_TIMEOUT = 15000; // 15s timeout
+export const DB_TIMEOUT = 30000; // 30s timeout - doubled for complex operations
 
 // Interface for Gun acknowledgment
 export interface GunAck {
