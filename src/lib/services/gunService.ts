@@ -330,7 +330,13 @@ export function setField<T>(
                     };
                     // Register the late handler but don't wait for it
                     try {
-                        gunInstance.get(nodePath).get(key).on('out', {'#': 'lateAck', get: {'.': `${nodePath}/${key}`}, cb: lateAckHandler});
+                        // Using a simpler approach to register a listener for future callbacks
+                        setTimeout(() => {
+                            gunInstance.get(nodePath).get(key).once((data) => {
+                                console.log(`[setField] LATE check for ${nodePath}/${key}:`, data ? 'data exists' : 'no data');
+                                if (data) lateAckHandler({ok: true, late: true});
+                            });
+                        }, 5000);
                     } catch (e) {
                         console.warn(`[setField] Could not register late ack handler:`, e);
                     }
@@ -471,6 +477,83 @@ export function nodeExists(nodePath: string): Promise<boolean> {
 export function deleteNode(nodePath: string): Promise<GunAck> {
     console.log(`[deleteNode] Deleting ${nodePath}`);
     return put(nodePath, null);
+}
+
+/**
+ * Create a relationship edge between two nodes using Gun's set() method.
+ * This is the proper way to create Gun.js relationships and is more efficient
+ * than using primitive boolean flags.
+ * 
+ * @param fromNodePath The path to the source node
+ * @param relationshipField The field name on the source node for the relationship
+ * @param toNodeId The ID of the target node
+ * @returns A promise that resolves with the acknowledgment or rejects with an error
+ */
+export function createRelationship(
+    fromNodePath: string,
+    relationshipField: string,
+    toNodeId: string
+): Promise<GunAck> {
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error("[createRelationship] Gun not initialized");
+        return Promise.reject(new Error("Gun not initialized"));
+    }
+
+    console.log(`[createRelationship] Creating edge: ${fromNodePath} -[${relationshipField}]-> ${toNodeId}`);
+    
+    return new Promise((resolve) => {
+        try {
+            const startTime = Date.now();
+            let completed = false;
+            
+            // Using 30s timeout for relationship operations
+            const safetyTimeout = setTimeout(() => {
+                if (!completed) {
+                    console.warn(`[createRelationship] Safety timeout after 30s for ${fromNodePath}/${relationshipField}/${toNodeId}`);
+                    completed = true;
+                    resolve({
+                        err: "Operation timed out",
+                        ok: false,
+                    });
+                }
+            }, 30000);
+            
+            // Using Gun's set() to create a proper relationship edge
+            // This is more efficient than using primitive values as it leverages Gun's graph nature
+            gunInstance
+                .get(fromNodePath)
+                .get(relationshipField)
+                .set(gunInstance.get(toNodeId), (ack: any) => {
+                    if (completed) return; // Already resolved by timeout
+                    completed = true;
+                    clearTimeout(safetyTimeout);
+                    
+                    console.log(`[createRelationship] Got acknowledgment in ${Date.now() - startTime}ms:`, ack);
+                    
+                    // Standardize the acknowledgment
+                    const gunAck: GunAck = { 
+                        err: ack.err, 
+                        ok: !ack.err,
+                    };
+                    
+                    // Always log errors for debugging
+                    if (ack.err) {
+                        console.error(`[createRelationship] Error creating edge ${fromNodePath}/${relationshipField} -> ${toNodeId}:`, ack.err);
+                    } else {
+                        console.log(`[createRelationship] Successfully created edge: ${fromNodePath} -[${relationshipField}]-> ${toNodeId}`);
+                    }
+                    
+                    resolve(gunAck);
+                });
+        } catch (error) {
+            console.error(`[createRelationship] Exception creating edge:`, error);
+            resolve({
+                err: String(error),
+                ok: false,
+            });
+        }
+    });
 }
 
 // Gun nodes

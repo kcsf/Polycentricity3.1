@@ -7,6 +7,7 @@ import {
     get,
     setField,
     getCollection,
+    createRelationship,
 } from "./gunService";
 import type { Deck, Card } from "$lib/types";
 import { createValue, createOrGetValues } from "./valueService";
@@ -280,15 +281,20 @@ export async function addCardToDeck(
     }
 
     try {
-        // STEP 1: Add card to deck with retry logic
+        // STEP 1: Add card to deck using proper Gun.js relationship with set()
         let deckSuccess = false;
         let attempts = 0;
         const maxAttempts = 3;
         
         while (!deckSuccess && attempts < maxAttempts) {
             try {
-                console.log(`[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} to add card to deck`);
-                const result = await setField(`${nodes.decks}/${deckId}/cards`, cardId, true);
+                console.log(`[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} to add card to deck using createRelationship`);
+                // Using proper Gun.js relationship edges with Gun's set() method
+                const result = await createRelationship(
+                    `${nodes.decks}/${deckId}`,
+                    'cards',
+                    `${nodes.cards}/${cardId}`
+                );
                 
                 if (result.err) {
                     console.warn(
@@ -307,8 +313,8 @@ export async function addCardToDeck(
                 }
                 
                 if (!deckSuccess) {
-                    // Wait before retrying
-                    const waitTime = 1000 * attempts;
+                    // Wait before retrying with exponential backoff
+                    const waitTime = 1000 * Math.pow(2, attempts);
                     console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
@@ -321,16 +327,16 @@ export async function addCardToDeck(
                     return false;
                 }
                 
-                // Wait before retrying
-                const waitTime = 1000 * attempts;
+                // Wait before retrying with exponential backoff
+                const waitTime = 1000 * Math.pow(2, attempts);
                 console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
                 await new Promise(resolve => setTimeout(resolve, waitTime));
             }
         }
         
         // Wait before adding the reverse relationship
-        console.log(`[addCardToDeck] Waiting 1s before adding reverse relationship...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log(`[addCardToDeck] Waiting 2s before adding reverse relationship...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // STEP 2: Add deck to card (reverse relationship) with retry logic
         let cardSuccess = false;
@@ -338,8 +344,13 @@ export async function addCardToDeck(
         
         while (!cardSuccess && attempts < maxAttempts) {
             try {
-                console.log(`[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} to add deck to card`);
-                const result = await setField(`${nodes.cards}/${cardId}/decks`, deckId, true);
+                console.log(`[addCardToDeck] Attempt ${attempts+1}/${maxAttempts} to add deck to card using createRelationship`);
+                // Using proper Gun.js relationship edges with Gun's set() method  
+                const result = await createRelationship(
+                    `${nodes.cards}/${cardId}`,
+                    'decks',
+                    `${nodes.decks}/${deckId}`
+                );
                 
                 if (result.err) {
                     console.warn(
@@ -358,8 +369,8 @@ export async function addCardToDeck(
                 }
                 
                 if (!cardSuccess && attempts < maxAttempts) {
-                    // Wait before retrying
-                    const waitTime = 1000 * attempts;
+                    // Wait before retrying with exponential backoff
+                    const waitTime = 1000 * Math.pow(2, attempts);
                     console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
@@ -373,8 +384,8 @@ export async function addCardToDeck(
                 }
                 
                 if (attempts < maxAttempts) {
-                    // Wait before retrying
-                    const waitTime = 1000 * attempts;
+                    // Wait before retrying with exponential backoff
+                    const waitTime = 1000 * Math.pow(2, attempts);
                     console.log(`[addCardToDeck] Waiting ${waitTime}ms before retry...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
@@ -445,10 +456,11 @@ export async function initializeBidirectionalRelationships(): Promise<{
                 const decksOnCard = cardDataWithDecks.decks || {};
                 
                 if (!decksOnCard[deckId]) {
-                    const result = await setField(
-                        `${nodes.cards}/${cardId}/decks`,
-                        deckId,
-                        true,
+                    // Using createRelationship for proper Gun.js relationship
+                    const result = await createRelationship(
+                        `${nodes.cards}/${cardId}`,
+                        'decks',
+                        `${nodes.decks}/${deckId}`
                     );
                     
                     if (result.err) {
