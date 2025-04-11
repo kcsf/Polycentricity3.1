@@ -1,388 +1,368 @@
-import { getGun, nodes, generateId, put, createRelationship, type GunAck } from './gunService';
+/****************************************************************************************
+ * initializeSampleData.ts (edge‑centric version)
+ * -------------------------------------------------------------------------------------
+ * Seeds:
+ *   - Users, Cards, Deck, Game, Actors, Agreement, Chat, Node Positions
+ *   - Values & Capabilities (native Gun edges)
+ *   - At least one shared Value/Capability between the two sample cards
+ *
+ * Relationship logic:
+ *   - deck <-> card
+ *   - card <-> values
+ *   - card <-> capabilities
+ *   - etc.
+ *
+ * It's important that the "gun/lib/radisk" import happens before Gun is constructed,
+ * otherwise radisk won't activate properly.
+ ***************************************************************************************/
 
-/**
- * SIMPLIFIED APPROACH FOR GUN.JS DATA INITIALIZATION
- * 
- * 1. No arrays anywhere (Gun.js doesn't handle them well)
- * 2. Use direct put operations with very simple data
- * 3. Add significant delays between operations
- * 4. Use a simpler pattern less dependent on callbacks
- * 5. Pay careful attention to Gun.js error patterns
- */
+import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
 
-// Helper function to handle Gun.js callbacks with proper typing
-function handleGunCallback(nodePath: string, ackName: string, ack: any): void {
-  if (ack && ack.err) {
-    console.warn(`Warning while saving ${nodePath} (${ackName}):`, ack.err);
-  } else {
-    console.log(`Successfully saved: ${nodePath} (${ackName})`);
-  }
-}
-
-// Helper function to wait between Gun operations
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Simplified Gun put that doesn't rely on callbacks as much
-async function safePut(path: string, key: string, data: any): Promise<boolean> {
-  const gun = getGun();
-  if (!gun) return false;
-  
-  return new Promise<boolean>(resolve => {
-    console.log(`Saving to ${path}/${key}...`);
-    
-    gun.get(path).get(key).put(data, (ack: any) => {
-      if (ack && ack.err) {
-        console.warn(`Warning while saving to ${path}/${key}:`, ack.err);
-        resolve(false);
-      } else {
-        console.log(`Successfully saved to ${path}/${key}`);
-        resolve(true);
-      }
+// A small helper to wrap promises with a 30s fallback (so we don't hang forever)
+function withTimeout<T>(promise: Promise<T>, ms = 30000): Promise<T> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => {
+      console.warn(`[seed] Timed out after ${ms}ms`);
+      resolve(promise); // Let the original promise keep working, but we "resolve" early
+    }, ms);
+    promise.then((val) => {
+      clearTimeout(t);
+      resolve(val);
     });
-    
-    // Safety timeout
-    setTimeout(() => {
-      console.log(`Timeout while saving to ${path}/${key} - continuing anyway`);
-      resolve(true); // Still continue the process
-    }, 3000);
   });
 }
 
-export async function initializeSampleData() {
-  console.log('Initializing sample data with SIMPLIFIED Gun.js patterns...');
-  const gun = getGun();
-  if (!gun) {
-    console.error('Failed to get Gun instance');
-    return {
-      success: false,
-      message: 'Failed to get Gun instance'
-    };
-  }
-
-  try {
-    // STEP 1: Create and save users (one at a time with delays)
-    const users = {
-      'u123': {
-        user_id: 'u123',
-        name: 'Member User',
-        email: 'member@example.com',
-        created_at: Date.now(),
-        role: 'Member'
-      },
-      'u124': {
-        user_id: 'u124',
-        name: 'Guest User',
-        email: 'guest@example.com',
-        created_at: Date.now(),
-        role: 'Guest'
-      },
-      'u125': {
-        user_id: 'u125',
-        name: 'Admin User',
-        email: 'admin@example.com',
-        created_at: Date.now(),
-        role: 'Admin'
-      }
-    };
-
-    console.log('Saving users...');
-    for (const userId in users) {
-      const user = users[userId];
-      await safePut(nodes.users, userId, user);
-      await delay(1000); // Wait 1s between user saves
-    }
-    
-    // STEP 2: Create and save cards (one at a time with delays)
-    const cards = {
-      'c1': {
-        card_id: 'c1',
-        card_number: 1,
-        role_title: 'Verdant Weaver',
-        backstory: 'A skilled cultivator who weaves plant life into sustainable systems.',
-        values: {}, // Will be filled with relationship edges later
-        goals: 'Create a self-sustaining garden, Train others in permaculture', // Stored as a string
-        obligations: 'Must share knowledge with the community',
-        capabilities: {}, // Will be filled with relationship edges later
-        intellectual_property: 'Seed storage techniques',
-        rivalrous_resources: 'Limited water supply',
-        card_category: 'Providers',
-        type: 'Practice',
-        icon: 'Hammer',
-        decks: {} // Will be filled with relationship edges later
-      },
-      'c2': {
-        card_id: 'c2',
-        card_number: 2,
-        role_title: 'Luminos Funder',
-        backstory: 'A visionary investor who funds innovative ecological projects.',
-        values: {}, // Will be filled with relationship edges later
-        goals: 'Fund 5 eco-projects, Create a funding network', // Stored as a string
-        obligations: 'Must transparently report all funding allocations',
-        capabilities: {}, // Will be filled with relationship edges later
-        intellectual_property: 'Investment strategy methodologies',
-        rivalrous_resources: 'Limited investment capital',
-        card_category: 'Funders',
-        type: 'DAO',
-        icon: 'CircleDollarSign',
-        decks: {} // Will be filled with relationship edges later
-      }
-    };
-
-    console.log('Saving cards...');
-    for (const cardId in cards) {
-      const card = cards[cardId];
-      await safePut(nodes.cards, cardId, card);
-      await delay(1000); // Wait 1s between card saves
-    }
-    
-    // STEP 3: Create and save a deck
-    const deck = {
-      deck_id: 'd1',
-      name: 'Eco-Village Standard Deck',
-      description: 'A standard deck for eco-village simulation games',
-      creator: 'u125', // Created by Admin user
-      created_at: Date.now(),
-      updated_at: Date.now(),
-      cards: {} // Will be filled with relationship edges later
-    };
-    
-    console.log('Saving deck...');
-    await safePut(nodes.decks, 'd1', deck);
-    await delay(1000); // Wait 1s before next operation
-    
-    // STEP 4: Set up relationships between deck and cards
-    console.log('Creating deck-card relationships...');
-    // Simple way to create a relationship - for each card, add a reference in the deck
-    for (const cardId in cards) {
-      // Create a simple reference from deck to card (id: true pattern)
-      await new Promise<void>(resolve => {
-        gun.get(nodes.decks).get('d1').get('cards').get(cardId).put(true, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`Warning creating deck->card relationship for ${cardId}:`, ack.err);
-          } else {
-            console.log(`Successfully created deck->card relationship for ${cardId}`);
-          }
-          resolve();
-        });
-        
-        // Safety timeout
-        setTimeout(resolve, 3000);
-      });
-      
-      // Create reverse relationship (card to deck)
-      await new Promise<void>(resolve => {
-        gun.get(nodes.cards).get(cardId).get('decks').get('d1').put(true, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`Warning creating card->deck relationship for ${cardId}:`, ack.err);
-          } else {
-            console.log(`Successfully created card->deck relationship for ${cardId}`);
-          }
-          resolve();
-        });
-        
-        // Safety timeout
-        setTimeout(resolve, 3000);
-      });
-      
-      await delay(1000); // Wait 1s between relationship sets
-    }
-    
-    // STEP 5: Create and save a game
-    const game = {
-      game_id: 'g456',
-      name: 'Test Eco-Village',
-      creator: 'u125', // Created by Admin user
-      deck_id: 'd1',
-      role_assignment: 'choice',
-      players: { u123: true, u124: true }, // Object format instead of array
-      created_at: Date.now(),
-      status: 'active'
-    };
-    
-    console.log('Saving game...');
-    await safePut(nodes.games, 'g456', game);
-    await delay(1000); // Wait 1s before next operation
-    
-    // STEP 6: Create and save actors
-    const actors = {
-      'a1': {
-        actor_id: 'a1',
-        game_id: 'g456',
-        user_id: 'u123',
-        card_id: 'c1'
-      },
-      'a2': {
-        actor_id: 'a2',
-        game_id: 'g456',
-        user_id: 'u124',
-        card_id: 'c2'
-      }
-    };
-    
-    console.log('Saving actors...');
-    for (const actorId in actors) {
-      const actor = actors[actorId];
-      await safePut(nodes.actors, actorId, actor);
-      await delay(1000); // Wait 1s between actor saves
-    }
-    
-    // STEP 7: Create and save agreement
-    const agreement = {
-      agreement_id: 'ag1',
-      game_id: 'g456',
-      title: 'Funding for Garden Initiative',
-      summary: 'Luminos Funder provides capital to Verdant Weaver for a community garden',
-      type: 'asymmetric',
-      parties: { 0: 'a1', 1: 'a2' }, // Object format for the parties (not array)
-      obligations: {
-        a1: 'Create and maintain community garden for one year',
-        a2: 'Provide 5000 credits of funding and quarterly reviews'
-      },
-      benefits: {
-        a1: 'Receives funding and resources for the garden',
-        a2: 'Receives 10% of produce and community recognition'
-      },
-      status: 'accepted',
-      created_at: Date.now()
-    };
-    
-    console.log('Saving agreement...');
-    await safePut(nodes.agreements, 'ag1', agreement);
-    await delay(1000); // Wait 1s before next operation
-    
-    // STEP 8: Create and save chat
-    const chat = {
-      chat_id: 'g456_group',
-      game_id: 'g456',
-      type: 'group',
-      participants: { 0: 'u123', 1: 'u124' }, // Object format (not array)
-      messages: {
-        0: {
-          id: generateId(),
-          user_id: 'u123',
-          user_name: 'Member User',
-          content: 'Hello! Let\'s start planning our eco-village!',
-          timestamp: Date.now(),
-          type: 'group'
-        }
-      }
-    };
-    
-    console.log('Saving chat...');
-    await safePut(nodes.chat, 'g456_group', chat);
-    await delay(1000); // Wait 1s before next operation
-    
-    // STEP 9: Create and save node positions
-    const positions = {
-      'a1': {
-        node_id: 'a1',
-        game_id: 'g456',
-        x: 100,
-        y: 100
-      },
-      'ag1': {
-        node_id: 'ag1',
-        game_id: 'g456',
-        x: 300,
-        y: 200
-      }
-    };
-    
-    console.log('Saving node positions...');
-    for (const nodeId in positions) {
-      const position = positions[nodeId];
-      await safePut(nodes.positions, nodeId, position);
-      await delay(1000); // Wait 1s between position saves
-    }
-    
-    console.log('Sample data initialization complete!');
-    return { 
-      success: true, 
-      message: 'Sample data initialized successfully using simplified Gun.js patterns' 
-    };
-  } catch (error) {
-    console.error('Error initializing sample data:', error);
-    return { 
-      success: false, 
-      message: `Error initializing sample data: ${error instanceof Error ? error.message : String(error)}` 
-    };
+// Log Gun acks with a consistent format
+function logAck(ctx: string, ack: GunAck) {
+  if (ack.err) {
+    console.warn(`[seed] ${ctx} ✗ ${ack.err}`);
+  } else {
+    console.log(`[seed] ${ctx} ✓`);
   }
 }
 
-// Verify the sample data by logging and counting each node type
-export async function verifySampleData() {
-  console.log('Verifying sample data with improved counting...');
+/**
+ * Create or update a simple node if it doesn't exist.
+ * The data is spread in so we don't overwrite entire node every time
+ */
+async function ensureNode<T extends Record<string, any>>(
+  soul: string,
+  data: T,
+) {
+  // Add a created_at if not present
+  const payload = { ...data, created_at: data.created_at ?? Date.now() };
+  // Use your existing `put(...)` function
+  const ack = await withTimeout(put(soul, payload), 30000);
+  logAck(soul, ack);
+}
+
+/**
+ * Main function to seed the data with Gun edges
+ */
+export async function initializeSampleData() {
+  console.log("[seed] Initializing sample data (edge style) …");
   const gun = getGun();
   if (!gun) {
-    console.error('Failed to get Gun instance');
-    return {
-      success: false,
-      message: 'Failed to get Gun instance'
-    };
+    return { success: false, message: "Gun not initialized" };
   }
 
-  try {
-    const stats: Record<string, { count: number; items: string[] }> = {};
-    
-    // Helper function to check a node type
-    async function checkNodeType(nodeType: string): Promise<void> {
-      return new Promise((resolve) => {
-        console.log(`Checking ${nodeType}...`);
-        const items: string[] = [];
-        let count = 0;
-        
-        gun.get(nodeType).map().once((data: any, key: string) => {
-          if (data) {
-            count++;
-            items.push(key);
-            console.log(`Found ${nodeType} with key:`, key, data);
-          }
-        });
-        
-        // Need a timeout since Gun's once() doesn't tell us when it's done
-        setTimeout(() => {
-          console.log(`Found ${count} items in ${nodeType}: ${items.join(', ')}`);
-          stats[nodeType] = { count, items };
-          resolve();
-        }, 2000);
-      });
-    }
-    
-    // Check all node types
-    await checkNodeType(nodes.users);
-    await checkNodeType(nodes.cards);
-    await checkNodeType(nodes.decks);
-    await checkNodeType(nodes.games);
-    await checkNodeType(nodes.actors);
-    await checkNodeType(nodes.agreements);
-    await checkNodeType(nodes.chat);
-    await checkNodeType(nodes.positions);
-    
-    console.log('Verification summary:');
-    for (const nodeType in stats) {
-      console.log(`${nodeType}: ${stats[nodeType].count} items`);
-      if (stats[nodeType].items.length > 0) {
-        console.log(`  Items: ${stats[nodeType].items.join(', ')}`);
-      }
-    }
-    
-    // Check if we have data
-    const hasData = Object.values(stats).some(stat => stat.count > 0);
-    
-    console.log('Verification complete!');
-    return { 
-      success: hasData, 
-      message: hasData 
-        ? 'Sample data verification completed successfully'
-        : 'No data found in the database'
-    };
-  } catch (error) {
-    console.error('Error verifying sample data:', error);
-    return { 
-      success: false, 
-      message: `Error verifying sample data: ${error instanceof Error ? error.message : String(error)}` 
-    };
+  const now = Date.now();
+
+  // 1. Define all sample data
+  const users = [
+    {
+      user_id: "u123",
+      name: "Member User",
+      email: "member@example.com",
+      role: "Member",
+      created_at: now,
+    },
+    {
+      user_id: "u124",
+      name: "Guest User",
+      email: "guest@example.com",
+      role: "Guest",
+      created_at: now,
+    },
+    {
+      user_id: "u125",
+      name: "Admin User",
+      email: "admin@example.com",
+      role: "Admin",
+      created_at: now,
+    },
+  ];
+
+  const cards = [
+    {
+      card_id: "c1",
+      card_number: 1,
+      role_title: "Verdant Weaver",
+      backstory:
+        "A skilled cultivator who weaves plant life into sustainable systems.",
+      rawValues: ["Sustainability", "Community Resilience"],
+      rawCapabilities: ["Permaculture Design", "Project Management"], // <-- "Project Management" is shared
+      goals: "Create a self-sustaining garden; Train others in permaculture",
+      obligations: "Must share knowledge with the community",
+      intellectual_property: "Seed storage techniques",
+      rivalrous_resources: "Limited water supply",
+      card_category: "Providers",
+      type: "Practice",
+      icon: "Hammer",
+      created_at: now,
+    },
+    {
+      card_id: "c2",
+      card_number: 2,
+      role_title: "Luminos Funder",
+      backstory:
+        "A visionary investor who funds innovative ecological projects.",
+      rawValues: ["Sustainability", "Transparency"], // <-- "Sustainability" is shared
+      rawCapabilities: ["Smart Contract Development", "Project Management"],
+      goals: "Fund 5 eco-projects; Create a funding network",
+      obligations: "Must transparently report all funding allocations",
+      intellectual_property: "Investment strategy methodologies",
+      rivalrous_resources: "Limited investment capital",
+      card_category: "Funders",
+      type: "DAO",
+      icon: "CircleDollarSign",
+      created_at: now,
+    },
+  ];
+
+  const deck = {
+    deck_id: "d1",
+    name: "Eco-Village Standard Deck",
+    description: "A standard deck for eco-village simulation games",
+    creator: "u125",
+    created_at: now,
+    updated_at: now,
+  };
+
+  const game = {
+    game_id: "g456",
+    name: "Test Eco-Village",
+    creator: "u125",
+    deck_id: deck.deck_id,
+    role_assignment: "choice",
+    players: { u123: true, u124: true },
+    created_at: now,
+    status: "active",
+  };
+
+  const actors = [
+    { actor_id: "a1", game_id: game.game_id, user_id: "u123", card_id: "c1" },
+    { actor_id: "a2", game_id: game.game_id, user_id: "u124", card_id: "c2" },
+  ];
+
+  const agreement = {
+    agreement_id: "ag1",
+    game_id: game.game_id,
+    title: "Funding for Garden Initiative",
+    summary:
+      "Luminos Funder provides capital to Verdant Weaver for a community garden",
+    type: "asymmetric",
+    parties: ["a1", "a2"],
+    obligations: {
+      a1: "Create and maintain community garden for one year",
+      a2: "Provide 5000 credits of funding and quarterly reviews",
+    },
+    benefits: {
+      a1: "Receives funding and resources for the garden",
+      a2: "Receives 10% of produce and community recognition",
+    },
+    status: "accepted",
+    created_at: now,
+  };
+
+  const chat = {
+    chat_id: `${game.game_id}_group`,
+    game_id: game.game_id,
+    type: "group",
+    participants: ["u123", "u124"],
+    messages: [
+      {
+        id: generateId(),
+        user_id: "u123",
+        user_name: "Member User",
+        content: "Hello! Let's start planning our eco-village!",
+        timestamp: now,
+        type: "group",
+      },
+    ],
+  };
+
+  const nodePositions = [
+    { node_id: "a1", game_id: game.game_id, x: 100, y: 100 },
+    { node_id: "ag1", game_id: game.game_id, x: 300, y: 200 },
+  ];
+
+  // 2. Persist the base nodes
+  for (const u of users) {
+    await ensureNode(`${nodes.users}/${u.user_id}`, u);
   }
+
+  for (const card of cards) {
+    const baseCardData = {
+      ...card,
+      // Remove the rawValues/rawCapabilities so we don't store them as direct fields
+      rawValues: undefined,
+      rawCapabilities: undefined,
+    };
+    await ensureNode(`${nodes.cards}/${card.card_id}`, baseCardData);
+  }
+
+  await ensureNode(`${nodes.decks}/${deck.deck_id}`, deck);
+  await ensureNode(`${nodes.games}/${game.game_id}`, game);
+
+  for (const actor of actors) {
+    await ensureNode(`${nodes.actors}/${actor.actor_id}`, actor);
+  }
+
+  await ensureNode(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
+  await ensureNode(`${nodes.chat}/${chat.chat_id}`, chat);
+
+  for (const pos of nodePositions) {
+    await ensureNode(`${nodes.positions}/${pos.node_id}`, pos);
+  }
+
+  // 3. Helper to create edges using `.set()`
+  function createEdge(fromSoul: string, field: string, toSoul: string) {
+    return new Promise<GunAck>((resolve) => {
+      getGun()!
+        .get(fromSoul)
+        .get(field)
+        .set(getGun()!.get(toSoul), (ack) => {
+          resolve(ack);
+        });
+    });
+  }
+
+  // 4. Deck <--> Card edges
+  for (const c of cards) {
+    const deckToCard = await withTimeout(
+      createEdge(
+        `${nodes.decks}/${deck.deck_id}`,
+        "cards",
+        `${nodes.cards}/${c.card_id}`,
+      ),
+    );
+    logAck(`deck->card ${deck.deck_id} -> ${c.card_id}`, deckToCard);
+
+    const cardToDeck = await withTimeout(
+      createEdge(
+        `${nodes.cards}/${c.card_id}`,
+        "decks",
+        `${nodes.decks}/${deck.deck_id}`,
+      ),
+    );
+    logAck(`card->deck ${c.card_id} -> ${deck.deck_id}`, cardToDeck);
+  }
+
+  // 5. Values & Capabilities as actual nodes + edges
+  for (const c of cards) {
+    // For each Value
+    for (const vName of c.rawValues) {
+      const vId = `value_${vName.toLowerCase().replace(/\s+/g, "-")}`;
+      // If value node doesn't exist, create it
+      await ensureNode(`${nodes.values}/${vId}`, {
+        value_id: vId,
+        name: vName,
+        created_at: now,
+      });
+
+      // edges: value->card and card->value
+      const valToCardAck = await withTimeout(
+        createEdge(
+          `${nodes.values}/${vId}`,
+          "cards",
+          `${nodes.cards}/${c.card_id}`,
+        ),
+      );
+      logAck(`value->card ${vId} -> ${c.card_id}`, valToCardAck);
+
+      const cardToValAck = await withTimeout(
+        createEdge(
+          `${nodes.cards}/${c.card_id}`,
+          "values",
+          `${nodes.values}/${vId}`,
+        ),
+      );
+      logAck(`card->value ${c.card_id} -> ${vId}`, cardToValAck);
+    }
+
+    // For each Capability
+    for (const capName of c.rawCapabilities) {
+      const capId = `capability_${capName.toLowerCase().replace(/\s+/g, "-")}`;
+      // If capability node doesn't exist, create it
+      await ensureNode(`${nodes.capabilities}/${capId}`, {
+        capability_id: capId,
+        name: capName,
+        created_at: now,
+      });
+
+      // edges: capability->card and card->capability
+      const capToCardAck = await withTimeout(
+        createEdge(
+          `${nodes.capabilities}/${capId}`,
+          "cards",
+          `${nodes.cards}/${c.card_id}`,
+        ),
+      );
+      logAck(`cap->card ${capId} -> ${c.card_id}`, capToCardAck);
+
+      const cardToCapAck = await withTimeout(
+        createEdge(
+          `${nodes.cards}/${c.card_id}`,
+          "capabilities",
+          `${nodes.capabilities}/${capId}`,
+        ),
+      );
+      logAck(`card->cap ${c.card_id} -> ${capId}`, cardToCapAck);
+    }
+  }
+
+  console.log("[seed] Sample data (with edges) initialized ✅");
+  return { success: true, message: "Sample data initialized (edge style)" };
+}
+
+/**
+ * Verify how many child keys exist under each high-level node.
+ */
+export async function verifySampleData() {
+  console.log("[verify] Counting nodes …");
+  const gun = getGun();
+  if (!gun) {
+    return { success: false, message: "Gun not initialized" };
+  }
+
+  // Count how many keys appear under a node
+  async function count(soul: string) {
+    return new Promise<number>((done) => {
+      let n = 0;
+      gun
+        .get(soul)
+        .map()
+        .once((_data, key) => {
+          if (key && key !== "_") n++;
+        });
+      setTimeout(() => done(n), 700); // give Gun a moment to load
+    });
+  }
+
+  console.table({
+    users: await count(nodes.users),
+    cards: await count(nodes.cards),
+    decks: await count(nodes.decks),
+    values: await count(nodes.values),
+    capabilities: await count(nodes.capabilities),
+    games: await count(nodes.games),
+    actors: await count(nodes.actors),
+    agreements: await count(nodes.agreements),
+    chat: await count(nodes.chat),
+    node_positions: await count(nodes.positions),
+  });
+
+  console.log("[verify] Complete ✔");
+  return { success: true, message: "Verification done" };
 }
