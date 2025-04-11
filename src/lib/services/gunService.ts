@@ -23,7 +23,7 @@ export interface GunAck {
  * Initialize Gun database
  * @returns The Gun instance or null if not in browser
  */
-export function initializeGun(): IGunInstanceRoot<any, any> | null {
+export function initializeGun(): any {
     if (browser) {
         console.log('Initializing Gun.js database...');
         gun = Gun({
@@ -42,7 +42,7 @@ export function initializeGun(): IGunInstanceRoot<any, any> | null {
  * Get the Gun instance, initializing if needed
  * @returns The Gun instance or null if not in browser
  */
-export function getGun(): IGunInstanceRoot<any, any> | null {
+export function getGun(): any {
     if (!gun && browser) {
         return initializeGun();
     }
@@ -96,18 +96,26 @@ export function put<T>(
     if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
     
     const promise = new Promise<GunAck>((resolve, reject) => {
-        gunInstance.get(node).put(data as any, (ack: GunAck) => {
-            if (ack.err) {
-                console.error(`Gun put error for node '${node}':`, ack.err);
-                reject(new Error(ack.err));
-                if (callback) callback(ack);
+        // Using any for callback function to bypass type incompatibilities with Gun's types
+        (gunInstance.get(node) as any).put(data as any, (ack: any) => {
+            // Map external Gun acknowledgment format to our more consistent GunAck interface
+            const gunAck: GunAck = {
+                err: ack.err,
+                ok: !!ack.ok,
+                ...ack
+            };
+            
+            if (gunAck.err) {
+                console.error(`Gun put error for node '${node}':`, gunAck.err);
+                reject(new Error(gunAck.err));
+                if (callback) callback(gunAck);
                 return;
             }
             if (process.env.NODE_ENV !== 'production') {
                 console.log(`Data saved to node: ${node}`);
             }
-            resolve(ack);
-            if (callback) callback(ack);
+            resolve(gunAck);
+            if (callback) callback(gunAck);
         });
     });
     
@@ -124,8 +132,14 @@ export function get<T>(node: string): Promise<T | null> {
     if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
     
     const promise = new Promise<T | null>((resolve) => {
-        gunInstance.get(node).once((data: T | null) => {
-            resolve(data);
+        // Using any for callback to bypass Gun.js typing issues
+        (gunInstance.get(node) as any).once((data: any) => {
+            // Filter out Gun's metadata if present
+            const result = data && typeof data === 'object' && data._ 
+                ? { ...data, _: undefined } 
+                : data;
+                
+            resolve(result as T | null);
         });
     });
     
@@ -146,8 +160,13 @@ export function subscribe<T>(
     if (!gunInstance) return () => {};
     
     // Cast to any because Gun types don't fully capture the chaining API
-    const subscription = (gunInstance.get(node) as any).on((data: T) => {
-        callback(data);
+    const subscription = (gunInstance.get(node) as any).on((data: any) => {
+        // Filter out Gun's metadata if present
+        const result = data && typeof data === 'object' && data._ 
+            ? { ...data, _: undefined } 
+            : data;
+            
+        callback(result as T);
     });
     
     // Return function to unsubscribe
@@ -178,8 +197,14 @@ export function getField<T>(nodePath: string, key: string): Promise<T | null> {
     if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
     
     const promise = new Promise<T | null>((resolve) => {
-        gunInstance.get(nodePath).get(key).once((data: T | null) => {
-            resolve(data);
+        // Using any for callback to bypass Gun.js typing issues
+        (gunInstance.get(nodePath).get(key) as any).once((data: any) => {
+            // Filter out Gun's metadata if present
+            const result = data && typeof data === 'object' && data._ 
+                ? { ...data, _: undefined } 
+                : data;
+                
+            resolve(result as T | null);
         });
     });
     
@@ -198,13 +223,21 @@ export function setField<T>(nodePath: string, key: string, value: T): Promise<Gu
     if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
     
     const promise = new Promise<GunAck>((resolve, reject) => {
-        gunInstance.get(nodePath).get(key).put(value as any, (ack: GunAck) => {
-            if (ack.err) {
-                console.error(`Gun setField error for ${nodePath}/${key}:`, ack.err);
-                reject(new Error(ack.err));
+        // Using any for callback function to bypass type incompatibilities with Gun's types
+        (gunInstance.get(nodePath).get(key) as any).put(value as any, (ack: any) => {
+            // Map external Gun acknowledgment format to our more consistent GunAck interface
+            const gunAck: GunAck = {
+                err: ack.err,
+                ok: !!ack.ok,
+                ...ack
+            };
+            
+            if (gunAck.err) {
+                console.error(`Gun setField error for ${nodePath}/${key}:`, gunAck.err);
+                reject(new Error(gunAck.err));
                 return;
             }
-            resolve(ack);
+            resolve(gunAck);
         });
     });
     
