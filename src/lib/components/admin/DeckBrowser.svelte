@@ -166,10 +166,10 @@
     }
   }
   
-  // Convert goals array to string for display
-  function formatGoals(goals: string[] | string): string {
-    if (Array.isArray(goals)) {
-      return goals.join(', ');
+  // Convert goals object to string for display
+  function formatGoals(goals: Record<string, string> | string): string {
+    if (typeof goals === 'object' && goals !== null) {
+      return Object.values(goals).join(', ');
     }
     return String(goals || '');
   }

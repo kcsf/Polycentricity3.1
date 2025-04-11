@@ -245,8 +245,8 @@ export async function createCard(
             ...gunCard, 
             values: valuesRecord as Record<string, boolean>,
             capabilities: capabilitiesRecord as Record<string, boolean>,
-            // When returning to the application, provide goals as a regular array
-            goals: goalsArray 
+            // Return the object format for Gun.js
+            goals: goalsObject
         };
         
         console.log(`[createCard] Returning card with ID ${cardId} and ${goalsArray.length} goals`);
