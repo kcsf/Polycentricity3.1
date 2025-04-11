@@ -197,8 +197,8 @@
       Gun.js Database Tips
     </h4>
     <ul class="list-disc ml-6 space-y-1 text-sm">
-      <li>Use objects with <code>{{ '{id: true}' }}</code> pattern for relationships instead of arrays</li>
-      <li>Store arrays as objects with numbered keys <code>{{ '{0: item1, 1: item2}' }}</code></li>
+      <li>Use objects with <code>{'{id: true}'}</code> pattern for relationships instead of arrays</li>
+      <li>Store arrays as objects with numbered keys <code>{'{0: item1, 1: item2}'}</code></li>
       <li>Add delays between database operations to avoid conflicts</li>
       <li>Use proper bidirectional relationships with Gun's <code>set()</code> method</li>
       <li>Reset browser local storage to completely clear Gun.js data in development</li>

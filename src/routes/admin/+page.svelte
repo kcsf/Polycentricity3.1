@@ -1038,17 +1038,13 @@
               </div>
             </div>
             
-            <!-- Schema Manager Component -->
+            <!-- Consolidated Database Tools Component -->
             <div class="mb-6">
-              <SchemaManager />
+              <DatabaseTools />
             </div>
             
             <div class="mb-6">
               <AdminTools />
-            </div>
-            
-            <div class="mb-6">
-              <DatabaseFixer />
             </div>
             
             <div class="mb-6">
