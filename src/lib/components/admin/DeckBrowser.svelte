@@ -16,7 +16,6 @@
   // Card display metadata
   let cardValues: Record<string, string[]> = {};
   let cardCapabilities: Record<string, string[]> = {};
-  let valuesDebug: Record<string, any> = {}; // For debugging values issue
   
   // Load all decks for dropdown
   async function loadDecks() {
@@ -142,16 +141,10 @@
             if (cardData && cardData.card_id) {
               loadedCards.push(cardData);
               
-              // Store original values for debugging
-              valuesDebug[cardData.card_id] = cardData.values;
-              
               // Get values and capabilities for this card
               cardValues[cardData.card_id] = await getCardValueNames(cardData);
               cardCapabilities[cardData.card_id] = await getCardCapabilityNames(cardData);
-              
-              // Enhanced debugging for values
-              console.log(`Card ${cardData.card_id} with raw values:`, valuesDebug[cardData.card_id]);
-              console.log(`Card ${cardData.card_id} with processed values:`, cardValues[cardData.card_id]);
+              console.log(`Added card ${cardData.card_id} with values:`, cardValues[cardData.card_id]);
             } else {
               console.warn(`Card ${cardId} data invalid or not found`);
             }
@@ -312,16 +305,6 @@
                 <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Values</h4>
                 <div class="flex flex-wrap gap-1">
                   {#each cardValues[card.card_id] as value}
-                    <span class="badge variant-soft-primary">{value}</span>
-                  {/each}
-                </div>
-              </div>
-            <!-- Show raw values for debugging if processed values aren't available -->
-            {:else if valuesDebug[card.card_id] && Array.isArray(valuesDebug[card.card_id])}
-              <div class="mb-3">
-                <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Values (Raw)</h4>
-                <div class="flex flex-wrap gap-1">
-                  {#each valuesDebug[card.card_id] as value}
                     <span class="badge variant-soft-primary">{value}</span>
                   {/each}
                 </div>

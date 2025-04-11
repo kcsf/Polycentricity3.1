@@ -1,411 +1,1276 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { getGun, nodes } from '$lib/services/gunService';
-  import SimpleDatabaseJson from '$lib/components/admin/SimpleDatabaseJson.svelte';
-  import { validateCardValueRelationships, validateAllRelationships, fixCardValueArrays } from '$lib/services/databaseDiagnostics';
+  import { onMount, onDestroy, tick } from 'svelte';
+  import * as icons from 'svelte-lucide';
+  import { browser } from '$app/environment';
+  import { page } from '$app/stores';
+  import { getGun, nodes as gunNodes } from '$lib/services/gunService';
+  import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
+  import SchemaManager from '$lib/components/admin/SchemaManager.svelte';
+  import AdminTools from '$lib/components/admin/AdminTools.svelte';
+  import DatabaseFixer from '$lib/components/admin/DatabaseFixer.svelte';
+  import DeckManager from '$lib/components/admin/DeckManager.svelte';
+  import DeckBrowser from '$lib/components/admin/DeckBrowser.svelte';
+  import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
+  import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
+  import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
+  import { getCurrentUser } from '$lib/services/authService';
   
-  let activeTab = 'database';
+  // For visualization
+  let isG6Loading = false;
+  let g6Error: string | null = null;
+  let graphData = { nodes: [], edges: [] };
+  // No longer needed with the G6Graph component
+  // let graphContainer: HTMLElement;
+  
+  // State variables
+  let isMounted = false;
   let isLoading = true;
   let error: string | null = null;
+  let databaseNodes: any[] = [];
+  let nodeCount = 0;
+  let activeTab = 'overview';
+  let activeDataTab = 'users';
   
-  // Diagnostics state
-  let isDiagnosticRunning = false;
-  let diagnosticResults: any = null;
-  let fixInProgress = false;
-  let fixResults: any = null;
+  // Cleanup variables
+  let isCleanupLoading = false;
+  let cleanupError: string | null = null;
+  let cleanupSuccess: boolean = false;
+  let cleanupResult: { success: boolean; removed: number; error?: string } | null = null;
+  let currentUser = null;
   
-  // Stats
-  let nodeStats = {
-    users: 0,
-    games: 0,
-    actors: 0,
-    cards: 0,
-    decks: 0,
-    values: 0,
-    capabilities: 0,
-    agreements: 0,
-    positions: 0,
-    chat: 0
-  };
-  
-  function switchTab(tab: string) {
-    activeTab = tab;
+  // Simplified visualization loading
+  function loadGraphVisualization() {
+    isG6Loading = true;
+    g6Error = null;
+    
+    try {
+      // Prepare graph data
+      prepareGraphData();
+      isG6Loading = false;
+    } catch (err) {
+      console.error('Error preparing graph data:', err);
+      g6Error = `Failed to prepare graph data: ${err}`;
+      isG6Loading = false;
+    }
   }
   
-  // Fetch basic database stats
-  async function fetchDatabaseStats() {
-    isLoading = true;
-    error = null;
+  // Get color for node type
+  function getColorForNodeType(type: string): string {
+    return COLOR_MAP.get(type) || '#5B8FF9';
+  }
+  
+  // Color mapping for different node types
+  const COLOR_MAP = new Map<string, string>([
+    ['users', '#5B8FF9'],      // Blue
+    ['games', '#5AD8A6'],      // Green
+    ['cards', '#F6BD16'],      // Yellow
+    ['decks', '#E8684A'],      // Red
+    ['actors', '#5D7092'],     // Purple
+    ['chat', '#F6BD16'],       // Yellow
+    ['agreements', '#E8684A'], // Red
+    ['node_positions', '#FF9D4D'], // Orange
+    ['values', '#9254DE'],     // Purple
+    ['capabilities', '#36CFC9'] // Teal
+  ]);
+  
+  // Color mapping for edge types
+  const EDGE_COLOR_MAP = new Map<string, string>([
+    ['contains', '#E8684A'],   // Red (for deck-card relationships)
+    ['default', '#b8b8b8']     // Gray (default)
+  ]);
+  
+  // Prepare graph data from the database nodes
+  function prepareGraphData() {
+    const nodes: any[] = [];
+    const edges: any[] = [];
     
+    // Use the color map for consistency
+    const colorMap = COLOR_MAP;
+    
+    // Process each node type
+    databaseNodes.forEach(nodeType => {
+      const color = colorMap.get(nodeType.type) || '#5B8FF9';
+      
+      // Add nodes
+      nodeType.nodes.forEach(node => {
+        nodes.push({
+          id: `${nodeType.type}_${node.id}`,
+          nodeId: node.id,
+          type: nodeType.type,
+          label: getLabelForNode(node, nodeType.type),
+          style: {
+            fill: color,
+            stroke: color
+          },
+          data: node.data
+        });
+      });
+    });
+    
+    // Create edges between related nodes
+    databaseNodes.forEach(nodeType => {
+      nodeType.nodes.forEach(node => {
+        if (typeof node.data === 'object') {
+          // Process properties that might be references
+          Object.entries(node.data).forEach(([key, value]) => {
+            if (key === '_' || key === '#' || key === 'id') return;
+            
+            // Handle string references
+            if (typeof value === 'string' && value.length > 8) {
+              const targetNode = findNodeById(nodes, value);
+              if (targetNode) {
+                // Apply styling for edges based on node relationships
+                const edgeStyle = {};
+                
+                // Apply special colors for certain relationships
+                if (nodeType.type === 'cards' && targetNode.type === 'values') {
+                  edgeStyle.stroke = '#9254DE'; // Purple for card-value relations
+                  edgeStyle.lineWidth = 2;
+                } else if (nodeType.type === 'cards' && targetNode.type === 'capabilities') {
+                  edgeStyle.stroke = '#36CFC9'; // Teal for card-capability relations
+                  edgeStyle.lineWidth = 2;
+                } else {
+                  edgeStyle.stroke = EDGE_COLOR_MAP.get('default'); // Default gray
+                }
+                
+                edges.push({
+                  id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}`,
+                  source: `${nodeType.type}_${node.id}`,
+                  target: `${targetNode.type}_${targetNode.nodeId}`,
+                  label: key,
+                  style: edgeStyle
+                });
+              }
+            }
+            
+            // Handle objects with references (Gun.js {id: true} pattern)
+            if (value && typeof value === 'object') {
+              // Special case for deck cards with a Gun.js soul reference (#)
+              if (nodeType.type === 'decks' && key === 'cards' && value['#']) {
+                console.log(`Deck ${node.id} has cards reference with soul: ${value['#']}`);
+                
+                // Find cards that belong to this deck by looking at the soul reference
+                const deckSoul = value['#'];
+                const deckPrefix = `${deckSoul}/`;
+                
+                // Look for card nodes that might be part of this deck
+                databaseNodes.forEach(cardNodeType => {
+                  if (cardNodeType.type === 'cards') {
+                    cardNodeType.nodes.forEach(cardNode => {
+                      // Create an edge from deck to card
+                      edges.push({
+                        id: `edge_deck_${node.id}_card_${cardNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${cardNodeType.type}_${cardNode.id}`,
+                        label: 'contains',
+                        style: {
+                          stroke: '#E8684A', // Color for deck-card relationship
+                          lineWidth: 2
+                        }
+                      });
+                    });
+                  }
+                });
+              } 
+              // Standard object with key-value pairs
+              else {
+                Object.keys(value).forEach(refKey => {
+                  // Handle special case for decks with cards as direct references
+                  if (nodeType.type === 'decks' && key === 'cards') {
+                    // Look for card with this ID
+                    databaseNodes.forEach(cardNodeType => {
+                      if (cardNodeType.type === 'cards') {
+                        const matchingCard = cardNodeType.nodes.find(cardNode => cardNode.id === refKey);
+                        if (matchingCard) {
+                          // Create an edge from deck to card
+                          edges.push({
+                            id: `edge_deck_${node.id}_card_${refKey}`,
+                            source: `${nodeType.type}_${node.id}`,
+                            target: `${cardNodeType.type}_${refKey}`,
+                            label: 'contains',
+                            style: {
+                              stroke: '#E8684A', // Color for deck-card relationship
+                              lineWidth: 2
+                            }
+                          });
+                        }
+                      }
+                    });
+                  }
+                  // Standard reference handling
+                  else if (value[refKey] === true) {
+                    const targetNode = findNodeById(nodes, refKey);
+                    if (targetNode) {
+                      // Apply styling for edges based on node relationships
+                      const edgeStyle = {};
+                      
+                      // Apply special colors for certain relationships
+                      if (nodeType.type === 'cards' && targetNode.type === 'values') {
+                        edgeStyle.stroke = '#9254DE'; // Purple for card-value relations
+                        edgeStyle.lineWidth = 2;
+                      } else if (nodeType.type === 'cards' && targetNode.type === 'capabilities') {
+                        edgeStyle.stroke = '#36CFC9'; // Teal for card-capability relations
+                        edgeStyle.lineWidth = 2;
+                      } else if (nodeType.type === 'decks' && key === 'cards') {
+                        edgeStyle.stroke = '#E8684A'; // Red for deck-card relations
+                        edgeStyle.lineWidth = 2;
+                      } else {
+                        edgeStyle.stroke = EDGE_COLOR_MAP.get('default'); // Default gray
+                      }
+                      
+                      edges.push({
+                        id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}_${key}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${targetNode.type}_${targetNode.nodeId}`,
+                        label: key,
+                        style: edgeStyle
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          });
+        }
+      });
+    });
+    
+    graphData = { nodes, edges };
+    console.log('Graph data prepared:', graphData);
+  }
+  
+  // Helper functions for graph data preparation
+  function getLabelForNode(node: any, nodeType: string): string {
+    if (typeof node.data !== 'object') {
+      return node.id.substring(0, 8);
+    }
+    
+    // Try to find a good property to use as label based on node type
+    switch (nodeType) {
+      case 'users':
+        return node.data.name || node.data.email || node.id.substring(0, 8);
+      case 'games':
+        return node.data.name || `Game ${node.id.substring(0, 6)}`;
+      case 'actors':
+        return node.data.role_title || `Actor ${node.id.substring(0, 6)}`;
+      case 'chat':
+        return `Chat ${node.id.substring(0, 6)}`;
+      case 'values':
+        return node.data.name || `Value ${node.id.substring(0, 6)}`;
+      case 'capabilities':
+        return node.data.name || `Capability ${node.id.substring(0, 6)}`;
+      case 'cards':
+        return node.data.role_title || `Card ${node.id.substring(0, 6)}`;
+      default:
+        return `${nodeType} ${node.id.substring(0, 6)}`;
+    }
+  }
+  
+  function findNodeById(nodes: any[], id: string): any {
+    return nodes.find(n => n.nodeId === id);
+  }
+  
+  // Delete a node from the database
+  async function deleteNode(nodeType: string, nodeId: string) {
     try {
       const gun = getGun();
       
       if (!gun) {
         error = 'Gun not initialized';
-        isLoading = false;
         return;
       }
       
-      // Reset stats
-      nodeStats = {
-        users: 0,
-        games: 0,
-        actors: 0,
-        cards: 0,
-        decks: 0,
-        values: 0,
-        capabilities: 0,
-        agreements: 0,
-        positions: 0,
-        chat: 0
-      };
-      
-      // Function to count nodes for a specific type
-      const countNodes = (nodeType: string, statsKey: keyof typeof nodeStats): Promise<void> => {
-        return new Promise((resolve) => {
-          let count = 0;
-          
-          // Set a timeout to resolve in case Gun doesn't return
-          const timeout = setTimeout(() => {
-            console.log(`Timeout counting ${nodeType} nodes`);
-            nodeStats[statsKey] = count;
-            resolve();
-          }, 1000);
-          
-          gun.get(nodeType).map().once((data, key) => {
-            if (data !== null && data !== undefined) {
-              count++;
-            }
-            
-            // Clear timeout on first response
-            clearTimeout(timeout);
-          });
-          
-          // Return after a brief delay anyway to ensure we get some data
-          setTimeout(() => {
-            nodeStats[statsKey] = count;
-            resolve();
-          }, 500);
-        });
-      };
-      
-      // Count all node types
-      await Promise.all([
-        countNodes(nodes.users, 'users'),
-        countNodes(nodes.games, 'games'),
-        countNodes(nodes.actors, 'actors'),
-        countNodes(nodes.cards, 'cards'),
-        countNodes(nodes.decks, 'decks'),
-        countNodes(nodes.values, 'values'),
-        countNodes(nodes.capabilities, 'capabilities'),
-        countNodes(nodes.agreements, 'agreements'),
-        countNodes(nodes.positions, 'positions'),
-        countNodes('chat', 'chat')
-      ]);
-      
+      // Set the node to null to delete it
+      gun.get(nodeType).get(nodeId).put(null, async (ack: any) => {
+        if (ack.err) {
+          console.error(`Error deleting ${nodeType} node:`, ack.err);
+          error = `Failed to delete ${nodeType} node: ${ack.err}`;
+        } else {
+          console.log(`Deleted ${nodeType} node: ${nodeId}`);
+          // Wait a moment then refresh the database stats
+          await tick();
+          fetchDatabaseStats();
+        }
+      });
     } catch (err) {
-      console.error('Error fetching database stats:', err);
+      console.error(`Delete ${nodeType} node error:`, err);
       error = err instanceof Error ? err.message : String(err);
+    }
+  }
+  
+  // Tab switching
+  function handleTabChange(tab: string) {
+    activeTab = tab;
+    
+    if (tab === 'visualize' && typeof window !== 'undefined') {
+      // Prepare graph data when switching to visualization tab
+      loadGraphVisualization();
+    } else if (tab === 'cleanup' && typeof window !== 'undefined') {
+      // Get current user when switching to cleanup tab
+      currentUser = getCurrentUser();
+    }
+    
+    // Update URL with tab parameter
+    if (browser) {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set('tab', tab);
+      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }
+  
+  function handleDataTabChange(tab: string) {
+    activeDataTab = tab;
+  }
+  
+  // Database cleanup functions
+  async function performCleanup() {
+    if (!confirm('WARNING: This action will permanently remove all user nodes from the database except your own. This cannot be undone. Are you sure you want to continue?')) {
+      return;
+    }
+    
+    isCleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    cleanupResult = null;
+    
+    try {
+      const result = await cleanupUsers();
+      cleanupResult = result;
+      cleanupSuccess = result.success;
+      if (!result.success) {
+        cleanupError = result.error || 'Unknown error during cleanup';
+      }
+    } catch (err) {
+      console.error('Error cleaning up users:', err);
+      cleanupError = err instanceof Error ? err.message : String(err);
+      cleanupSuccess = false;
     } finally {
-      isLoading = false;
+      isCleanupLoading = false;
+      // Refresh stats after cleanup
+      fetchDatabaseStats();
+    }
+  }
+  
+  async function removeSpecificUser(userId: string) {
+    if (!confirm(`Are you sure you want to remove user ${userId}? This cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const result = await removeUser(userId);
+      if (result.success) {
+        // Refresh stats after removing user
+        fetchDatabaseStats();
+      } else {
+        alert(`Error removing user: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error removing user:', err);
+      alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Function to remove all users (no login required)
+  async function performCleanupAllUsers() {
+    if (!confirm('WARNING: This action will permanently remove ALL user nodes from the database. This is an admin function that does not require login. This cannot be undone. Are you sure you want to continue?')) {
+      return;
+    }
+    
+    isCleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    cleanupResult = null;
+    
+    try {
+      const result = await cleanupAllUsers();
+      cleanupResult = result;
+      cleanupSuccess = result.success;
+      if (!result.success) {
+        cleanupError = result.error || 'Unknown error during cleanup';
+      }
+    } catch (err) {
+      console.error('Error cleaning up all users:', err);
+      cleanupError = err instanceof Error ? err.message : String(err);
+      cleanupSuccess = false;
+    } finally {
+      isCleanupLoading = false;
+      // Refresh stats after cleanup
+      fetchDatabaseStats();
     }
   }
   
   onMount(async () => {
-    // Fetch database stats when component mounts
-    await fetchDatabaseStats();
+    isMounted = true;
+    
+    // Fetch basic Gun.js database stats
+    if (typeof window !== 'undefined') {
+      try {
+        await fetchDatabaseStats();
+        
+        // Check for URL parameters to set initial tab
+        if (browser) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const tabParam = urlParams.get('tab');
+          const deckIdParam = urlParams.get('deckId');
+          
+          // If deckId is present, switch to overview tab
+          if (deckIdParam) {
+            activeTab = 'overview';
+          } 
+          // Otherwise use the tab parameter if present
+          else if (tabParam) {
+            activeTab = tabParam;
+          }
+          
+          // Initialize visualization if needed
+          if (activeTab === 'visualize') {
+            loadGraphVisualization();
+          } else if (activeTab === 'cleanup') {
+            currentUser = getCurrentUser();
+          }
+        }
+      } catch (err) {
+        console.error('Error loading database stats:', err);
+        error = 'Failed to load database information.';
+      } finally {
+        isLoading = false;
+      }
+    }
   });
+  
+  // Fetch basic database stats
+  async function fetchDatabaseStats() {
+    console.log('Fetching database stats...');
+    isLoading = true;
+    error = null;
+    
+    const gun = getGun();
+    if (!gun) {
+      console.error('Gun instance not initialized');
+      error = 'Gun database is not initialized';
+      isLoading = false;
+      return;
+    }
+    
+    // Track all nodes
+    databaseNodes = [];
+    nodeCount = 0;
+    
+    // Process each node type
+    const nodeTypes = Object.values(gunNodes);
+    console.log('Node types:', nodeTypes);
+    
+    for (const nodeType of nodeTypes) {
+      console.log(`Processing node type: ${nodeType}`);
+      const typeNodes: any[] = [];
+      
+      await new Promise<void>(resolve => {
+        try {
+          gun.get(nodeType).map().once((data: any, id: string) => {
+            if (data) {
+              typeNodes.push({
+                id,
+                type: nodeType,
+                data
+              });
+            }
+          });
+          
+          // Wait for Gun to process
+          setTimeout(() => {
+            console.log(`Found ${typeNodes.length} nodes of type ${nodeType}`);
+            databaseNodes.push({
+              type: nodeType,
+              count: typeNodes.length,
+              nodes: typeNodes
+            });
+            nodeCount += typeNodes.length;
+            resolve();
+          }, 500);
+        } catch (err) {
+          console.error(`Error processing node type ${nodeType}:`, err);
+          resolve();
+        }
+      });
+    }
+    
+    console.log('Database stats loaded:', databaseNodes);
+    isLoading = false;
+  }
 </script>
 
-<div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-    <h1 style="font-size: 2rem; font-weight: bold; margin: 0; color: #2c3e50;">Admin Dashboard</h1>
-    <div>
-      <a href="/" style="padding: 0.5rem 1rem; background-color: #3273dc; color: white; text-decoration: none; border-radius: 0.25rem; margin-left: 0.5rem;">Back to Home</a>
-      <a href="/admin-simple" style="padding: 0.5rem 1rem; background-color: #3273dc; color: white; text-decoration: none; border-radius: 0.25rem; margin-left: 0.5rem;">Simple Admin</a>
-      <a href="/dbjson" style="padding: 0.5rem 1rem; background-color: #3273dc; color: white; text-decoration: none; border-radius: 0.25rem; margin-left: 0.5rem;">Database JSON</a>
-    </div>
-  </div>
-  
-  <!-- Simple notice about the admin page -->
-  <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 0.5rem; margin-bottom: 2rem; border-left: 4px solid #3273dc;">
-    <p style="margin: 0; color: #2c3e50;">
-      This is a simplified admin dashboard that doesn't rely on Tailwind CSS or Skeleton UI. 
-      It provides basic functionality to view and manage the Gun.js database.
-    </p>
-  </div>
-  
-  <!-- Show any errors -->
-  {#if error}
-    <div style="padding: 1rem; background-color: #feecf0; border-radius: 0.5rem; margin-bottom: 2rem; border-left: 4px solid #f14668;">
-      <p style="margin: 0; color: #cd0930;">Error: {error}</p>
-    </div>
-  {/if}
-  
-  <!-- Database Stats -->
-  <div style="margin-bottom: 2rem; padding: 1.5rem; background-color: #f8f9fa; border-radius: 0.5rem;">
-    <h2 style="font-size: 1.5rem; font-weight: bold; margin-top: 0; margin-bottom: 1rem; color: #2c3e50;">Database Stats</h2>
-    
-    {#if isLoading}
-      <p style="color: #3273dc;">Loading stats...</p>
-    {:else}
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Users</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.users}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Games</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.games}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Actors</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.actors}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Cards</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.cards}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Decks</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.decks}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Values</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.values}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Capabilities</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.capabilities}</p>
-        </div>
-        
-        <div style="padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0; font-size: 1rem; color: #2c3e50;">Agreements</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0; color: #3273dc;">{nodeStats.agreements}</p>
-        </div>
-      </div>
-      
-      <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
-        <button style="background-color: #3273dc; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer; font-weight: 500;"
-          on:click={fetchDatabaseStats}
-        >
-          Refresh Stats
+<div class="admin-dashboard p-4 h-full">
+  <header class="mb-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+      <div class="flex space-x-2">
+        <button class="btn variant-filled-primary" on:click={fetchDatabaseStats}>
+          <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+          Refresh Data
         </button>
       </div>
-    {/if}
-  </div>
+    </div>
+    <p class="text-surface-600 dark:text-surface-400 mt-1">
+      View and manage the Gun.js database.
+    </p>
+  </header>
   
-  <!-- Tab Navigation -->
-  <div style="display: flex; margin-bottom: 1rem; border-bottom: 1px solid #dbdbdb;">
-    <button 
-      style="padding: 0.75rem 1.5rem; font-weight: 500; background-color: {activeTab === 'database' ? 'white' : '#f5f5f5'}; color: {activeTab === 'database' ? '#3273dc' : '#4a4a4a'}; border: 1px solid #dbdbdb; border-bottom: {activeTab === 'database' ? '2px solid #3273dc' : 'none'}; border-radius: 4px 4px 0 0; margin-right: 0.25rem; cursor: pointer;"
-      on:click={() => switchTab('database')}
-    >
-      Database JSON
-    </button>
-    <button 
-      style="padding: 0.75rem 1.5rem; font-weight: 500; background-color: {activeTab === 'tools' ? 'white' : '#f5f5f5'}; color: {activeTab === 'tools' ? '#3273dc' : '#4a4a4a'}; border: 1px solid #dbdbdb; border-bottom: {activeTab === 'tools' ? '2px solid #3273dc' : 'none'}; border-radius: 4px 4px 0 0; margin-right: 0.25rem; cursor: pointer;"
-      on:click={() => switchTab('tools')}
-    >
-      Admin Tools
-    </button>
-  </div>
-  
-  <!-- Tab Content -->
-  <div style="background-color: white; border-radius: 0 0 0.5rem 0.5rem; padding: 1.5rem; border: 1px solid #dbdbdb; border-top: none;">
-    {#if activeTab === 'database'}
-      <SimpleDatabaseJson />
-    {:else if activeTab === 'tools'}
-      <div>
-        <h2 style="font-size: 1.5rem; font-weight: bold; margin-top: 0; margin-bottom: 1rem; color: #2c3e50;">Admin Tools</h2>
-        <p style="color: #718096; margin-bottom: 1.5rem;">These tools allow you to manage the Gun.js database. Use with caution!</p>
-        
-        <!-- Database Diagnostics -->
-        <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 0.5rem; margin-bottom: 1.5rem; border-left: 4px solid #3273dc;">
-          <h3 style="margin-top: 0; font-size: 1.25rem; color: #2c3e50;">Database Diagnostics</h3>
-          <p style="color: #718096; margin-bottom: 1rem;">Check for issues with the database structure and data relationships.</p>
-          
-          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-            <button
-              style="background-color: #3273dc; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer; font-weight: 500; {isDiagnosticRunning ? 'opacity: 0.7;' : ''}"
-              disabled={isDiagnosticRunning}
-              on:click={async () => {
-                isDiagnosticRunning = true;
-                diagnosticResults = null;
-                try {
-                  diagnosticResults = await validateCardValueRelationships();
-                } catch (err) {
-                  error = `Diagnostic error: ${err}`;
-                } finally {
-                  isDiagnosticRunning = false;
-                }
-              }}
-            >
-              Check Card-Value Relationships
-            </button>
-            
-            <button
-              style="background-color: #3273dc; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer; font-weight: 500; {isDiagnosticRunning ? 'opacity: 0.7;' : ''}"
-              disabled={isDiagnosticRunning}
-              on:click={async () => {
-                isDiagnosticRunning = true;
-                diagnosticResults = null;
-                try {
-                  diagnosticResults = await validateAllRelationships();
-                } catch (err) {
-                  error = `Diagnostic error: ${err}`;
-                } finally {
-                  isDiagnosticRunning = false;
-                }
-              }}
-            >
-              Validate All Relationships
-            </button>
+  <div class="card p-0 bg-white dark:bg-surface-800 shadow rounded-lg overflow-hidden">
+    <div class="admin-tabs">
+      <button 
+        class="admin-tab {activeTab === 'overview' ? 'active' : ''}" 
+        on:click={() => handleTabChange('overview')}
+      >
+        <svelte:component this={icons.Eye} class="w-4 h-4 mr-2" />
+        Overview
+      </button>
+      <button 
+        class="admin-tab {activeTab === 'data' ? 'active' : ''}" 
+        on:click={() => handleTabChange('data')}
+      >
+        <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
+        Data
+      </button>
+      <button 
+        class="admin-tab {activeTab === 'decks' ? 'active' : ''}" 
+        on:click={() => handleTabChange('decks')}
+      >
+        <svelte:component this={icons.Layout} class="w-4 h-4 mr-2" />
+        Decks
+      </button>
+      <button 
+        class="admin-tab {activeTab === 'visualize' ? 'active' : ''}" 
+        on:click={() => handleTabChange('visualize')}
+      >
+        <svelte:component this={icons.Network} class="w-4 h-4 mr-2" />
+        Visualize
+      </button>
+      <button 
+        class="admin-tab {activeTab === 'cleanup' ? 'active' : ''}" 
+        on:click={() => handleTabChange('cleanup')}
+      >
+        <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+        Cleanup
+      </button>
+      
+      <button 
+        class="admin-tab {activeTab === 'maintenance' ? 'active' : ''}" 
+        on:click={() => handleTabChange('maintenance')}
+      >
+        <svelte:component this={icons.Tool} class="w-4 h-4 mr-2" />
+        Maintenance
+      </button>
+    </div>
+    
+    <div class="p-4">
+    
+    <div class="tab-content">
+      {#if activeTab === 'visualize'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Network} class="text-primary-500" />
+              <div>
+                <h3 class="h4">Database Visualization</h3>
+                <p class="text-sm">This interactive graph shows the nodes and relationships in your Gun.js database.</p>
+              </div>
+            </div>
           </div>
           
-          {#if isDiagnosticRunning}
-            <div style="padding: 1rem; background-color: #f0f8ff; border-radius: 0.25rem; margin-bottom: 1rem;">
-              <p style="margin: 0; color: #3273dc;">Running diagnostics, please wait...</p>
+          {#if isG6Loading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Loading Graph Visualization...</span>
             </div>
-          {/if}
-          
-          {#if diagnosticResults}
-            <div style="padding: 1rem; background-color: #f0f8ff; border-radius: 0.25rem; margin-top: 1rem;">
-              <h4 style="margin-top: 0; font-size: 1rem; font-weight: bold; margin-bottom: 0.5rem;">Diagnostic Results</h4>
-              
-              {#if diagnosticResults.scanned !== undefined}
-                <!-- Card-Value relationship results -->
-                <div style="margin-bottom: 1rem;">
-                  <p style="margin: 0 0 0.5rem 0;">Scanned <strong>{diagnosticResults.scanned}</strong> cards, found <strong style="color: {diagnosticResults.issues > 0 ? '#cd0930' : '#48c774'};">{diagnosticResults.issues}</strong> issues.</p>
-                  
-                  {#if diagnosticResults.issues > 0 && diagnosticResults.details && diagnosticResults.details.length}
-                    <div style="max-height: 200px; overflow-y: auto; margin-top: 0.5rem; padding: 0.5rem; background-color: #f8f9fa; border-radius: 0.25rem;">
-                      <ul style="margin: 0; padding-left: 1.5rem;">
-                        {#each diagnosticResults.details as detail}
-                          <li style="margin-bottom: 0.25rem; color: #718096;">{detail.cardId}: {detail.issue}</li>
-                        {/each}
-                      </ul>
-                    </div>
-                    
-                    <div style="margin-top: 1rem;">
-                      <button
-                        style="background-color: #48c774; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer; font-weight: 500; {fixInProgress ? 'opacity: 0.7;' : ''}"
-                        disabled={fixInProgress}
-                        on:click={async () => {
-                          if (confirm('This will attempt to fix card value arrays by converting them to the correct Gun.js format. Continue?')) {
-                            fixInProgress = true;
-                            fixResults = null;
-                            try {
-                              fixResults = await fixCardValueArrays();
-                              // Refresh diagnostics after fix
-                              diagnosticResults = await validateCardValueRelationships();
-                            } catch (err) {
-                              error = `Fix error: ${err}`;
-                            } finally {
-                              fixInProgress = false;
-                            }
-                          }
-                        }}
-                      >
-                        Fix Card Value Arrays
-                      </button>
-                    </div>
-                  {/if}
-                </div>
-              {:else if diagnosticResults.values !== undefined}
-                <!-- All relationships results -->
-                <div style="margin-bottom: 1rem;">
-                  <h5 style="margin: 0.5rem 0; font-size: 0.875rem;">Values</h5>
-                  <p style="margin: 0 0 0.5rem 0;">
-                    Valid: <strong style="color: #48c774;">{diagnosticResults.values.valid}</strong> |
-                    Invalid: <strong style="color: {diagnosticResults.values.invalid > 0 ? '#cd0930' : '#48c774'};">{diagnosticResults.values.invalid}</strong>
+          {:else if g6Error}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{g6Error}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={loadGraphVisualization}>Retry</button>
+              </div>
+            </div>
+          {:else}
+            <div class="card p-4 bg-surface-50-900-token">
+              <div class="visualization-section">
+                <div class="mb-4 p-4 bg-surface-100-800-token rounded">
+                  <p class="text-sm">
+                    Visualizing {graphData.nodes.length} nodes and {graphData.edges.length} edges with Cytoscape.
                   </p>
-                  
-                  {#if diagnosticResults.values.invalid > 0 && diagnosticResults.values.details && diagnosticResults.values.details.length}
-                    <div style="max-height: 100px; overflow-y: auto; margin-top: 0.5rem; padding: 0.5rem; background-color: #f8f9fa; border-radius: 0.25rem;">
-                      <ul style="margin: 0; padding-left: 1.5rem;">
-                        {#each diagnosticResults.values.details as detail}
-                          <li style="margin-bottom: 0.25rem; color: #718096;">{detail}</li>
-                        {/each}
-                      </ul>
-                    </div>
-                  {/if}
                 </div>
                 
-                <div style="margin-bottom: 1rem;">
-                  <h5 style="margin: 0.5rem 0; font-size: 0.875rem;">Capabilities</h5>
-                  <p style="margin: 0 0 0.5rem 0;">
-                    Valid: <strong style="color: #48c774;">{diagnosticResults.capabilities.valid}</strong> |
-                    Invalid: <strong style="color: {diagnosticResults.capabilities.invalid > 0 ? '#cd0930' : '#48c774'};">{diagnosticResults.capabilities.invalid}</strong>
-                  </p>
-                  
-                  {#if diagnosticResults.capabilities.invalid > 0 && diagnosticResults.capabilities.details && diagnosticResults.capabilities.details.length}
-                    <div style="max-height: 100px; overflow-y: auto; margin-top: 0.5rem; padding: 0.5rem; background-color: #f8f9fa; border-radius: 0.25rem;">
-                      <ul style="margin: 0; padding-left: 1.5rem;">
-                        {#each diagnosticResults.capabilities.details as detail}
-                          <li style="margin-bottom: 0.25rem; color: #718096;">{detail}</li>
+                <BasicCytoscapeGraph nodes={graphData.nodes} edges={graphData.edges} />
+                
+                <div class="graph-stats mt-4 p-4 bg-surface-100-800-token rounded">
+                  <h4 class="font-semibold mb-2">Database Overview</h4>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="p-3 rounded bg-surface-50-900-token">
+                      <h5 class="text-sm font-semibold">Most Connected Nodes</h5>
+                      <ul class="mt-2 space-y-1 text-sm">
+                        {#each graphData.nodes.slice(0, 5) as node}
+                          <li class="flex items-center">
+                            <span class="w-2 h-2 mr-2 rounded-full" style="background-color: {node.style?.fill || '#5B8FF9'}"></span>
+                            <span class="truncate">{node.label || node.id.substring(0, 10)}</span>
+                          </li>
                         {/each}
                       </ul>
                     </div>
-                  {/if}
+                    <div class="p-3 rounded bg-surface-50-900-token">
+                      <h5 class="text-sm font-semibold">Node Type Distribution</h5>
+                      <ul class="mt-2 space-y-1 text-sm">
+                        {#each databaseNodes as nodeType}
+                          <li class="flex items-center justify-between">
+                            <div class="flex items-center">
+                              <span class="w-2 h-2 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
+                              <span>{nodeType.type}</span>
+                            </div>
+                            <span class="font-mono">{nodeType.count}</span>
+                          </li>
+                        {/each}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
-              {/if}
+              </div>
+              
+              <div class="graph-legend mt-4 p-3 bg-surface-100-800-token rounded-lg">
+                <h5 class="font-semibold mb-2">Node Types</h5>
+                <div class="flex flex-wrap gap-3">
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#5B8FF9]"></span>
+                    <span class="text-sm">Users</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#5AD8A6]"></span>
+                    <span class="text-sm">Games</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#F6BD16]"></span>
+                    <span class="text-sm">Cards</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#E8684A]"></span>
+                    <span class="text-sm">Decks</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#5D7092]"></span>
+                    <span class="text-sm">Actors</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#F6BD16]"></span>
+                    <span class="text-sm">Chat</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#E8684A]"></span>
+                    <span class="text-sm">Agreements</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#FF9D4D]"></span>
+                    <span class="text-sm">Node Positions</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#9254DE]"></span>
+                    <span class="text-sm">Values</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 mr-2 rounded-full bg-[#36CFC9]"></span>
+                    <span class="text-sm">Capabilities</span>
+                  </div>
+                </div>
+                
+                <h5 class="font-semibold mb-2 mt-4">Relationship Types</h5>
+                <div class="flex flex-wrap gap-3">
+                  <div class="flex items-center">
+                    <div class="w-8 h-0.5 mr-2 bg-[#b8b8b8]"></div>
+                    <span class="text-sm">Standard Relationship</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-8 h-1 mr-2 bg-[#E8684A]"></div>
+                    <span class="text-sm">Deck Contains Card</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-8 h-1 mr-2 bg-[#9254DE]"></div>
+                    <span class="text-sm">Card Has Value</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-8 h-1 mr-2 bg-[#36CFC9]"></div>
+                    <span class="text-sm">Card Has Capability</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {:else if activeTab === 'cleanup'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Trash2} class="text-error-500" />
+              <div>
+                <h3 class="h4">Database Cleanup</h3>
+                <p class="text-sm">This tool allows you to remove unnecessary user nodes from the database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isCleanupLoading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Processing Database Cleanup...</span>
+            </div>
+          {:else if cleanupError}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{cleanupError}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={performCleanup}>Retry</button>
+              </div>
+            </div>
+          {:else if cleanupSuccess}
+            <div class="alert variant-filled-success">
+              <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Success</h3>
+                <p>Successfully removed {cleanupResult?.removed} user nodes from the database.</p>
+              </div>
             </div>
           {/if}
           
-          {#if fixResults}
-            <div style="padding: 1rem; background-color: #effaf5; border-radius: 0.25rem; margin-top: 1rem;">
-              <h4 style="margin-top: 0; font-size: 1rem; font-weight: bold; margin-bottom: 0.5rem;">Fix Results</h4>
-              <p style="margin: 0 0 0.5rem 0;">
-                Scanned <strong>{fixResults.scanned}</strong> cards, fixed <strong style="color: #48c774;">{fixResults.fixed}</strong> issues.
+          <div class="card p-4 bg-surface-50-900-token mb-6">
+            <h3 class="h4 mb-4">User Node Cleanup</h3>
+            <p class="mb-4">
+              There are currently <span class="font-bold text-primary-500">
+              {databaseNodes.find(n => n.type === 'users')?.count || 0}
+              </span> user nodes in the database. Many of these could be unused or bot-generated.
+            </p>
+            
+            <div class="warning-box p-4 bg-error-500/10 border border-error-500 rounded-lg mb-4">
+              <h4 class="font-bold flex items-center text-error-500">
+                <svelte:component this={icons.AlertTriangle} class="w-5 h-5 mr-2" />
+                Warning
+              </h4>
+              <p class="text-sm mt-2">
+                This action will permanently remove all user nodes except the currently logged in user.
+                This cannot be undone. Make sure you have a backup of any important data.
               </p>
+            </div>
+            
+            <div class="current-user-box p-4 bg-primary-500/10 border border-primary-500 rounded-lg mb-4">
+              <h4 class="font-bold flex items-center text-primary-500">
+                <svelte:component this={icons.User} class="w-5 h-5 mr-2" />
+                Your User Account
+              </h4>
+              <p class="text-sm mt-2">
+                Your user ID: <code class="font-mono bg-surface-100-800-token px-2 py-1 rounded">{currentUser?.user_id || 'Not logged in'}</code>
+              </p>
+              <p class="text-sm mt-1">
+                This account will be preserved during the cleanup process.
+              </p>
+            </div>
+            
+            <div class="flex gap-4 flex-wrap">
+              <button 
+                class="btn variant-filled-error" 
+                on:click={performCleanup}
+                disabled={isCleanupLoading || !currentUser}
+              >
+                <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+                Remove All Other User Nodes
+              </button>
               
-              {#if fixResults.details && fixResults.details.length}
-                <div style="max-height: 150px; overflow-y: auto; margin-top: 0.5rem; padding: 0.5rem; background-color: #f8f9fa; border-radius: 0.25rem;">
-                  <ul style="margin: 0; padding-left: 1.5rem;">
-                    {#each fixResults.details as detail}
-                      <li style="margin-bottom: 0.25rem; color: #718096;">{detail}</li>
+              <div class="divider-vertical h-8 mx-2"></div>
+              
+              <div>
+                <button 
+                  class="btn variant-filled-error border-4 border-error-900" 
+                  on:click={performCleanupAllUsers}
+                  disabled={isCleanupLoading}
+                >
+                  <svelte:component this={icons.AlertTriangle} class="w-4 h-4 mr-2" />
+                  ADMIN: Remove ALL Users
+                </button>
+                <p class="text-xs text-error-500 mt-1">No login required for this action. Use with caution!</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card p-4 bg-surface-50-900-token">
+            <h3 class="h4 mb-4">User Node List</h3>
+            
+            {#if !databaseNodes.find(n => n.type === 'users') || databaseNodes.find(n => n.type === 'users')?.count === 0}
+              <p class="text-center py-8 text-surface-500">No user nodes found in the database.</p>
+            {:else}
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>User ID</th>
+                      <th>Name</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each databaseNodes.find(n => n.type === 'users')?.nodes || [] as node}
+                      {@const isCurrentUser = currentUser?.user_id === node.id}
+                      <tr class={isCurrentUser ? 'bg-primary-500/10' : ''}>
+                        <td class="font-mono text-xs">{node.id.substring(0, 14)}...</td>
+                        <td>
+                          {#if isCurrentUser}
+                            <span class="badge variant-filled-primary">You</span>
+                          {:else}
+                            {node.data?.name || 'Unnamed User'}
+                          {/if}
+                        </td>
+                        <td>
+                          {#if node.data?.created_at}
+                            {new Date(node.data.created_at).toLocaleString()}
+                          {:else}
+                            Unknown
+                          {/if}
+                        </td>
+                        <td>
+                          {#if isCurrentUser}
+                            <span class="text-sm text-primary-500">Current User</span>
+                          {:else}
+                            <button 
+                              class="btn btn-sm variant-soft-error" 
+                              on:click={() => removeSpecificUser(node.id)}
+                            >
+                              Remove
+                            </button>
+                          {/if}
+                        </td>
+                      </tr>
                     {/each}
-                  </ul>
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {:else if activeTab === 'decks'}
+        <div class="p-2">
+          <!-- Render the DeckBrowser component -->
+          <DeckBrowser />
+        </div>
+      {:else if activeTab === 'maintenance'}
+        <!-- Render the DatabaseMaintenance component -->
+        <DatabaseMaintenance />
+      {:else if activeTab === 'data'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Database} class="text-primary-500" />
+              <div>
+                <h3 class="h4">Database Data</h3>
+                <p class="text-sm">Browse and explore the raw data stored in your Gun.js database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isLoading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Loading Database Data...</span>
+            </div>
+          {:else if error}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{error}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={fetchDatabaseStats}>Retry</button>
+              </div>
+            </div>
+          {:else}
+            <!-- Inner tabs for data types -->
+            <div class="card p-4 bg-surface-50-900-token">
+              <div class="data-tabs mb-4">
+                {#each databaseNodes as nodeType}
+                  <button 
+                    class="data-tab {activeDataTab === nodeType.type ? 'active' : ''}" 
+                    on:click={() => handleDataTabChange(nodeType.type)}
+                  >
+                    <span class="w-3 h-3 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
+                    {nodeType.type}
+                    <span class="badge ml-2">{nodeType.count}</span>
+                  </button>
+                {/each}
+              </div>
+              
+              <!-- Data table for the selected type -->
+              {#if databaseNodes.length === 0}
+                <div class="p-8 text-center">
+                  <p class="text-surface-500">No data available</p>
                 </div>
+              {:else if activeDataTab === 'decks'}
+                <!-- Special handling for decks with our enhanced component -->
+                <DecksDataTable refreshTrigger={nodeCount} />
+              {:else}
+                {#each databaseNodes.filter(n => n.type === activeDataTab) as nodeType}
+                  {#if nodeType.count === 0}
+                    <div class="p-8 text-center">
+                      <p class="text-surface-500">No {nodeType.type} nodes found</p>
+                    </div>
+                  {:else}
+                    <div class="table-container">
+                      <table class="table table-compact table-hover table-interactive">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Properties</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {#each nodeType.nodes as node}
+                            <tr>
+                              <td class="font-mono text-xs">{node.id.substring(0, 12)}...</td>
+                              <td>
+                                <div class="max-h-32 overflow-y-auto text-xs">
+                                  {#if typeof node.data === 'object'}
+                                    {#each Object.entries(node.data).filter(([key]) => !['_', '#'].includes(key)) as [key, value]}
+                                      <div class="mb-1">
+                                        <span class="font-semibold">{key}:</span> 
+                                        {#if typeof value === 'object'}
+                                          {JSON.stringify(value).substring(0, 50)}
+                                          {#if JSON.stringify(value).length > 50}...{/if}
+                                        {:else}
+                                          {String(value).substring(0, 50)}
+                                          {#if String(value).length > 50}...{/if}
+                                        {/if}
+                                      </div>
+                                    {/each}
+                                  {:else}
+                                    <span class="text-surface-500">No structured data</span>
+                                  {/if}
+                                </div>
+                              </td>
+                              <td>
+                                {#if node.data?.created_at}
+                                  {new Date(node.data.created_at).toLocaleDateString()}
+                                {:else}
+                                  -
+                                {/if}
+                              </td>
+                              <td>
+                                <button 
+                                  class="delete-button"
+                                  on:click={() => {
+                                    if (confirm(`Are you sure you want to delete this ${nodeType.type.slice(0, -1)} with ID "${node.id}"? This cannot be undone.`)) {
+                                      deleteNode(nodeType.type, node.id);
+                                    }
+                                  }}
+                                  title="Delete {nodeType.type.slice(0, -1)}"
+                                >
+                                  <span>❌</span>
+                                </button>
+                              </td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    </div>
+                  {/if}
+                {/each}
               {/if}
             </div>
           {/if}
         </div>
-        
-        <!-- Database Management -->
-        <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 0.5rem; margin-bottom: 1rem;">
-          <h3 style="margin-top: 0; font-size: 1.25rem; color: #2c3e50;">Database Reset</h3>
-          <p style="color: #718096; margin-bottom: 1rem;">Reset the database by clearing all data.</p>
-          <button
-            style="background-color: #f14668; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer; font-weight: 500;"
-            on:click={() => {
-              alert('Database reset functionality is disabled for safety. To reset the database, please clear local storage and reload the page.');
-            }}
-          >
-            Reset Database
-          </button>
+      {:else}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Info} class="text-primary-500" />
+              <div>
+                <h3 class="h4">Database Information</h3>
+                <p class="text-sm">This dashboard allows you to view and manage your Gun.js database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isLoading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Loading Database Statistics...</span>
+            </div>
+          {:else if error}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{error}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={fetchDatabaseStats}>Retry</button>
+              </div>
+            </div>
+          {:else}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div class="card p-4 variant-filled-primary">
+                <h3 class="h4 mb-2">Database Nodes</h3>
+                <p class="text-4xl font-bold">{nodeCount}</p>
+                <p class="text-sm opacity-80">Total nodes in database</p>
+              </div>
+              
+              <div class="card p-4 variant-filled-secondary">
+                <h3 class="h4 mb-2">Node Types</h3>
+                <p class="text-4xl font-bold">{databaseNodes.length}</p>
+                <p class="text-sm opacity-80">Different node types</p>
+              </div>
+              
+              <div class="card p-4 variant-filled-tertiary">
+                <h3 class="h4 mb-2">Database Status</h3>
+                <p class="text-xl font-medium">
+                  {nodeCount > 0 ? 'Active' : 'Empty'}
+                </p>
+                <p class="text-sm opacity-80">
+                  {nodeCount > 0 ? 'Database contains data' : 'No data found in database'}
+                </p>
+              </div>
+            </div>
+            
+            <!-- Schema Manager Component -->
+            <div class="mb-6">
+              <SchemaManager />
+            </div>
+            
+            <div class="mb-6">
+              <AdminTools />
+            </div>
+            
+            <div class="mb-6">
+              <DatabaseFixer />
+            </div>
+            
+            <div class="mb-6">
+              <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
+            </div>
+            
+            <h3 class="h3 mb-4">Database Structure</h3>
+            
+            {#if databaseNodes.length === 0}
+              <div class="card p-8 variant-ghost-surface text-center">
+                <svelte:component this={icons.Database} class="w-16 h-16 mx-auto mb-4 text-surface-500" />
+                <h4 class="h4 mb-2">No Data Found</h4>
+                <p class="text-sm max-w-lg mx-auto">
+                  There's no data in your Gun.js database yet. As you create games, users, and interact with 
+                  the application, data will start appearing here.
+                </p>
+                <div class="mt-4">
+                  <a href="/games" class="btn variant-filled-primary">Create a Game</a>
+                </div>
+              </div>
+            {:else}
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {#each databaseNodes as nodeType}
+                  <div class="card p-4 variant-ghost-surface">
+                    <div class="flex justify-between items-center mb-3">
+                      <h4 class="font-semibold flex items-center">
+                        <span class="w-3 h-3 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
+                        {nodeType.type}
+                      </h4>
+                      <span class="badge variant-filled">{nodeType.count} nodes</span>
+                    </div>
+                    
+                    <div class="mb-2">
+                      <h5 class="text-sm font-semibold mb-1">Schema Structure</h5>
+                      <div class="bg-surface-100-800-token p-2 rounded font-mono text-xs">
+                        {#if nodeType.count > 0 && nodeType.nodes[0].data}
+                          {#each Object.keys(typeof nodeType.nodes[0].data === 'object' ? nodeType.nodes[0].data : {}) as key}
+                            <div><span class="text-primary-500">{key}</span>: {typeof nodeType.nodes[0].data[key]}</div>
+                          {/each}
+                        {:else}
+                          <div class="text-surface-500">No schema information available</div>
+                        {/if}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h5 class="text-sm font-semibold mb-1">Relationships</h5>
+                      <div class="bg-surface-100-800-token p-2 rounded">
+                        {#if nodeType.type === 'users'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">User belongs to many Games</span>
+                          </div>
+                        {:else if nodeType.type === 'games'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5B8FF9]"></span>
+                            <span class="text-xs">Game has many Users</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#5D7092]"></span>
+                            <span class="text-xs">Game has many Actors</span>
+                          </div>
+                        {:else if nodeType.type === 'chat'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5B8FF9]"></span>
+                            <span class="text-xs">Chat belongs to Users</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">Chat belongs to Game</span>
+                          </div>
+                        {:else if nodeType.type === 'actors'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">Actor belongs to Game</span>
+                          </div>
+                        {:else if nodeType.type === 'agreements'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
+                            <span class="text-xs">Agreement belongs to Game</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#5D7092]"></span>
+                            <span class="text-xs">Agreement involves Actors</span>
+                          </div>
+                        {:else if nodeType.type === 'cards'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#E8684A]"></span>
+                            <span class="text-xs">Card belongs to Decks</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#9254DE]"></span>
+                            <span class="text-xs">Card has Values</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[#36CFC9]"></span>
+                            <span class="text-xs">Card has Capabilities</span>
+                          </div>
+                        {:else if nodeType.type === 'decks'}
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#F6BD16]"></span>
+                            <span class="text-xs">Deck contains Cards</span>
+                          </div>
+                        {:else}
+                          <div class="text-surface-500 text-xs">No defined relationships</div>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          {/if}
         </div>
-        
-        <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 0.5rem; margin-bottom: 1rem;">
-          <h3 style="margin-top: 0; font-size: 1.25rem; color: #2c3e50;">Initialize Sample Data</h3>
-          <p style="color: #718096; margin-bottom: 1rem;">Populate the database with sample data for testing.</p>
-          <button
-            style="background-color: #48c774; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.25rem; cursor: pointer; font-weight: 500;"
-            on:click={() => {
-              alert('Sample data initialization is disabled. Please use proper import methods from the home page.');
-            }}
-          >
-            Add Sample Data
-          </button>
-        </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
+    </div>
   </div>
 </div>
+
+<style>
+  .admin-dashboard {
+    min-height: calc(100vh - 80px);
+  }
+  
+  .table-container {
+    overflow-x: auto;
+  }
+  
+  .admin-tabs {
+    display: flex;
+    background: var(--color-surface-200-700-token);
+    position: relative;
+    border-bottom: 1px solid var(--color-surface-300-600-token);
+  }
+  
+  .admin-tab {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    font-weight: 500;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+    border-right: 1px solid var(--color-surface-300-600-token);
+    color: var(--color-surface-700-300-token);
+    background: transparent;
+    border-radius: 0;
+  }
+  
+  .admin-tab:hover {
+    color: var(--color-primary-500);
+    background-color: var(--color-surface-100-800-token);
+  }
+  
+  .admin-tab.active {
+    color: var(--color-primary-500);
+    background-color: var(--color-surface-50-900-token);
+    border-top: 3px solid var(--color-primary-500);
+    padding-top: calc(0.75rem - 3px);
+  }
+  
+  .admin-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--color-surface-50-900-token);
+  }
+  
+  /* Data tab styles */
+  .data-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--color-surface-300-600-token);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .data-tab {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    background-color: var(--color-surface-200-700-token);
+    color: var(--color-surface-700-300-token);
+  }
+  
+  .data-tab:hover {
+    background-color: var(--color-surface-300-600-token);
+  }
+  
+  .data-tab.active {
+    color: white;
+    background-color: var(--color-primary-500);
+  }
+  
+  .data-tab.active .badge {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: white;
+  }
+  
+  .delete-button {
+    background-color: #ef4444;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+  }
+  
+  .delete-button:hover {
+    background-color: #dc2626;
+  }
+</style>
