@@ -10,7 +10,11 @@ export function initializeGun() {
     if (browser) {
         console.log('Initializing Gun.js database...');
         gun = Gun({
-            peers: ['https://gun-manhattan.herokuapp.com/gun'] // Public peer for development
+            // Using local storage only, no external peers.
+            // Data will be stored in the browser's localStorage or IndexedDB.
+            localStorage: true,
+            // No public peers - keeps data private and isolated
+            peers: []
         });
         return gun;
     }
