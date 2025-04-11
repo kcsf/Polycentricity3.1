@@ -27,9 +27,13 @@ export function initializeGun(): IGunInstance | undefined {
             "[initializeGun] Initializing Gun.js with peers:",
             GUN_PEERS,
         );
+        // Hybrid storage approach:
+        // - localStorage: true = enables access to existing data stored prior to IndexedDB
+        // - radisk: true = enables IndexedDB for faster future storage
+        // This approach allows accessing old data while transitioning to the new storage method
         gun = Gun({
             radisk: true, // Use IndexedDB for faster storage
-            localStorage: false, // Disable localStorage to avoid bottlenecks
+            localStorage: true, // Keep localStorage enabled for backward compatibility
             peers: GUN_PEERS,
         });
         console.log("[initializeGun] Gun initialized");
@@ -104,8 +108,8 @@ export async function put<T>(
     }
 
     console.log(`[put] Saving to ${node}:`, data);
-    return withTimeout(
-        new Promise((resolve, reject) => {
+    return withTimeout<GunAck>(
+        new Promise<GunAck>((resolve, reject) => {
             gunInstance.get(node).put(data, (ack: any) => {
                 const gunAck: GunAck = { err: ack.err, ok: !!ack.ok, ...ack };
                 if (gunAck.err) {
@@ -257,8 +261,8 @@ export async function setField<T>(
     }
 
     console.log(`[setField] Setting ${nodePath}/${key} to:`, value);
-    return withTimeout(
-        new Promise((resolve, reject) => {
+    return withTimeout<GunAck>(
+        new Promise<GunAck>((resolve, reject) => {
             gunInstance
                 .get(nodePath)
                 .get(key)
