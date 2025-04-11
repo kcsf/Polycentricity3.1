@@ -20,8 +20,8 @@
   // Track expanded sections
   let expandedSections = {
     cards: false,
-    values: false,
-    capabilities: false,
+    values: true, // Open values by default
+    capabilities: true, // Open capabilities by default
     decks: false,
     users: false,
     games: false,
@@ -94,21 +94,50 @@
     }
     
     // Clear existing subscriptions
-    subscriptions.forEach(unsub => unsub());
+    if (subscriptions && subscriptions.length) {
+      subscriptions.forEach(unsub => {
+        if (typeof unsub === 'function') {
+          unsub();
+        }
+      });
+    }
     subscriptions = [];
+
+    // Reset data objects
+    cards = {};
+    values = {};
+    capabilities = {};
+    decks = {};
+    users = {};
+    games = {};
+    actors = {};
+    agreements = {};
+    positions = {};
+    chat = {};
 
     // Helper to create subscription for a node type
     function subscribeToNodeType(nodeType, dataStore) {
-      const unsub = gun.get(nodeType).map().on((data, key) => {
-        if (data === null || data === undefined) {
-          delete dataStore[key];
-        } else {
-          dataStore[key] = trimJsonSize(data);
-        }
-        dataStore = { ...dataStore }; // Trigger reactivity
-      });
-      
-      subscriptions.push(unsub);
+      try {
+        console.log(`Subscribing to ${nodeType}...`);
+        const callback = (data, key) => {
+          if (data === null || data === undefined) {
+            delete dataStore[key];
+          } else {
+            dataStore[key] = trimJsonSize(data);
+          }
+          // Force Svelte reactivity
+          dataStore = {...dataStore};
+        };
+        
+        gun.get(nodeType).map().on(callback);
+        
+        // Store the cleanup function
+        subscriptions.push(() => {
+          gun.get(nodeType).map().off(callback);
+        });
+      } catch (error) {
+        console.error(`Error subscribing to ${nodeType}:`, error);
+      }
     }
 
     // Subscribe to all node types
@@ -126,44 +155,56 @@
 
   onMount(() => {
     loadData();
+
+    // Force a refresh after a moment to ensure we get the data
+    setTimeout(() => {
+      loadData();
+    }, 1000);
   });
 
   onDestroy(() => {
     // Clean up subscriptions
-    subscriptions.forEach(unsub => unsub());
+    if (subscriptions && subscriptions.length) {
+      subscriptions.forEach(unsub => {
+        if (typeof unsub === 'function') {
+          unsub();
+        }
+      });
+    }
   });
 </script>
 
 <div class="simple-database-json">
-  <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">Database JSON Explorer</h2>
-  <p style="margin-bottom: 1rem;">View raw JSON data from the Gun.js database to debug structure issues.</p>
+  <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: #0e172c;">Database JSON Explorer</h2>
+  <p style="margin-bottom: 1rem; color: #374151;">View raw JSON data from the Gun.js database to debug structure issues.</p>
 
   <button 
-    style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; margin-bottom: 1rem;"
+    style="background-color: #ff3e00; color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; margin-bottom: 1rem; font-weight: bold; border: none; cursor: pointer;"
     on:click={loadData}
   >
     Refresh JSON Data
   </button>
 
   <div>
-    <!-- Values -->
-    <div style="border: 1px solid #e5e7eb; margin-bottom: 0.5rem; border-radius: 0.25rem;">
-      <div 
-        style="padding: 0.75rem; font-weight: bold; background-color: #f3f4f6; cursor: pointer; display: flex; justify-content: space-between;"
+    <!-- Values Section -->
+    <div style="border: 1px solid #2c3e50; margin-bottom: 0.5rem; border-radius: 0.25rem;">
+      <button 
+        style="width: 100%; padding: 0.75rem; font-weight: bold; background-color: #2c3e50; color: white; cursor: pointer; display: flex; justify-content: space-between; border: none; text-align: left; align-items: center;"
         on:click={() => toggleSection('values')}
+        aria-expanded={expandedSections.values}
       >
         <span>Values ({Object.keys(values).length})</span>
         <span>{expandedSections.values ? '▼' : '►'}</span>
-      </div>
+      </button>
       {#if expandedSections.values}
-        <div style="padding: 1rem;">
+        <div style="padding: 1rem; background-color: #1a202c; color: #e2e8f0;">
           {#if Object.keys(values).length === 0}
-            <p style="text-align: center; color: #6b7280;">No value data found.</p>
+            <p style="text-align: center; color: #a0aec0; padding: 1rem;">No value data found.</p>
           {:else}
             {#each Object.entries(values) as [id, value]}
-              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #f9fafb; border-radius: 0.25rem;">
-                <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.25rem;">{id}</div>
-                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap;">{formatJson(value)}</pre>
+              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #2d3748; border-radius: 0.25rem;">
+                <div style="font-weight: 600; color: #90cdf4; margin-bottom: 0.25rem;">{id}</div>
+                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; background-color: #1a202c; padding: 0.5rem; border-radius: 0.25rem; color: #e2e8f0;">{formatJson(value)}</pre>
               </div>
             {/each}
           {/if}
@@ -171,24 +212,25 @@
       {/if}
     </div>
 
-    <!-- Capabilities -->
-    <div style="border: 1px solid #e5e7eb; margin-bottom: 0.5rem; border-radius: 0.25rem;">
-      <div 
-        style="padding: 0.75rem; font-weight: bold; background-color: #f3f4f6; cursor: pointer; display: flex; justify-content: space-between;"
+    <!-- Capabilities Section -->
+    <div style="border: 1px solid #2c3e50; margin-bottom: 0.5rem; border-radius: 0.25rem;">
+      <button 
+        style="width: 100%; padding: 0.75rem; font-weight: bold; background-color: #2c3e50; color: white; cursor: pointer; display: flex; justify-content: space-between; border: none; text-align: left; align-items: center;"
         on:click={() => toggleSection('capabilities')}
+        aria-expanded={expandedSections.capabilities}
       >
         <span>Capabilities ({Object.keys(capabilities).length})</span>
         <span>{expandedSections.capabilities ? '▼' : '►'}</span>
-      </div>
+      </button>
       {#if expandedSections.capabilities}
-        <div style="padding: 1rem;">
+        <div style="padding: 1rem; background-color: #1a202c; color: #e2e8f0;">
           {#if Object.keys(capabilities).length === 0}
-            <p style="text-align: center; color: #6b7280;">No capability data found.</p>
+            <p style="text-align: center; color: #a0aec0; padding: 1rem;">No capability data found.</p>
           {:else}
             {#each Object.entries(capabilities) as [id, capability]}
-              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #f9fafb; border-radius: 0.25rem;">
-                <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.25rem;">{id}</div>
-                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap;">{formatJson(capability)}</pre>
+              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #2d3748; border-radius: 0.25rem;">
+                <div style="font-weight: 600; color: #90cdf4; margin-bottom: 0.25rem;">{id}</div>
+                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; background-color: #1a202c; padding: 0.5rem; border-radius: 0.25rem; color: #e2e8f0;">{formatJson(capability)}</pre>
               </div>
             {/each}
           {/if}
@@ -196,24 +238,25 @@
       {/if}
     </div>
 
-    <!-- Cards -->
-    <div style="border: 1px solid #e5e7eb; margin-bottom: 0.5rem; border-radius: 0.25rem;">
-      <div 
-        style="padding: 0.75rem; font-weight: bold; background-color: #f3f4f6; cursor: pointer; display: flex; justify-content: space-between;"
+    <!-- Cards Section -->
+    <div style="border: 1px solid #2c3e50; margin-bottom: 0.5rem; border-radius: 0.25rem;">
+      <button 
+        style="width: 100%; padding: 0.75rem; font-weight: bold; background-color: #2c3e50; color: white; cursor: pointer; display: flex; justify-content: space-between; border: none; text-align: left; align-items: center;"
         on:click={() => toggleSection('cards')}
+        aria-expanded={expandedSections.cards}
       >
         <span>Cards ({Object.keys(cards).length})</span>
         <span>{expandedSections.cards ? '▼' : '►'}</span>
-      </div>
+      </button>
       {#if expandedSections.cards}
-        <div style="padding: 1rem;">
+        <div style="padding: 1rem; background-color: #1a202c; color: #e2e8f0;">
           {#if Object.keys(cards).length === 0}
-            <p style="text-align: center; color: #6b7280;">No card data found.</p>
+            <p style="text-align: center; color: #a0aec0; padding: 1rem;">No card data found.</p>
           {:else}
             {#each Object.entries(cards) as [id, card]}
-              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #f9fafb; border-radius: 0.25rem;">
-                <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.25rem;">{id}</div>
-                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap;">{formatJson(card)}</pre>
+              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #2d3748; border-radius: 0.25rem;">
+                <div style="font-weight: 600; color: #90cdf4; margin-bottom: 0.25rem;">{id}</div>
+                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; background-color: #1a202c; padding: 0.5rem; border-radius: 0.25rem; color: #e2e8f0;">{formatJson(card)}</pre>
               </div>
             {/each}
           {/if}
@@ -221,31 +264,30 @@
       {/if}
     </div>
 
-    <!-- Decks -->
-    <div style="border: 1px solid #e5e7eb; margin-bottom: 0.5rem; border-radius: 0.25rem;">
-      <div 
-        style="padding: 0.75rem; font-weight: bold; background-color: #f3f4f6; cursor: pointer; display: flex; justify-content: space-between;"
+    <!-- Decks Section -->
+    <div style="border: 1px solid #2c3e50; margin-bottom: 0.5rem; border-radius: 0.25rem;">
+      <button 
+        style="width: 100%; padding: 0.75rem; font-weight: bold; background-color: #2c3e50; color: white; cursor: pointer; display: flex; justify-content: space-between; border: none; text-align: left; align-items: center;"
         on:click={() => toggleSection('decks')}
+        aria-expanded={expandedSections.decks}
       >
         <span>Decks ({Object.keys(decks).length})</span>
         <span>{expandedSections.decks ? '▼' : '►'}</span>
-      </div>
+      </button>
       {#if expandedSections.decks}
-        <div style="padding: 1rem;">
+        <div style="padding: 1rem; background-color: #1a202c; color: #e2e8f0;">
           {#if Object.keys(decks).length === 0}
-            <p style="text-align: center; color: #6b7280;">No deck data found.</p>
+            <p style="text-align: center; color: #a0aec0; padding: 1rem;">No deck data found.</p>
           {:else}
             {#each Object.entries(decks) as [id, deck]}
-              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #f9fafb; border-radius: 0.25rem;">
-                <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.25rem;">{id}</div>
-                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap;">{formatJson(deck)}</pre>
+              <div style="padding: 0.75rem; margin-bottom: 0.5rem; background-color: #2d3748; border-radius: 0.25rem;">
+                <div style="font-weight: 600; color: #90cdf4; margin-bottom: 0.25rem;">{id}</div>
+                <pre style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; background-color: #1a202c; padding: 0.5rem; border-radius: 0.25rem; color: #e2e8f0;">{formatJson(deck)}</pre>
               </div>
             {/each}
           {/if}
         </div>
       {/if}
     </div>
-
-    <!-- Other sections can be added following the same pattern -->
   </div>
 </div>
