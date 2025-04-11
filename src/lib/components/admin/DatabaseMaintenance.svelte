@@ -142,7 +142,7 @@
   }
   
   // Cleanup functions
-  import { cleanupAllUsers, cleanupAllGames } from '$lib/services/cleanupService';
+  import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards } from '$lib/services/cleanupService';
   
   let cleanupLoading = false;
   let cleanupError: string | null = null;
@@ -165,6 +165,56 @@
       cleanupSuccess = cleanupResult.success;
     } catch (err) {
       console.error('Error cleaning up games:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupDecks() {
+    if (!confirm('Are you sure you want to remove ALL decks? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all decks');
+      cleanupResult = await cleanupAllDecks();
+      console.log('Decks cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+      
+      // Refresh statistics after cleanup
+      await getRelationshipStats();
+    } catch (err) {
+      console.error('Error cleaning up decks:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupCards() {
+    if (!confirm('Are you sure you want to remove ALL cards? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all cards');
+      cleanupResult = await cleanupAllCards();
+      console.log('Cards cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+      
+      // Refresh statistics after cleanup
+      await getRelationshipStats();
+    } catch (err) {
+      console.error('Error cleaning up cards:', err);
       cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
     } finally {
       cleanupLoading = false;
@@ -333,7 +383,7 @@
             This will permanently delete all games in the database. This action cannot be undone.
           </p>
           <button 
-            class="btn variant-filled-error w-full" 
+            class="btn preset-outlined-primary-300-700/90 w-full" 
             on:click={handleCleanupGames}
             disabled={cleanupLoading}
           >
@@ -348,12 +398,42 @@
             This will permanently delete all users except your current user. This action cannot be undone.
           </p>
           <button 
-            class="btn variant-filled-error w-full" 
+            class="btn preset-outlined-primary-300-700/90 w-full" 
             on:click={handleCleanupUsers}
             disabled={cleanupLoading}
           >
             <svelte:component this={icons.UserX} class="w-4 h-4 mr-2" />
             Remove All Users
+          </button>
+        </div>
+        
+        <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+          <h5 class="font-semibold mb-2">Remove All Decks</h5>
+          <p class="text-xs mb-4">
+            This will permanently delete all decks in the database. This action cannot be undone.
+          </p>
+          <button 
+            class="btn preset-outlined-primary-300-700/90 w-full" 
+            on:click={handleCleanupDecks}
+            disabled={cleanupLoading}
+          >
+            <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
+            Remove All Decks
+          </button>
+        </div>
+        
+        <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+          <h5 class="font-semibold mb-2">Remove All Cards</h5>
+          <p class="text-xs mb-4">
+            This will permanently delete all cards in the database. This action cannot be undone.
+          </p>
+          <button 
+            class="btn preset-outlined-primary-300-700/90 w-full" 
+            on:click={handleCleanupCards}
+            disabled={cleanupLoading}
+          >
+            <svelte:component this={icons.FileText} class="w-4 h-4 mr-2" />
+            Remove All Cards
           </button>
         </div>
       </div>

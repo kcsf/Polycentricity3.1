@@ -2,6 +2,92 @@ import { getGun, nodes } from './gunService';
 import { getCurrentUser } from './authService';
 
 /**
+ * Removes all decks from the database
+ * @returns Promise<{success: boolean, removed: number, error?: string}>
+ */
+export async function cleanupAllDecks(): Promise<{success: boolean, removed: number, error?: string}> {
+  try {
+    const gun = getGun();
+    if (!gun) {
+      return { success: false, removed: 0, error: 'Gun database is not initialized' };
+    }
+
+    // Count of how many decks were removed
+    let removedCount = 0;
+    
+    return new Promise((resolve) => {
+      // This will get all deck nodes
+      gun.get(nodes.decks).map().once((deckData: any, deckId: string) => {
+        if (!deckData) return;
+        
+        // Delete this deck node by setting it to null
+        console.log(`Removing deck: ${deckId}`);
+        gun.get(nodes.decks).get(deckId).put(null);
+        removedCount++;
+      });
+
+      // Give it some time to process all deletions
+      setTimeout(() => {
+        resolve({
+          success: true,
+          removed: removedCount,
+        });
+      }, 2000);
+    });
+  } catch (error) {
+    console.error('Error cleaning up decks:', error);
+    return {
+      success: false,
+      removed: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Removes all cards from the database
+ * @returns Promise<{success: boolean, removed: number, error?: string}>
+ */
+export async function cleanupAllCards(): Promise<{success: boolean, removed: number, error?: string}> {
+  try {
+    const gun = getGun();
+    if (!gun) {
+      return { success: false, removed: 0, error: 'Gun database is not initialized' };
+    }
+
+    // Count of how many cards were removed
+    let removedCount = 0;
+    
+    return new Promise((resolve) => {
+      // This will get all card nodes
+      gun.get(nodes.cards).map().once((cardData: any, cardId: string) => {
+        if (!cardData) return;
+        
+        // Delete this card node by setting it to null
+        console.log(`Removing card: ${cardId}`);
+        gun.get(nodes.cards).get(cardId).put(null);
+        removedCount++;
+      });
+
+      // Give it some time to process all deletions
+      setTimeout(() => {
+        resolve({
+          success: true,
+          removed: removedCount,
+        });
+      }, 2000);
+    });
+  } catch (error) {
+    console.error('Error cleaning up cards:', error);
+    return {
+      success: false,
+      removed: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
  * Removes all games from the database
  * @returns Promise<{success: boolean, removed: number, error?: string}>
  */
