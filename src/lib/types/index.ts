@@ -43,8 +43,8 @@ export interface Card {
     backstory: string;
     // Changed from string[] to a Record of string (value_id) keys for Gun.js compatibility
     values: Record<string, boolean> | string[]; // Links to value_ids
-    // Goals are stored as an object with numeric string keys in Gun.js, e.g. {"0": "Goal text"}
-    goals: Record<string, string>;
+    // Goals are stored as a simple string in Gun.js
+    goals: string;
     obligations?: string;
     // Changed from string to a Record of string (capability_id) keys for Gun.js compatibility
     capabilities: Record<string, boolean> | string[]; // Links to capability_ids

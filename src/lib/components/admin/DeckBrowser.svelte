@@ -166,12 +166,9 @@
     }
   }
   
-  // Convert goals object to string for display
-  function formatGoals(goals: Record<string, string> | string): string {
-    if (typeof goals === 'object' && goals !== null) {
-      return Object.values(goals).join(', ');
-    }
-    return String(goals || '');
+  // Format goals for display (now goals is already a string in Gun.js)
+  function formatGoals(goals: string): string {
+    return goals || '';
   }
   
   // Get color based on card category

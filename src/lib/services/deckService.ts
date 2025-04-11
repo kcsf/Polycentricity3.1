@@ -87,18 +87,10 @@ export async function createCard(
             : Array.isArray(card.capabilities)
               ? card.capabilities.join(",")
               : "";
-    const goalsStr =
-        typeof card.goals === "string"
-            ? card.goals
-            : Array.isArray(card.goals)
-              ? card.goals.join(",")
-              : "";
-
-    // Convert goals string to array
-    const goalsArray = goalsStr
-        .split(",")
-        .map((g) => g.trim())
-        .filter(Boolean);
+    // Process goals as string
+    const goalsStr = typeof card.goals === "string" 
+        ? card.goals 
+        : "";
 
     const valuesRecord = await createOrGetValues(
         valuesStr
@@ -108,10 +100,25 @@ export async function createCard(
     );
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
 
-    // Convert goals array to Gun-compatible object (Gun can't handle arrays)
-    const goalsObject: Record<string, string> = {};
-    goalsArray.forEach((goal, index) => {
-        goalsObject[`${index}`] = goal;
+    // Use the goals string as-is
+    const goalsString = goalsStr;
+    
+    // Log the structure before sending to Gun (debug)
+    console.log("[createCard] Preparing card for Gun with this structure:", {
+        card_id: cardId,
+        card_number: cardNumber,
+        role_title: card.role_title,
+        backstory: card.backstory || "",
+        values: valuesRecord, 
+        goals: goalsString, // Single string instead of object/array
+        obligations: card.obligations || "",
+        capabilities: capabilitiesRecord,
+        intellectual_property: card.intellectual_property || "",
+        rivalrous_resources: card.rivalrous_resources || "",
+        card_category: card.card_category || "Supporters",
+        type: card.type || "Practice",
+        icon: icon,
+        decks: card.decks || {}
     });
     
     // Properly structured to match Card type, but Gun-compatible (no arrays)
@@ -121,7 +128,7 @@ export async function createCard(
         role_title: card.role_title,
         backstory: card.backstory || "",
         values: valuesRecord, // Record<string, boolean> for Gun.js
-        goals: goalsObject, // Gun-compatible object instead of array
+        goals: goalsString, // Simple string instead of object or array
         obligations: card.obligations || "",
         capabilities: capabilitiesRecord, // Record<string, boolean> for Gun.js
         intellectual_property: card.intellectual_property || "",
@@ -245,11 +252,11 @@ export async function createCard(
             ...gunCard, 
             values: valuesRecord as Record<string, boolean>,
             capabilities: capabilitiesRecord as Record<string, boolean>,
-            // Return the object format for Gun.js
-            goals: goalsObject
+            // Return the string format consistent with Gun storage
+            goals: goalsString
         };
         
-        console.log(`[createCard] Returning card with ID ${cardId} and ${goalsArray.length} goals`);
+        console.log(`[createCard] Returning card with ID ${cardId} and goals: ${goalsString}`);
         return cardData;
     } catch (error) {
         console.error(
