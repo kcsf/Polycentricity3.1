@@ -18,6 +18,11 @@
 
 import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
 
+// Helper function to wait between Gun operations
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // A small helper to wrap promises with a 30s fallback (so we don't hang forever)
 function withTimeout<T>(promise: Promise<T>, ms = 30000): Promise<T> {
   return new Promise((resolve) => {
@@ -69,7 +74,7 @@ async function ensureNode<T extends Record<string, any>>(
     }
     
     // Wait a small amount to allow Radisk to process the write
-    await delay(300);
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     return success;
   } catch (error) {
@@ -435,9 +440,11 @@ export async function initializeSampleData() {
  * Verify how many child keys exist under each high-level node.
  */
 export async function verifySampleData() {
-  console.log("[verify] Counting nodes …");
-  const gun = getGun();
-  if (!gun) {
+  console.log("[verify] Counting nodes…");
+  
+  // Check for Gun initialization here, but we'll get a fresh instance in each count() call
+  // instead of relying on this gun variable which might cause TS errors
+  if (!getGun()) {
     return { success: false, message: "Gun not initialized" };
   }
 
@@ -445,13 +452,24 @@ export async function verifySampleData() {
   async function count(soul: string) {
     return new Promise<number>((done) => {
       let n = 0;
-      gun
+      // Ensure we have a Gun instance
+      const gunInstance = getGun();
+      if (!gunInstance) {
+        console.error(`[count] Gun not initialized for count(${soul})`);
+        done(0);
+        return;
+      }
+      
+      // Count keys
+      gunInstance
         .get(soul)
         .map()
         .once((_data, key) => {
           if (key && key !== "_") n++;
         });
-      setTimeout(() => done(n), 700); // give Gun a moment to load
+        
+      // Give Gun a moment to load before resolving
+      setTimeout(() => done(n), 700);
     });
   }
 

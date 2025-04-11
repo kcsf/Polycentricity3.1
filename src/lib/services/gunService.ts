@@ -21,10 +21,14 @@ const PEERS: string[] = [];       // add peer URLs if you have them
 let isInitializing = false;       // Flag to prevent multiple initializations
 let isInitialized = false;        // Flag to track if Gun is ready
 
+/**
+ * GunAck interface defining the expected structure of Gun.js acknowledgment messages
+ * This is a more permissive interface to handle the inconsistent Gun.js ack format
+ */
 export interface GunAck {
-  err?: string;
-  ok?: boolean;
-  [k: string]: any;
+  err?: string | any;  // Error message, could be string or object
+  ok?: boolean | any;  // Success flag, could be boolean or object like {'':{}}
+  [k: string]: any;    // Allow any other properties
 }
 
 /**
@@ -86,10 +90,14 @@ function timeout<T>(ms: number, fallback: T): Promise<T> {
 
 /* ──────────────────────────── CRUD ops ──────────────────────────── */
 
+/**
+ * Put data into Gun at a specific soul location.
+ * Handles Gun.js's acknowledgment format safely.
+ */
 export function put<T>(
   soul: string,
   data: T,
-  cb?: (ack: GunAck) => void,
+  cb?: (ack: any) => void,
 ): Promise<GunAck> {
   const g = getGun();
   if (!g) return Promise.reject(new Error("Gun not ready"));
@@ -97,9 +105,18 @@ export function put<T>(
   return Promise.race([
     timeout(30000, { err: "timeout", ok: false }),
     new Promise<GunAck>((res) => {
-      g.get(soul).put(data, (ack) => {
-        cb?.(ack);
-        res({ err: ack.err, ok: !ack.err });
+      // Use any type for ack to avoid TypeScript errors with Gun's inconsistent format
+      g.get(soul).put(data, (ack: any) => {
+        // Call the original callback if provided
+        if (cb) cb(ack);
+        
+        // Safely extract error and create a consistent GunAck response
+        const hasError = ack && (ack.err || (typeof ack.err !== 'undefined'));
+        res({ 
+          err: hasError ? ack.err : undefined, 
+          ok: !hasError,
+          raw: ack // Keep the original ack for debugging
+        });
       });
     }),
   ]);
@@ -129,6 +146,9 @@ export function subscribe<T>(
   return () => sub.off();
 }
 
+/**
+ * Set a specific field in a Gun node
+ */
 export function setField<T>(
   soul: string,
   key: string,
@@ -140,7 +160,16 @@ export function setField<T>(
   return Promise.race([
     timeout(30000, { err: "timeout", ok: false }),
     new Promise<GunAck>((res) => {
-      g.get(soul).get(key).put(val, (ack) => res({ err: ack.err, ok: !ack.err }));
+      // Use any type for ack to avoid TypeScript errors with Gun's inconsistent format
+      g.get(soul).get(key).put(val, (ack: any) => {
+        // Safely extract error and create a consistent GunAck response
+        const hasError = ack && (ack.err || (typeof ack.err !== 'undefined'));
+        res({ 
+          err: hasError ? ack.err : undefined, 
+          ok: !hasError,
+          raw: ack // Keep the original ack for debugging
+        });
+      });
     }),
   ]);
 }
@@ -195,6 +224,9 @@ export function deleteNode(soul: string): Promise<GunAck> {
 
 /* ──────────────────────── relationship helpers ─────────────────── */
 
+/**
+ * Create a relationship (edge) between two nodes
+ */
 export function createRelationship(
   fromSoul: string,
   field: string,
@@ -206,9 +238,15 @@ export function createRelationship(
   return Promise.race([
     timeout(30000, { err: "timeout", ok: false }),
     new Promise<GunAck>((res) => {
-      g.get(fromSoul).get(field).set(g.get(toSoul), (ack) =>
-        res({ err: ack.err, ok: !ack.err }),
-      );
+      g.get(fromSoul).get(field).set(g.get(toSoul), (ack: any) => {
+        // Safely extract error and create a consistent GunAck response
+        const hasError = ack && (ack.err || (typeof ack.err !== 'undefined'));
+        res({ 
+          err: hasError ? ack.err : undefined, 
+          ok: !hasError,
+          raw: ack // Keep the original ack for debugging
+        });
+      });
     }),
   ]);
 }
