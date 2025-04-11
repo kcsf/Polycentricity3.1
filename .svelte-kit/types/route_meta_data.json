@@ -3,9 +3,16 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.ts"
 	],
+	"/admin-simple": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
 	"/admin": [
 		"src/routes/admin/+page.ts",
 		"src/routes/+layout.ts"
+	],
+	"/api/db-json": [
+		"src/routes/api/db-json/+server.ts"
 	],
 	"/dashboard": [
 		"src/routes/+layout.ts"

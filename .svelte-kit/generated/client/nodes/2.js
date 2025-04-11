@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/dbjson/+layout.svelte";
+export { default as component } from "../../../../src/routes/admin-simple/+layout.svelte";
