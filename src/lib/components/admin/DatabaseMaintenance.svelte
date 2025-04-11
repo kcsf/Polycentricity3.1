@@ -141,6 +141,58 @@
     }
   }
   
+  // Cleanup functions
+  import { cleanupAllUsers, cleanupAllGames } from '$lib/services/cleanupService';
+  
+  let cleanupLoading = false;
+  let cleanupError: string | null = null;
+  let cleanupSuccess = false;
+  let cleanupResult: { success: boolean; removed: number } | null = null;
+  
+  async function handleCleanupGames() {
+    if (!confirm('Are you sure you want to remove ALL games? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all games');
+      cleanupResult = await cleanupAllGames();
+      console.log('Games cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+    } catch (err) {
+      console.error('Error cleaning up games:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupUsers() {
+    if (!confirm('Are you sure you want to remove ALL users except your current user? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all users');
+      cleanupResult = await cleanupAllUsers();
+      console.log('Users cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+    } catch (err) {
+      console.error('Error cleaning up users:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
   onMount(() => {
     getRelationshipStats();
   });
@@ -261,6 +313,73 @@
         <svelte:component this={icons.RefreshCw} class="w-4 h-4 mr-2" />
         Initialize Bidirectional Relationships
       </button>
+    </div>
+  </div>
+  
+  <!-- Database Cleanup Section -->
+  <div class="card p-4 bg-surface-50-900-token mb-6">
+    <h3 class="h4 mb-4">Database Cleanup</h3>
+    
+    <div class="p-4 bg-surface-100-800-token rounded mb-4">
+      <h4 class="font-semibold mb-2">⚠️ Danger Zone</h4>
+      <p class="text-sm mb-4">
+        These actions will permanently remove data from your database. Use with caution.
+      </p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+          <h5 class="font-semibold mb-2">Remove All Games</h5>
+          <p class="text-xs mb-4">
+            This will permanently delete all games in the database. This action cannot be undone.
+          </p>
+          <button 
+            class="btn variant-filled-error w-full" 
+            on:click={handleCleanupGames}
+            disabled={cleanupLoading}
+          >
+            <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+            Remove All Games
+          </button>
+        </div>
+        
+        <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+          <h5 class="font-semibold mb-2">Remove All Users</h5>
+          <p class="text-xs mb-4">
+            This will permanently delete all users except your current user. This action cannot be undone.
+          </p>
+          <button 
+            class="btn variant-filled-error w-full" 
+            on:click={handleCleanupUsers}
+            disabled={cleanupLoading}
+          >
+            <svelte:component this={icons.UserX} class="w-4 h-4 mr-2" />
+            Remove All Users
+          </button>
+        </div>
+      </div>
+      
+      {#if cleanupLoading}
+        <div class="flex items-center justify-center p-6 mt-4">
+          <div class="spinner-third w-8 h-8"></div>
+          <span class="ml-3">Processing cleanup operation...</span>
+        </div>
+      {:else if cleanupError}
+        <div class="alert variant-filled-error mt-4">
+          <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+          <div class="alert-message">
+            <h3 class="h4">Error</h3>
+            <p>{cleanupError}</p>
+          </div>
+        </div>
+      {:else if cleanupSuccess}
+        <div class="alert variant-filled-success mt-4">
+          <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+          <div class="alert-message">
+            <h3 class="h4">Success</h3>
+            <p>Successfully removed {cleanupResult?.removed} items.</p>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
   
