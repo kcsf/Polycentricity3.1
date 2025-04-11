@@ -108,14 +108,20 @@ export async function createCard(
     );
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
 
-    // Properly structured to match Card type
+    // Convert goals array to Gun-compatible object (Gun can't handle arrays)
+    const goalsObject: Record<string, string> = {};
+    goalsArray.forEach((goal, index) => {
+        goalsObject[`${index}`] = goal;
+    });
+    
+    // Properly structured to match Card type, but Gun-compatible (no arrays)
     const gunCard = {
         card_id: cardId,
         card_number: cardNumber,
         role_title: card.role_title,
         backstory: card.backstory || "",
         values: valuesRecord, // Record<string, boolean> for Gun.js
-        goals: goalsArray, // Properly as string[] now
+        goals: goalsObject, // Gun-compatible object instead of array
         obligations: card.obligations || "",
         capabilities: capabilitiesRecord, // Record<string, boolean> for Gun.js
         intellectual_property: card.intellectual_property || "",
@@ -229,13 +235,21 @@ export async function createCard(
         }
 
         console.log(`[createCard] Card creation completed successfully: ${cardId}`);
+        
+        // Convert the goals back to an array for the return value
+        // This ensures the rest of the application can work with the array format
+        // while Gun.js uses the object format for storage
+        
         // Type-safe return value
         const cardData: Card = { 
             ...gunCard, 
             values: valuesRecord as Record<string, boolean>,
             capabilities: capabilitiesRecord as Record<string, boolean>,
+            // When returning to the application, provide goals as a regular array
             goals: goalsArray 
         };
+        
+        console.log(`[createCard] Returning card with ID ${cardId} and ${goalsArray.length} goals`);
         return cardData;
     } catch (error) {
         console.error(

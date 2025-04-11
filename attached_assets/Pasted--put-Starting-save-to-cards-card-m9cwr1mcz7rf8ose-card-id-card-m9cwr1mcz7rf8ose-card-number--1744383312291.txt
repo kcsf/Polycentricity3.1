@@ -1,0 +1,22 @@
+[put] Starting save to cards/card_m9cwr1mcz7rf8ose {"card_id":"card_m9cwr1mcz7rf8ose","card_number":1,"role_title":"Luminos Funder","backstory":"A wealthy idealist who left corporate life to fund sustainable communities.","values":{"value_sustainability":true,"value_equity":true,"value_community-resilience":true},"goals":["Fund projects that reduce ecological footprints and promote self-reliance."],"obligations":"Must report impact to a donor network; cannot fund profit-driven ventures.","capabilities":{"capability_grant-writing-expertise":true,"capability_impact-assessment":true},"intellectual_property":"Database of sustainable tech solutions, funding strategy playbook.","rivalrous_resources":"$50K in discretionary funds, limited staff time.","card_category":"Funders","type":"Individual","icon":"sun","decks":{}}
+Invalid data: Array at cards/card_m9cwr1mcz7rf8ose.backstory.capabilities.capability_grant-writing-expertise.capability_impact-assessment.card_category.card_id.card_number.decks.goals
+[put] Got acknowledgment in 2ms: 
+Object {err: "Invalid data: Array at…"}
+[put] Error saving to cards/card_m9cwr1mcz7rf8ose: Invalid data: Array at cards/card_m9cwr1mcz7rf8ose.backstory.capabilities.capability_grant-writing-expertise.capability_impact-assessment.card_category.card_id.card_number.decks.goals
+[put] Completed save to cards/card_m9cwr1mcz7rf8ose: with error
+[createCard] Attempt 3/3 had error: Invalid data: Array at cards/card_m9cwr1mcz7rf8ose.backstory.capabilities.capability_grant-writing-expertise.capability_impact-assessment.card_category.card_id.card_number.decks.goals
+[createCard] Failed to save card after 3 attempts
+[createCard] Exception during save: 
+Error {}
+message: "Failed to save card: Invalid data: Array at cards/card_m9cwr1mcz7rf8ose.backstory.capabilities.capability_grant-writing-expertise.capability_impact-assessment.card_category.card_id.card_number.decks.goals"
+stack: "Error: Failed to save card: Invalid data: Array at cards/card_m9cwr1mcz7rf8ose.backstory.capabilities.capability_grant-writing-expertise.capability_impact-assessment.card_category.card_id.card_number.decks.goals↵ at createCard (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/services/deckService.ts?t=1744383192106:100:19)↵ at async importCardsToDeck (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/services/deckService.ts?t=1744383192106:369:22)↵ at async HTMLButtonElement.handleImportCards (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/admin/DeckManager.svelte:346:19)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+
+[createCard] Waiting 4000ms before retry...
+[createCard] Card saved. Waiting 1s before creating relationships...
+[createCard] Setting up value relationships for 3 values
+[createCard] Setting value relationship: value_sustainability -> card_m9cwr1mcz7rf8ose
+[getGun] Returning existing Gun instance
+[setField] Setting values/value_sustainability/cards/card_m9cwr1mcz7rf8ose to: true
