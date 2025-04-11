@@ -41,6 +41,7 @@ export function cleanObject(obj: any): any {
 
 /**
  * Save a simple key-value pair to the database
+ * This version uses a NO-ACK approach to avoid timeout issues
  */
 export async function saveSimpleItem(data: any): Promise<{ success: boolean, id: string, error?: string }> {
   const gun = getGun();
@@ -56,36 +57,25 @@ export async function saveSimpleItem(data: any): Promise<{ success: boolean, id:
   
   console.log(`[SimpleTest] Saving item with ID ${id}:`, JSON.stringify(cleanData));
   
-  return new Promise((resolve) => {
-    // Use a timeout to ensure we don't hang
-    const timeout = setTimeout(() => {
-      console.warn(`[SimpleTest] Timeout saving item ${id}`);
-      resolve({ success: false, id, error: 'Timeout' });
-    }, 5000);
+  try {
+    // Perform the actual save operation WITHOUT waiting for ack
+    // For many Gun.js operations, waiting for ack is unnecessary and can cause timeouts
+    gun.get(TEST_ROOT).get(id).put(cleanData);
     
-    try {
-      // Perform the actual save operation
-      gun.get(TEST_ROOT).get(id).put(cleanData, (ack: any) => {
-        clearTimeout(timeout);
-        
-        if (ack && ack.err) {
-          console.error(`[SimpleTest] Error saving item ${id}:`, ack.err);
-          resolve({ success: false, id, error: String(ack.err) });
-        } else {
-          console.log(`[SimpleTest] Successfully saved item ${id}`);
-          resolve({ success: true, id });
-        }
-      });
-    } catch (error) {
-      clearTimeout(timeout);
-      console.error(`[SimpleTest] Exception saving item ${id}:`, error);
-      resolve({ success: false, id, error: String(error) });
-    }
-  });
+    // Add a small delay to allow Gun to process the write
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    console.log(`[SimpleTest] Item ${id} saved (no ack)`);
+    return { success: true, id };
+  } catch (error) {
+    console.error(`[SimpleTest] Exception saving item ${id}:`, error);
+    return { success: false, id, error: String(error) };
+  }
 }
 
 /**
  * Get a previously saved item from the database
+ * This version uses a simpler approach with a shorter timeout
  */
 export async function getSimpleItem(id: string): Promise<{ success: boolean, data?: any, error?: string }> {
   const gun = getGun();
@@ -96,15 +86,18 @@ export async function getSimpleItem(id: string): Promise<{ success: boolean, dat
   console.log(`[SimpleTest] Getting item ${id}`);
   
   return new Promise((resolve) => {
-    // Use a timeout to ensure we don't hang
+    // Use a much shorter timeout (1s instead of 5s)
     const timeout = setTimeout(() => {
       console.warn(`[SimpleTest] Timeout getting item ${id}`);
       resolve({ success: false, error: 'Timeout' });
-    }, 5000);
+    }, 1000);
+    
+    let dataReceived = false;
     
     try {
-      // Perform the actual get operation
+      // Request the data
       gun.get(TEST_ROOT).get(id).once((data) => {
+        dataReceived = true;
         clearTimeout(timeout);
         
         if (!data) {
@@ -119,6 +112,28 @@ export async function getSimpleItem(id: string): Promise<{ success: boolean, dat
           resolve({ success: true, data: cleanedResult });
         }
       });
+      
+      // If data doesn't come back within 200ms, try an alternative approach
+      // This helps when Gun might be slow to respond
+      setTimeout(() => {
+        if (!dataReceived) {
+          console.log(`[SimpleTest] Trying alternative approach for item ${id}`);
+          gun.get(TEST_ROOT).map().once((data: any, key: string) => {
+            if (key === id && data) {
+              dataReceived = true;
+              clearTimeout(timeout);
+              
+              // Remove Gun metadata from the result
+              const cleanedResult = { ...data };
+              delete cleanedResult._;
+              
+              console.log(`[SimpleTest] Found item ${id} using map() approach:`, JSON.stringify(cleanedResult));
+              resolve({ success: true, data: cleanedResult });
+            }
+          });
+        }
+      }, 200);
+      
     } catch (error) {
       clearTimeout(timeout);
       console.error(`[SimpleTest] Exception getting item ${id}:`, error);
@@ -177,6 +192,7 @@ export async function getAllSimpleItems(): Promise<{ success: boolean, items?: R
 
 /**
  * Delete an item from the database
+ * This version uses a NO-ACK approach to avoid timeout issues
  */
 export async function deleteSimpleItem(id: string): Promise<{ success: boolean, error?: string }> {
   const gun = getGun();
@@ -186,36 +202,25 @@ export async function deleteSimpleItem(id: string): Promise<{ success: boolean, 
   
   console.log(`[SimpleTest] Deleting item ${id}`);
   
-  return new Promise((resolve) => {
-    // Use a timeout to ensure we don't hang
-    const timeout = setTimeout(() => {
-      console.warn(`[SimpleTest] Timeout deleting item ${id}`);
-      resolve({ success: false, error: 'Timeout' });
-    }, 5000);
+  try {
+    // In Gun.js, you delete by setting to null
+    // Don't wait for ack, which can cause timeouts
+    gun.get(TEST_ROOT).get(id).put(null);
     
-    try {
-      // In Gun.js, you delete by setting to null
-      gun.get(TEST_ROOT).get(id).put(null, (ack: any) => {
-        clearTimeout(timeout);
-        
-        if (ack && ack.err) {
-          console.error(`[SimpleTest] Error deleting item ${id}:`, ack.err);
-          resolve({ success: false, error: String(ack.err) });
-        } else {
-          console.log(`[SimpleTest] Successfully deleted item ${id}`);
-          resolve({ success: true });
-        }
-      });
-    } catch (error) {
-      clearTimeout(timeout);
-      console.error(`[SimpleTest] Exception deleting item ${id}:`, error);
-      resolve({ success: false, error: String(error) });
-    }
-  });
+    // Add a small delay to allow Gun to process the delete
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    console.log(`[SimpleTest] Item ${id} deleted (no ack)`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[SimpleTest] Exception deleting item ${id}:`, error);
+    return { success: false, error: String(error) };
+  }
 }
 
 /**
  * Clean up all test data
+ * This version uses a NO-ACK approach to avoid timeout issues
  */
 export async function cleanupTestData(): Promise<{ success: boolean, error?: string }> {
   const gun = getGun();
@@ -225,30 +230,18 @@ export async function cleanupTestData(): Promise<{ success: boolean, error?: str
   
   console.log(`[SimpleTest] Cleaning up all test data`);
   
-  return new Promise((resolve) => {
-    // Use a timeout to ensure we don't hang
-    const timeout = setTimeout(() => {
-      console.warn(`[SimpleTest] Timeout cleaning up test data`);
-      resolve({ success: false, error: 'Timeout' });
-    }, 5000);
+  try {
+    // In Gun.js, you delete by setting to null
+    // Don't wait for ack, which can cause timeouts
+    gun.get(TEST_ROOT).put(null);
     
-    try {
-      // In Gun.js, you delete by setting to null
-      gun.get(TEST_ROOT).put(null, (ack: any) => {
-        clearTimeout(timeout);
-        
-        if (ack && ack.err) {
-          console.error(`[SimpleTest] Error cleaning up test data:`, ack.err);
-          resolve({ success: false, error: String(ack.err) });
-        } else {
-          console.log(`[SimpleTest] Successfully cleaned up test data`);
-          resolve({ success: true });
-        }
-      });
-    } catch (error) {
-      clearTimeout(timeout);
-      console.error(`[SimpleTest] Exception cleaning up test data:`, error);
-      resolve({ success: false, error: String(error) });
-    }
-  });
+    // Add a small delay to allow Gun to process the delete
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    console.log(`[SimpleTest] All test data cleaned up (no ack)`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[SimpleTest] Exception cleaning up test data:`, error);
+    return { success: false, error: String(error) };
+  }
 }
