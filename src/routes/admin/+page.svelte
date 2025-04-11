@@ -944,11 +944,9 @@
                                       <div class="mb-1">
                                         <span class="font-semibold">{key}:</span> 
                                         {#if typeof value === 'object'}
-                                          {JSON.stringify(value).substring(0, 50)}
-                                          {#if JSON.stringify(value).length > 50}...{/if}
+                                          {JSON.stringify(value)}
                                         {:else}
-                                          {String(value).substring(0, 50)}
-                                          {#if String(value).length > 50}...{/if}
+                                          {String(value)}
                                         {/if}
                                       </div>
                                     {/each}
@@ -1179,6 +1177,15 @@
   
   .table-container {
     overflow-x: auto;
+    max-width: 100%;
+  }
+  
+  .table-container td {
+    vertical-align: top;
+    max-width: 500px;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
   }
   
   .admin-tabs {
