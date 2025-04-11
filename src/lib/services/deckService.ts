@@ -600,23 +600,45 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         return [];
     }
 
-    const valueIds =
-        typeof card.values === "string"
-            ? card.values
-                  .split(",")
-                  .map(
-                      (v) =>
-                          `value_${v.trim().toLowerCase().replace(/\s+/g, "-")}`,
-                  )
-            : Object.keys(card.values);
-    const valueNames = await Promise.all(
-        valueIds.map(async (id) => {
-            const data = await get(`${nodes.values}/${id}`);
-            return data?.name || "";
-        }),
-    );
-    console.log(`[getCardValueNames] Retrieved:`, valueNames.filter(Boolean));
-    return valueNames.filter(Boolean);
+    try {
+        let valueIds: string[] = [];
+        
+        if (typeof card.values === "string") {
+            // Handle string format
+            valueIds = (card.values as string)
+                .split(",")
+                .map((v: string) => 
+                    `value_${v.trim().toLowerCase().replace(/\s+/g, "-")}`)
+                .filter(Boolean);
+        } else if (Array.isArray(card.values)) {
+            // Handle array format
+            valueIds = (card.values as string[])
+                .map((v: string) => 
+                    `value_${v.trim().toLowerCase().replace(/\s+/g, "-")}`)
+                .filter(Boolean);
+        } else {
+            // Handle Record/object format (Gun.js format)
+            valueIds = Object.keys(card.values as Record<string, boolean>)
+                .filter(key => (card.values as Record<string, boolean>)[key] === true);
+        }
+
+        console.log(`[getCardValueNames] Processing ${valueIds.length} value IDs:`, valueIds);
+        
+        const valueNames = await Promise.all(
+            valueIds.map(async (id: string) => {
+                const data = await get(`${nodes.values}/${id}`);
+                // Safely access name property
+                return data && typeof data === 'object' && 'name' in data ? data.name as string : "";
+            }),
+        );
+        
+        const filteredNames = valueNames.filter(Boolean);
+        console.log(`[getCardValueNames] Retrieved:`, filteredNames);
+        return filteredNames;
+    } catch (error) {
+        console.error("[getCardValueNames] Error:", error);
+        return [];
+    }
 }
 
 // Get capability names for a card
@@ -632,24 +654,43 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         return [];
     }
 
-    const capIds =
-        typeof card.capabilities === "string"
-            ? card.capabilities
-                  .split(",")
-                  .map(
-                      (c) =>
-                          `capability_${c.trim().toLowerCase().replace(/\s+/g, "-")}`,
-                  )
-            : Object.keys(card.capabilities);
-    const capNames = await Promise.all(
-        capIds.map(async (id) => {
-            const data = await get(`${nodes.capabilities}/${id}`);
-            return data?.name || "";
-        }),
-    );
-    console.log(
-        `[getCardCapabilityNames] Retrieved:`,
-        capNames.filter(Boolean),
-    );
-    return capNames.filter(Boolean);
+    try {
+        let capIds: string[] = [];
+        
+        if (typeof card.capabilities === "string") {
+            // Handle string format
+            capIds = (card.capabilities as string)
+                .split(",")
+                .map((c: string) => 
+                    `capability_${c.trim().toLowerCase().replace(/\s+/g, "-")}`)
+                .filter(Boolean);
+        } else if (Array.isArray(card.capabilities)) {
+            // Handle array format
+            capIds = (card.capabilities as string[])
+                .map((c: string) => 
+                    `capability_${c.trim().toLowerCase().replace(/\s+/g, "-")}`)
+                .filter(Boolean);
+        } else {
+            // Handle Record/object format (Gun.js format)
+            capIds = Object.keys(card.capabilities as Record<string, boolean>)
+                .filter(key => (card.capabilities as Record<string, boolean>)[key] === true);
+        }
+
+        console.log(`[getCardCapabilityNames] Processing ${capIds.length} capability IDs:`, capIds);
+        
+        const capNames = await Promise.all(
+            capIds.map(async (id: string) => {
+                const data = await get(`${nodes.capabilities}/${id}`);
+                // Safely access name property
+                return data && typeof data === 'object' && 'name' in data ? data.name as string : "";
+            }),
+        );
+        
+        const filteredNames = capNames.filter(Boolean);
+        console.log(`[getCardCapabilityNames] Retrieved:`, filteredNames);
+        return filteredNames;
+    } catch (error) {
+        console.error("[getCardCapabilityNames] Error:", error);
+        return [];
+    }
 }
