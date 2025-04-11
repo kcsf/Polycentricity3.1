@@ -1,13 +1,14 @@
 import Gun from "gun";
-import "gun/sea";
+import "gun/sea"; // Import SEA for authentication
 import { browser } from "$app/environment";
 import type { IGunInstance, IGunUserInstance } from "gun";
+import "gun/lib/radix"; // Enable IndexedDB support
 
 // Gun instance
 let gun: IGunInstance | undefined;
 
 const GUN_PEERS: string[] = []; // Add peers later if needed
-export const DB_TIMEOUT = 8000; // 8s timeout
+export const DB_TIMEOUT = 15000; // 15s timeout
 
 // Interface for Gun acknowledgment
 export interface GunAck {
@@ -27,7 +28,8 @@ export function initializeGun(): IGunInstance | undefined {
             GUN_PEERS,
         );
         gun = Gun({
-            localStorage: true,
+            radisk: true, // Use IndexedDB for faster storage
+            localStorage: false, // Disable localStorage to avoid bottlenecks
             peers: GUN_PEERS,
         });
         console.log("[initializeGun] Gun initialized");
@@ -123,7 +125,13 @@ export async function put<T>(
         }),
         DB_TIMEOUT,
         `[put] Timeout saving to ${node}`,
-    );
+    ).catch((error) => {
+        console.error(
+            "[put] Detailed error:",
+            error instanceof Error ? error.stack : error,
+        );
+        throw error;
+    });
 }
 
 /**
@@ -267,7 +275,7 @@ export async function setField<T>(
                             "Value:",
                             value,
                         );
-                        reject(new Error(gunAck.err));
+                        reject(new Error(gunAck.err || "Unknown error"));
                     } else {
                         console.log(`[setField] Set ${nodePath}/${key}`);
                         resolve(gunAck);
@@ -276,7 +284,13 @@ export async function setField<T>(
         }),
         DB_TIMEOUT,
         `[setField] Timeout setting ${nodePath}/${key}`,
-    );
+    ).catch((error) => {
+        console.error(
+            "[setField] Detailed error:",
+            error instanceof Error ? error.stack : error,
+        );
+        throw error; // Ensure error propagates with stack
+    });
 }
 
 /**
@@ -366,6 +380,7 @@ export const nodes = {
     decks: "decks",
     actors: "actors",
     chat: "chat",
+    // D3GameBoard related nodes
     agreements: "agreements",
     positions: "node_positions",
 };
