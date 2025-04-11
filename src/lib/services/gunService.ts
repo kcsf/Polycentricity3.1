@@ -89,37 +89,36 @@ export function put<T>(
 
     console.log(`[put] Starting save to ${node}`, typeof data === 'object' ? JSON.stringify(data) : data);
     
-    // Following the exact pattern from Gun.js docs - using .put only
+    // Following the exact pattern from Gun.js docs
     return new Promise((resolve) => {
         try {
             const startTime = Date.now();
+            
+            // Simplify: don't use a chain of methods, go directly to the node and put
             gunInstance.get(node).put(data, (ack: any) => {
                 console.log(`[put] Got acknowledgment in ${Date.now() - startTime}ms:`, ack);
                 
-                // Standardize the acknowledgment
+                // Standard acknowledgment format
                 const gunAck: GunAck = { 
                     err: ack.err, 
-                    ok: ack.ok || (ack.err ? false : true),
+                    ok: !ack.err 
                 };
                 
                 if (callback) callback(gunAck);
                 
-                // Gun.js docs note that we should use a custom check
-                // for success rather than just relying on ack.err
                 if (ack.err) {
                     console.error(`[put] Error saving to ${node}:`, ack.err);
                 }
                 
-                // Gun sometimes returns an error but actually works
-                // Always resolve the promise, don't use reject
                 console.log(`[put] Completed save to ${node}:`, 
                     ack.err ? 'with error' : 'successfully');
+                
+                // Always resolve, never reject (Gun's pattern)
                 resolve(gunAck);
             });
         } catch (error) {
             console.error(`[put] Exception during save to ${node}:`, error);
-            // Even for exceptions, resolve with an error object 
-            // instead of rejecting to match Gun.js behavior
+            // Even for exceptions, resolve with an error
             resolve({
                 err: String(error),
                 ok: false,
@@ -262,7 +261,7 @@ export function setField<T>(
                     // Standardize the acknowledgment
                     const gunAck: GunAck = { 
                         err: ack.err, 
-                        ok: ack.ok || (ack.err ? false : true),
+                        ok: !ack.err,
                     };
                     
                     // Always log errors for debugging
