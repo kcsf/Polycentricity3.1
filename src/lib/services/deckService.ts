@@ -561,6 +561,7 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                     // This format handles the sample data: "Sustainability", "Equity", "Community Resilience"
                     // which is not valid JSON, but is common in CSV/spreadsheet imports
                     const valueNames = cardData.values
+                        .replace(/\./g, '')  // Remove all periods
                         .split(/[,"]/)  // Split by commas or quotes
                         .map((v: string) => v.trim())
                         .filter((v: string) => v && !v.match(/^[,\s"]*$/));  // Filter out empty or quote-only strings
@@ -588,11 +589,12 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                 if (typeof cardData.capabilities === 'string') {
                     // Capabilities provided as comma-separated string
                     // This format handles the sample data: "Grant-writing expertise, impact assessment."
-                    // which might contain periods, commas as separators
+                    // Remove periods first, then split by commas
                     const capabilityNames = cardData.capabilities
-                        .split(/[,.]/)  // Split by commas or periods
-                        .map((c: string) => c.trim())
-                        .filter((c: string) => c && !c.match(/^[,.\s"]*$/));  // Filter out empty strings
+                        .replace(/\./g, '')  // Remove all periods
+                        .split(',')  // Split by commas only
+                        .map((c: string) => c.trim()) 
+                        .filter((c: string) => c && !c.match(/^[,\s"]*$/));  // Filter out empty strings
                     
                     for (const capability of capabilityNames) {
                         const normalized = capability.toLowerCase();
@@ -756,7 +758,8 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
                                 // Handle Gun.js reference
                                 if (deckData.cards['#']) {
                                     // We'll need to check this reference separately
-                                    gun.get(deckData.cards['#']).once((cardsData: any) => {
+                                    const cardsPath = deckData.cards['#'] as string;
+                                    gun.get(cardsPath).once((cardsData: any) => {
                                         if (cardsData && cardsData[cardId] === true) {
                                             console.log(`Deck ${deckId} contains card ${cardId} via reference`);
                                             decks.push(deckData);
