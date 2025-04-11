@@ -25,12 +25,42 @@ export async function getDeck(deckId: string): Promise<Deck | null> {
         console.error("[getDeck] Gun not initialized");
         return null;
     }
-    const deckData = await get(`${nodes.decks}/${deckId}`);
+    
+    // Add retry logic to compensate for Gun's eventual consistency
+    const maxAttempts = 3;
+    let attempts = 0;
+    let deckData = null;
+    
+    while (attempts < maxAttempts && !deckData) {
+        attempts++;
+        console.log(`[getDeck] Attempt ${attempts}/${maxAttempts} to fetch deck: ${deckId}`);
+        
+        try {
+            deckData = await get(`${nodes.decks}/${deckId}`);
+            
+            // If we didn't get data, add a delay before the next attempt
+            if (!deckData && attempts < maxAttempts) {
+                const delayTime = 500 * Math.pow(2, attempts-1); // Exponential backoff: 500ms, 1000ms, 2000ms
+                console.log(`[getDeck] Deck not found yet, retrying in ${delayTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delayTime));
+            }
+        } catch (error) {
+            console.error(`[getDeck] Error fetching deck ${deckId} (attempt ${attempts}):`, error);
+            
+            if (attempts < maxAttempts) {
+                const delayTime = 500 * Math.pow(2, attempts-1);
+                console.log(`[getDeck] Will retry in ${delayTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delayTime));
+            }
+        }
+    }
+    
     if (!deckData) {
-        console.log(`[getDeck] Deck not found: ${deckId}`);
+        console.log(`[getDeck] Deck not found after ${maxAttempts} attempts: ${deckId}`);
         return null;
     }
-    console.log(`[getDeck] Found deck: ${deckId}`, deckData);
+    
+    console.log(`[getDeck] Found deck: ${deckId} on attempt ${attempts}`);
     return deckData as Deck;
 }
 
@@ -594,9 +624,37 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
         return [];
     }
 
-    const cardData = await get(`${nodes.cards}/${cardId}`);
+    // Add retry logic for getting the card data
+    const maxAttempts = 3;
+    let attempts = 0;
+    let cardData = null;
+    
+    while (attempts < maxAttempts && !cardData) {
+        attempts++;
+        console.log(`[getDecksForCard] Attempt ${attempts}/${maxAttempts} to fetch card: ${cardId}`);
+        
+        try {
+            cardData = await get(`${nodes.cards}/${cardId}`);
+            
+            // If we didn't get data, add a delay before the next attempt
+            if (!cardData && attempts < maxAttempts) {
+                const delayTime = 500 * Math.pow(2, attempts-1); // Exponential backoff
+                console.log(`[getDecksForCard] Card not found yet, retrying in ${delayTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delayTime));
+            }
+        } catch (error) {
+            console.error(`[getDecksForCard] Error fetching card ${cardId} (attempt ${attempts}):`, error);
+            
+            if (attempts < maxAttempts) {
+                const delayTime = 500 * Math.pow(2, attempts-1);
+                console.log(`[getDecksForCard] Will retry in ${delayTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delayTime));
+            }
+        }
+    }
+    
     if (!cardData) {
-        console.log(`[getDecksForCard] Card not found: ${cardId}`);
+        console.log(`[getDecksForCard] Card not found after ${maxAttempts} attempts: ${cardId}`);
         return [];
     }
     
