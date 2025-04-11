@@ -448,66 +448,45 @@ export async function initializeSampleData() {
   };
 
   // 2. Persist the base nodes
+  // Save all users
   for (const u of users) {
     await ensureNode(`${nodes.users}/${u.user_id}`, u);
   }
 
-  // Create explicit card objects with no undefined values and no spread operator
-  const baseCardData1 = {
-    card_id: cards[0].card_id,
-    card_number: cards[0].card_number,
-    role_title: cards[0].role_title,
-    backstory: cards[0].backstory || "",
-    goals: cards[0].goals || "",
-    obligations: cards[0].obligations || "",
-    intellectual_property: cards[0].intellectual_property || "",
-    rivalrous_resources: cards[0].rivalrous_resources || "",
-    card_category: cards[0].card_category || "",
-    type: cards[0].type || "Practice",
-    icon: cards[0].icon || "",
-    created_at: cards[0].created_at,
-    // Initialize empty objects for relationships
-    values: {},
-    capabilities: {},
-    decks: {}
-  };
-  
-  console.log("[sampleData] Prepared Card 1 data:", JSON.stringify(baseCardData1));
-  await ensureNode(`${nodes.cards}/${cards[0].card_id}`, baseCardData1);
-  
-  const baseCardData2 = {
-    card_id: cards[1].card_id,
-    card_number: cards[1].card_number,
-    role_title: cards[1].role_title,
-    backstory: cards[1].backstory || "",
-    goals: cards[1].goals || "",
-    obligations: cards[1].obligations || "",
-    intellectual_property: cards[1].intellectual_property || "",
-    rivalrous_resources: cards[1].rivalrous_resources || "",
-    card_category: cards[1].card_category || "",
-    type: cards[1].type || "DAO",
-    icon: cards[1].icon || "",
-    created_at: cards[1].created_at,
-    // Initialize empty objects for relationships
-    values: {},
-    capabilities: {},
-    decks: {}
-  };
-  
-  console.log("[sampleData] Prepared Card 2 data:", JSON.stringify(baseCardData2));
-  await ensureNode(`${nodes.cards}/${cards[1].card_id}`, baseCardData2);
+  // Save all values first
+  for (const value of values) {
+    await ensureNode(`${nodes.values}/${value.value_id}`, value);
+  }
 
+  // Save all capabilities
+  for (const capability of capabilities) {
+    await ensureNode(`${nodes.capabilities}/${capability.capability_id}`, capability);
+  }
+
+  // Save cards with their references to values and capabilities
+  // First card
+  await ensureNode(`${nodes.cards}/${cards[0].card_id}`, cards[0]);
+  
+  // Second card
+  await ensureNode(`${nodes.cards}/${cards[1].card_id}`, cards[1]);
+
+  // Save deck with its references to cards
   await ensureNode(`${nodes.decks}/${deck.deck_id}`, deck);
+  
+  // Save game
   await ensureNode(`${nodes.games}/${game.game_id}`, game);
 
-  // Save individual actor nodes
+  // Save actors with references to users, games, and cards
   await ensureNode(`${nodes.actors}/${actor1.actor_id}`, actor1);
   await ensureNode(`${nodes.actors}/${actor2.actor_id}`, actor2);
 
+  // Save agreement with references to actors
   await ensureNode(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
+  
+  // Save chat with references to participants
   await ensureNode(`${nodes.chat}/${chat.chat_id}`, chat);
 
-  // Save individual position nodes
+  // Save node positions for visualization
   await ensureNode(`${nodes.positions}/${nodePosition1.node_id}`, nodePosition1);
   await ensureNode(`${nodes.positions}/${nodePosition2.node_id}`, nodePosition2);
 
@@ -601,137 +580,114 @@ export async function initializeSampleData() {
   );
   logAck(`card->deck ${c2.card_id} -> ${deck.deck_id}`, cardToDeck2);
 
-  // 5. Values & Capabilities for each card - process individually
+  // 5. Create relationships between entities
   
-  // Process values and capabilities for card 1
-  const valueNames1 = c1.rawValues.split(',').map(v => v.trim()).filter(Boolean);
+  // Create bidirectional references between values and cards
+  console.log("[seed] Creating value ↔ card relationships");
   
-  // Process each value for card 1
-  for (const vName of valueNames1) {
-    const vId = `value_${vName.toLowerCase().replace(/\s+/g, "-")}`;
-    // If value node doesn't exist, create it
-    await ensureNode(`${nodes.values}/${vId}`, {
-      value_id: vId,
-      name: vName,
-      created_at: now,
-    });
-
-    // edges: value->card and card->value
+  // Card 1 values
+  for (const valueId of Object.keys(c1.values)) {
+    // Value -> Card reference
     const valToCardAck = await withTimeout(
       createEdge(
-        `${nodes.values}/${vId}`,
+        `${nodes.values}/${valueId}`,
         "cards",
         `${nodes.cards}/${c1.card_id}`,
       ),
     );
-    logAck(`value->card ${vId} -> ${c1.card_id}`, valToCardAck);
-
-    const cardToValAck = await withTimeout(
-      createEdge(
-        `${nodes.cards}/${c1.card_id}`,
-        "values",
-        `${nodes.values}/${vId}`,
-      ),
-    );
-    logAck(`card->value ${c1.card_id} -> ${vId}`, cardToValAck);
-  }
-
-  // Process capabilities for card 1
-  const capabilityNames1 = c1.rawCapabilities.split(',').map(cap => cap.trim()).filter(Boolean);
-  
-  for (const capName of capabilityNames1) {
-    const capId = `capability_${capName.toLowerCase().replace(/\s+/g, "-")}`;
-    // If capability node doesn't exist, create it
-    await ensureNode(`${nodes.capabilities}/${capId}`, {
-      capability_id: capId,
-      name: capName,
-      created_at: now,
-    });
-
-    // edges: capability->card and card->capability
-    const capToCardAck = await withTimeout(
-      createEdge(
-        `${nodes.capabilities}/${capId}`,
-        "cards",
-        `${nodes.cards}/${c1.card_id}`,
-      ),
-    );
-    logAck(`cap->card ${capId} -> ${c1.card_id}`, capToCardAck);
-
-    const cardToCapAck = await withTimeout(
-      createEdge(
-        `${nodes.cards}/${c1.card_id}`,
-        "capabilities",
-        `${nodes.capabilities}/${capId}`,
-      ),
-    );
-    logAck(`card->cap ${c1.card_id} -> ${capId}`, cardToCapAck);
+    logAck(`value->card ${valueId} -> ${c1.card_id}`, valToCardAck);
   }
   
-  // Process values and capabilities for card 2
-  const valueNames2 = c2.rawValues.split(',').map(v => v.trim()).filter(Boolean);
-  
-  // Process each value for card 2
-  for (const vName of valueNames2) {
-    const vId = `value_${vName.toLowerCase().replace(/\s+/g, "-")}`;
-    // If value node doesn't exist, create it
-    await ensureNode(`${nodes.values}/${vId}`, {
-      value_id: vId,
-      name: vName,
-      created_at: now,
-    });
-
-    // edges: value->card and card->value
+  // Card 2 values
+  for (const valueId of Object.keys(c2.values)) {
+    // Value -> Card reference
     const valToCardAck = await withTimeout(
       createEdge(
-        `${nodes.values}/${vId}`,
+        `${nodes.values}/${valueId}`,
         "cards",
         `${nodes.cards}/${c2.card_id}`,
       ),
     );
-    logAck(`value->card ${vId} -> ${c2.card_id}`, valToCardAck);
-
-    const cardToValAck = await withTimeout(
-      createEdge(
-        `${nodes.cards}/${c2.card_id}`,
-        "values",
-        `${nodes.values}/${vId}`,
-      ),
-    );
-    logAck(`card->value ${c2.card_id} -> ${vId}`, cardToValAck);
+    logAck(`value->card ${valueId} -> ${c2.card_id}`, valToCardAck);
   }
-
-  // Process capabilities for card 2
-  const capabilityNames2 = c2.rawCapabilities.split(',').map(cap => cap.trim()).filter(Boolean);
   
-  for (const capName of capabilityNames2) {
-    const capId = `capability_${capName.toLowerCase().replace(/\s+/g, "-")}`;
-    // If capability node doesn't exist, create it
-    await ensureNode(`${nodes.capabilities}/${capId}`, {
-      capability_id: capId,
-      name: capName,
-      created_at: now,
-    });
-
-    // edges: capability->card and card->capability
+  console.log("[seed] Creating capability ↔ card relationships");
+  
+  // Card 1 capabilities
+  for (const capabilityId of Object.keys(c1.capabilities)) {
+    // Capability -> Card reference
     const capToCardAck = await withTimeout(
       createEdge(
-        `${nodes.capabilities}/${capId}`,
+        `${nodes.capabilities}/${capabilityId}`,
+        "cards",
+        `${nodes.cards}/${c1.card_id}`,
+      ),
+    );
+    logAck(`capability->card ${capabilityId} -> ${c1.card_id}`, capToCardAck);
+  }
+  
+  // Card 2 capabilities
+  for (const capabilityId of Object.keys(c2.capabilities)) {
+    // Capability -> Card reference
+    const capToCardAck = await withTimeout(
+      createEdge(
+        `${nodes.capabilities}/${capabilityId}`,
         "cards",
         `${nodes.cards}/${c2.card_id}`,
       ),
     );
-    logAck(`cap->card ${capId} -> ${c2.card_id}`, capToCardAck);
-
-    const cardToCapAck = await withTimeout(
+    logAck(`capability->card ${capabilityId} -> ${c2.card_id}`, capToCardAck);
+  }
+  
+  // Create bidirectional references between actors and agreements
+  console.log("[seed] Creating actor ↔ agreement relationships");
+  
+  for (const actorId of Object.keys(agreement.parties)) {
+    // Actor -> Agreement reference
+    const actorToAgreementAck = await withTimeout(
       createEdge(
-        `${nodes.cards}/${c2.card_id}`,
-        "capabilities",
-        `${nodes.capabilities}/${capId}`,
+        `${nodes.actors}/${actorId}`,
+        "agreements",
+        `${nodes.agreements}/${agreement.agreement_id}`,
       ),
     );
-    logAck(`card->cap ${c2.card_id} -> ${capId}`, cardToCapAck);
+    logAck(`actor->agreement ${actorId} -> ${agreement.agreement_id}`, actorToAgreementAck);
   }
+  
+  // Create game -> deck reference
+  console.log("[seed] Creating game → deck relationship");
+  
+  const gameToDeckAck = await withTimeout(
+    createEdge(
+      `${nodes.games}/${game.game_id}`,
+      "deck",
+      `${nodes.decks}/${deck.deck_id}`,
+    ),
+  );
+  logAck(`game->deck ${game.game_id} -> ${deck.deck_id}`, gameToDeckAck);
+  
+  // Create references between users and their actors
+  console.log("[seed] Creating user ↔ actor relationships");
+  
+  // User 1 -> Actor 1
+  const user1ToActor1Ack = await withTimeout(
+    createEdge(
+      `${nodes.users}/${actor1.user_id}`,
+      "actors",
+      `${nodes.actors}/${actor1.actor_id}`,
+    ),
+  );
+  logAck(`user->actor ${actor1.user_id} -> ${actor1.actor_id}`, user1ToActor1Ack);
+  
+  // User 2 -> Actor 2
+  const user2ToActor2Ack = await withTimeout(
+    createEdge(
+      `${nodes.users}/${actor2.user_id}`,
+      "actors",
+      `${nodes.actors}/${actor2.actor_id}`,
+    ),
+  );
+  logAck(`user->actor ${actor2.user_id} -> ${actor2.actor_id}`, user2ToActor2Ack);
 
   console.log("[seed] Sample data (with edges) initialized ✅");
   return { success: true, message: "Sample data initialized (edge style)" };
