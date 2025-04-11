@@ -28,5 +28,9 @@
 	],
 	"/register": [
 		"src/routes/+layout.ts"
+	],
+	"/test-database": [
+		"src/routes/test-database/+page.ts",
+		"src/routes/+layout.ts"
 	]
 }
