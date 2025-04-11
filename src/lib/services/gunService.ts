@@ -1,82 +1,86 @@
-import Gun from 'gun';
-import 'gun/sea'; // Import SEA for authentication
-import { browser } from '$app/environment';
+import Gun from "gun";
+import "gun/sea";
+import { browser } from "$app/environment";
+import type { IGunInstance, IGunUserInstance } from "gun";
 
-// Import Gun types, but use any for now due to type mismatches
-// The @types/gun package isn't fully compatible with how we use Gun.js
-import type { IGunInstanceRoot } from 'gun/types';
+// Gun instance
+let gun: IGunInstance | undefined;
 
-// Define our Gun instance type
-let gun: any = null;
+const GUN_PEERS: string[] = []; // Add peers later if needed
+export const DB_TIMEOUT = 8000; // 8s timeout
 
-// Initialize timeout for database operations (in milliseconds)
-export const DB_TIMEOUT = 8000; // 8 seconds
-
-// Interface for acknowledgment
+// Interface for Gun acknowledgment
 export interface GunAck {
-  err?: string;
-  ok?: boolean;
-  [key: string]: any;
+    err?: string;
+    ok?: boolean;
+    [key: string]: any;
 }
 
 /**
  * Initialize Gun database
- * @returns The Gun instance or null if not in browser
+ * @returns The Gun instance or undefined if not in browser
  */
-export function initializeGun(): any {
+export function initializeGun(): IGunInstance | undefined {
     if (browser) {
-        console.log('Initializing Gun.js database...');
+        console.log(
+            "[initializeGun] Initializing Gun.js with peers:",
+            GUN_PEERS,
+        );
         gun = Gun({
-            // Using local storage only, no external peers.
-            // Data will be stored in the browser's localStorage or IndexedDB.
             localStorage: true,
-            // No public peers - keeps data private and isolated
-            peers: []
+            peers: GUN_PEERS,
         });
+        console.log("[initializeGun] Gun initialized");
         return gun;
     }
-    return null;
+    console.warn("[initializeGun] Cannot initialize outside browser");
+    return undefined;
 }
 
 /**
  * Get the Gun instance, initializing if needed
- * @returns The Gun instance or null if not in browser
+ * @returns The Gun instance or undefined if not available
  */
-export function getGun(): any {
+export function getGun(): IGunInstance | undefined {
     if (!gun && browser) {
+        console.log("[getGun] Gun not initialized, initializing now");
         return initializeGun();
     }
+    console.log("[getGun] Returning existing Gun instance");
     return gun;
 }
 
 /**
  * Get the Gun user instance
- * @returns The Gun user instance or null if Gun is not initialized
+ * @returns The Gun user instance or undefined if not available
  */
-export function getUser(): any {
+export function getUser(): IGunUserInstance | undefined {
     const gunInstance = getGun();
-    // Using any because the Gun.js typings don't perfectly align with the actual API
-    if (!gunInstance) return null;
-    return (gunInstance as any).user?.() || null;
+    if (!gunInstance) {
+        console.warn("[getUser] Gun not initialized");
+        return undefined;
+    }
+    const user = gunInstance.user();
+    console.log("[getUser] User instance retrieved");
+    return user;
 }
 
 /**
  * Create a promise with timeout
- * @param promise The promise to add timeout to
+ * @param promise The promise to wrap
  * @param timeoutMs Timeout in milliseconds
  * @param errorMessage Custom error message
- * @returns Promise with timeout
  */
 function withTimeout<T>(
-    promise: Promise<T>, 
-    timeoutMs: number = DB_TIMEOUT, 
-    errorMessage: string = 'Operation timed out'
+    promise: Promise<T>,
+    timeoutMs: number = DB_TIMEOUT,
+    errorMessage: string = "Operation timed out",
 ): Promise<T> {
     return Promise.race([
         promise,
-        new Promise<T>((_, reject) => 
-            setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-        )
+        new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(errorMessage)), timeoutMs),
+        ),
     ]);
 }
 
@@ -85,255 +89,283 @@ function withTimeout<T>(
  * @param node Node path
  * @param data Data to store
  * @param callback Optional callback function
- * @returns Promise that resolves with acknowledgment or rejects with error
  */
-export function put<T>(
-    node: string, 
-    data: T, 
-    callback?: (ack: GunAck) => void
+export async function put<T>(
+    node: string,
+    data: T,
+    callback?: (ack: GunAck) => void,
 ): Promise<GunAck> {
     const gunInstance = getGun();
-    if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
-    
-    const promise = new Promise<GunAck>((resolve, reject) => {
-        // Using any for callback function to bypass type incompatibilities with Gun's types
-        (gunInstance.get(node) as any).put(data as any, (ack: any) => {
-            // Map external Gun acknowledgment format to our more consistent GunAck interface
-            const gunAck: GunAck = {
-                err: ack.err,
-                ok: !!ack.ok,
-                ...ack
-            };
-            
-            if (gunAck.err) {
-                console.error(`Gun put error for node '${node}':`, gunAck.err);
-                reject(new Error(gunAck.err));
+    if (!gunInstance) {
+        console.error("[put] Gun not initialized");
+        throw new Error("Gun not initialized");
+    }
+
+    console.log(`[put] Saving to ${node}:`, data);
+    return withTimeout(
+        new Promise((resolve, reject) => {
+            gunInstance.get(node).put(data, (ack: any) => {
+                const gunAck: GunAck = { err: ack.err, ok: !!ack.ok, ...ack };
+                if (gunAck.err) {
+                    console.error(
+                        `[put] Error saving to ${node}:`,
+                        gunAck.err,
+                        "Data:",
+                        data,
+                    );
+                    reject(new Error(gunAck.err));
+                } else {
+                    console.log(`[put] Saved to ${node}`);
+                    resolve(gunAck);
+                }
                 if (callback) callback(gunAck);
-                return;
-            }
-            if (process.env.NODE_ENV !== 'production') {
-                console.log(`Data saved to node: ${node}`);
-            }
-            resolve(gunAck);
-            if (callback) callback(gunAck);
-        });
-    });
-    
-    return withTimeout(promise, DB_TIMEOUT, `Put operation timed out for node: ${node}`);
+            });
+        }),
+        DB_TIMEOUT,
+        `[put] Timeout saving to ${node}`,
+    );
 }
 
 /**
  * Get data from a Gun node (once)
  * @param node Node path
- * @returns Promise that resolves with the data
  */
-export function get<T>(node: string): Promise<T | null> {
+export async function get<T>(node: string): Promise<T | null> {
     const gunInstance = getGun();
-    if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
-    
-    const promise = new Promise<T | null>((resolve) => {
-        // Using any for callback to bypass Gun.js typing issues
-        (gunInstance.get(node) as any).once((data: any) => {
-            // Filter out Gun's metadata if present
-            const result = data && typeof data === 'object' && data._ 
-                ? { ...data, _: undefined } 
-                : data;
-                
-            resolve(result as T | null);
-        });
-    });
-    
-    return withTimeout(promise, DB_TIMEOUT, `Get operation timed out for node: ${node}`);
+    if (!gunInstance) {
+        console.error("[get] Gun not initialized");
+        throw new Error("Gun not initialized");
+    }
+
+    console.log(`[get] Fetching from ${node}`);
+    return withTimeout(
+        new Promise((resolve) => {
+            gunInstance.get(node).once((data: any) => {
+                const result =
+                    data && typeof data === "object"
+                        ? { ...data, _: undefined }
+                        : data;
+                console.log(`[get] Fetched from ${node}:`, result);
+                resolve(result as T | null);
+            });
+        }),
+        DB_TIMEOUT,
+        `[get] Timeout fetching from ${node}`,
+    );
 }
 
 /**
  * Subscribe to changes on a Gun node
  * @param node Node path
- * @param callback Callback function that receives updated data
- * @returns Function to unsubscribe
+ * @param callback Callback function for updates
  */
 export function subscribe<T>(
-    node: string, 
-    callback: (data: T) => void
+    node: string,
+    callback: (data: T) => void,
 ): () => void {
     const gunInstance = getGun();
-    if (!gunInstance) return () => {};
-    
-    // Cast to any because Gun types don't fully capture the chaining API
-    const subscription = (gunInstance.get(node) as any).on((data: any) => {
-        // Filter out Gun's metadata if present
-        const result = data && typeof data === 'object' && data._ 
-            ? { ...data, _: undefined } 
-            : data;
-            
+    if (!gunInstance) {
+        console.error("[subscribe] Gun not initialized");
+        return () => {};
+    }
+
+    console.log(`[subscribe] Subscribing to ${node}`);
+    const subscription = gunInstance.get(node).on((data: any) => {
+        const result =
+            data && typeof data === "object" ? { ...data, _: undefined } : data;
+        console.log(`[subscribe] Update for ${node}:`, result);
         callback(result as T);
     });
-    
-    // Return function to unsubscribe
+
     return () => {
-        if (subscription && typeof subscription.off === 'function') {
-            subscription.off();
-        }
+        console.log(`[subscribe] Unsubscribing from ${node}`);
+        subscription.off();
     };
 }
 
 /**
- * Generate a unique ID suitable for use as a Gun node key
- * @returns A unique string ID
+ * Generate a unique ID
  */
 export function generateId(): string {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+    const id =
+        Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+    console.log("[generateId] Generated:", id);
+    return id;
 }
 
 /**
- * Get data from a Gun node with a specific field/key
+ * Get data from a specific field in a Gun node
  * @param nodePath Base node path
- * @param key The specific key to get
- * @returns Promise that resolves with the data at the specified key
+ * @param key Field key
  */
-export function getField<T>(nodePath: string, key: string): Promise<T | null> {
+export async function getField<T>(
+    nodePath: string,
+    key: string,
+): Promise<T | null> {
     const gunInstance = getGun();
-    if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
-    
-    const promise = new Promise<T | null>((resolve) => {
-        // Using any for callback to bypass Gun.js typing issues
-        (gunInstance.get(nodePath).get(key) as any).once((data: any) => {
-            // Filter out Gun's metadata if present
-            const result = data && typeof data === 'object' && data._ 
-                ? { ...data, _: undefined } 
-                : data;
-                
-            resolve(result as T | null);
-        });
-    });
-    
-    return withTimeout(promise, DB_TIMEOUT, `GetField operation timed out for ${nodePath}/${key}`);
+    if (!gunInstance) {
+        console.error("[getField] Gun not initialized");
+        throw new Error("Gun not initialized");
+    }
+
+    console.log(`[getField] Fetching ${nodePath}/${key}`);
+    return withTimeout(
+        new Promise((resolve) => {
+            gunInstance
+                .get(nodePath)
+                .get(key)
+                .once((data: any) => {
+                    const result =
+                        data && typeof data === "object"
+                            ? { ...data, _: undefined }
+                            : data;
+                    console.log(
+                        `[getField] Fetched ${nodePath}/${key}:`,
+                        result,
+                    );
+                    resolve(result as T | null);
+                });
+        }),
+        DB_TIMEOUT,
+        `[getField] Timeout fetching ${nodePath}/${key}`,
+    );
 }
 
 /**
  * Set a specific field in a Gun node
  * @param nodePath Base node path
- * @param key The specific key to set
- * @param value The value to set
- * @returns Promise that resolves with acknowledgment
+ * @param key Field key
+ * @param value Value to set
  */
-export function setField<T>(nodePath: string, key: string, value: T): Promise<GunAck> {
+export async function setField<T>(
+    nodePath: string,
+    key: string,
+    value: T,
+): Promise<GunAck> {
     const gunInstance = getGun();
-    if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
-    
-    const promise = new Promise<GunAck>((resolve, reject) => {
-        // Using any for callback function to bypass type incompatibilities with Gun's types
-        (gunInstance.get(nodePath).get(key) as any).put(value as any, (ack: any) => {
-            // Map external Gun acknowledgment format to our more consistent GunAck interface
-            const gunAck: GunAck = {
-                err: ack.err,
-                ok: !!ack.ok,
-                ...ack
-            };
-            
-            if (gunAck.err) {
-                console.error(`Gun setField error for ${nodePath}/${key}:`, gunAck.err);
-                reject(new Error(gunAck.err));
-                return;
-            }
-            resolve(gunAck);
-        });
-    });
-    
-    return withTimeout(promise, DB_TIMEOUT, `SetField operation timed out for ${nodePath}/${key}`);
+    if (!gunInstance) {
+        console.error("[setField] Gun not initialized");
+        throw new Error("Gun not initialized");
+    }
+
+    console.log(`[setField] Setting ${nodePath}/${key} to:`, value);
+    return withTimeout(
+        new Promise((resolve, reject) => {
+            gunInstance
+                .get(nodePath)
+                .get(key)
+                .put(value, (ack: any) => {
+                    const gunAck: GunAck = {
+                        err: ack.err,
+                        ok: !!ack.ok,
+                        ...ack,
+                    };
+                    if (gunAck.err) {
+                        console.error(
+                            `[setField] Error setting ${nodePath}/${key}:`,
+                            gunAck.err,
+                            "Value:",
+                            value,
+                        );
+                        reject(new Error(gunAck.err));
+                    } else {
+                        console.log(`[setField] Set ${nodePath}/${key}`);
+                        resolve(gunAck);
+                    }
+                });
+        }),
+        DB_TIMEOUT,
+        `[setField] Timeout setting ${nodePath}/${key}`,
+    );
 }
 
 /**
- * Safely attempt to get all items from a node that might be a collection
- * This uses a timeout to prevent hanging indefinitely
+ * Get all items from a collection node
  * @param nodePath Path to the collection
- * @returns Promise resolving to an array of items
  */
-export function getCollection<T>(nodePath: string): Promise<T[]> {
+export async function getCollection<T>(nodePath: string): Promise<T[]> {
     const gunInstance = getGun();
-    if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
-    
-    return new Promise<T[]>((resolve) => {
-        const items: T[] = [];
-        let timeoutId: NodeJS.Timeout;
-        let resolved = false;
-        
-        // Set a timeout for the entire collection retrieval
-        timeoutId = setTimeout(() => {
-            if (!resolved) {
-                console.warn(`Collection retrieval timed out for: ${nodePath}, returning ${items.length} items collected so far`);
-                resolved = true;
+    if (!gunInstance) {
+        console.error("[getCollection] Gun not initialized");
+        throw new Error("Gun not initialized");
+    }
+
+    console.log(`[getCollection] Fetching collection from ${nodePath}`);
+    return withTimeout(
+        new Promise((resolve) => {
+            const items: T[] = [];
+            gunInstance
+                .get(nodePath)
+                .map()
+                .once((data: any, key: string) => {
+                    if (data && key !== "_") {
+                        const item = { ...data, _: undefined, id: key } as T;
+                        items.push(item);
+                        console.log(
+                            `[getCollection] Item from ${nodePath}: ${key}`,
+                            item,
+                        );
+                    }
+                });
+            setTimeout(() => {
+                console.log(
+                    `[getCollection] Retrieved ${items.length} items from ${nodePath}`,
+                );
                 resolve(items);
-            }
-        }, DB_TIMEOUT);
-        
-        gunInstance.get(nodePath).map().once((data: any, key: string) => {
-            if (data && !data._ && key !== '_') {
-                // Only add actual data (not Gun metadata)
-                items.push({
-                    ...data,
-                    id: key // Add the key as id field for convenience
-                } as unknown as T);
-            }
-            
-            // This runs every time an item is processed
-            // We can't determine when map().once() is complete, so we rely on the timeout
-        });
-        
-        // Additional timer to resolve early if no new items were added for a while
-        // This helps when the collection might be small or empty
-        setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                clearTimeout(timeoutId);
-                resolve(items);
-            }
-        }, 2000); // 2 seconds reasonable for small collections
-    });
+            }, 2000); // Allow time for data to load
+        }),
+        DB_TIMEOUT,
+        `[getCollection] Timeout fetching collection ${nodePath}`,
+    );
 }
 
 /**
  * Check if a node exists
  * @param nodePath Path to the node
- * @returns Promise resolving to true if the node exists, false otherwise
  */
-export function nodeExists(nodePath: string): Promise<boolean> {
+export async function nodeExists(nodePath: string): Promise<boolean> {
     const gunInstance = getGun();
-    if (!gunInstance) return Promise.reject(new Error('Gun not initialized'));
-    
-    const promise = new Promise<boolean>((resolve) => {
-        gunInstance.get(nodePath).once((data: any) => {
-            // In Gun, a node exists if it's not undefined and not null
-            // But we also want to check if it has any meaningful data
-            resolve(data !== undefined && data !== null && Object.keys(data).length > 0);
-        });
-    });
-    
-    return withTimeout(promise, DB_TIMEOUT, `NodeExists check timed out for: ${nodePath}`);
+    if (!gunInstance) {
+        console.error("[nodeExists] Gun not initialized");
+        throw new Error("Gun not initialized");
+    }
+
+    console.log(`[nodeExists] Checking if ${nodePath} exists`);
+    return withTimeout(
+        new Promise((resolve) => {
+            gunInstance.get(nodePath).once((data: any) => {
+                const exists =
+                    data !== undefined &&
+                    data !== null &&
+                    Object.keys(data).length > 0;
+                console.log(`[nodeExists] ${nodePath} exists: ${exists}`);
+                resolve(exists);
+            });
+        }),
+        DB_TIMEOUT,
+        `[nodeExists] Timeout checking ${nodePath}`,
+    );
 }
 
 /**
  * Delete a node (set to null)
- * Note: Gun doesn't truly delete data, it just sets it to null
  * @param nodePath Path to the node
- * @returns Promise resolving with acknowledgment
  */
-export function deleteNode(nodePath: string): Promise<GunAck> {
+export async function deleteNode(nodePath: string): Promise<GunAck> {
+    console.log(`[deleteNode] Deleting ${nodePath}`);
     return put(nodePath, null);
 }
 
-// Export the gun nodes for different data types
+// Gun nodes
 export const nodes = {
-    values: 'values', // Value system nodes
-    capabilities: 'capabilities', // Capability system nodes
-    users: 'users', // User accounts
-    games: 'games', // Game instances
-    cards: 'cards', // Role templates
-    decks: 'decks', // Card collections
-    actors: 'actors', // Links user to card in game
-    chat: 'chat', // Chat messages
-    // D3GameBoard related nodes
-    agreements: 'agreements', // Agreements between actors
-    positions: 'node_positions' // Position data for visualization
+    values: "values",
+    capabilities: "capabilities",
+    users: "users",
+    games: "games",
+    cards: "cards",
+    decks: "decks",
+    actors: "actors",
+    chat: "chat",
+    agreements: "agreements",
+    positions: "node_positions",
 };

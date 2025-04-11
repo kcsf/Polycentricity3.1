@@ -558,7 +558,13 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                     }
                 } else if (typeof cardData.values === 'string') {
                     // Values provided as comma-separated string
-                    const valueNames = cardData.values.split(',').map((v: string) => v.trim()).filter((v: string) => v);
+                    // This format handles the sample data: "Sustainability", "Equity", "Community Resilience"
+                    // which is not valid JSON, but is common in CSV/spreadsheet imports
+                    const valueNames = cardData.values
+                        .split(/[,"]/)  // Split by commas or quotes
+                        .map((v: string) => v.trim())
+                        .filter((v: string) => v && !v.match(/^[,\s"]*$/));  // Filter out empty or quote-only strings
+                    
                     for (const value of valueNames) {
                         const normalized = value.toLowerCase();
                         if (valueMap[normalized]) {
@@ -581,7 +587,13 @@ export async function importCardsToDeck(deckId: string, cardsData: any[]): Promi
                 
                 if (typeof cardData.capabilities === 'string') {
                     // Capabilities provided as comma-separated string
-                    const capabilityNames = cardData.capabilities.split(',').map((c: string) => c.trim()).filter((c: string) => c);
+                    // This format handles the sample data: "Grant-writing expertise, impact assessment."
+                    // which might contain periods, commas as separators
+                    const capabilityNames = cardData.capabilities
+                        .split(/[,.]/)  // Split by commas or periods
+                        .map((c: string) => c.trim())
+                        .filter((c: string) => c && !c.match(/^[,.\s"]*$/));  // Filter out empty strings
+                    
                     for (const capability of capabilityNames) {
                         const normalized = capability.toLowerCase();
                         if (capabilityMap[normalized]) {
