@@ -308,9 +308,6 @@
     if (tab === 'visualize' && typeof window !== 'undefined') {
       // Prepare graph data when switching to visualization tab
       loadGraphVisualization();
-    } else if (tab === 'cleanup' && typeof window !== 'undefined') {
-      // Get current user when switching to cleanup tab
-      currentUser = getCurrentUser();
     }
     
     // Update URL with tab parameter
@@ -429,8 +426,6 @@
           // Initialize visualization if needed
           if (activeTab === 'visualize') {
             loadGraphVisualization();
-          } else if (activeTab === 'cleanup') {
-            currentUser = getCurrentUser();
           }
         }
       } catch (err) {
@@ -1052,6 +1047,10 @@
                 {/each}
               </div>
             {/if}
+                  </div>
+                {/snippet}
+              </Accordion.Item>
+            </Accordion>
           {/if}
         </div>
       {/if}
