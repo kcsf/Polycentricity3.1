@@ -6,9 +6,11 @@
   import { getCurrentUser } from '$lib/services/authService';
   import type { Card, Deck } from '$lib/types';
   
+  const { deckId = 'd1' } = $props(); // Use $props in runes mode
+  
   let isLoading = $state(false);
   let result = $state<{ success: boolean; message: string } | null>(null);
-  export let deckId = $state('d1'); // Default deck ID, can be overridden by parent
+  let deckIdValue = $state(deckId); // Store prop value in a state variable
   let deck = $state<Deck | null>(null);
   let userId = $state('');
   let decks = $state<Deck[]>([]);
@@ -68,12 +70,12 @@
     result = null;
     
     try {
-      deck = await getDeck(deckId);
+      deck = await getDeck(deckIdValue);
       
       if (!deck) {
         result = {
           success: false,
-          message: `Deck with ID ${deckId} not found`
+          message: `Deck with ID ${deckIdValue} not found`
         };
       }
     } catch (error) {
@@ -108,7 +110,7 @@
     result = null;
     
     try {
-      const success = await updateDeck(deckId, {
+      const success = await updateDeck(deckIdValue, {
         name: 'Eco-Village Deck',
         creator: userId
       });
@@ -116,7 +118,7 @@
       if (success) {
         result = {
           success: true,
-          message: `Successfully updated deck ${deckId} with creator ${userId}`
+          message: `Successfully updated deck ${deckIdValue} with creator ${userId}`
         };
         
         // Reload the deck
@@ -271,8 +273,8 @@
       console.log(`Validation passed for all ${validCards} cards`);
       
       // Import the cards
-      console.log(`Starting import of ${cardsData.length} cards to deck ${deckId}`);
-      const result = await importCardsToDeck(deckId, cardsData);
+      console.log(`Starting import of ${cardsData.length} cards to deck ${deckIdValue}`);
+      const result = await importCardsToDeck(deckIdValue, cardsData);
       
       if (result.success) {
         importResult = {
@@ -318,9 +320,9 @@
       <select 
         id="deck-select" 
         class="select rounded-md w-full md:w-1/2 lg:w-1/3"
-        value={deckId}
+        value={deckIdValue}
         on:change={(e) => {
-          deckId = e.target.value;
+          deckIdValue = e.target.value;
           loadDeck();
         }}
         disabled={isLoading}
