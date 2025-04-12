@@ -6,6 +6,8 @@
   import { getDeck } from '$lib/services/deckService';
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   import type { Deck, Card } from '$lib/types';
+  import { page } from '$app/stores';
+  import DeckManager from '$lib/components/admin/DeckManager.svelte';
   
   // State variables
   let selectedDeckId = $state('');
@@ -225,7 +227,7 @@
         <svelte:component this={icons.Cards} size={24} />
       {/snippet}
       
-      {#snippet control()}Deck Selection{/snippet}
+      {#snippet control()}Deck Browser{/snippet}
       
       {#snippet panel()}
         <div class="p-4">
@@ -374,6 +376,21 @@
               {/each}
             </div>
           {/if}
+        </div>
+      {/snippet}
+    </Accordion.Item>
+    
+    <!-- Card Import Section -->
+    <Accordion.Item value="card-import">
+      {#snippet lead()}
+        <svelte:component this={icons.Upload} size={24} />
+      {/snippet}
+      
+      {#snippet control()}Import Cards{/snippet}
+      
+      {#snippet panel()}
+        <div class="p-4">
+          <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
         </div>
       {/snippet}
     </Accordion.Item>

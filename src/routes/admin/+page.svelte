@@ -884,9 +884,7 @@
               <AdminTools />
             </div>
             
-            <div class="mb-6">
-              <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
-            </div>
+            <!-- DeckManager moved to Decks tab -->
             
             <h3 class="h3 mb-4">Database Structure</h3>
             
