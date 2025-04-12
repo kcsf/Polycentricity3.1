@@ -11,8 +11,8 @@
   let success = $state(false);
   let result = $state<{ success: boolean; processed: number } | null>(null);
   
-  // For accordion sections
-  let accordionValue = $state(['schema', 'relationships', 'cleanup', 'documentation']);
+  // For accordion sections - all closed by default
+  let accordionValue = $state([]);
   
   async function initializeRelationships() {
     isLoading = true;
