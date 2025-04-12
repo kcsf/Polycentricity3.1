@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
+  import { initializeSampleData, verifySampleData, clearSampleData } from '$lib/services/sampleDataService';
   import { getGun, nodes } from '$lib/services/gunService';
   
   let status = 'Initializing...';
@@ -50,6 +50,31 @@
     }
   }
   
+  async function clearData() {
+    if (!confirm('Are you sure you want to clear all sample data? This cannot be undone.')) {
+      return;
+    }
+    
+    isLoading = true;
+    status = 'Clearing sample data...';
+    
+    try {
+      const result = await clearSampleData();
+      if (result.success) {
+        status = 'Sample data cleared successfully.';
+        // Verify that data was cleared
+        await verifyData();
+      } else {
+        status = `Error clearing data: ${result.message}`;
+      }
+    } catch (error) {
+      console.error('Error in clearing data:', error);
+      status = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      isLoading = false;
+    }
+  }
+  
   async function getCounts(): Promise<Record<string, number>> {
     const gun = getGun();
     if (!gun) {
@@ -89,7 +114,7 @@
     <h2 class="text-xl font-semibold mb-4">Gun.js Database Schema Test</h2>
     <p class="mb-4">This page initializes the optimized Gun.js schema for the Polycentricity application.</p>
     
-    <div class="flex space-x-4 mb-4">
+    <div class="flex flex-wrap gap-4 mb-4">
       <button 
         class="btn variant-filled-primary" 
         on:click={initializeData} 
@@ -102,6 +127,13 @@
         on:click={verifyData} 
         disabled={isLoading}>
         {isLoading ? 'Working...' : 'Verify Data'}
+      </button>
+      
+      <button 
+        class="btn variant-filled-error" 
+        on:click={clearData} 
+        disabled={isLoading}>
+        {isLoading ? 'Working...' : 'Clear All Data'}
       </button>
     </div>
     
