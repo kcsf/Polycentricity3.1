@@ -305,7 +305,6 @@
       // Prepare graph data when switching to visualization tab
       loadGraphVisualization();
     }
-    }
     
     // Update URL with tab parameter
     if (browser) {
@@ -423,7 +422,6 @@
           // Initialize visualization if needed
           if (activeTab === 'visualize') {
             loadGraphVisualization();
-          }
           }
         }
       } catch (err) {
