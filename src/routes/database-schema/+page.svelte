@@ -35,10 +35,16 @@
       // This function will populate the console table
       const result = await verifySampleData();
       if (result.success) {
-        status = 'Data verification complete.';
-        
         // Fetch node counts again to display in UI
         results = await getCounts();
+        
+        // Check if we have proper counts and update status accordingly
+        const totalNodes = Object.values(results).reduce((sum, count) => sum + count, 0);
+        if (totalNodes === 0) {
+          status = 'Database is empty. Click "Initialize Sample Data" to populate.';
+        } else {
+          status = `Data verification complete. Found ${totalNodes} total nodes.`;
+        }
       } else {
         status = `Error verifying data: ${result.message}`;
       }
@@ -118,22 +124,22 @@
       <button 
         class="btn variant-filled-primary" 
         on:click={initializeData} 
-        disabled={isLoading}>
-        {isLoading ? 'Working...' : 'Initialize Sample Data'}
+        disabled={isLoading && status.includes('Initializing')}>
+        {isLoading && status.includes('Initializing') ? 'Initializing...' : 'Initialize Sample Data'}
       </button>
       
       <button 
         class="btn variant-filled-secondary" 
         on:click={verifyData} 
-        disabled={isLoading}>
-        {isLoading ? 'Working...' : 'Verify Data'}
+        disabled={isLoading && status.includes('Verifying')}>
+        {isLoading && status.includes('Verifying') ? 'Verifying...' : 'Verify Data'}
       </button>
       
       <button 
         class="btn variant-filled-error" 
         on:click={clearData} 
-        disabled={isLoading}>
-        {isLoading ? 'Working...' : 'Clear All Data'}
+        disabled={isLoading && status.includes('Clearing')}>
+        {isLoading && status.includes('Clearing') ? 'Clearing...' : 'Clear All Data'}
       </button>
     </div>
     

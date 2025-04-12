@@ -736,8 +736,8 @@ export async function initializeSampleData() {
   console.log("[seed] Creating actors → agreement relationships in batch");
   
   // Process all agreements
-  const agreements = [agreement1, agreement2, agreement3, agreement4];
-  for (const agreement of agreements) {
+  const allAgreements = [agreement1, agreement2, agreement3, agreement4];
+  for (const agreement of allAgreements) {
     for (const actorId of Object.keys(agreement.parties)) {
       allEdges.push({
         fromSoul: `${nodes.actors}/${actorId}`,
