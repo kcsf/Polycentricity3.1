@@ -316,7 +316,11 @@
                               {:else if value === 'C4' || value === 'c4'}
                                 Equity
                               {:else if value.startsWith('Card_')}
-                                Value: {value.replace('Card_', '')}
+                                {#if value.replace('Card_', '') === card.card_id}
+                                  Self-Referential Value
+                                {:else}
+                                  Value: {value.replace('Card_', '')}
+                                {/if}
                               {:else}
                                 {value}
                               {/if}
