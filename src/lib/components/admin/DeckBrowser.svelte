@@ -1,21 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import * as icons from 'svelte-lucide';
+  import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import { getGun, nodes } from '$lib/services/gunService';
   import { getDeck } from '$lib/services/deckService';
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   import type { Deck, Card } from '$lib/types';
   
   // State variables
-  let selectedDeckId = '';
-  let decks: Deck[] = [];
-  let cards: Card[] = [];
-  let isLoading = true;
-  let error: string | null = null;
+  let selectedDeckId = $state('');
+  let decks = $state<Deck[]>([]);
+  let cards = $state<Card[]>([]);
+  let isLoading = $state(true);
+  let error = $state<string | null>(null);
   
   // Card display metadata
-  let cardValues: Record<string, string[]> = {};
-  let cardCapabilities: Record<string, string[]> = {};
+  let cardValues = $state<Record<string, string[]>>({});
+  let cardCapabilities = $state<Record<string, string[]>>({});
+  
+  // For accordion sections - empty array means all accordions are closed by default
+  let accordionValue = $state([]);
   
   // Load all decks for dropdown
   async function loadDecks() {
@@ -214,151 +218,166 @@
     </div>
   </div>
   
-  <!-- Deck selection -->
-  <div class="mb-6">
-    <label for="deck-select" class="block text-sm font-medium mb-2">Select Deck</label>
-    <div class="flex gap-4 items-center">
-      <select 
-        id="deck-select" 
-        class="select rounded-md w-full md:w-1/2 lg:w-1/3"
-        value={selectedDeckId}
-        on:change={handleDeckChange}
-        disabled={isLoading}
-      >
-        {#if decks.length === 0}
-          <option value="">No decks available</option>
-        {:else}
-          {#each decks as deck}
-            <option value={deck.deck_id}>{deck.name}</option>
-          {/each}
-        {/if}
-      </select>
+  <Accordion value={accordionValue} onValueChange={(e) => (accordionValue = e.value)} multiple>
+    <!-- Deck Selection Section -->
+    <Accordion.Item value="deck-selection">
+      {#snippet lead()}
+        <svelte:component this={icons.Cards} size={24} />
+      {/snippet}
       
-      <button 
-        class="btn variant-filled-primary" 
-        on:click={() => loadDeckCards(selectedDeckId)}
-        disabled={isLoading}
-      >
-        <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
-        Refresh
-      </button>
-    </div>
-  </div>
-  
-  <!-- Error display -->
-  {#if error}
-    <div class="alert variant-filled-error mb-4">
-      <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
-      <div class="alert-message">
-        <h3 class="h4">Error</h3>
-        <p>{error}</p>
-      </div>
-    </div>
-  {/if}
-  
-  <!-- Loading indicator -->
-  {#if isLoading}
-    <div class="flex items-center justify-center p-12">
-      <div class="spinner-third w-10 h-10"></div>
-      <span class="ml-4 text-lg">Loading cards...</span>
-    </div>
-  {/if}
-  
-  <!-- Card grid -->
-  {#if !isLoading && cards.length === 0}
-    <div class="card p-6 bg-surface-50-900-token text-center">
-      <svelte:component this={icons.Package} class="w-12 h-12 mx-auto mb-4 text-surface-400" />
-      <h3 class="h4 mb-2">No Cards Found</h3>
-      <p>This deck doesn't contain any cards or couldn't be loaded properly.</p>
-    </div>
-  {:else if !isLoading}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {#each cards as card}
-        <div class="card p-0 overflow-hidden bg-surface-50-900-token shadow-lg hover:shadow-xl transition-shadow duration-200">
-          <!-- Card header -->
-          <header class="p-4 text-white {getCategoryColor(card.card_category)}">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-bold truncate">{card.role_title}</h3>
-              <span class="badge variant-filled-surface">{card.card_number}</span>
-            </div>
-            <div class="flex items-center mt-1 text-sm">
-              <svelte:component this={getCardIcon(card.icon)} class="w-4 h-4 mr-2" />
-              <span class="opacity-90">{card.type}</span>
-              <span class="badge variant-ghost-surface ml-auto">{card.card_category}</span>
-            </div>
-          </header>
-          
-          <!-- Card body -->
-          <div class="p-4">
-            <!-- Backstory -->
-            <div class="mb-3">
-              <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Backstory</h4>
-              <p class="text-sm">{card.backstory}</p>
-            </div>
-            
-            <!-- Values -->
-            {#if cardValues[card.card_id] && cardValues[card.card_id].length > 0}
-              <div class="mb-3">
-                <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Values</h4>
-                <div class="flex flex-wrap gap-1">
-                  {#each cardValues[card.card_id] as value}
-                    <span class="badge variant-soft-primary">{value}</span>
+      {#snippet control()}Deck Selection{/snippet}
+      
+      {#snippet panel()}
+        <div class="p-4">
+          <!-- Deck selection -->
+          <div class="mb-6">
+            <label for="deck-select" class="block text-sm font-medium mb-2">Select Deck</label>
+            <div class="flex gap-4 items-center">
+              <select 
+                id="deck-select" 
+                class="select rounded-md w-full md:w-1/2 lg:w-1/3"
+                value={selectedDeckId}
+                onchange={(e) => handleDeckChange(e)}
+                disabled={isLoading}
+              >
+                {#if decks.length === 0}
+                  <option value="">No decks available</option>
+                {:else}
+                  {#each decks as deck}
+                    <option value={deck.deck_id}>{deck.name}</option>
                   {/each}
-                </div>
-              </div>
-            {/if}
-            
-            <!-- Goals -->
-            {#if card.goals}
-              <div class="mb-3">
-                <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Goals</h4>
-                <p class="text-sm">{formatGoals(card.goals)}</p>
-              </div>
-            {/if}
-            
-            <!-- Obligations -->
-            {#if card.obligations}
-              <div class="mb-3">
-                <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Obligations</h4>
-                <p class="text-sm">{card.obligations}</p>
-              </div>
-            {/if}
-            
-            <!-- Capabilities -->
-            {#if cardCapabilities[card.card_id] && cardCapabilities[card.card_id].length > 0}
-              <div class="mb-3">
-                <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Capabilities</h4>
-                <div class="flex flex-wrap gap-1">
-                  {#each cardCapabilities[card.card_id] as capability}
-                    <span class="badge variant-soft-secondary">{capability}</span>
-                  {/each}
-                </div>
-              </div>
-            {/if}
-            
-            <!-- IP & Resources -->
-            {#if card.intellectual_property || card.rivalrous_resources}
-              <div class="grid grid-cols-1 gap-2 mt-4 border-t border-surface-200-700-token pt-3">
-                {#if card.intellectual_property}
-                  <div>
-                    <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Intellectual Property</h4>
-                    <p class="text-sm">{card.intellectual_property}</p>
-                  </div>
                 {/if}
-                
-                {#if card.rivalrous_resources}
-                  <div>
-                    <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Resources</h4>
-                    <p class="text-sm">{card.rivalrous_resources}</p>
-                  </div>
-                {/if}
-              </div>
-            {/if}
+              </select>
+              
+              <button 
+                class="btn variant-filled-primary" 
+                onclick={() => loadDeckCards(selectedDeckId)}
+                disabled={isLoading}
+              >
+                <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+                Refresh
+              </button>
+            </div>
           </div>
+          
+          <!-- Error display -->
+          {#if error}
+            <div class="alert variant-filled-error mb-4">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{error}</p>
+              </div>
+            </div>
+          {/if}
+          
+          <!-- Loading indicator -->
+          {#if isLoading}
+            <div class="flex items-center justify-center p-12">
+              <div class="spinner-third w-10 h-10"></div>
+              <span class="ml-4 text-lg">Loading cards...</span>
+            </div>
+          {/if}
+          
+          <!-- Card grid -->
+          {#if !isLoading && cards.length === 0}
+            <div class="card p-6 bg-surface-50-900-token text-center">
+              <svelte:component this={icons.Package} class="w-12 h-12 mx-auto mb-4 text-surface-400" />
+              <h3 class="h4 mb-2">No Cards Found</h3>
+              <p>This deck doesn't contain any cards or couldn't be loaded properly.</p>
+            </div>
+          {:else if !isLoading}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {#each cards as card}
+                <div class="card p-0 overflow-hidden bg-surface-50-900-token shadow-lg hover:shadow-xl transition-shadow duration-200">
+                  <!-- Card header -->
+                  <header class="p-4 text-white {getCategoryColor(card.card_category)}">
+                    <div class="flex items-center justify-between">
+                      <h3 class="text-lg font-bold truncate">{card.role_title}</h3>
+                      <span class="badge variant-filled-surface">{card.card_number}</span>
+                    </div>
+                    <div class="flex items-center mt-1 text-sm">
+                      <svelte:component this={getCardIcon(card.icon)} class="w-4 h-4 mr-2" />
+                      <span class="opacity-90">{card.type}</span>
+                      <span class="badge variant-ghost-surface ml-auto">{card.card_category}</span>
+                    </div>
+                  </header>
+                  
+                  <!-- Card body -->
+                  <div class="p-4">
+                    <!-- Backstory -->
+                    <div class="mb-3">
+                      <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Backstory</h4>
+                      <p class="text-sm">{card.backstory}</p>
+                    </div>
+                    
+                    <!-- Values -->
+                    {#if cardValues[card.card_id] && cardValues[card.card_id].length > 0}
+                      <div class="mb-3">
+                        <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Values</h4>
+                        <div class="flex flex-wrap gap-1">
+                          {#each cardValues[card.card_id] as value}
+                            <span class="badge variant-soft-primary">{value}</span>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+                    
+                    <!-- Goals -->
+                    {#if card.goals}
+                      <div class="mb-3">
+                        <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Goals</h4>
+                        <p class="text-sm">{formatGoals(card.goals)}</p>
+                      </div>
+                    {/if}
+                    
+                    <!-- Obligations -->
+                    {#if card.obligations}
+                      <div class="mb-3">
+                        <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Obligations</h4>
+                        <p class="text-sm">{card.obligations}</p>
+                      </div>
+                    {/if}
+                    
+                    <!-- Capabilities -->
+                    {#if cardCapabilities[card.card_id] && cardCapabilities[card.card_id].length > 0}
+                      <div class="mb-3">
+                        <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Capabilities</h4>
+                        <div class="flex flex-wrap gap-1">
+                          {#each cardCapabilities[card.card_id] as capability}
+                            <span class="badge variant-soft-secondary">{capability}</span>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+                    
+                    <!-- IP & Resources -->
+                    {#if card.intellectual_property || card.rivalrous_resources}
+                      <div class="grid grid-cols-1 gap-2 mt-4 border-t border-surface-200-700-token pt-3">
+                        {#if card.intellectual_property}
+                          <div>
+                            <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Intellectual Property</h4>
+                            <p class="text-sm">{card.intellectual_property}</p>
+                          </div>
+                        {/if}
+                        
+                        {#if card.rivalrous_resources}
+                          <div>
+                            <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Resources</h4>
+                            <p class="text-sm">{card.rivalrous_resources}</p>
+                          </div>
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
-      {/each}
-    </div>
-  {/if}
+      {/snippet}
+    </Accordion.Item>
+  </Accordion>
 </div>
 
 <style>
