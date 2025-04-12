@@ -229,12 +229,63 @@
           cardsData = [cardsData]; // Convert single object to array
         }
         
+        // Pre-process the data to ensure compatibility with our schema
+        cardsData = cardsData.map(card => {
+          // Ensure card_number is a number (it might be a string in the import)
+          let cardNumber = card.card_number;
+          if (typeof cardNumber === 'string') {
+            cardNumber = parseInt(cardNumber, 10);
+            // If parsing fails, generate a random number between 1-52
+            if (isNaN(cardNumber)) {
+              cardNumber = Math.floor(Math.random() * 52) + 1;
+            }
+          }
+          
+          // Handle values field that could be a string or array
+          let valuesData = card.values;
+          // If it's a string, keep it as is - it will be processed later
+          // If it's an array, convert it to a comma-separated string
+          if (Array.isArray(valuesData)) {
+            valuesData = valuesData.join(', ');
+          }
+          
+          // Handle capabilities field that could be a string or array
+          let capabilitiesData = card.capabilities;
+          // If it's a string, keep it as is - it will be processed later
+          // If it's an array, convert it to a comma-separated string
+          if (Array.isArray(capabilitiesData)) {
+            capabilitiesData = capabilitiesData.join(', ');
+          }
+          
+          // Set defaults for missing fields
+          return {
+            ...card,
+            card_number: cardNumber,
+            values: valuesData || '',
+            capabilities: capabilitiesData || '',
+            backstory: card.backstory || '',
+            goals: card.goals || '',
+            obligations: card.obligations || '',
+            intellectual_property: card.intellectual_property || '',
+            rivalrous_resources: card.rivalrous_resources || '',
+            // Default these if missing
+            card_category: card.card_category || 'Supporters',
+            type: card.type || 'Individual',
+            // Determine icon based on category if not provided
+            icon: card.icon || {
+                'Funders': 'CircleDollarSign',
+                'Providers': 'Hammer',
+                'Supporters': 'Heart'
+            }[card.card_category] || 'User'
+          };
+        });
+        
         // Log the parsed data length
         console.log(`Successfully parsed ${cardsData.length} cards from input data`);
         
         // Debug: show a sample of the data
         if (cardsData.length > 0) {
-          console.log('Sample of first card:', JSON.stringify(cardsData[0]).substring(0, 100) + '...');
+          console.log('Sample of first card (processed):', JSON.stringify(cardsData[0]).substring(0, 100) + '...');
         }
         
         if (cardsData.length > 10) {
@@ -259,12 +310,12 @@
       let validCards = 0;
       
       for (const card of cardsData) {
-        if (!card.role_title || !card.card_category || !card.type) {
+        if (!card.role_title) {
           importResult = {
             success: false,
-            message: 'Each card must have a role_title, card_category, and type'
+            message: 'Each card must have a role_title'
           };
-          console.error('Validation failed - missing required fields', card);
+          console.error('Validation failed - missing role_title', card);
           isImporting = false;
           return;
         }
@@ -292,7 +343,7 @@
       } else {
         importResult = {
           success: false,
-          message: 'Failed to import cards'
+          message: result.error || 'Failed to import cards'
         };
         console.error('Import failed with result:', result);
       }
