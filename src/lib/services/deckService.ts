@@ -650,6 +650,28 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                         return data.name as string;
                     }
                     
+                    // For hardcoded IDs like 'c1' or 'c2', map to predefined values
+                    if (id === 'c1') return 'Sustainability';
+                    if (id === 'c2') return 'Community Resilience';
+                    if (id === 'c3') return 'Regeneration';
+                    if (id === 'c4') return 'Equity';
+                    
+                    // If it's a card ID used as a value, extract a readable name
+                    if (id.startsWith('card_')) {
+                        // Try to extract a readable name from the card
+                        try {
+                            const cardData = await get(`${nodes.cards}/${id}`);
+                            if (cardData && typeof cardData === 'object' && 'role_title' in cardData) {
+                                return `Value: ${cardData.role_title}`;
+                            }
+                        } catch (e) {
+                            console.warn(`[getCardValueNames] Error fetching card ${id} for value name: ${e}`);
+                        }
+                        
+                        // If card data not available, format the ID nicely
+                        return 'Value ' + id.substring(0, 10);
+                    }
+                    
                     // Fallback: Convert ID to human-readable format
                     if (id.startsWith('value_')) {
                         return id.replace('value_', '')
@@ -658,7 +680,8 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                             .join(' ');
                     }
                     
-                    return ""; 
+                    // Last resort, return the ID with a prefix to indicate it's a value
+                    return `Value: ${id}`;
                 } catch (e) {
                     console.warn(`[getCardValueNames] Error fetching value ${id}: ${e}`);
                     return "";
