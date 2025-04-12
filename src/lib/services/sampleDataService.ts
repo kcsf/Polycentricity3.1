@@ -88,44 +88,31 @@ async function ensureNode<T extends Record<string, any>>(
  * Main function to seed the data with Gun edges
  */
 /**
- * Enhanced safe put operation specifically for sample data
- * This ensures Gun.js has enough time to process each write
+ * Optimized put operation for sample data with reduced timeouts and minimal logging
  */
 async function robustPut(path: string, key: string, data: any): Promise<boolean> {
-  // Get a fresh Gun instance each time to ensure it's initialized
+  // Get the Gun instance once
   const gun = getGun();
   if (!gun) {
     console.error(`[sampleData] Cannot save to ${path}/${key} - Gun not initialized`);
     return false;
   }
   
-  console.log(`[sampleData] Saving to ${path}/${key}...`);
-  
-  // Helper function to deep clean an object
+  // Helper function to deep clean an object - more compact implementation
   function deepClean(obj: any): any {
-    // Handle null case
-    if (obj === null) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
     
-    // Handle non-object values
-    if (typeof obj !== 'object') return obj;
-    
-    // Handle arrays by converting to Gun-compatible indexed objects
     if (Array.isArray(obj)) {
       const result: Record<string, any> = {};
-      obj.forEach((val, idx) => {
-        if (val !== undefined) {
-          result[idx] = deepClean(val);
-        }
+      obj.forEach((val, idx) => { 
+        if (val !== undefined) result[idx] = deepClean(val);
       });
       return result;
     }
     
-    // Handle regular objects with recursive cleaning
     const cleanObj: Record<string, any> = {};
     for (const key in obj) {
-      // Only include properties that exist and aren't undefined
       if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined) {
-        // Recursively clean nested values
         cleanObj[key] = deepClean(obj[key]);
       }
     }
@@ -136,38 +123,29 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
   // Clean the data object thoroughly
   const cleanData = deepClean(data);
   
-  // Print the cleaned data object for debugging
-  console.log(`[sampleData] Cleaned data for ${path}/${key}:`, JSON.stringify(cleanData));
-  
-  // Return a promise that can resolve in multiple ways:
-  // 1. Successfully on ack with no error
-  // 2. Error if ack has an error
-  // 3. Timeout after 10 seconds (but still continue the operation)
+  // Return a promise with reduced timeouts and fewer logs
   return new Promise<boolean>((resolve) => {
-    // First - small delay to ensure Gun is ready
-    setTimeout(() => {
-      try {
-        // Second - actual Gun put operation with clean data
-        gun.get(path).get(key).put(cleanData, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(`[sampleData] Error saving to ${path}/${key}:`, ack.err);
-            resolve(false);
-          } else {
-            console.log(`[sampleData] Successfully saved to ${path}/${key}`);
-            resolve(true);
-          }
-        });
-        
-        // Third - safety timeout if Gun never responds
-        setTimeout(() => {
-          console.log(`[sampleData] Timeout while saving to ${path}/${key} - continuing anyway`);
-          resolve(true); // Continue the process despite timeout
-        }, 10000);
-      } catch (error) {
-        console.error(`[sampleData] Exception while saving to ${path}/${key}:`, error);
-        resolve(false);
-      }
-    }, 500);
+    try {
+      // No initial delay - just perform the operation directly
+      gun.get(path).get(key).put(cleanData, (ack: any) => {
+        if (ack && ack.err) {
+          // Only log errors
+          console.warn(`[sampleData] Error saving to ${path}/${key}`);
+          resolve(false);
+        } else {
+          // No success logging to reduce console noise
+          resolve(true);
+        }
+      });
+      
+      // Shorter safety timeout (3 seconds instead of 10)
+      setTimeout(() => {
+        resolve(true); // Continue the process despite timeout
+      }, 3000);
+    } catch (error) {
+      console.error(`[sampleData] Exception for ${path}/${key}`);
+      resolve(false);
+    }
   });
 }
 
@@ -490,204 +468,169 @@ export async function initializeSampleData() {
   await ensureNode(`${nodes.positions}/${nodePosition1.node_id}`, nodePosition1);
   await ensureNode(`${nodes.positions}/${nodePosition2.node_id}`, nodePosition2);
 
-  // 3. Enhanced helper to create edges using `.set()` with better error handling
+  // 3. Optimized version of createEdge that uses "fire-and-forget" approach (no ack waiting)
   function createEdge(fromSoul: string, field: string, toSoul: string) {
-    return new Promise<GunAck>((resolve) => {
-      // Get a new Gun instance for each operation to ensure it's ready
-      const gun = getGun();
-      if (!gun) {
-        console.error(`[createEdge] Gun not initialized for ${fromSoul} -> ${toSoul}`);
-        resolve({ err: "Gun not initialized", ok: false });
-        return;
+    // Get the Gun instance once
+    const gun = getGun();
+    if (!gun) {
+      console.error(`[createEdge] Gun not initialized for ${fromSoul} -> ${toSoul}`);
+      return Promise.resolve({ err: "Gun not initialized", ok: false });
+    }
+    
+    try {
+      // Create the edge without waiting for acknowledgment
+      gun.get(fromSoul).get(field).set(gun.get(toSoul));
+      
+      // Immediately resolve for faster operation
+      return Promise.resolve({ ok: true });
+    } catch (error) {
+      console.error(`[createEdge] Exception for ${fromSoul}.${field} -> ${toSoul}:`, error);
+      return Promise.resolve({ err: String(error), ok: false });
+    }
+  }
+  
+  // Type definition for batch result
+  type BatchResult = { ok: boolean; count?: number; err?: string; };
+  
+  // Batch create multiple edges at once
+  function createEdgesBatch(edgeDefinitions: {fromSoul: string, field: string, toSoul: string}[]): Promise<BatchResult> {
+    console.log(`[createEdgesBatch] Creating ${edgeDefinitions.length} edges in batch`);
+    
+    // Get the Gun instance once
+    const gun = getGun();
+    if (!gun) {
+      console.error("[createEdgesBatch] Gun not initialized");
+      return Promise.resolve({ err: "Gun not initialized", ok: false });
+    }
+    
+    try {
+      // Process all edges in the batch
+      for (const def of edgeDefinitions) {
+        gun.get(def.fromSoul).get(def.field).set(gun.get(def.toSoul));
       }
       
-      try {
-        // Add a small delay to ensure Gun is ready
-        setTimeout(() => {
-          try {
-            // First reference - the node to attach the edge to
-            const fromRef = gun.get(fromSoul);
-            
-            // Second reference - the node the edge points to
-            const toRef = gun.get(toSoul);
-            
-            // Create the edge
-            fromRef.get(field).set(toRef, (ack: any) => {
-              if (ack && ack.err) {
-                console.warn(`[createEdge] Error creating edge ${fromSoul}.${field} -> ${toSoul}:`, ack.err);
-              } else {
-                console.log(`[createEdge] Successfully created edge ${fromSoul}.${field} -> ${toSoul}`);
-              }
-              resolve(ack);
-            });
-            
-            // Safety timeout
-            setTimeout(() => {
-              console.log(`[createEdge] Timeout for edge ${fromSoul}.${field} -> ${toSoul}`);
-              resolve({ err: "Timeout", ok: false });
-            }, 5000);
-          } catch (error) {
-            console.error(`[createEdge] Exception for ${fromSoul}.${field} -> ${toSoul}:`, error);
-            resolve({ err: String(error), ok: false });
-          }
-        }, 300);
-      } catch (outerError) {
-        console.error(`[createEdge] Outer exception for ${fromSoul}.${field} -> ${toSoul}:`, outerError);
-        resolve({ err: String(outerError), ok: false });
-      }
+      // Immediately resolve for faster operation
+      return Promise.resolve({ ok: true, count: edgeDefinitions.length });
+    } catch (error) {
+      console.error("[createEdgesBatch] Exception during batch operation:", error);
+      return Promise.resolve({ err: String(error), ok: false });
+    }
+  }
+
+  // 4. Create relationships between entities using batch operations
+  // This optimized approach creates multiple relationships in batches
+  
+  // Prepare all the edge definitions we want to create
+  const allEdges = [];
+  
+  // Define deck <-> card relationships
+  console.log("[seed] Creating deck ↔ cards relationships in batch");
+  
+  // For each card, create bidirectional deck<->card edges
+  for (const card of cards) {
+    // Deck -> Card
+    allEdges.push({
+      fromSoul: `${nodes.decks}/${deck.deck_id}`,
+      field: "cards",
+      toSoul: `${nodes.cards}/${card.card_id}`
+    });
+    
+    // Card -> Deck
+    allEdges.push({
+      fromSoul: `${nodes.cards}/${card.card_id}`,
+      field: "decks", 
+      toSoul: `${nodes.decks}/${deck.deck_id}`
     });
   }
-
-  // 4. Deck <--> Card edges - process cards individually
   
-  // Process card 1
-  const c1 = cards[0];
-  const deckToCard1 = await withTimeout(
-    createEdge(
-      `${nodes.decks}/${deck.deck_id}`,
-      "cards",
-      `${nodes.cards}/${c1.card_id}`,
-    ),
-  );
-  logAck(`deck->card ${deck.deck_id} -> ${c1.card_id}`, deckToCard1);
-
-  const cardToDeck1 = await withTimeout(
-    createEdge(
-      `${nodes.cards}/${c1.card_id}`,
-      "decks",
-      `${nodes.decks}/${deck.deck_id}`,
-    ),
-  );
-  logAck(`card->deck ${c1.card_id} -> ${deck.deck_id}`, cardToDeck1);
+  // Define value -> card relationships for all cards
+  console.log("[seed] Creating values → cards relationships in batch");
   
-  // Process card 2
-  const c2 = cards[1];
-  const deckToCard2 = await withTimeout(
-    createEdge(
-      `${nodes.decks}/${deck.deck_id}`,
-      "cards",
-      `${nodes.cards}/${c2.card_id}`,
-    ),
-  );
-  logAck(`deck->card ${deck.deck_id} -> ${c2.card_id}`, deckToCard2);
-
-  const cardToDeck2 = await withTimeout(
-    createEdge(
-      `${nodes.cards}/${c2.card_id}`,
-      "decks",
-      `${nodes.decks}/${deck.deck_id}`,
-    ),
-  );
-  logAck(`card->deck ${c2.card_id} -> ${deck.deck_id}`, cardToDeck2);
-
-  // 5. Create relationships between entities
-  
-  // Create bidirectional references between values and cards
-  console.log("[seed] Creating value ↔ card relationships");
-  
-  // Card 1 values
-  for (const valueId of Object.keys(c1.values)) {
-    // Value -> Card reference
-    const valToCardAck = await withTimeout(
-      createEdge(
-        `${nodes.values}/${valueId}`,
-        "cards",
-        `${nodes.cards}/${c1.card_id}`,
-      ),
-    );
-    logAck(`value->card ${valueId} -> ${c1.card_id}`, valToCardAck);
+  // Process card 1 value references
+  for (const valueId of Object.keys(cards[0].values)) {
+    allEdges.push({
+      fromSoul: `${nodes.values}/${valueId}`,
+      field: "cards",
+      toSoul: `${nodes.cards}/${cards[0].card_id}`
+    });
   }
   
-  // Card 2 values
-  for (const valueId of Object.keys(c2.values)) {
-    // Value -> Card reference
-    const valToCardAck = await withTimeout(
-      createEdge(
-        `${nodes.values}/${valueId}`,
-        "cards",
-        `${nodes.cards}/${c2.card_id}`,
-      ),
-    );
-    logAck(`value->card ${valueId} -> ${c2.card_id}`, valToCardAck);
+  // Process card 2 value references
+  for (const valueId of Object.keys(cards[1].values)) {
+    allEdges.push({
+      fromSoul: `${nodes.values}/${valueId}`,
+      field: "cards",
+      toSoul: `${nodes.cards}/${cards[1].card_id}`
+    });
   }
   
-  console.log("[seed] Creating capability ↔ card relationships");
+  // Define capability -> card relationships for all cards
+  console.log("[seed] Creating capabilities → cards relationships in batch");
   
-  // Card 1 capabilities
-  for (const capabilityId of Object.keys(c1.capabilities)) {
-    // Capability -> Card reference
-    const capToCardAck = await withTimeout(
-      createEdge(
-        `${nodes.capabilities}/${capabilityId}`,
-        "cards",
-        `${nodes.cards}/${c1.card_id}`,
-      ),
-    );
-    logAck(`capability->card ${capabilityId} -> ${c1.card_id}`, capToCardAck);
+  // Process card 1 capability references
+  for (const capabilityId of Object.keys(cards[0].capabilities)) {
+    allEdges.push({
+      fromSoul: `${nodes.capabilities}/${capabilityId}`,
+      field: "cards",
+      toSoul: `${nodes.cards}/${cards[0].card_id}`
+    });
   }
   
-  // Card 2 capabilities
-  for (const capabilityId of Object.keys(c2.capabilities)) {
-    // Capability -> Card reference
-    const capToCardAck = await withTimeout(
-      createEdge(
-        `${nodes.capabilities}/${capabilityId}`,
-        "cards",
-        `${nodes.cards}/${c2.card_id}`,
-      ),
-    );
-    logAck(`capability->card ${capabilityId} -> ${c2.card_id}`, capToCardAck);
+  // Process card 2 capability references
+  for (const capabilityId of Object.keys(cards[1].capabilities)) {
+    allEdges.push({
+      fromSoul: `${nodes.capabilities}/${capabilityId}`,
+      field: "cards",
+      toSoul: `${nodes.cards}/${cards[1].card_id}`
+    });
   }
   
-  // Create bidirectional references between actors and agreements
-  console.log("[seed] Creating actor ↔ agreement relationships");
+  // Define actor -> agreement relationships
+  console.log("[seed] Creating actors → agreement relationships in batch");
   
   for (const actorId of Object.keys(agreement.parties)) {
-    // Actor -> Agreement reference
-    const actorToAgreementAck = await withTimeout(
-      createEdge(
-        `${nodes.actors}/${actorId}`,
-        "agreements",
-        `${nodes.agreements}/${agreement.agreement_id}`,
-      ),
-    );
-    logAck(`actor->agreement ${actorId} -> ${agreement.agreement_id}`, actorToAgreementAck);
+    allEdges.push({
+      fromSoul: `${nodes.actors}/${actorId}`,
+      field: "agreements",
+      toSoul: `${nodes.agreements}/${agreement.agreement_id}`
+    });
   }
   
-  // Create game -> deck reference
+  // Define game -> deck relationship
   console.log("[seed] Creating game → deck relationship");
   
-  const gameToDeckAck = await withTimeout(
-    createEdge(
-      `${nodes.games}/${game.game_id}`,
-      "deck",
-      `${nodes.decks}/${deck.deck_id}`,
-    ),
-  );
-  logAck(`game->deck ${game.game_id} -> ${deck.deck_id}`, gameToDeckAck);
+  allEdges.push({
+    fromSoul: `${nodes.games}/${game.game_id}`,
+    field: "deck",
+    toSoul: `${nodes.decks}/${deck.deck_id}`
+  });
   
-  // Create references between users and their actors
-  console.log("[seed] Creating user ↔ actor relationships");
+  // Define user -> actor relationships
+  console.log("[seed] Creating users → actors relationships in batch");
   
   // User 1 -> Actor 1
-  const user1ToActor1Ack = await withTimeout(
-    createEdge(
-      `${nodes.users}/${actor1.user_id}`,
-      "actors",
-      `${nodes.actors}/${actor1.actor_id}`,
-    ),
-  );
-  logAck(`user->actor ${actor1.user_id} -> ${actor1.actor_id}`, user1ToActor1Ack);
+  allEdges.push({
+    fromSoul: `${nodes.users}/${actor1.user_id}`,
+    field: "actors",
+    toSoul: `${nodes.actors}/${actor1.actor_id}`
+  });
   
   // User 2 -> Actor 2
-  const user2ToActor2Ack = await withTimeout(
-    createEdge(
-      `${nodes.users}/${actor2.user_id}`,
-      "actors",
-      `${nodes.actors}/${actor2.actor_id}`,
-    ),
-  );
-  logAck(`user->actor ${actor2.user_id} -> ${actor2.actor_id}`, user2ToActor2Ack);
+  allEdges.push({
+    fromSoul: `${nodes.users}/${actor2.user_id}`,
+    field: "actors",
+    toSoul: `${nodes.actors}/${actor2.actor_id}`
+  });
+  
+  // Create all edges in a batch
+  console.log(`[seed] Creating all ${allEdges.length} relationships in one batch operation`);
+  const batchResult = await createEdgesBatch(allEdges);
+  
+  if (batchResult.ok) {
+    console.log(`[seed] Successfully created ${batchResult.count || allEdges.length} relationships`);
+  } else {
+    console.warn(`[seed] Error in batch creation of relationships: ${batchResult.err || 'Unknown error'}`);
+  }
 
   console.log("[seed] Sample data (with edges) initialized ✅");
   return { success: true, message: "Sample data initialized (edge style)" };
@@ -705,7 +648,7 @@ export async function verifySampleData() {
     return { success: false, message: "Gun not initialized" };
   }
 
-  // Count how many keys appear under a node
+  // Count how many keys appear under a node (optimized with shorter timeout)
   async function count(soul: string) {
     return new Promise<number>((done) => {
       let n = 0;
@@ -725,8 +668,8 @@ export async function verifySampleData() {
           if (key && key !== "_") n++;
         });
         
-      // Give Gun a moment to load before resolving
-      setTimeout(() => done(n), 700);
+      // Reduced wait time (300ms instead of 700ms)
+      setTimeout(() => done(n), 300);
     });
   }
 
