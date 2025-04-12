@@ -306,7 +306,21 @@
                         <h4 class="text-sm font-semibold text-surface-600-300-token mb-1">Values</h4>
                         <div class="flex flex-wrap gap-1">
                           {#each cardValues[card.card_id] as value}
-                            <span class="badge variant-soft-primary">{value}</span>
+                            <span class="badge variant-soft-primary">
+                              {#if value === 'C1' || value === 'c1'}
+                                Sustainability
+                              {:else if value === 'C2' || value === 'c2'}
+                                Community Resilience
+                              {:else if value === 'C3' || value === 'c3'}
+                                Regeneration
+                              {:else if value === 'C4' || value === 'c4'}
+                                Equity
+                              {:else if value.startsWith('Card_')}
+                                Value: {value.replace('Card_', '')}
+                              {:else}
+                                {value}
+                              {/if}
+                            </span>
                           {/each}
                         </div>
                       </div>
