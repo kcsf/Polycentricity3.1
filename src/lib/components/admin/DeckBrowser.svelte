@@ -111,6 +111,7 @@
             const cardsPath = deck.cards['#'];
             console.log(`Fetching cards from path: ${cardsPath}`);
             
+            // First try direct card references
             gun.get(cardsPath).map().once((value: any, cardId: string) => {
               if (value === true) {
                 console.log(`Found card ID from reference: ${cardId}`);
@@ -118,11 +119,39 @@
               }
             });
             
-            // Give Gun time to process
+            // Also try getting the card IDs directly from cards collection
+            gun.get(nodes.cards).map().once((cardData: Card) => {
+              if (cardData && cardData.card_id) {
+                console.log(`Checking if card ${cardData.card_id} belongs to deck ${deckId}...`);
+                
+                // Check if this card has a reference to our deck
+                if (cardData.decks && typeof cardData.decks === 'object') {
+                  if (cardData.decks['#']) {
+                    // It's a reference, we need to check inside it
+                    gun.get(cardData.decks['#']).get(deckId).once((val: any) => {
+                      if (val === true) {
+                        console.log(`Card ${cardData.card_id} belongs to deck ${deckId} via reference`);
+                        if (!cardIds.includes(cardData.card_id)) {
+                          cardIds.push(cardData.card_id);
+                        }
+                      }
+                    });
+                  } else if (cardData.decks[deckId] === true) {
+                    // Direct object reference
+                    console.log(`Card ${cardData.card_id} belongs to deck ${deckId} via direct object`);
+                    if (!cardIds.includes(cardData.card_id)) {
+                      cardIds.push(cardData.card_id);
+                    }
+                  }
+                }
+              }
+            });
+            
+            // Give Gun time to process both queries
             setTimeout(() => {
               console.log(`Found ${cardIds.length} cards from reference`);
               resolve();
-            }, 500);
+            }, 1000); // Increased timeout to ensure both queries complete
           });
         } 
         // Case 3: Cards stored as direct object with card_id: true format
