@@ -311,29 +311,78 @@ export async function addCardToDeck(
     }
 
     try {
-        // OPTIMIZED APPROACH: Use the fire-and-forget pattern similar to sampleDataService
-        // Create both relationships simultaneously without waiting
+        // IMPROVED APPROACH: Use a hybrid approach with both direct references and .set() for relationships
         
-        // Create edges definitions for both directions
-        const edgeDefinitions = [
-            {
-                fromSoul: `${nodes.decks}/${deckId}`,
-                field: 'cards',
-                toSoul: `${nodes.cards}/${cardId}`
-            },
-            {
-                fromSoul: `${nodes.cards}/${cardId}`,
-                field: 'decks',
-                toSoul: `${nodes.decks}/${deckId}`
-            }
-        ];
+        // First, check if both card and deck exist
+        const deckData = await get(`${nodes.decks}/${deckId}`);
+        if (!deckData) {
+            console.error(`[addCardToDeck] Deck ${deckId} not found`);
+            return false;
+        }
         
-        // Process both edges using the fire-and-forget pattern
-        createEdgesBatch(edgeDefinitions, gun);
+        const cardData = await get(`${nodes.cards}/${cardId}`);
+        if (!cardData) {
+            console.error(`[addCardToDeck] Card ${cardId} not found`);
+            return false;
+        }
         
-        // Consider the operation successful immediately
-        // This is crucial for preventing timeouts during imports
-        console.log(`[addCardToDeck] Initiated bidirectional relationship between ${cardId} and ${deckId}`);
+        console.log(`[addCardToDeck] Validated both card and deck exist`);
+        
+        // DIRECT APPROACH 1: Use direct property assignment first
+        try {
+            // Add direct property for deck->card relationship
+            gun.get(nodes.decks).get(deckId).get('cards').get(cardId).put(true);
+            console.log(`[addCardToDeck] Added direct deck->card reference`);
+            
+            // Add direct property for card->deck relationship
+            gun.get(nodes.cards).get(cardId).get('decks').get(deckId).put(true);
+            console.log(`[addCardToDeck] Added direct card->deck reference`);
+        } catch (e) {
+            console.warn(`[addCardToDeck] Error with direct approach:`, e);
+        }
+        
+        // Brief delay to allow direct references to be processed
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // APPROACH 2: Use set() for proper Gun.js relationship as backup
+        try {
+            // Create deck->card relationship
+            gun.get(nodes.decks).get(deckId).get('cards').set(
+                gun.get(nodes.cards).get(cardId)
+            );
+            console.log(`[addCardToDeck] Added deck->card set() relationship`);
+            
+            // Create card->deck relationship 
+            gun.get(nodes.cards).get(cardId).get('decks').set(
+                gun.get(nodes.decks).get(deckId)
+            );
+            console.log(`[addCardToDeck] Added card->deck set() relationship`);
+        } catch (e) {
+            console.warn(`[addCardToDeck] Error with set() approach:`, e);
+        }
+        
+        // Add a delay to allow operations to propagate
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // APPROACH 3: Also try with createRelationship for completeness
+        try {
+            await createRelationship(
+                `${nodes.decks}/${deckId}`,
+                'cards',
+                `${nodes.cards}/${cardId}`
+            );
+            
+            await createRelationship(
+                `${nodes.cards}/${cardId}`,
+                'decks',
+                `${nodes.decks}/${deckId}`
+            );
+            console.log(`[addCardToDeck] Added relationships via createRelationship()`);
+        } catch (e) {
+            console.warn(`[addCardToDeck] Error with createRelationship approach:`, e);
+        }
+        
+        console.log(`[addCardToDeck] Completed all three approaches for relationship between ${cardId} and ${deckId}`);
         return true;
     } catch (error) {
         console.error("[addCardToDeck] Unexpected error:", error);
@@ -464,6 +513,8 @@ export async function importCardsToDeck(
     
     // Process cards one at a time with enough delay between each
     try {
+        console.log(`[importCardsToDeck] DEBUG: Starting card import process with ${cardsData.length} cards`);
+        
         for (let i = 0; i < cardsData.length; i++) {
             const cardData = cardsData[i];
             
@@ -475,6 +526,8 @@ export async function importCardsToDeck(
                 );
                 continue;
             }
+            
+            console.log(`[importCardsToDeck] DEBUG: Card ${i+1} data:`, JSON.stringify(cardData).substring(0, 100) + '...');
 
             console.log(`[importCardsToDeck] Processing card ${i+1}/${cardsData.length}: "${cardData.role_title}"`);
             

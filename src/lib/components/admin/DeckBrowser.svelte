@@ -98,54 +98,125 @@
       
       console.log(`Deck found:`, JSON.stringify(deck));
       
-      // Get all cards directly
-      await new Promise<void>(resolve => {
-        console.log(`Scanning all cards to find those for deck ${deckId}...`);
+      // ENHANCED APPROACH: Handle both reference types in decks
+      const cardIds: string[] = [];
+      
+      // CASE 1: Check if the deck has a cards property with a Gun.js reference
+      // This handles the case where cards is stored as {"#":"decks/d1/cards"} format
+      if (deck.cards && typeof deck.cards === 'object' && '#' in deck.cards) {
+        console.log(`Deck has cards stored as a Gun reference: ${(deck.cards as any)['#']}`);
         
-        // For each card in the database, check if it belongs to this deck
-        gun.get(nodes.cards).map().once(async (cardData: Card) => {
-          if (!cardData || !cardData.card_id) return;
+        // Get the reference path and follow it to get the actual card IDs
+        const cardsPath = (deck.cards as any)['#'];
+        
+        // Wait a bit to access the referenced soul
+        await new Promise<void>(resolve => {
+          // Follow the reference and collect all card IDs
+          gun.get(cardsPath).map().once((value: any, cardId: string) => {
+            if (value === true) {
+              console.log(`Found card ID ${cardId} in deck ${deckId} via reference`);
+              if (!cardIds.includes(cardId)) cardIds.push(cardId);
+            }
+          });
           
-          console.log(`Checking card ${cardData.card_id} (${cardData.role_title || "Unnamed"}) for deck ${deckId}`);
-          
-          // We'll consider a card part of the deck if:
-          // 1. It has a direct decks object reference with this deck ID
-          // 2. It has a reference to a decks path that includes this deck ID
-          // 3. The deck's cards collection directly references this card
-          
-          let belongsToDeck = false;
-          
-          // Check for direct deck reference
-          if (cardData.decks) {
-            if (typeof cardData.decks === 'object') {
-              if (cardData.decks['#']) {
+          // Allow time for all references to be resolved
+          setTimeout(resolve, 1000);
+        });
+      }
+      
+      // CASE 2: Direct cards collection in the deck
+      // This handles the case where cards is stored as a direct object: {"card1": true, "card2": true}
+      if (deck.cards && typeof deck.cards === 'object' && !('#' in deck.cards)) {
+        Object.keys(deck.cards).forEach(cardId => {
+          if ((deck.cards as Record<string, boolean>)[cardId] === true) {
+            console.log(`Found card ID ${cardId} directly in deck ${deckId}`);
+            if (!cardIds.includes(cardId)) cardIds.push(cardId);
+          }
+        });
+      }
+      
+      console.log(`Found ${cardIds.length} card IDs that should be in deck ${deckId}: ${cardIds.join(', ')}`);
+      
+      // CASE 3: If no cards found through direct references, fallback to scanning all cards
+      // Only do this if we didn't find any cards via the direct approach
+      if (cardIds.length === 0) {
+        console.log(`No cards found through direct references, scanning all cards...`);
+        
+        await new Promise<void>(resolve => {
+          // For each card in the database, check if it belongs to this deck
+          gun.get(nodes.cards).map().once(async (cardData: Card) => {
+            if (!cardData || !cardData.card_id) return;
+            
+            // Check for direct deck reference in card
+            if (cardData.decks && typeof cardData.decks === 'object') {
+              if ('#' in cardData.decks) {
                 // It's a Soul reference, we'd normally need to follow but we'll just assume
                 console.log(`Card ${cardData.card_id} has a decks reference that might contain deck ${deckId}`);
-                belongsToDeck = true;
+                if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
               } else if (cardData.decks[deckId] === true) {
                 console.log(`Card ${cardData.card_id} directly references deck ${deckId}`);
-                belongsToDeck = true;
+                if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
+              }
+            }
+          });
+          
+          // Give time for all the cards to be processed
+          setTimeout(resolve, 1500);
+        });
+      }
+      
+      // Now load the actual card data for each card ID we found
+      console.log(`Loading ${cardIds.length} card details...`);
+      
+      for (const cardId of cardIds) {
+        try {
+          // Get card data by ID - use retry approach
+          const maxRetries = 2;
+          let retries = 0;
+          let cardData = null;
+          
+          while (!cardData && retries <= maxRetries) {
+            try {
+              cardData = await new Promise<Card | null>(resolve => {
+                gun.get(`${nodes.cards}/${cardId}`).once((data: Card) => {
+                  if (data && data.card_id) resolve(data);
+                  else resolve(null);
+                });
+                
+                // Timeout if card isn't found quickly
+                setTimeout(() => resolve(null), 1000);
+              });
+              
+              if (!cardData && retries < maxRetries) {
+                retries++;
+                console.log(`Retry ${retries}/${maxRetries} for card ${cardId}`);
+                await new Promise(r => setTimeout(r, 500 * retries));
+              }
+            } catch (err) {
+              console.error(`Error fetching card ${cardId}:`, err);
+              retries++;
+              if (retries <= maxRetries) {
+                await new Promise(r => setTimeout(r, 500 * retries));
               }
             }
           }
           
-          // Include the card if it belongs to this deck
-          if (belongsToDeck) {
-            console.log(`Adding card ${cardData.card_id} to results`);
+          if (cardData) {
+            console.log(`Adding card ${cardData.card_id} (${cardData.role_title || "Unnamed"}) to results`);
             loadedCards.push(cardData);
             
             // Load values and capabilities
             cardValues[cardData.card_id] = await getCardValueNames(cardData);
             cardCapabilities[cardData.card_id] = await getCardCapabilityNames(cardData);
+          } else {
+            console.warn(`Could not load data for card ${cardId} after ${maxRetries} retries`);
           }
-        });
-        
-        // Give time for all the cards to be processed
-        setTimeout(() => {
-          console.log(`Finished scanning for cards: found ${loadedCards.length} cards for deck ${deckId}`);
-          resolve();
-        }, 1500);
-      });
+        } catch (err) {
+          console.error(`Error processing card ${cardId}:`, err);
+        }
+      }
+      
+      console.log(`Finished loading cards: found ${loadedCards.length} cards for deck ${deckId}`);
       
       // Sort cards by card_number and update state
       cards = loadedCards.sort((a, b) => a.card_number - b.card_number);
