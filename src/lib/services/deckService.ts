@@ -557,9 +557,10 @@ export async function importCardsToDeck(
         for (let i = 0; i < cardsData.length; i++) {
             const cardData = cardsData[i];
             
-            if (!cardData.role_title || !cardData.card_category) {
+            // Only require role_title as the bare minimum
+            if (!cardData.role_title) {
                 console.warn(
-                    "[importCardsToDeck] Skipping invalid card:",
+                    "[importCardsToDeck] Skipping invalid card - missing role_title:",
                     cardData,
                 );
                 continue;
@@ -567,10 +568,30 @@ export async function importCardsToDeck(
 
             console.log(`[importCardsToDeck] Processing card ${i+1}/${cardsData.length}: "${cardData.role_title}"`);
             
+            // Ensure we have defaults for required fields
+            // These defaults align with those in the DeckManager component preprocessor
+            const processedCardData = {
+                ...cardData,
+                // Default card_category if missing
+                card_category: cardData.card_category || 'Supporters',
+                // Default type if missing  
+                type: cardData.type || 'Individual',
+                // Default backstory if missing
+                backstory: cardData.backstory || '',
+                // Ensure goals is a string
+                goals: typeof cardData.goals === 'string' ? cardData.goals : '',
+                // Ensure obligations is a string
+                obligations: cardData.obligations || '',
+                // Ensure intellectual_property is a string
+                intellectual_property: cardData.intellectual_property || '',
+                // Ensure rivalrous_resources is a string
+                rivalrous_resources: cardData.rivalrous_resources || ''
+            };
+            
             // Step 1: Create the card
             try {
-                console.log(`[importCardsToDeck] Creating card: "${cardData.role_title}"`);
-                const card = await createCard(cardData as Omit<Card, "card_id">);
+                console.log(`[importCardsToDeck] Creating card: "${processedCardData.role_title}"`);
+                const card = await createCard(processedCardData as Omit<Card, "card_id">);
                 
                 if (card) {
                     // Step 2: Add card to deck after successful creation
@@ -589,11 +610,11 @@ export async function importCardsToDeck(
                     }
                 } else {
                     console.error(
-                        `[importCardsToDeck] Failed to create card: "${cardData.role_title}"`,
+                        `[importCardsToDeck] Failed to create card: "${processedCardData.role_title}"`,
                     );
                 }
             } catch (error) {
-                console.error(`[importCardsToDeck] Error processing card: "${cardData.role_title}"`, error);
+                console.error(`[importCardsToDeck] Error processing card: "${processedCardData.role_title}"`, error);
             }
             
             // Add significant delay between cards to prevent overloading Gun.js
