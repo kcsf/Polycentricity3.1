@@ -111,13 +111,24 @@ export async function createCard(
         "User";
 
     // Process values and capabilities from JSON strings
-    const valuesStr =
-        typeof card.values === "string"
-            ? card.values
-            : Array.isArray(card.values)
-              ? card.values.join(",")
-              : "";
+    let valuesArray: string[] = [];
     
+    // Handle values based on type
+    if (typeof card.values === "string") {
+        // Split string, trim each value, and filter out empty strings
+        valuesArray = card.values.split(",").map(v => v.trim()).filter(Boolean);
+    } else if (Array.isArray(card.values)) {
+        // Use array directly, making sure each value is a string
+        valuesArray = card.values.map(v => String(v).trim()).filter(Boolean);
+    }
+    
+    // Add standard values if none specified - use hardcoded IDs for the fixed values
+    if (valuesArray.length === 0) {
+        // Default to these standard value IDs (they'll be directly accessible in Gun)
+        valuesArray = ["c1", "c2"]; // c1 is Sustainability, c2 is Community Resilience
+    }
+    
+    // Process capabilities as a string to be compatible with existing code
     const capabilitiesStr =
         typeof card.capabilities === "string"
             ? card.capabilities
@@ -129,8 +140,9 @@ export async function createCard(
     const goalsString = typeof card.goals === "string" ? card.goals : "";
 
     // Get record structures for values and capabilities
-    const valuesRecord = await createOrGetValues(
-        valuesStr.split(",").map((v) => v.trim()).filter(Boolean)
+    // First, try creating values by name (if they're real value names)
+    const nameBasedValuesRecord = await createOrGetValues(
+        valuesArray.filter(v => !v.startsWith('c') || v.length > 2) // Skip hardcoded IDs
     );
     
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
