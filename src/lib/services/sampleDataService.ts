@@ -37,18 +37,17 @@ function withTimeout<T>(promise: Promise<T>, ms = 30000): Promise<T> {
   });
 }
 
-// Log Gun acks with a consistent format
+// Minimized logging function - only logs errors, not success messages
 function logAck(ctx: string, ack: GunAck) {
   if (ack.err) {
     console.warn(`[seed] ${ctx} ✗ ${ack.err}`);
-  } else {
-    console.log(`[seed] ${ctx} ✓`);
   }
+  // Success logs removed to reduce console noise
 }
 
 /**
- * Create or update a simple node if it doesn't exist.
- * The data is spread in so we don't overwrite entire node every time
+ * Optimized version to create or update a node with minimal logging and delays
+ * The data is spread in so we don't overwrite the entire node every time
  */
 async function ensureNode<T extends Record<string, any>>(
   soul: string,
@@ -63,23 +62,21 @@ async function ensureNode<T extends Record<string, any>>(
     // Add a created_at if not present
     const payload = { ...data, created_at: data.created_at ?? Date.now() };
     
-    // Use our new robustPut function instead of the standard put
+    // Use our optimized robustPut function
     const success = await robustPut(path, key, payload);
     
-    // Log the result based on success
-    if (success) {
-      logAck(soul, { ok: true });
-    } else {
-      logAck(soul, { err: "Put failed" });
+    // No logging for success cases to reduce console noise
+    // Only handle failures
+    if (!success) {
+      console.warn(`Failed to save ${soul}`);
     }
     
-    // Wait a small amount to allow Radisk to process the write
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Reduced wait time (100ms instead of 300ms)
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     return success;
   } catch (error) {
-    console.error(`Error in ensureNode for ${soul}:`, error);
-    logAck(soul, { err: String(error) });
+    console.error(`Error in ensureNode for ${soul}`);
     return false;
   }
 }
