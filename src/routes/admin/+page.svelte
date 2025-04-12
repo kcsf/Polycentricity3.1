@@ -854,7 +854,7 @@
               </div>
             </div>
           {:else}
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               <div class="card p-4 variant-filled-primary">
                 <h3 class="h4 mb-2">Database Nodes</h3>
                 <p class="text-4xl font-bold">{nodeCount}</p>
