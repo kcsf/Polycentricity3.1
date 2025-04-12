@@ -818,29 +818,68 @@ export async function clearSampleData() {
     nodes.positions
   ];
   
-  // Process each node type and remove all children
+  // Using a more aggressive approach to clear data
   for (const nodePath of nodesToClear) {
     try {
       console.log(`[clear] Clearing all data in ${nodePath}...`);
-      // Get all keys for this node type
+      
+      // Step 1: Collect all keys to remove
+      const keys: string[] = [];
       await new Promise<void>((resolve) => {
         gun.get(nodePath).map().once((data, key) => {
           if (key && key !== "_") {
-            // Remove this node
-            gun.get(nodePath).get(key).put(null);
+            keys.push(key);
           }
         });
         
-        // Wait a bit to ensure all nodes are processed
-        setTimeout(() => resolve(), 200);
+        // Wait a bit to ensure all keys are collected
+        setTimeout(() => resolve(), 300);
       });
+      
+      console.log(`[clear] Found ${keys.length} items to remove from ${nodePath}`);
+      
+      // Step 2: Remove each node with a hard null
+      for (const key of keys) {
+        // Use null instead of undefined for more thorough removal
+        gun.get(nodePath).get(key).put(null);
+        
+        // Additional cleanup for child references
+        // This helps ensure references are properly removed
+        try {
+          // Find all subpaths in the data
+          await new Promise<void>((resolve) => {
+            gun.get(nodePath).get(key).once((data: any) => {
+              if (data && typeof data === 'object') {
+                // Look for special Gun reference objects
+                for (const prop in data) {
+                  if (
+                    data[prop] && 
+                    typeof data[prop] === 'object' && 
+                    data[prop]['#']
+                  ) {
+                    // It's a reference, also null it directly
+                    gun.get(data[prop]['#']).put(null);
+                  }
+                }
+              }
+              setTimeout(resolve, 20);
+            });
+          });
+        } catch (e) {
+          // Ignore errors in reference clearing
+        }
+      }
+      
+      // Wait between node types
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
     } catch (error) {
       console.error(`[clear] Error clearing ${nodePath}:`, error);
     }
   }
   
-  // Add a small delay to allow Gun to process all the removals
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Add a longer delay to allow Gun to process all the removals
+  await new Promise(resolve => setTimeout(resolve, 800));
   
   console.log("[clear] Sample data cleared ✅");
   return { success: true, message: "Sample data cleared" };
@@ -861,7 +900,7 @@ export async function verifySampleData() {
   // Add a small delay before verification to ensure Gun has processed data
   await new Promise(resolve => setTimeout(resolve, 200));
 
-  // Count how many keys appear under a node (optimized with shorter timeout)
+  // Count how many keys appear under a node (more accurate with longer timeout)
   async function count(soul: string) {
     return new Promise<number>((done) => {
       let n = 0;
@@ -873,16 +912,19 @@ export async function verifySampleData() {
         return;
       }
       
-      // Count keys
+      // Count keys with more thorough check
       gunInstance
         .get(soul)
         .map()
-        .once((_data, key) => {
-          if (key && key !== "_") n++;
+        .once((data, key) => {
+          // Only count if key exists, isn't _, and data isn't null
+          if (key && key !== "_" && data !== null && Object.keys(data).length > 0) {
+            n++;
+          }
         });
         
-      // Further reduced wait time (100ms instead of 300ms)
-      setTimeout(() => done(n), 100);
+      // Use a longer timeout to ensure complete scan
+      setTimeout(() => done(n), 300);
     });
   }
 

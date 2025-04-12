@@ -91,10 +91,14 @@
     async function count(soul: string): Promise<number> {
       return new Promise((resolve) => {
         let n = 0;
-        gun?.get(soul).map().once((_data, key) => {
-          if (key && key !== '_') n++;
+        gun?.get(soul).map().once((data, key) => {
+          // Only count valid data (not null or empty)
+          if (key && key !== '_' && data !== null && Object.keys(data).length > 0) {
+            n++;
+          }
         });
-        setTimeout(() => resolve(n), 700);
+        // Use a longer timeout to ensure complete count
+        setTimeout(() => resolve(n), 800);
       });
     }
     
