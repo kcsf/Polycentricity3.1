@@ -162,6 +162,8 @@ export async function initializeSampleData() {
       name: "Member User",
       email: "member@example.com",
       role: "Member",
+      magic_key: "abc123", // Verified
+      devices: "device1,device2",
       created_at: now,
       last_login: now
     },
@@ -170,6 +172,7 @@ export async function initializeSampleData() {
       name: "Guest User",
       email: "guest@example.com",
       role: "Guest",
+      magic_key: "xyz789", // Unverified
       created_at: now,
       last_login: now
     },
@@ -342,12 +345,13 @@ export async function initializeSampleData() {
     user_id: "u124", 
     card_id: "c2",
     created_at: now,
+    custom_name: "Bob's Funding Visionary",
     status: "active",
     agreements: {} // Will be populated with references
   };
 
-  // Improved agreement structure
-  const agreement = {
+  // Multiple agreements with different statuses
+  const agreement1 = {
     agreement_id: "ag1",
     game_id: game.game_id,
     title: "Funding for Garden Initiative",
@@ -373,6 +377,89 @@ export async function initializeSampleData() {
       "a1": "accept",
       "a2": "accept"
     }
+  };
+
+  const agreement2 = {
+    agreement_id: "ag2",
+    game_id: game.game_id,
+    title: "Water Sharing Plan",
+    summary: "Actors agree to share water resources equally",
+    type: "symmetric",
+    parties: {
+        "a1": true,
+        "a2": true
+    },
+    obligations: {
+        a1: "Share water equally",
+        a2: "Share water equally"
+    },
+    benefits: {
+        a1: "Stable water supply",
+        a2: "Stable water supply"
+    },
+    status: "proposed",
+    created_at: now,
+    created_by: "u123",
+    votes: {
+        "a1": "pending",
+        "a2": "pending"
+    }
+  };
+
+  const agreement3 = {
+      agreement_id: "ag3",
+      game_id: game.game_id,
+      title: "Land Use Pact",
+      summary: "Actors tried to share land but disagreed on terms",
+      type: "symmetric",
+      parties: {
+          "a1": true,
+          "a2": true
+      },
+      obligations: {
+          a1: "Proposed shared land use",
+          a2: "Proposed shared land use"
+      },
+      benefits: {
+          a1: "Access to shared land",
+          a2: "Access to shared land"
+      },
+      status: "rejected",
+      created_at: now,
+      updated_at: now,
+      created_by: "u123",
+      votes: {
+          "a1": "reject",
+          "a2": "reject"
+      }
+  };
+
+  const agreement4 = {
+      agreement_id: "ag4",
+      game_id: game.game_id,
+      title: "Seed Exchange Program",
+      summary: "Actors completed a seed-sharing initiative",
+      type: "symmetric",
+      parties: {
+          "a1": true,
+          "a2": true
+      },
+      obligations: {
+          a1: "Share seeds monthly",
+          a2: "Share seeds monthly"
+      },
+      benefits: {
+          a1: "Diverse seed stock",
+          a2: "Diverse seed stock"
+      },
+      status: "completed",
+      created_at: now,
+      updated_at: now,
+      created_by: "u123",
+      votes: {
+          "a1": "accept",
+          "a2": "accept"
+      }
   };
 
   // Improved chat structure
@@ -403,21 +490,57 @@ export async function initializeSampleData() {
     last_message_at: now
   };
 
-  // Improved node position structure
-  const nodePosition1 = { 
-    node_id: "a1", 
-    game_id: game.game_id, 
-    x: 100, 
-    y: 100,
+  // Node positions in a circle pattern
+  const nodePosition1 = {
+    node_id: "a1",
+    game_id: game.game_id,
+    x: 100, // cos(0°) * 100
+    y: 0,   // sin(0°) * 100
     type: "actor",
     last_updated: now
   };
-  
-  const nodePosition2 = { 
-    node_id: "ag1", 
-    game_id: game.game_id, 
-    x: 300, 
-    y: 200,
+
+  const nodePosition2 = {
+    node_id: "a2",
+    game_id: game.game_id,
+    x: -100, // cos(180°) * 100
+    y: 0,    // sin(180°) * 100
+    type: "actor",
+    last_updated: now
+  };
+
+  const nodePosition3 = {
+    node_id: "ag1",
+    game_id: game.game_id,
+    x: 0,
+    y: 50,
+    type: "agreement",
+    last_updated: now
+  };
+
+  const nodePosition4 = {
+    node_id: "ag2",
+    game_id: game.game_id,
+    x: 0,
+    y: -50,
+    type: "agreement",
+    last_updated: now
+  };
+
+  const nodePosition5 = {
+    node_id: "ag3",
+    game_id: game.game_id,
+    x: 50,
+    y: 0,
+    type: "agreement",
+    last_updated: now
+  };
+
+  const nodePosition6 = {
+    node_id: "ag4",
+    game_id: game.game_id,
+    x: -50,
+    y: 0,
     type: "agreement",
     last_updated: now
   };
@@ -465,7 +588,6 @@ export async function initializeSampleData() {
   const singletons = [
     { path: nodes.decks, data: deck, id: deck.deck_id },
     { path: nodes.games, data: game, id: game.game_id },
-    { path: nodes.agreements, data: agreement, id: agreement.agreement_id },
     { path: nodes.chat, data: chat, id: chat.chat_id }
   ];
   
@@ -483,8 +605,15 @@ export async function initializeSampleData() {
   // Batch save actors
   await saveBatch(nodes.actors, [actor1, actor2], 'actor_id');
   
-  // Batch save node positions
-  await saveBatch(nodes.positions, [nodePosition1, nodePosition2], 'node_id');
+  // Batch save agreements
+  await saveBatch(nodes.agreements, [agreement1, agreement2, agreement3, agreement4], 'agreement_id');
+  
+  // Batch save node positions for all entities
+  await saveBatch(
+    nodes.positions, 
+    [nodePosition1, nodePosition2, nodePosition3, nodePosition4, nodePosition5, nodePosition6], 
+    'node_id'
+  );
 
   // 3. Optimized version of createEdge that uses "fire-and-forget" approach (no ack waiting)
   function createEdge(fromSoul: string, field: string, toSoul: string) {
@@ -606,12 +735,16 @@ export async function initializeSampleData() {
   // Define actor -> agreement relationships
   console.log("[seed] Creating actors → agreement relationships in batch");
   
-  for (const actorId of Object.keys(agreement.parties)) {
-    allEdges.push({
-      fromSoul: `${nodes.actors}/${actorId}`,
-      field: "agreements",
-      toSoul: `${nodes.agreements}/${agreement.agreement_id}`
-    });
+  // Process all agreements
+  const agreements = [agreement1, agreement2, agreement3, agreement4];
+  for (const agreement of agreements) {
+    for (const actorId of Object.keys(agreement.parties)) {
+      allEdges.push({
+        fromSoul: `${nodes.actors}/${actorId}`,
+        field: "agreements",
+        toSoul: `${nodes.agreements}/${agreement.agreement_id}`
+      });
+    }
   }
   
   // Define game -> deck relationship
@@ -658,6 +791,59 @@ export async function initializeSampleData() {
   await new Promise(resolve => setTimeout(resolve, 300));
   
   return { success: true, message: "Sample data initialized (edge style)" };
+}
+
+/**
+ * Clear all sample data from the database.
+ * This removes all nodes but keeps the Gun database structure intact.
+ */
+export async function clearSampleData() {
+  console.log("[clear] Clearing all sample data...");
+  const gun = getGun();
+  if (!gun) {
+    return { success: false, message: "Gun not initialized" };
+  }
+  
+  // List of all node types to clear
+  const nodesToClear = [
+    nodes.users,
+    nodes.cards,
+    nodes.decks,
+    nodes.values,
+    nodes.capabilities,
+    nodes.games,
+    nodes.actors,
+    nodes.agreements,
+    nodes.chat,
+    nodes.positions
+  ];
+  
+  // Process each node type and remove all children
+  for (const nodePath of nodesToClear) {
+    try {
+      console.log(`[clear] Clearing all data in ${nodePath}...`);
+      // Get all keys for this node type
+      await new Promise<void>((resolve) => {
+        gun.get(nodePath).map().once((data, key) => {
+          if (key && key !== "_") {
+            // Remove this node
+            gun.get(nodePath).get(key).put(null);
+          }
+        });
+        
+        // Wait a bit to ensure all nodes are processed
+        setTimeout(() => resolve(), 200);
+      });
+    } catch (error) {
+      console.error(`[clear] Error clearing ${nodePath}:`, error);
+    }
+  }
+  
+  // Add a small delay to allow Gun to process all the removals
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  console.log("[clear] Sample data cleared ✅");
+  return { success: true, message: "Sample data cleared" };
 }
 
 /**
