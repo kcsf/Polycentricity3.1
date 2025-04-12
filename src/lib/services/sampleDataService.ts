@@ -71,8 +71,8 @@ async function ensureNode<T extends Record<string, any>>(
       console.warn(`Failed to save ${soul}`);
     }
     
-    // Reduced wait time (100ms instead of 300ms)
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Further reduced wait time (50ms instead of 100ms)
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     return success;
   } catch (error) {
@@ -135,10 +135,10 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
         }
       });
       
-      // Shorter safety timeout (3 seconds instead of 10)
+      // Further reduced safety timeout (1 second instead of 3)
       setTimeout(() => {
         resolve(true); // Continue the process despite timeout
-      }, 3000);
+      }, 1000);
     } catch (error) {
       console.error(`[sampleData] Exception for ${path}/${key}`);
       resolve(false);
@@ -148,8 +148,8 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
 
 export async function initializeSampleData() {
   console.log("[seed] Initializing sample data (edge style) …");
-  const gun = getGun();
-  if (!gun) {
+  const gunDb = getGun();
+  if (!gunDb) {
     return { success: false, message: "Gun not initialized" };
   }
 
@@ -422,48 +422,69 @@ export async function initializeSampleData() {
     last_updated: now
   };
 
-  // 2. Persist the base nodes
-  // Save all users
-  for (const u of users) {
-    await ensureNode(`${nodes.users}/${u.user_id}`, u);
+  // 2. Persist the base nodes using batch techniques where possible
+  
+  // Define a helper function for batch saving collections
+  async function saveBatch<T extends { [key: string]: any }>(
+    nodePath: string,
+    items: T[],
+    idField: keyof T
+  ) {
+    console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
+    const gun = getGun();
+    if (!gun) {
+      console.error(`[batch] Gun not initialized for ${nodePath}`);
+      return false;
+    }
+    
+    // Process all items in the collection
+    for (const item of items) {
+      const id = String(item[idField]);
+      // Use the fire-and-forget approach - no waiting for acknowledgment
+      gun.get(nodePath).get(id).put(item);
+    }
+    
+    // Small delay to allow Gun to process the batch
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return true;
   }
 
-  // Save all values first
-  for (const value of values) {
-    await ensureNode(`${nodes.values}/${value.value_id}`, value);
+  // Batch save users
+  await saveBatch(nodes.users, users, 'user_id');
+  
+  // Batch save values
+  await saveBatch(nodes.values, values, 'value_id');
+  
+  // Batch save capabilities
+  await saveBatch(nodes.capabilities, capabilities, 'capability_id');
+
+  // Batch save cards
+  await saveBatch(nodes.cards, cards, 'card_id');
+  
+  // Save single-entity nodes
+  const singletons = [
+    { path: nodes.decks, data: deck, id: deck.deck_id },
+    { path: nodes.games, data: game, id: game.game_id },
+    { path: nodes.agreements, data: agreement, id: agreement.agreement_id },
+    { path: nodes.chat, data: chat, id: chat.chat_id }
+  ];
+  
+  console.log(`[seed] Batch saving singleton entities`);
+  const gunInstance = getGun();
+  if (gunInstance) {
+    // Process all singletons in parallel with fire-and-forget approach
+    for (const item of singletons) {
+      gunInstance.get(item.path).get(item.id).put(item.data);
+    }
+    // Small delay to allow Gun to process
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
-
-  // Save all capabilities
-  for (const capability of capabilities) {
-    await ensureNode(`${nodes.capabilities}/${capability.capability_id}`, capability);
-  }
-
-  // Save cards with their references to values and capabilities
-  // First card
-  await ensureNode(`${nodes.cards}/${cards[0].card_id}`, cards[0]);
   
-  // Second card
-  await ensureNode(`${nodes.cards}/${cards[1].card_id}`, cards[1]);
-
-  // Save deck with its references to cards
-  await ensureNode(`${nodes.decks}/${deck.deck_id}`, deck);
+  // Batch save actors
+  await saveBatch(nodes.actors, [actor1, actor2], 'actor_id');
   
-  // Save game
-  await ensureNode(`${nodes.games}/${game.game_id}`, game);
-
-  // Save actors with references to users, games, and cards
-  await ensureNode(`${nodes.actors}/${actor1.actor_id}`, actor1);
-  await ensureNode(`${nodes.actors}/${actor2.actor_id}`, actor2);
-
-  // Save agreement with references to actors
-  await ensureNode(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
-  
-  // Save chat with references to participants
-  await ensureNode(`${nodes.chat}/${chat.chat_id}`, chat);
-
-  // Save node positions for visualization
-  await ensureNode(`${nodes.positions}/${nodePosition1.node_id}`, nodePosition1);
-  await ensureNode(`${nodes.positions}/${nodePosition2.node_id}`, nodePosition2);
+  // Batch save node positions
+  await saveBatch(nodes.positions, [nodePosition1, nodePosition2], 'node_id');
 
   // 3. Optimized version of createEdge that uses "fire-and-forget" approach (no ack waiting)
   function createEdge(fromSoul: string, field: string, toSoul: string) {
@@ -665,8 +686,8 @@ export async function verifySampleData() {
           if (key && key !== "_") n++;
         });
         
-      // Reduced wait time (300ms instead of 700ms)
-      setTimeout(() => done(n), 300);
+      // Further reduced wait time (100ms instead of 300ms)
+      setTimeout(() => done(n), 100);
     });
   }
 
