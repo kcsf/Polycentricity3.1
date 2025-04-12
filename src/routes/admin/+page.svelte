@@ -535,7 +535,7 @@
         class="admin-tab {activeTab === 'decks' ? 'active' : ''}" 
         on:click={() => handleTabChange('decks')}
       >
-        <svelte:component this={icons.Layout} class="w-4 h-4 mr-2" />
+        <svelte:component this={icons.Cards} class="w-4 h-4 mr-2" />
         Decks
       </button>
       <button 
@@ -552,20 +552,12 @@
         <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
         Cleanup
       </button>
-      <a 
-        href="/database-schema" 
-        class="admin-tab"
-        target="_self"
-      >
-        <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
-        Database Schema
-      </a>
       
       <button 
         class="admin-tab {activeTab === 'maintenance' ? 'active' : ''}" 
         on:click={() => handleTabChange('maintenance')}
       >
-        <svelte:component this={icons.Tool} class="w-4 h-4 mr-2" />
+        <svelte:component this={icons.Wrench} class="w-4 h-4 mr-2" />
         Maintenance
       </button>
     </div>

@@ -467,6 +467,25 @@
     </div>
   </div>
   
+  <!-- Database Schema and Documentation Section -->
+  <div class="card p-4 bg-surface-50-900-token mb-6">
+    <h3 class="h4 mb-4">Database Schema and Tools</h3>
+    
+    <div class="p-4 bg-primary-500/10 border border-primary-500 rounded mb-4">
+      <h4 class="font-semibold mb-2 flex items-center">
+        <svelte:component this={icons.Database} class="w-5 h-5 mr-2 text-primary-500" />
+        Database Schema Management
+      </h4>
+      <p class="text-sm mb-4">
+        Access the Database Schema page for detailed documentation, initialization, and verification tools.
+      </p>
+      <a href="/database-schema" class="btn variant-filled-primary w-full">
+        <svelte:component this={icons.FileText} class="w-4 h-4 mr-2" />
+        View Database Schema
+      </a>
+    </div>
+  </div>
+
   <div class="card p-4 bg-surface-50-900-token">
     <h3 class="h4 mb-4">How Bidirectional Relationships Work</h3>
     
