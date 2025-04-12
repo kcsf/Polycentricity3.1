@@ -552,6 +552,14 @@
         <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
         Cleanup
       </button>
+      <a 
+        href="/database-schema" 
+        class="admin-tab"
+        target="_self"
+      >
+        <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
+        Database Schema
+      </a>
       
       <button 
         class="admin-tab {activeTab === 'maintenance' ? 'active' : ''}" 
