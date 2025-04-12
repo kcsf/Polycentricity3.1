@@ -149,10 +149,10 @@
   // Cleanup functions
   import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards } from '$lib/services/cleanupService';
   
-  let cleanupLoading = $state(false);
-  let cleanupError = $state<string | null>(null);
-  let cleanupSuccess = $state(false);
-  let cleanupResult = $state<{ success: boolean; removed: number } | null>(null);
+  let cleanupLoading = false;
+  let cleanupError: string | null = null;
+  let cleanupSuccess = false;
+  let cleanupResult: { success: boolean; removed: number } | null = null;
   
   async function handleCleanupGames() {
     if (!confirm('Are you sure you want to remove ALL games? This action cannot be undone.')) {

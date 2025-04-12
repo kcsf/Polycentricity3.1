@@ -878,25 +878,69 @@
               </div>
             </div>
             
-            <!-- Consolidated Database Tools Component -->
-            <div class="mb-6">
-              <h3 class="h3 mb-4">Database Tools</h3>
-              <DatabaseTools />
-            </div>
-            
-            <div class="mb-6">
-              <h3 class="h3 mb-4">Admin Tools</h3>
-              <AdminTools />
-            </div>
-            
-            <div class="mb-6">
-              <h3 class="h3 mb-4">Deck Manager</h3>
-              <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
-            </div>
-            
-            <h3 class="h3 mb-4">Database Structure</h3>
-            
-            {#if databaseNodes.length === 0}
+            <Accordion value={overviewAccordionValue} onValueChange={(e) => (overviewAccordionValue = e.value)} multiple>
+              <!-- Database Tools Section -->
+              <Accordion.Item value="database-tools">
+                {#snippet lead()}
+                  <svelte:component this={icons.Tool} size={24} />
+                {/snippet}
+                
+                {#snippet control()}Database Tools{/snippet}
+                
+                {#snippet panel()}
+                  <div class="p-4">
+                    <DatabaseTools />
+                  </div>
+                {/snippet}
+              </Accordion.Item>
+              
+              <hr class="hr" />
+              
+              <!-- Admin Tools Section -->
+              <Accordion.Item value="admin-tools">
+                {#snippet lead()}
+                  <svelte:component this={icons.Settings} size={24} />
+                {/snippet}
+                
+                {#snippet control()}Admin Tools{/snippet}
+                
+                {#snippet panel()}
+                  <div class="p-4">
+                    <AdminTools />
+                  </div>
+                {/snippet}
+              </Accordion.Item>
+              
+              <hr class="hr" />
+              
+              <!-- Deck Manager Section -->
+              <Accordion.Item value="deck-manager">
+                {#snippet lead()}
+                  <svelte:component this={icons.CreditCard} size={24} />
+                {/snippet}
+                
+                {#snippet control()}Deck Manager{/snippet}
+                
+                {#snippet panel()}
+                  <div class="p-4">
+                    <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
+                  </div>
+                {/snippet}
+              </Accordion.Item>
+              
+              <hr class="hr" />
+              
+              <!-- Database Structure Section -->
+              <Accordion.Item value="database-structure">
+                {#snippet lead()}
+                  <svelte:component this={icons.Database} size={24} />
+                {/snippet}
+                
+                {#snippet control()}Database Structure{/snippet}
+                
+                {#snippet panel()}
+                  <div class="p-4">
+                    {#if databaseNodes.length === 0}
               <div class="card p-8 variant-ghost-surface text-center">
                 <svelte:component this={icons.Database} class="w-16 h-16 mx-auto mb-4 text-surface-500" />
                 <h4 class="h4 mb-2">No Data Found</h4>
@@ -1000,6 +1044,10 @@
                 {/each}
               </div>
             {/if}
+                  </div>
+                {/snippet}
+              </Accordion.Item>
+            </Accordion>
           {/if}
         </div>
       {/if}
