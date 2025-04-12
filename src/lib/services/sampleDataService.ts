@@ -651,6 +651,12 @@ export async function initializeSampleData() {
   }
 
   console.log("[seed] Sample data (with edges) initialized ✅");
+  
+  // Add a small delay before reporting completion
+  // This helps ensure all operations have a chance to complete
+  // before anyone tries to verify the data
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
   return { success: true, message: "Sample data initialized (edge style)" };
 }
 
@@ -665,6 +671,9 @@ export async function verifySampleData() {
   if (!getGun()) {
     return { success: false, message: "Gun not initialized" };
   }
+  
+  // Add a small delay before verification to ensure Gun has processed data
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   // Count how many keys appear under a node (optimized with shorter timeout)
   async function count(soul: string) {
