@@ -3,15 +3,15 @@
         const currentYear = new Date().getFullYear();
 </script>
 
-<footer class="p-4 bg-gray-800 text-white mt-auto">
+<footer class="p-4 bg-surface-900 text-white mt-auto border-t border-surface-700/30">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
                 <div class="mb-4 md:mb-0">
-                        <p class="text-sm">© {currentYear} Polycentricity3. All rights reserved.</p>
+                        <p class="text-sm opacity-80">© {currentYear} Polycentricity3. All rights reserved.</p>
                 </div>
                 <div class="flex space-x-4">
-                        <a href="/" class="text-sm hover:text-green-300">Home</a>
-                        <a href="#" class="text-sm hover:text-green-300">Privacy</a>
-                        <a href="#" class="text-sm hover:text-green-300">Terms</a>
+                        <a href="/" class="text-sm hover:text-primary-300 transition-colors">Home</a>
+                        <a href="/privacy" class="text-sm hover:text-primary-300 transition-colors">Privacy</a>
+                        <a href="/terms" class="text-sm hover:text-primary-300 transition-colors">Terms</a>
                 </div>
         </div>
 </footer>

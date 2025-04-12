@@ -1,8 +1,90 @@
+/* src/app.css */
 @import 'tailwindcss';
 
 @import '@skeletonlabs/skeleton';
 @import '@skeletonlabs/skeleton/optional/presets';
-@import '@skeletonlabs/skeleton/themes/cerberus';
+/* Use the fennec theme which supports both light and dark modes */
 @import '@skeletonlabs/skeleton/themes/fennec';
 
 @source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
+
+/* Custom styles */
+@layer components {
+  /* Card glow effect */
+  .card-glow {
+    position: relative;
+    overflow: hidden;
+    transition-property: transform, box-shadow;
+    transition-duration: 200ms;
+    transition-timing-function: ease-in-out;
+  }
+
+  .card-glow::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: var(--theme-rounded-base);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  .card-glow:hover::before {
+    opacity: 1;
+  }
+}
+
+/* Ensure spinner-third is styled */
+.spinner-third {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Dark mode adjustments */
+.dark .card-glow::before {
+  box-shadow: 0 0 10px rgba(var(--color-primary-400), 0.5);
+}
+
+/* Improve the look of cards in dark mode */
+.dark .card {
+  border-color: rgba(var(--color-surface-500), 0.2);
+  background-color: rgba(var(--color-surface-800), 0.8);
+}
+
+/* Adjust inputs for dark mode */
+.dark .input {
+  background-color: rgba(var(--color-surface-700), 0.6);
+  border-color: rgba(var(--color-surface-500), 0.2);
+}
+
+/* Adjust table styles for dark mode */
+.dark .table-container {
+  background-color: rgba(var(--color-surface-800), 0.8);
+  border-color: rgba(var(--color-surface-500), 0.2);
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(var(--color-surface-700), 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-surface-500), 0.6);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-surface-400), 0.8);
+}
