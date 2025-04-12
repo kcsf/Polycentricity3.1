@@ -378,20 +378,16 @@
                         <div class="flex flex-wrap gap-1">
                           {#each cardValues[card.card_id] as value}
                             <span class="badge variant-soft-primary">
-                              {#if value === 'C1' || value === 'c1'}
+                              {#if value === 'C1' || value === 'c1' || value === 'Sustainability'}
                                 Sustainability
-                              {:else if value === 'C2' || value === 'c2'}
+                              {:else if value === 'C2' || value === 'c2' || value === 'Community Resilience'}
                                 Community Resilience
-                              {:else if value === 'C3' || value === 'c3'}
+                              {:else if value === 'C3' || value === 'c3' || value === 'Regeneration'}
                                 Regeneration
-                              {:else if value === 'C4' || value === 'c4'}
+                              {:else if value === 'C4' || value === 'c4' || value === 'Equity'}
                                 Equity
-                              {:else if value.startsWith('Card_')}
-                                {#if value.replace('Card_', '') === card.card_id}
-                                  Self-Referential Value
-                                {:else}
-                                  Value: {value.replace('Card_', '')}
-                                {/if}
+                              {:else if value.toLowerCase().startsWith('card_') || value.toLowerCase().startsWith('value:')}
+                                Self-Referential Value
                               {:else}
                                 {value}
                               {/if}

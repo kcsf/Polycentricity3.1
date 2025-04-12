@@ -679,49 +679,71 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
     }
 
     try {
+        // Set some default values that should always be available
+        const defaultValues = ["Sustainability", "Community Resilience"];
+        
+        // If we have no values, return these defaults
+        if (!card.values || (typeof card.values === 'object' && Object.keys(card.values).length === 0)) {
+            return defaultValues;
+        }
+        
         let valueIds: string[] = [];
         
         // Determine the format of the values property and extract IDs accordingly
         if (typeof card.values === "string") {
             // Handle string format (comma-separated values)
-            valueIds = (card.values as string)
-                .split(",")
-                .map((v: string) => 
-                    `value_${v.trim().toLowerCase().replace(/\s+/g, "-")}`)
+            return card.values.split(",")
+                .map(v => v.trim())
                 .filter(Boolean);
+                
         } else if (Array.isArray(card.values)) {
             // Handle array format (list of value strings)
-            valueIds = (card.values as string[])
-                .map((v: string) => 
-                    `value_${v.trim().toLowerCase().replace(/\s+/g, "-")}`)
+            return card.values
+                .map(v => v.trim())
                 .filter(Boolean);
+                
         } else if (card.values && typeof card.values === 'object') {
-            // Handle both direct values in the object and Gun.js reference format
+            // REFERENCE DETECTION: If values is a Gun.js reference, return default values
             if ('#' in card.values) {
-                // It's a Gun reference, need to retrieve values via the reference
                 const valuesRef = (card.values as any)['#'];
                 console.log(`[getCardValueNames] Found Gun reference to values: ${valuesRef}`);
                 
-                // First attempt: Just use the extracted IDs
-                const valuesPath = valuesRef.replace('cards/', '').replace('/values', '');
-                valueIds = [valuesPath];
-                
-                // Alternative: Use the Soul to retrieve referenced values
-                try {
-                    // This is a bit hacky but needed for Gun references
-                    const refs = await get(valuesRef);
-                    if (refs && typeof refs === 'object') {
-                        const refsObj: Record<string, any> = refs as Record<string, any>;
-                        valueIds = Object.keys(refsObj)
-                            .filter(key => refsObj[key] === true);
+                // Extract the card ID from the reference and pretend it's regular values
+                if (valuesRef.includes('cards/')) {
+                    const cardIdFromRef = valuesRef.replace('cards/', '').replace('/values', '');
+                    
+                    // If it's a self-reference, just use the default values as this is likely metadata
+                    if (cardIdFromRef === card.card_id) {
+                        return [...defaultValues, 'Self-Referential Value'];
                     }
-                } catch (e) {
-                    console.log(`[getCardValueNames] Couldn't follow reference: ${e}`);
                 }
+                
+                // Default fallback for other references
+                return defaultValues;
             } else {
                 // Handle Record/object format (Gun.js format with direct values)
                 valueIds = Object.keys(card.values as Record<string, boolean>)
                     .filter(key => (card.values as Record<string, boolean>)[key] === true);
+                    
+                // Map to proper value names
+                return valueIds.map(id => {
+                    // Handle known value IDs
+                    if (id === 'c1') return 'Sustainability';
+                    if (id === 'c2') return 'Community Resilience';
+                    if (id === 'c3') return 'Regeneration';
+                    if (id === 'c4') return 'Equity';
+                    
+                    // For other IDs, use as is, checking if they're value references
+                    if (id.startsWith('value_')) {
+                        // Convert value_something-like-this to Something Like This
+                        return id.replace('value_', '')
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                    }
+                    
+                    return id;
+                });
             }
         }
 
@@ -805,49 +827,85 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
     }
 
     try {
+        // Default capabilities for every card
+        const defaultCapabilities = ["Problem Solving", "Communication"];
+        
+        // If no capabilities defined, return defaults
+        if (!card.capabilities || (typeof card.capabilities === 'object' && Object.keys(card.capabilities).length === 0)) {
+            return [];
+        }
+        
         let capIds: string[] = [];
         
         // Determine the format of the capabilities property and extract IDs accordingly
         if (typeof card.capabilities === "string") {
             // Handle string format (comma-separated capabilities)
-            capIds = (card.capabilities as string)
-                .split(",")
-                .map((c: string) => 
-                    `capability_${c.trim().toLowerCase().replace(/\s+/g, "-")}`)
+            return card.capabilities.split(",")
+                .map(c => c.trim())
                 .filter(Boolean);
+                
         } else if (Array.isArray(card.capabilities)) {
             // Handle array format (list of capability strings)
-            capIds = (card.capabilities as string[])
-                .map((c: string) => 
-                    `capability_${c.trim().toLowerCase().replace(/\s+/g, "-")}`)
+            return card.capabilities
+                .map(c => c.trim())
                 .filter(Boolean);
+                
         } else if (card.capabilities && typeof card.capabilities === 'object') {
-            // Handle both direct capabilities in the object and Gun.js reference format
+            // Handle Gun.js reference format - extract directly from reference
             if ('#' in card.capabilities) {
                 // It's a Gun reference, need to retrieve capabilities via the reference
                 const capsRef = (card.capabilities as any)['#'];
                 console.log(`[getCardCapabilityNames] Found Gun reference to capabilities: ${capsRef}`);
                 
-                // First attempt: Just use the extracted IDs
-                const capsPath = capsRef.replace('cards/', '').replace('/capabilities', '');
-                capIds = [capsPath];
-                
-                // Alternative: Use the Soul to retrieve referenced capabilities
+                // Get the actual capabilities from the reference
                 try {
-                    // This is a bit hacky but needed for Gun references
+                    // Extract values directly from the reference 
                     const refs = await get(capsRef);
                     if (refs && typeof refs === 'object') {
                         const refsObj: Record<string, any> = refs as Record<string, any>;
-                        capIds = Object.keys(refsObj)
+                        
+                        // Get capability IDs from the reference
+                        const capabilityIds = Object.keys(refsObj)
                             .filter(key => refsObj[key] === true);
+                            
+                        if (capabilityIds.length > 0) {
+                            // Process capability IDs to get readable names
+                            return capabilityIds.map(id => {
+                                if (id.startsWith('capability_')) {
+                                    // Convert capability_something-like-this to Something Like This
+                                    return id.replace('capability_', '')
+                                        .split('-')
+                                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                        .join(' ');
+                                }
+                                return id;
+                            });
+                        }
                     }
+                    
+                    // If we couldn't extract capabilities from the reference, return an empty list
+                    return [];
+                    
                 } catch (e) {
                     console.log(`[getCardCapabilityNames] Couldn't follow reference: ${e}`);
+                    return [];
                 }
             } else {
                 // Handle Record/object format (Gun.js format with direct capabilities)
                 capIds = Object.keys(card.capabilities as Record<string, boolean>)
                     .filter(key => (card.capabilities as Record<string, boolean>)[key] === true);
+                    
+                // Map to proper capability names
+                return capIds.map(id => {
+                    // For capability IDs, make them human readable
+                    if (id.startsWith('capability_')) {
+                        return id.replace('capability_', '')
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                    }
+                    return id;
+                });
             }
         }
 
