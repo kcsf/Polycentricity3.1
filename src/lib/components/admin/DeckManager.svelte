@@ -6,11 +6,12 @@
   import { getCurrentUser } from '$lib/services/authService';
   import type { Card, Deck } from '$lib/types';
   
-  const { deckId = 'd1' } = $props(); // Use $props in runes mode
+  // In Svelte 5 runes mode, use $props() instead of export let
+  const props = $props<{ deckId?: string }>();
   
   let isLoading = $state(false);
   let result = $state<{ success: boolean; message: string } | null>(null);
-  let deckIdValue = $state(deckId); // Store prop value in a state variable
+  let deckIdValue = $state(props.deckId || 'd1'); // Store prop value in a state variable
   let deck = $state<Deck | null>(null);
   let userId = $state('');
   let decks = $state<Deck[]>([]);
