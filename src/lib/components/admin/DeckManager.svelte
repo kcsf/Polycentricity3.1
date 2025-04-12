@@ -6,16 +6,17 @@
   import { getCurrentUser } from '$lib/services/authService';
   import type { Card, Deck } from '$lib/types';
   
-  let isLoading = false;
-  let result: { success: boolean; message: string } | null = null;
-  export let deckId = 'd1'; // Default deck ID, can be overridden by parent
-  let deck: Deck | null = null;
-  let userId = '';
+  let isLoading = $state(false);
+  let result = $state<{ success: boolean; message: string } | null>(null);
+  export let deckId = $state('d1'); // Default deck ID, can be overridden by parent
+  let deck = $state<Deck | null>(null);
+  let userId = $state('');
+  let decks = $state<Deck[]>([]);
   
   // Card import variables
-  let importText = '';
-  let isImporting = false;
-  let importResult: { success: boolean; message: string } | null = null;
+  let importText = $state('');
+  let isImporting = $state(false);
+  let importResult = $state<{ success: boolean; message: string } | null>(null);
   
   onMount(async () => {
     const currentUser = getCurrentUser();
@@ -23,9 +24,44 @@
       userId = currentUser.user_id;
     }
     
+    // Load all available decks
+    await loadDecks();
+    
     // Load the current deck
     await loadDeck();
   });
+  
+  // Load all decks for dropdown
+  async function loadDecks() {
+    try {
+      const gun = getGun();
+      if (!gun) {
+        console.error('Gun database not initialized');
+        return;
+      }
+      
+      const deckList: Deck[] = [];
+      
+      await new Promise<void>(resolve => {
+        gun.get(nodes.decks).map().once((deckData: Deck, deckId: string) => {
+          if (deckData && deckData.deck_id) {
+            deckList.push({
+              ...deckData,
+              deck_id: deckId
+            });
+          }
+        });
+        
+        setTimeout(() => {
+          console.log('Loaded ' + deckList.length + ' decks');
+          decks = deckList;
+          resolve();
+        }, 500);
+      });
+    } catch (err) {
+      console.error('Error loading decks:', err);
+    }
+  }
   
   async function loadDeck() {
     isLoading = true;
@@ -272,8 +308,42 @@
 <div class="card p-4 bg-surface-50-900-token">
   <h3 class="h4 mb-4 flex items-center">
     <svelte:component this={icons.Layers} class="w-5 h-5 mr-2 text-primary-500" />
-    {deck ? `Import Cards to ${deck.name || 'Deck'}` : 'Deck Manager'}
+    <span>Card Import Manager</span>
   </h3>
+  
+  <!-- Deck Selection Dropdown -->
+  <div class="mb-6">
+    <label for="deck-select" class="block text-sm font-medium mb-2">Select Deck</label>
+    <div class="flex gap-4 items-center">
+      <select 
+        id="deck-select" 
+        class="select rounded-md w-full md:w-1/2 lg:w-1/3"
+        value={deckId}
+        on:change={(e) => {
+          deckId = e.target.value;
+          loadDeck();
+        }}
+        disabled={isLoading}
+      >
+        {#if decks.length === 0}
+          <option value="">No decks available</option>
+        {:else}
+          {#each decks as deck}
+            <option value={deck.deck_id}>{deck.name || deck.deck_id}</option>
+          {/each}
+        {/if}
+      </select>
+      
+      <button 
+        class="btn variant-filled-primary" 
+        on:click={loadDeck}
+        disabled={isLoading}
+      >
+        <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+        Refresh
+      </button>
+    </div>
+  </div>
   
   {#if isLoading}
     <div class="flex items-center justify-center p-10">
@@ -297,31 +367,15 @@
       </div>
     </div>
     
-    <div class="flex flex-col gap-4 mb-6">
-      <button 
-        class="btn variant-filled-primary" 
-        on:click={updateDeckCreator}
-        disabled={isLoading}
-      >
-        {#if isLoading}
-          <div class="spinner-third w-4 h-4 mr-2"></div>
-          Updating...
-        {:else}
-          <svelte:component this={icons.UserCheck} class="w-4 h-4 mr-2" />
-          Update Creator & Rename
-        {/if}
-      </button>
-      
-      {#if result}
-        <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
-          <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
-          <div class="alert-message">
-            <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
-            <p>{result.message}</p>
-          </div>
+    {#if result}
+      <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
+        <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+        <div class="alert-message">
+          <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
+          <p>{result.message}</p>
         </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
     
     <hr class="!border-t-2 my-6">
     
