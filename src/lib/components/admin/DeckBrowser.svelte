@@ -109,18 +109,11 @@
           console.log(`Checking card ${cardData.card_id} (${cardData.role_title || "Unnamed"}) for deck ${deckId}`);
           
           // We'll consider a card part of the deck if:
-          // 1. We're looking at the standard "Eco-Village Standard Deck" (d1)
-          //    and we know we populated this with all cards in our sample data
-          // 2. It has a direct decks object reference with this deck ID
-          // 3. It has a reference to a decks path that includes this deck ID
+          // 1. It has a direct decks object reference with this deck ID
+          // 2. It has a reference to a decks path that includes this deck ID
+          // 3. The deck's cards collection directly references this card
           
           let belongsToDeck = false;
-          
-          // Special case for our sample data cards, which we know should be in deck d1
-          if (deckId === 'd1' && (cardData.card_id === 'c1' || cardData.card_id === 'c2')) {
-            console.log(`Card ${cardData.card_id} is part of the Eco-Village Standard Deck by default`);
-            belongsToDeck = true;
-          }
           
           // Check for direct deck reference
           if (cardData.decks) {
