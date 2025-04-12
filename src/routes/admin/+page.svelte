@@ -13,7 +13,6 @@
   import DatabaseTools from '$lib/components/admin/DatabaseTools.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
-  import { Accordion } from '@skeletonlabs/skeleton';
   
   // For visualization
   let isG6Loading = false;
@@ -305,6 +304,9 @@
     if (tab === 'visualize' && typeof window !== 'undefined') {
       // Prepare graph data when switching to visualization tab
       loadGraphVisualization();
+    } else if (tab === 'cleanup' && typeof window !== 'undefined') {
+      // Get current user when switching to cleanup tab
+      currentUser = getCurrentUser();
     }
     
     // Update URL with tab parameter
@@ -423,6 +425,8 @@
           // Initialize visualization if needed
           if (activeTab === 'visualize') {
             loadGraphVisualization();
+          } else if (activeTab === 'cleanup') {
+            currentUser = getCurrentUser();
           }
         }
       } catch (err) {
@@ -541,7 +545,13 @@
         <svelte:component this={icons.Network} class="w-4 h-4 mr-2" />
         Visualize
       </button>
-
+      <button 
+        class="admin-tab {activeTab === 'cleanup' ? 'active' : ''}" 
+        on:click={() => handleTabChange('cleanup')}
+      >
+        <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+        Cleanup
+      </button>
       
       <button 
         class="admin-tab {activeTab === 'maintenance' ? 'active' : ''}" 
@@ -694,7 +704,157 @@
             </div>
           {/if}
         </div>
-      
+      {:else if activeTab === 'cleanup'}
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800-token mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Trash2} class="text-error-500" />
+              <div>
+                <h3 class="h4">Database Cleanup</h3>
+                <p class="text-sm">This tool allows you to remove unnecessary user nodes from the database.</p>
+              </div>
+            </div>
+          </div>
+          
+          {#if isCleanupLoading}
+            <div class="flex items-center justify-center p-10">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Processing Database Cleanup...</span>
+            </div>
+          {:else if cleanupError}
+            <div class="alert variant-filled-error">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{cleanupError}</p>
+              </div>
+              <div class="alert-actions">
+                <button class="btn variant-filled" on:click={performCleanup}>Retry</button>
+              </div>
+            </div>
+          {:else if cleanupSuccess}
+            <div class="alert variant-filled-success">
+              <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Success</h3>
+                <p>Successfully removed {cleanupResult?.removed} user nodes from the database.</p>
+              </div>
+            </div>
+          {/if}
+          
+          <div class="card p-4 bg-surface-50-900-token mb-6">
+            <h3 class="h4 mb-4">User Node Cleanup</h3>
+            <p class="mb-4">
+              There are currently <span class="font-bold text-primary-500">
+              {databaseNodes.find(n => n.type === 'users')?.count || 0}
+              </span> user nodes in the database. Many of these could be unused or bot-generated.
+            </p>
+            
+            <div class="warning-box p-4 bg-error-500/10 border border-error-500 rounded-lg mb-4">
+              <h4 class="font-bold flex items-center text-error-500">
+                <svelte:component this={icons.AlertTriangle} class="w-5 h-5 mr-2" />
+                Warning
+              </h4>
+              <p class="text-sm mt-2">
+                This action will permanently remove all user nodes except the currently logged in user.
+                This cannot be undone. Make sure you have a backup of any important data.
+              </p>
+            </div>
+            
+            <div class="current-user-box p-4 bg-primary-500/10 border border-primary-500 rounded-lg mb-4">
+              <h4 class="font-bold flex items-center text-primary-500">
+                <svelte:component this={icons.User} class="w-5 h-5 mr-2" />
+                Your User Account
+              </h4>
+              <p class="text-sm mt-2">
+                Your user ID: <code class="font-mono bg-surface-100-800-token px-2 py-1 rounded">{currentUser?.user_id || 'Not logged in'}</code>
+              </p>
+              <p class="text-sm mt-1">
+                This account will be preserved during the cleanup process.
+              </p>
+            </div>
+            
+            <div class="flex gap-4 flex-wrap">
+              <button 
+                class="btn variant-filled-error" 
+                on:click={performCleanup}
+                disabled={isCleanupLoading || !currentUser}
+              >
+                <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+                Remove All Other User Nodes
+              </button>
+              
+              <div class="divider-vertical h-8 mx-2"></div>
+              
+              <div>
+                <button 
+                  class="btn variant-filled-error border-4 border-error-900" 
+                  on:click={performCleanupAllUsers}
+                  disabled={isCleanupLoading}
+                >
+                  <svelte:component this={icons.AlertTriangle} class="w-4 h-4 mr-2" />
+                  ADMIN: Remove ALL Users
+                </button>
+                <p class="text-xs text-error-500 mt-1">No login required for this action. Use with caution!</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card p-4 bg-surface-50-900-token">
+            <h3 class="h4 mb-4">User Node List</h3>
+            
+            {#if !databaseNodes.find(n => n.type === 'users') || databaseNodes.find(n => n.type === 'users')?.count === 0}
+              <p class="text-center py-8 text-surface-500">No user nodes found in the database.</p>
+            {:else}
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>User ID</th>
+                      <th>Name</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each databaseNodes.find(n => n.type === 'users')?.nodes || [] as node}
+                      {@const isCurrentUser = currentUser?.user_id === node.id}
+                      <tr class={isCurrentUser ? 'bg-primary-500/10' : ''}>
+                        <td class="font-mono text-xs">{node.id.substring(0, 14)}...</td>
+                        <td>
+                          {#if isCurrentUser}
+                            <span class="badge variant-filled-primary">You</span>
+                          {:else}
+                            {node.data?.name || 'Unnamed User'}
+                          {/if}
+                        </td>
+                        <td>
+                          {#if node.data?.created_at}
+                            {new Date(node.data.created_at).toLocaleString()}
+                          {:else}
+                            Unknown
+                          {/if}
+                        </td>
+                        <td>
+                          {#if isCurrentUser}
+                            <span class="text-sm text-primary-500">Current User</span>
+                          {:else}
+                            <button 
+                              class="btn btn-sm variant-soft-error" 
+                              on:click={() => removeSpecificUser(node.id)}
+                            >
+                              Remove
+                            </button>
+                          {/if}
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          </div>
+        </div>
       {:else if activeTab === 'decks'}
         <div class="p-2">
           <!-- Render the DeckBrowser component -->
@@ -878,69 +1038,22 @@
               </div>
             </div>
             
-            <Accordion value={overviewAccordionValue} onValueChange={(e) => (overviewAccordionValue = e.value)} multiple>
-              <!-- Database Tools Section -->
-              <Accordion.Item value="database-tools">
-                {#snippet lead()}
-                  <svelte:component this={icons.Tool} size={24} />
-                {/snippet}
-                
-                {#snippet control()}Database Tools{/snippet}
-                
-                {#snippet panel()}
-                  <div class="p-4">
-                    <DatabaseTools />
-                  </div>
-                {/snippet}
-              </Accordion.Item>
-              
-              <hr class="hr" />
-              
-              <!-- Admin Tools Section -->
-              <Accordion.Item value="admin-tools">
-                {#snippet lead()}
-                  <svelte:component this={icons.Settings} size={24} />
-                {/snippet}
-                
-                {#snippet control()}Admin Tools{/snippet}
-                
-                {#snippet panel()}
-                  <div class="p-4">
-                    <AdminTools />
-                  </div>
-                {/snippet}
-              </Accordion.Item>
-              
-              <hr class="hr" />
-              
-              <!-- Deck Manager Section -->
-              <Accordion.Item value="deck-manager">
-                {#snippet lead()}
-                  <svelte:component this={icons.CreditCard} size={24} />
-                {/snippet}
-                
-                {#snippet control()}Deck Manager{/snippet}
-                
-                {#snippet panel()}
-                  <div class="p-4">
-                    <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
-                  </div>
-                {/snippet}
-              </Accordion.Item>
-              
-              <hr class="hr" />
-              
-              <!-- Database Structure Section -->
-              <Accordion.Item value="database-structure">
-                {#snippet lead()}
-                  <svelte:component this={icons.Database} size={24} />
-                {/snippet}
-                
-                {#snippet control()}Database Structure{/snippet}
-                
-                {#snippet panel()}
-                  <div class="p-4">
-                    {#if databaseNodes.length === 0}
+            <!-- Consolidated Database Tools Component -->
+            <div class="mb-6">
+              <DatabaseTools />
+            </div>
+            
+            <div class="mb-6">
+              <AdminTools />
+            </div>
+            
+            <div class="mb-6">
+              <DeckManager deckId={$page.url.searchParams.get('deckId') || 'd1'} />
+            </div>
+            
+            <h3 class="h3 mb-4">Database Structure</h3>
+            
+            {#if databaseNodes.length === 0}
               <div class="card p-8 variant-ghost-surface text-center">
                 <svelte:component this={icons.Database} class="w-16 h-16 mx-auto mb-4 text-surface-500" />
                 <h4 class="h4 mb-2">No Data Found</h4>
@@ -1044,10 +1157,6 @@
                 {/each}
               </div>
             {/if}
-                  </div>
-                {/snippet}
-              </Accordion.Item>
-            </Accordion>
           {/if}
         </div>
       {/if}

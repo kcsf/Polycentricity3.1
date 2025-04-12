@@ -5,14 +5,14 @@
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
   
-  // Using standard Svelte reactivity
-  let isLoading = false;
-  let error: string | null = null;
-  let success = false;
-  let result: { success: boolean; processed: number } | null = null;
+  // Using $state() for reactivity
+  let isLoading = $state(false);
+  let error = $state<string | null>(null);
+  let success = $state(false);
+  let result = $state<{ success: boolean; processed: number } | null>(null);
   
-  // For accordion sections - all closed by default
-  let accordionValue: string[] = [];
+  // For accordion sections
+  let accordionValue = $state(['schema', 'relationships', 'cleanup', 'documentation']);
   
   async function initializeRelationships() {
     isLoading = true;
@@ -37,12 +37,12 @@
     }
   }
   
-  let relationshipStats = {
+  let relationshipStats = $state({
     cardsWithDecks: 0,
     decksWithCards: 0,
     cards: 0,
     decks: 0
-  };
+  });
   
   async function getRelationshipStats() {
     try {
@@ -149,10 +149,10 @@
   // Cleanup functions
   import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards } from '$lib/services/cleanupService';
   
-  let cleanupLoading = false;
-  let cleanupError: string | null = null;
-  let cleanupSuccess = false;
-  let cleanupResult: { success: boolean; removed: number } | null = null;
+  let cleanupLoading = $state(false);
+  let cleanupError = $state<string | null>(null);
+  let cleanupSuccess = $state(false);
+  let cleanupResult = $state<{ success: boolean; removed: number } | null>(null);
   
   async function handleCleanupGames() {
     if (!confirm('Are you sure you want to remove ALL games? This action cannot be undone.')) {
