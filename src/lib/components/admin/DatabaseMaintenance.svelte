@@ -5,14 +5,14 @@
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
   
-  // Using $state() for reactivity
-  let isLoading = $state(false);
-  let error = $state<string | null>(null);
-  let success = $state(false);
-  let result = $state<{ success: boolean; processed: number } | null>(null);
+  // Using standard Svelte reactivity
+  let isLoading = false;
+  let error: string | null = null;
+  let success = false;
+  let result: { success: boolean; processed: number } | null = null;
   
   // For accordion sections - all closed by default
-  let accordionValue = $state([]);
+  let accordionValue: string[] = [];
   
   async function initializeRelationships() {
     isLoading = true;
@@ -37,12 +37,12 @@
     }
   }
   
-  let relationshipStats = $state({
+  let relationshipStats = {
     cardsWithDecks: 0,
     decksWithCards: 0,
     cards: 0,
     decks: 0
-  });
+  };
   
   async function getRelationshipStats() {
     try {
