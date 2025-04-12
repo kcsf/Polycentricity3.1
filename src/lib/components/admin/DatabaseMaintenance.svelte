@@ -12,7 +12,6 @@
   let result = $state<{ success: boolean; processed: number } | null>(null);
   
   // For accordion sections - empty array means all accordions are closed by default
-  // Removed 'cleanup' from potential values since we removed that section
   let accordionValue = $state([]);
   
   async function initializeRelationships() {
@@ -147,7 +146,107 @@
     }
   }
   
-  // Removed cleanup functions since we removed the cleanup tab
+  // Cleanup functions
+  import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards } from '$lib/services/cleanupService';
+  
+  let cleanupLoading = $state(false);
+  let cleanupError = $state<string | null>(null);
+  let cleanupSuccess = $state(false);
+  let cleanupResult = $state<{ success: boolean; removed: number } | null>(null);
+  
+  async function handleCleanupGames() {
+    if (!confirm('Are you sure you want to remove ALL games? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all games');
+      cleanupResult = await cleanupAllGames();
+      console.log('Games cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+    } catch (err) {
+      console.error('Error cleaning up games:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupDecks() {
+    if (!confirm('Are you sure you want to remove ALL decks? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all decks');
+      cleanupResult = await cleanupAllDecks();
+      console.log('Decks cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+      
+      // Refresh statistics after cleanup
+      await getRelationshipStats();
+    } catch (err) {
+      console.error('Error cleaning up decks:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupCards() {
+    if (!confirm('Are you sure you want to remove ALL cards? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all cards');
+      cleanupResult = await cleanupAllCards();
+      console.log('Cards cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+      
+      // Refresh statistics after cleanup
+      await getRelationshipStats();
+    } catch (err) {
+      console.error('Error cleaning up cards:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupUsers() {
+    if (!confirm('Are you sure you want to remove ALL users except your current user? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all users');
+      cleanupResult = await cleanupAllUsers();
+      console.log('Users cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+    } catch (err) {
+      console.error('Error cleaning up users:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
   
   onMount(() => {
     getRelationshipStats();
@@ -307,6 +406,115 @@
               Initialize Bidirectional Relationships
             </button>
           </div>
+        </div>
+      {/snippet}
+    </Accordion.Item>
+    
+    <hr class="hr" />
+    
+    <!-- Cleanup Section -->
+    <Accordion.Item value="cleanup">
+      {#snippet lead()}
+        <svelte:component this={icons.Trash2} size={24} />
+      {/snippet}
+      
+      {#snippet control()}Database Cleanup{/snippet}
+      
+      {#snippet panel()}
+        <div class="p-4 bg-surface-100-800-token rounded mb-4 mt-4">
+          <h4 class="font-semibold mb-2">⚠️ Danger Zone</h4>
+          <p class="text-sm mb-4">
+            These actions will permanently remove data from your database. Use with caution.
+          </p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+              <h5 class="font-semibold mb-2">Remove All Games</h5>
+              <p class="text-xs mb-4">
+                This will permanently delete all games in the database. This action cannot be undone.
+              </p>
+              <button 
+                type="button"
+                class="btn preset-filled-primary-500 w-full" 
+                onclick={handleCleanupGames}
+                disabled={cleanupLoading}
+              >
+                <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+                Remove All Games
+              </button>
+            </div>
+            
+            <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+              <h5 class="font-semibold mb-2">Remove All Users</h5>
+              <p class="text-xs mb-4">
+                This will permanently delete all users except your current user. This action cannot be undone.
+              </p>
+              <button 
+                type="button"
+                class="btn preset-filled-primary-500 w-full" 
+                onclick={handleCleanupUsers}
+                disabled={cleanupLoading}
+              >
+                <svelte:component this={icons.UserX} class="w-4 h-4 mr-2" />
+                Remove All Users
+              </button>
+            </div>
+            
+            <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+              <h5 class="font-semibold mb-2">Remove All Decks</h5>
+              <p class="text-xs mb-4">
+                This will permanently delete all decks in the database. This action cannot be undone.
+              </p>
+              <button 
+                type="button"
+                class="btn preset-filled-primary-500 w-full" 
+                onclick={handleCleanupDecks}
+                disabled={cleanupLoading}
+              >
+                <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
+                Remove All Decks
+              </button>
+            </div>
+            
+            <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+              <h5 class="font-semibold mb-2">Remove All Cards</h5>
+              <p class="text-xs mb-4">
+                This will permanently delete all cards in the database. This action cannot be undone.
+              </p>
+              <button 
+                type="button"
+                class="btn preset-filled-primary-500 w-full" 
+                onclick={handleCleanupCards}
+                disabled={cleanupLoading}
+              >
+                <svelte:component this={icons.FileText} class="w-4 h-4 mr-2" />
+                Remove All Cards
+              </button>
+            </div>
+          </div>
+          
+          {#if cleanupLoading}
+            <div class="flex items-center justify-center p-6 mt-4">
+              <div class="spinner-third w-8 h-8"></div>
+              <span class="ml-3">Processing cleanup operation...</span>
+            </div>
+          {:else if cleanupError}
+            <div class="alert variant-filled-error mt-4">
+              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Error</h3>
+                <p>{cleanupError}</p>
+              </div>
+            </div>
+          {:else if cleanupSuccess}
+            <div class="alert variant-filled-success mt-4">
+              <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+              <div class="alert-message">
+                <h3 class="h4">Success</h3>
+                <p>Successfully removed {cleanupResult?.removed} items.</p>
+              </div>
+            </div>
+          {/if}
         </div>
       {/snippet}
     </Accordion.Item>
