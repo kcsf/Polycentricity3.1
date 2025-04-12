@@ -82,7 +82,7 @@ export async function updateDeck(
 
 // Create a new card with optimized Gun.js handling
 export async function createCard(
-    card: Omit<Card, "card_id">,
+    card: Omit<Card, "card_id"> & { values?: string | string[] | Record<string, boolean> },
 ): Promise<Card | null> {
     console.log("[createCard] Creating card:", card.role_title);
     const gun = getGun();
@@ -113,13 +113,19 @@ export async function createCard(
     // Process values and capabilities from JSON strings
     let valuesArray: string[] = [];
     
-    // Handle values based on type
-    if (typeof card.values === "string") {
-        // Split string, trim each value, and filter out empty strings
-        valuesArray = card.values.split(",").map(v => v.trim()).filter(Boolean);
-    } else if (Array.isArray(card.values)) {
-        // Use array directly, making sure each value is a string
-        valuesArray = card.values.map(v => String(v).trim()).filter(Boolean);
+    // Handle values based on type - with safeguards against type errors
+    if (card.values) {
+        if (typeof card.values === "string") {
+            // Split string, trim each value, and filter out empty strings
+            valuesArray = (card.values as string).split(",").map(v => v.trim()).filter(Boolean);
+        } else if (Array.isArray(card.values)) {
+            // Use array directly, making sure each value is a string
+            valuesArray = (card.values as any[]).map(v => String(v).trim()).filter(Boolean);
+        } else if (typeof card.values === 'object') {
+            // Extract keys from valuesRecord structure
+            valuesArray = Object.keys(card.values as Record<string, any>)
+                .filter(k => (card.values as Record<string, any>)[k] === true);
+        }
     }
     
     // Add standard values if none specified - use hardcoded IDs for the fixed values
@@ -145,6 +151,27 @@ export async function createCard(
         valuesArray.filter(v => !v.startsWith('c') || v.length > 2) // Skip hardcoded IDs
     );
     
+    // Combine standard values (c1, c2) with the name-based ones
+    const valuesRecord: Record<string, boolean> = {};
+    
+    // Add hardcoded values directly (if they exist in the array)
+    valuesArray.forEach(v => {
+        if (v.startsWith('c') && v.length <= 2) {
+            valuesRecord[v] = true;
+        }
+    });
+    
+    // Add the values created from strings
+    Object.keys(nameBasedValuesRecord).forEach(key => {
+        valuesRecord[key] = true;
+    });
+    
+    // If we still have no values, add a self-referential value
+    if (Object.keys(valuesRecord).length === 0) {
+        // Add c1 as a fallback standard value
+        valuesRecord["c1"] = true;
+    }
+    
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
     
     // Prepare Gun-compatible card structure (no arrays)
@@ -153,6 +180,7 @@ export async function createCard(
         card_number: cardNumber,
         role_title: card.role_title,
         backstory: card.backstory || "",
+        // Store values directly rather than as a Gun.js reference to avoid resolving issues
         values: valuesRecord,
         goals: goalsString,
         obligations: card.obligations || "",
