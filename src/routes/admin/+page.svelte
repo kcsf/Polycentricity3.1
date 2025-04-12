@@ -39,7 +39,7 @@
   let currentUser = null;
   
   // For accordion sections in Overview tab - all closed by default
-  let overviewAccordionValue = $state([]);
+  let overviewAccordionValue: string[] = [];
   
   // Simplified visualization loading
   function loadGraphVisualization() {
