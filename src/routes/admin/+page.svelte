@@ -111,10 +111,15 @@
         if (typeof node.data === 'object') {
           // Process properties that might be references
           Object.entries(node.data).forEach(([key, value]) => {
-            if (key === '_' || key === '#' || key === 'id') return;
+            // Skip metadata, internal properties, and ID fields that aren't actual references
+            if (key === '_' || key === '#' || key === 'id' || 
+                key.endsWith('_id') || // Skip properties like value_id, card_id, capability_id
+                key === 'created_at' || 
+                key === 'updated_at' || 
+                key === 'creator') return;
             
-            // Handle string references
-            if (typeof value === 'string' && value.length > 8) {
+            // Handle string references that are actual references (not just the ID field with same name)
+            if (typeof value === 'string' && value.length > 8 && !key.endsWith('_id')) {
               const targetNode = findNodeById(nodes, value);
               if (targetNode) {
                 // Apply styling for edges based on node relationships
@@ -143,32 +148,119 @@
             
             // Handle objects with references (Gun.js {id: true} pattern)
             if (value && typeof value === 'object') {
-              // Special case for deck cards with a Gun.js soul reference (#)
-              if (nodeType.type === 'decks' && key === 'cards' && value['#']) {
-                console.log(`Deck ${node.id} has cards reference with soul: ${value['#']}`);
+              // Handle Gun.js soul references (#)
+              if (value['#']) {
+                console.log(`${nodeType.type} ${node.id} has ${key} reference with soul: ${value['#']}`);
                 
-                // Find cards that belong to this deck by looking at the soul reference
-                const deckSoul = value['#'];
-                const deckPrefix = `${deckSoul}/`;
-                
-                // Look for card nodes that might be part of this deck
-                databaseNodes.forEach(cardNodeType => {
-                  if (cardNodeType.type === 'cards') {
-                    cardNodeType.nodes.forEach(cardNode => {
-                      // Create an edge from deck to card
-                      edges.push({
-                        id: `edge_deck_${node.id}_card_${cardNode.id}`,
-                        source: `${nodeType.type}_${node.id}`,
-                        target: `${cardNodeType.type}_${cardNode.id}`,
-                        label: 'contains',
-                        style: {
-                          stroke: '#E8684A', // Color for deck-card relationship
-                          lineWidth: 2
-                        }
+                // Special case for cards <-> values relationship
+                if (nodeType.type === 'values' && key === 'cards') {
+                  // Find all cards and create edges to this value
+                  databaseNodes.forEach(cardNodeType => {
+                    if (cardNodeType.type === 'cards') {
+                      cardNodeType.nodes.forEach(cardNode => {
+                        // Create an edge from value to card
+                        edges.push({
+                          id: `edge_value_${node.id}_card_${cardNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${cardNodeType.type}_${cardNode.id}`,
+                          label: 'used by',
+                          style: {
+                            stroke: '#9254DE', // Purple for value-card relationship
+                            lineWidth: 2
+                          }
+                        });
                       });
-                    });
-                  }
-                });
+                    }
+                  });
+                }
+                
+                // Special case for cards <-> capabilities relationship
+                else if (nodeType.type === 'capabilities' && key === 'cards') {
+                  // Find all cards and create edges to this capability
+                  databaseNodes.forEach(cardNodeType => {
+                    if (cardNodeType.type === 'cards') {
+                      cardNodeType.nodes.forEach(cardNode => {
+                        // Create an edge from capability to card
+                        edges.push({
+                          id: `edge_capability_${node.id}_card_${cardNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${cardNodeType.type}_${cardNode.id}`,
+                          label: 'enabled by',
+                          style: {
+                            stroke: '#36CFC9', // Teal for capability-card relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
+                
+                // Special case for decks <-> cards relationship
+                else if (nodeType.type === 'decks' && key === 'cards') {
+                  // Find all cards and create edges to this deck
+                  databaseNodes.forEach(cardNodeType => {
+                    if (cardNodeType.type === 'cards') {
+                      cardNodeType.nodes.forEach(cardNode => {
+                        // Create an edge from deck to card
+                        edges.push({
+                          id: `edge_deck_${node.id}_card_${cardNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${cardNodeType.type}_${cardNode.id}`,
+                          label: 'contains',
+                          style: {
+                            stroke: '#E8684A', // Red for deck-card relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
+                
+                // Special case for cards <-> values relationship (from card side)
+                else if (nodeType.type === 'cards' && key === 'values') {
+                  // Find all values and create edges from this card
+                  databaseNodes.forEach(valueNodeType => {
+                    if (valueNodeType.type === 'values') {
+                      valueNodeType.nodes.forEach(valueNode => {
+                        // Create an edge from card to value
+                        edges.push({
+                          id: `edge_card_${node.id}_value_${valueNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${valueNodeType.type}_${valueNode.id}`,
+                          label: 'has value',
+                          style: {
+                            stroke: '#9254DE', // Purple for card-value relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
+                
+                // Special case for cards <-> capabilities relationship (from card side)
+                else if (nodeType.type === 'cards' && key === 'capabilities') {
+                  // Find all capabilities and create edges from this card
+                  databaseNodes.forEach(capNodeType => {
+                    if (capNodeType.type === 'capabilities') {
+                      capNodeType.nodes.forEach(capNode => {
+                        // Create an edge from card to capability
+                        edges.push({
+                          id: `edge_card_${node.id}_capability_${capNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${capNodeType.type}_${capNode.id}`,
+                          label: 'has capability',
+                          style: {
+                            stroke: '#36CFC9', // Teal for card-capability relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
               } 
               // Standard object with key-value pairs
               else {
