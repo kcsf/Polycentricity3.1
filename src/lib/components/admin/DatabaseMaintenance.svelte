@@ -4,6 +4,7 @@
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
+  import AdminTools from '$lib/components/admin/AdminTools.svelte';
   
   // Using $state() for reactivity
   let isLoading = $state(false);
@@ -410,6 +411,23 @@
       {/snippet}
     </Accordion.Item>
     
+    <hr class="hr" />
+    
+    <!-- Admin Tools Section -->
+    <Accordion.Item value="admin">
+      {#snippet lead()}
+        <svelte:component this={icons.UserCog} size={24} />
+      {/snippet}
+      
+      {#snippet control()}Admin Tools{/snippet}
+      
+      {#snippet panel()}
+        <div class="card p-4 bg-surface-200-800 border border-surface-300-600 mt-4">
+          <AdminTools />
+        </div>
+      {/snippet}
+    </Accordion.Item>
+
     <hr class="hr" />
     
     <!-- Cleanup Section -->

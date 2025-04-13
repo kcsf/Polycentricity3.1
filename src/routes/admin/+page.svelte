@@ -5,7 +5,6 @@
   import { page } from '$app/stores';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
-  import AdminTools from '$lib/components/admin/AdminTools.svelte';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
   import DeckBrowser from '$lib/components/admin/DeckBrowser.svelte';
   import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
@@ -878,10 +877,6 @@
             <!-- Consolidated Database Tools Component -->
             <div class="mb-6">
               <DatabaseTools />
-            </div>
-            
-            <div class="mb-6">
-              <AdminTools />
             </div>
             
             <!-- DeckManager moved to Decks tab -->
