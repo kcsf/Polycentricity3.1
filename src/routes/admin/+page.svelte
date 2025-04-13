@@ -730,7 +730,7 @@
             </div>
           {:else}
             <!-- Inner tabs for data types -->
-            <div class="card p-4 bg-surface-50-900-token">
+            <div class="card p-4 bg-surface-50-900 border border-surface-300-600">
               <div class="data-tabs mb-4">
                 {#each databaseNodes as nodeType}
                   <button 
