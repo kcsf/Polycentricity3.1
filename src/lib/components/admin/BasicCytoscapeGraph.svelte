@@ -22,7 +22,7 @@
   
   // Layout options
   const layouts = [
-    { id: 'default', name: 'Default Hierarchy' },
+    { id: 'default', name: 'Deck Hierarchy' },
     { id: 'cise', name: 'Circular Clusters (CISE)' },
     { id: 'concentric', name: 'Concentric' },
     { id: 'grid', name: 'Grid' },
@@ -385,20 +385,18 @@
       availableNodeTypes = [...new Set(nodes.map(node => node.type))].sort();
       console.log("Available node types:", availableNodeTypes);
       
-      // Make sure all node types are selected by default
-      selectedNodeTypes = [...availableNodeTypes]; 
-      console.log("Selected node types:", selectedNodeTypes);
-      
-      // Ensure our common types are always included even if not in current data
+      // Ensure all node types are in the available list, even if not in the current data
       const essentialTypes = ['users', 'decks', 'cards', 'values', 'capabilities'];
       essentialTypes.forEach(type => {
         if (!availableNodeTypes.includes(type)) {
           availableNodeTypes.push(type);
         }
-        if (!selectedNodeTypes.includes(type)) {
-          selectedNodeTypes.push(type);
-        }
       });
+      
+      // Only select the relevant node types by default as requested
+      const relevantNodeTypes = ['users', 'decks', 'cards', 'values', 'capabilities'];
+      selectedNodeTypes = availableNodeTypes.filter(type => relevantNodeTypes.includes(type));
+      console.log("Selected node types:", selectedNodeTypes);
       
       // Get unique edge types (connections between node types)
       const edgeTypes = new Set();
@@ -409,7 +407,11 @@
         }
       });
       availableEdgeTypes = [...edgeTypes].sort();
-      selectedEdgeTypes = [...availableEdgeTypes]; // Select all by default
+      
+      // Only select the relevant edge types by default
+      const relevantEdgeTypes = ['decks-cards', 'cards-values', 'cards-capabilities', 
+                                'values-cards', 'capabilities-cards'];
+      selectedEdgeTypes = availableEdgeTypes.filter(type => relevantEdgeTypes.includes(type));
       
       // Initialize filtered nodes and edges
       applyFilters();
