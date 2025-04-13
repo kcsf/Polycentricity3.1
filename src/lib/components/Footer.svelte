@@ -3,7 +3,7 @@
         const currentYear = new Date().getFullYear();
 </script>
 
-<footer class="p-4 bg-surface-100 mt-auto border-t border-surface-200/50">
+<footer class="p-4 bg-surface-100-800 mt-auto border-t border-surface-200-700/50 text-surface-700-300">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
                 <div class="mb-4 md:mb-0">
                         <p class="text-sm opacity-80">© {currentYear} Polycentricity3. All rights reserved.</p>

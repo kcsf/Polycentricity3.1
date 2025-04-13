@@ -11,9 +11,9 @@
         });
 </script>
 
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col min-h-screen bg-surface-50-950">
         <Header />
-        <main class="flex-grow">
+        <main class="flex-grow container mx-auto p-4">
                 <slot />
         </main>
         <Footer />
