@@ -97,27 +97,27 @@
   }
 </script>
 
-<div class="card p-4 bg-surface-50-900-token">
+<div class="card p-4 bg-surface-50-900">
   <h3 class="h4 mb-4 flex items-center">
     <svelte:component this={icons.Database} class="w-5 h-5 mr-2 text-tertiary-500" />
     Database Tools
   </h3>
   
-  <p class="mb-4">
+  <p class="mb-4 text-surface-900-50">
     These tools help manage, initialize, and verify the Gun.js database.
   </p>
   
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
     <!-- Sample Data Initialization -->
-    <div class="card p-4 variant-soft">
-      <h4 class="h5 mb-2">Sample Data</h4>
-      <p class="text-sm mb-4">
+    <div class="card p-4 bg-surface-100-800 border border-surface-300-600 rounded-lg">
+      <h4 class="h5 mb-2 text-surface-900-50">Sample Data</h4>
+      <p class="text-sm mb-4 text-surface-700-300">
         Initialize the database with sample data, including users, cards, decks, games, actors, agreements, chat, and node positions.
       </p>
       <div class="flex flex-col gap-2">
         <button 
-          class="btn variant-filled-primary" 
-          on:click={initializeData}
+          class="btn bg-primary-500 hover:bg-primary-600 text-white" 
+          onclick={initializeData}
           disabled={isInitializing || isVerifying || isWorking}
         >
           {#if isInitializing}
@@ -130,8 +130,8 @@
         </button>
         
         <button 
-          class="btn variant-filled-secondary" 
-          on:click={verifyData}
+          class="btn bg-secondary-500 hover:bg-secondary-600 text-white" 
+          onclick={verifyData}
           disabled={isInitializing || isVerifying || isWorking}
         >
           {#if isVerifying}
@@ -146,14 +146,14 @@
     </div>
     
     <!-- Admin Creation -->
-    <div class="card p-4 variant-soft">
-      <h4 class="h5 mb-2">Admin Creation</h4>
-      <p class="text-sm mb-4">
+    <div class="card p-4 bg-surface-100-800 border border-surface-300-600 rounded-lg">
+      <h4 class="h5 mb-2 text-surface-900-50">Admin Creation</h4>
+      <p class="text-sm mb-4 text-surface-700-300">
         Create a special admin user when authentication has issues. This is useful for development and testing purposes.
       </p>
       <button 
-        class="btn variant-filled-tertiary w-full" 
-        on:click={createAdminUser}
+        class="btn bg-tertiary-500 hover:bg-tertiary-600 text-white w-full" 
+        onclick={createAdminUser}
         disabled={isWorking || isInitializing || isVerifying}
       >
         {#if isWorking}
@@ -167,13 +167,13 @@
     </div>
     
     <!-- Schema Reference -->
-    <div class="card p-4 variant-soft">
-      <h4 class="h5 mb-2">Schema Reference</h4>
-      <p class="text-sm mb-2">
+    <div class="card p-4 bg-surface-100-800 border border-surface-300-600 rounded-lg">
+      <h4 class="h5 mb-2 text-surface-900-50">Schema Reference</h4>
+      <p class="text-sm mb-2 text-surface-700-300">
         Overview of the Gun.js database schema structure.
       </p>
-      <div class="bg-surface-100-800-token p-3 rounded-lg">
-        <ul class="list-disc ml-4 space-y-1 text-sm">
+      <div class="bg-surface-200-700 p-3 rounded-lg">
+        <ul class="list-disc ml-4 space-y-1 text-sm text-surface-900-50">
           <li><span class="font-mono text-primary-500">users</span> - User accounts with roles</li>
           <li><span class="font-mono text-primary-500">cards</span> - Role templates with properties</li>
           <li><span class="font-mono text-primary-500">decks</span> - Collections of cards for games</li>
@@ -187,7 +187,7 @@
   </div>
   
   {#if result}
-    <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
+    <div class="alert {result.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mb-4 rounded-container-token">
       <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
       <div class="alert-message">
         <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
@@ -196,16 +196,16 @@
     </div>
   {/if}
   
-  <div class="bg-surface-100-800-token p-4 rounded-lg">
-    <h4 class="font-semibold mb-2 flex items-center">
+  <div class="bg-surface-100-800 p-4 rounded-lg border border-surface-300-600">
+    <h4 class="font-semibold mb-2 flex items-center text-surface-900-50">
       <svelte:component this={icons.Info} class="w-4 h-4 mr-2 text-info-500" />
       Gun.js Database Tips
     </h4>
-    <ul class="list-disc ml-6 space-y-1 text-sm">
-      <li>Use objects with <code>{'{id: true}'}</code> pattern for relationships instead of arrays</li>
-      <li>Store arrays as objects with numbered keys <code>{'{0: item1, 1: item2}'}</code></li>
+    <ul class="list-disc ml-6 space-y-1 text-sm text-surface-700-300">
+      <li>Use objects with <code class="bg-surface-200-700 px-1 rounded">{'{id: true}'}</code> pattern for relationships instead of arrays</li>
+      <li>Store arrays as objects with numbered keys <code class="bg-surface-200-700 px-1 rounded">{'{0: item1, 1: item2}'}</code></li>
       <li>Add delays between database operations to avoid conflicts</li>
-      <li>Use proper bidirectional relationships with Gun's <code>set()</code> method</li>
+      <li>Use proper bidirectional relationships with Gun's <code class="bg-surface-200-700 px-1 rounded">set()</code> method</li>
       <li>Reset browser local storage to completely clear Gun.js data in development</li>
     </ul>
   </div>

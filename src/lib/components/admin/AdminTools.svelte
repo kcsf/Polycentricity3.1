@@ -44,27 +44,27 @@
   }
 </script>
 
-<div class="card p-4 bg-surface-50-900-token">
+<div class="card p-4 bg-surface-50-900">
   <h3 class="h4 mb-4 flex items-center">
     <svelte:component this={icons.UserCog} class="w-5 h-5 mr-2 text-primary-500" />
     Admin Tools
   </h3>
   
-  <p class="mb-4">
+  <p class="mb-4 text-surface-900-50">
     Use this tool to promote a user to Admin role. Enter the user's email address below.
   </p>
   
   <div class="flex flex-col gap-4">
-    <div class="input-group input-group-divider grid-cols-[1fr_auto]">
+    <div class="input-group input-group-divider grid-cols-[1fr_auto] border-surface-400-500">
       <input 
         type="email"
         bind:value={adminEmail}
         placeholder="Enter user email"
-        class="input"
+        class="input bg-surface-100-800 text-surface-900-50"
       />
       <button 
-        class="btn variant-filled-primary" 
-        on:click={makeAdmin}
+        class="btn bg-primary-500 hover:bg-primary-600 text-white" 
+        onclick={makeAdmin}
         disabled={isUpdating}
       >
         {#if isUpdating}
@@ -78,7 +78,7 @@
     </div>
     
     {#if result}
-      <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
+      <div class="alert {result.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mb-4 rounded-container-token">
         <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
         <div class="alert-message">
           <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
@@ -87,12 +87,12 @@
       </div>
     {/if}
     
-    <div class="p-4 bg-surface-100-800-token rounded-lg">
-      <h4 class="font-semibold mb-2">Quick Admin Setup</h4>
-      <p class="text-sm mb-2">For your convenience, click the button below to set <strong>bjorn@endogon.com</strong> as Admin.</p>
+    <div class="p-4 bg-surface-100-800 rounded-lg border border-surface-300-600">
+      <h4 class="font-semibold mb-2 text-surface-900-50">Quick Admin Setup</h4>
+      <p class="text-sm mb-2 text-surface-700-300">For your convenience, click the button below to set <strong>bjorn@endogon.com</strong> as Admin.</p>
       <button 
-        class="btn variant-filled-secondary" 
-        on:click={() => {
+        class="btn bg-secondary-500 hover:bg-secondary-600 text-white" 
+        onclick={() => {
           adminEmail = 'bjorn@endogon.com';
           makeAdmin();
         }}

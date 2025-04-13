@@ -5,10 +5,59 @@
 @import '@skeletonlabs/skeleton/optional/presets';
 /* Use the fennec theme which supports both light and dark modes */
 @import '@skeletonlabs/skeleton/themes/fennec';
-
 @source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 
 /* Custom styles */
+:root {
+  /* Default to light mode unless overridden */
+  color-scheme: light;
+}
+
+/* Ensure color-scheme respects the toggle */
+html[data-theme="fennec"][class~="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="fennec"]:not([class~="dark"]) {
+  color-scheme: light;
+}
+
+/* Debug Skeleton UI variables */
+:root:not([class~="dark"]) {
+  --debug-light-surface-50: var(--theme-color-surface-50);
+}
+
+:root[class~="dark"] {
+  --debug-dark-surface-900: var(--theme-color-surface-900);
+}
+
+/* Override Skeleton UI's prefers-color-scheme media queries */
+body {
+  background-color: var(--body-background-color) !important;
+}
+
+html[class~="dark"] body {
+  background-color: var(--body-background-color-dark) !important;
+}
+
+/* Force Skeleton UI token backgrounds to respect dark class */
+html:not([class~="dark"]) .bg-surface-50-900-token {
+  background-color: var(--theme-color-surface-50) !important;
+}
+
+html[class~="dark"] .bg-surface-50-900-token {
+  background-color: var(--theme-color-surface-900) !important;
+}
+
+/* Force background for debugging */
+html:not([class~="dark"]) {
+  background-color: var(--theme-color-surface-50) !important;
+}
+
+html[class~="dark"] {
+  background-color: var(--theme-color-surface-900) !important;
+}
+
 @layer components {
   /* Card glow effect */
   .card-glow {
