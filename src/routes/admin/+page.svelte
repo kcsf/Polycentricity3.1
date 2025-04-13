@@ -913,8 +913,8 @@
                     </div>
                     
                     <div class="mb-2">
-                      <h5 class="text-sm font-semibold mb-1">Schema Structure</h5>
-                      <div class="bg-surface-100-800-token p-2 rounded font-mono text-xs">
+                      <h5 class="text-sm font-semibold mb-1 text-surface-900-50">Schema Structure</h5>
+                      <div class="bg-surface-100-800 border border-surface-300-600 p-2 rounded font-mono text-xs">
                         {#if nodeType.count > 0 && nodeType.nodes[0].data}
                           {#each Object.keys(typeof nodeType.nodes[0].data === 'object' ? nodeType.nodes[0].data : {}) as key}
                             <div><span class="text-primary-500">{key}</span>: {typeof nodeType.nodes[0].data[key]}</div>
@@ -926,8 +926,8 @@
                     </div>
                     
                     <div>
-                      <h5 class="text-sm font-semibold mb-1">Relationships</h5>
-                      <div class="bg-surface-100-800-token p-2 rounded">
+                      <h5 class="text-sm font-semibold mb-1 text-surface-900-50">Relationships</h5>
+                      <div class="bg-surface-100-800 border border-surface-300-600 p-2 rounded">
                         {#if nodeType.type === 'users'}
                           <div class="flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-[#5AD8A6]"></span>
