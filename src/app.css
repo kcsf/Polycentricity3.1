@@ -37,120 +37,12 @@
   }
 }
 
-/* Ensure spinner-third is styled */
-.spinner-third {
-  animation: spin 1s linear infinite;
-}
-
+/* Spinner Animation */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-/* Light mode adjustments */
-:root [data-theme="fennec"] {
-  /* Base surfaces - very light background with appropriate contrast */
-  --theme-bg: 248 250 252;
-  --theme-surface-50: 254 255 255;
-  --theme-surface-100: 244 247 252;
-  --theme-surface-200: 228 233 245;
-  --theme-surface-300: 216 226 237;
-  --theme-surface-400: 194 206 220;
-  --theme-surface-500: 172 186 199;
-  --theme-surface-600: 129 138 157;
-  --theme-surface-700: 98 110 130;
-  --theme-surface-800: 69 78 96;
-  --theme-surface-900: 45 55 72;
-}
-
-/* Light mode header */
-[data-theme="fennec"] header {
-  background-color: rgb(var(--theme-surface-50));
-  border-color: rgba(var(--theme-surface-200), 0.5);
-}
-
-/* Light mode footer */
-[data-theme="fennec"] footer {
-  background-color: rgb(var(--theme-surface-100));
-  border-color: rgba(var(--theme-surface-300), 0.5);
-  color: rgb(var(--theme-surface-700));
-}
-
-/* Light mode cards */
-[data-theme="fennec"] .card {
-  background-color: rgb(var(--theme-surface-50));
-  border-color: rgba(var(--theme-surface-200), 0.5);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-}
-
-/* Light mode card glow */
-[data-theme="fennec"] .card-glow::before {
-  box-shadow: 0 0 15px rgba(var(--color-primary-500), 0.15);
-}
-
-/* Light mode inputs */
-[data-theme="fennec"] .input {
-  background-color: rgb(var(--theme-surface-50));
-  border-color: rgba(var(--theme-surface-300), 0.5);
-}
-
-/* Light mode scrollbar */
-[data-theme="fennec"] ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-[data-theme="fennec"] ::-webkit-scrollbar-track {
-  background: rgba(var(--theme-surface-200), 0.4);
-}
-
-[data-theme="fennec"] ::-webkit-scrollbar-thumb {
-  background: rgba(var(--theme-surface-400), 0.6);
-  border-radius: 4px;
-}
-
-[data-theme="fennec"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--theme-surface-500), 0.8);
-}
-
-/* Dark mode adjustments */
-.dark .card-glow::before {
-  box-shadow: 0 0 10px rgba(var(--color-primary-400), 0.5);
-}
-
-/* Improve the look of cards in dark mode */
-.dark .card {
-  border-color: rgba(var(--color-surface-500), 0.2);
-  background-color: rgba(var(--color-surface-800), 0.8);
-}
-
-/* Adjust inputs for dark mode */
-.dark .input {
-  background-color: rgba(var(--color-surface-700), 0.6);
-  border-color: rgba(var(--color-surface-500), 0.2);
-}
-
-/* Adjust table styles for dark mode */
-.dark .table-container {
-  background-color: rgba(var(--color-surface-800), 0.8);
-  border-color: rgba(var(--color-surface-500), 0.2);
-}
-
-/* Custom scrollbar for dark mode */
-.dark ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.dark ::-webkit-scrollbar-track {
-  background: rgba(var(--color-surface-700), 0.2);
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(var(--color-surface-500), 0.6);
-  border-radius: 4px;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--color-surface-400), 0.8);
+.spinner-third {
+  animation: spin 1s linear infinite;
 }

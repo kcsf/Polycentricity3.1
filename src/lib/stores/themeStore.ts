@@ -6,59 +6,51 @@ export type Theme = 'light' | 'dark';
 const DEFAULT_THEME: Theme = 'light';
 const STORAGE_KEY = 'polycentricity-theme-preference';
 
+// Create the store
+const themeStore = writable<Theme>(DEFAULT_THEME);
+
 // Initialize theme from localStorage or default to light
-function initializeTheme(): Theme {
-  if (!browser) return DEFAULT_THEME;
+function initializeTheme(): void {
+  if (!browser) return;
   
   // Check localStorage for saved preference
   const storedTheme = localStorage.getItem(STORAGE_KEY);
   
-  // Check system preference if no stored preference
+  // Use system preference if no stored preference
   if (!storedTheme) {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return prefersDark ? 'dark' : 'light';
+    themeStore.set(prefersDark ? 'dark' : 'light');
+    applyTheme(prefersDark ? 'dark' : 'light');
+    return;
   }
   
   // Use stored preference if valid
-  const validTheme = storedTheme === 'light' || storedTheme === 'dark' 
-    ? storedTheme as Theme 
-    : DEFAULT_THEME;
-    
-  // Apply the theme to the HTML tag when initializing
-  applyTheme(validTheme);
-  
-  return validTheme;
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    themeStore.set(storedTheme as Theme);
+    applyTheme(storedTheme as Theme);
+  }
 }
 
-// Helper function to apply the theme to the HTML element
+// Helper function to apply the theme using data-theme
 function applyTheme(theme: Theme): void {
   if (!browser) return;
   
-  // Use Skeleton UI's full theming system
+  // Use Skeleton UI's built-in mode handling with data-mode attribute
   if (theme === 'dark') {
-    // Apply dark mode - skeleton theme
-    document.documentElement.setAttribute('data-theme', 'skeleton');
-    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-mode', 'dark');
   } else {
-    // Apply light mode - fennec theme
-    document.documentElement.setAttribute('data-theme', 'fennec');
-    document.documentElement.classList.remove('dark');
+    document.documentElement.setAttribute('data-mode', 'light');
   }
   
   // Store the preference
   localStorage.setItem(STORAGE_KEY, theme);
 }
 
-// Create the store
-const themeStore = writable<Theme>(DEFAULT_THEME);
-
-// Initialize the store when in browser
+// Initialize when on client side
 if (browser) {
-  themeStore.set(initializeTheme());
-}
-
-// Subscribe to the store to apply changes
-if (browser) {
+  initializeTheme();
+  
+  // Subscribe to store changes to apply the theme
   themeStore.subscribe(theme => {
     applyTheme(theme);
   });
