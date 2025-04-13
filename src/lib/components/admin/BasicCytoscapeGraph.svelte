@@ -22,6 +22,7 @@
   
   // Layout options
   const layouts = [
+    { id: 'default', name: 'Default Hierarchy' },
     { id: 'cise', name: 'Circular Clusters (CISE)' },
     { id: 'concentric', name: 'Concentric' },
     { id: 'grid', name: 'Grid' },
@@ -157,6 +158,39 @@
     
     // Configure layout based on selection
     switch (selectedLayout.id) {
+      // Our custom "Default" hierarchical layout that places nodes in the hierarchy:
+      // Users > Decks > Cards > Values & Capabilities
+      case 'default':
+        layoutOptions = {
+          name: 'dagre',
+          rankDir: 'TB', // Top to bottom
+          rankSep: 100, // Distance between layers
+          align: 'UL', // Align upper left
+          ranker: 'network-simplex',
+          // Define the order of node types from top to bottom
+          sort: function(a, b) {
+            const nodeTypeRanks = {
+              'users': 1,
+              'games': 2,
+              'decks': 3,
+              'actors': 4,
+              'cards': 5,
+              'values': 6,
+              'capabilities': 6,
+              'agreements': 7,
+              'chat': 7,
+            };
+            
+            const aRank = nodeTypeRanks[a.data('type')] || 99;
+            const bRank = nodeTypeRanks[b.data('type')] || 99;
+            
+            return aRank - bRank;
+          },
+          animate: true,
+          padding: 30
+        };
+        break;
+        
       case 'cise':
         layoutOptions = {
           name: 'cise',
@@ -198,8 +232,8 @@
               case 'capabilities': return 5;
               case 'cards': return 4;
               case 'decks': return 3;
-              case 'users': return 2;
-              case 'games': return 1;
+              case 'users': return 1;
+              case 'games': return 2;
               default: return 0;
             }
           },
@@ -556,38 +590,38 @@
   });
 </script>
 
-<div class="graph-controls mb-4 p-4 card bg-surface-200-800 border border-surface-300-600 shadow rounded-lg">
-  <div class="flex flex-col gap-4">
-    <!-- Control Panels -->
-    <div class="flex flex-col md:flex-row gap-4">
+<div class="graph-controls mb-2 p-2 card bg-surface-200-800 border border-surface-300-600 shadow rounded-lg text-xs">
+  <div class="flex flex-col gap-2">
+    <!-- Compact Control Panels -->
+    <div class="flex flex-col md:flex-row gap-2">
       <!-- Node Type Filter -->
       <div class="flex-1">
-        <h3 class="text-lg font-semibold mb-2">Filter Node Types</h3>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <h3 class="text-sm font-semibold mb-1">Node Types</h3>
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1">
           {#each availableNodeTypes as type}
-            <label class="flex items-center gap-2 p-2 rounded bg-surface-100-800 hover:bg-surface-200-700 cursor-pointer">
+            <label class="flex items-center gap-1 p-1 rounded bg-surface-100-800 hover:bg-surface-200-700 cursor-pointer text-xs">
               <input 
                 type="checkbox" 
                 checked={selectedNodeTypes.includes(type)} 
                 on:change={() => toggleNodeType(type)}
-                class="checkbox"
+                class="checkbox checkbox-xs"
               />
-              <span class="w-3 h-3 rounded-full" style="background-color: {getColorForNodeType(type)}"></span>
-              <span>{type}</span>
+              <span class="w-2 h-2 rounded-full" style="background-color: {getColorForNodeType(type)}"></span>
+              <span class="truncate">{type}</span>
             </label>
           {/each}
         </div>
-        <div class="flex gap-2 mt-2">
-          <button class="btn btn-sm variant-ghost" on:click={selectAllNodeTypes}>Select All</button>
-          <button class="btn btn-sm variant-ghost" on:click={clearNodeTypeSelection}>Clear All</button>
+        <div class="flex gap-1 mt-1">
+          <button class="btn btn-xs variant-ghost" on:click={selectAllNodeTypes}>All</button>
+          <button class="btn btn-xs variant-ghost" on:click={clearNodeTypeSelection}>None</button>
         </div>
       </div>
       
       <!-- Layout Selector -->
-      <div class="flex-none w-full md:w-64">
-        <h3 class="text-lg font-semibold mb-2">Graph Layout</h3>
+      <div class="flex-none w-full md:w-48">
+        <h3 class="text-sm font-semibold mb-1">Layout</h3>
         <select 
-          class="select bg-surface-100-800 border border-surface-300-600 rounded w-full"
+          class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
           bind:value={selectedLayout}
           on:change={handleLayoutChange}
         >
@@ -601,23 +635,23 @@
     <!-- Edge Type Filter -->
     {#if availableEdgeTypes.length > 0}
       <div>
-        <h3 class="text-lg font-semibold mb-2">Filter Edge Types</h3>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        <h3 class="text-sm font-semibold mb-1">Edge Types</h3>
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1">
           {#each availableEdgeTypes as type}
-            <label class="flex items-center gap-2 p-2 rounded bg-surface-100-800 hover:bg-surface-200-700 cursor-pointer">
+            <label class="flex items-center gap-1 p-1 rounded bg-surface-100-800 hover:bg-surface-200-700 cursor-pointer text-xs">
               <input 
                 type="checkbox" 
                 checked={selectedEdgeTypes.includes(type)} 
                 on:change={() => toggleEdgeType(type)}
-                class="checkbox"
+                class="checkbox checkbox-xs"
               />
-              <span>{type}</span>
+              <span class="truncate">{type}</span>
             </label>
           {/each}
         </div>
-        <div class="flex gap-2 mt-2">
-          <button class="btn btn-sm variant-ghost" on:click={selectAllEdgeTypes}>Select All</button>
-          <button class="btn btn-sm variant-ghost" on:click={clearEdgeTypeSelection}>Clear All</button>
+        <div class="flex gap-1 mt-1">
+          <button class="btn btn-xs variant-ghost" on:click={selectAllEdgeTypes}>All</button>
+          <button class="btn btn-xs variant-ghost" on:click={clearEdgeTypeSelection}>None</button>
         </div>
       </div>
     {/if}

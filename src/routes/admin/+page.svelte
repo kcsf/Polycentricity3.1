@@ -112,11 +112,10 @@
           // Process properties that might be references
           Object.entries(node.data).forEach(([key, value]) => {
             // These are internal Gun.js properties or metadata fields we want to skip
-            const skipFields = ['_', '#', 'id', 'created_at', 'updated_at', 'creator'];
+            const skipFields = ['_', '#', 'created_at', 'updated_at', 'creator'];
             
-            // Skip ID fields that aren't actual references
-            if (skipFields.includes(key) || 
-                (key.endsWith('_id') && key !== 'deck_id' && key !== 'game_id')) return;
+            // Skip certain fields, but include more potential reference fields
+            if (skipFields.includes(key)) return;
             
             // Handle string references that are actual references (not just the ID field with same name)
             if (typeof value === 'string' && value.length > 8 && !key.endsWith('_id')) {
@@ -232,6 +231,28 @@
                           label: 'has value',
                           style: {
                             stroke: '#9254DE', // Purple for card-value relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
+                
+                // Special case for users > decks relationships
+                else if (nodeType.type === 'users' && key === 'decks') {
+                  // Find all decks and create edges from this user
+                  databaseNodes.forEach(deckNodeType => {
+                    if (deckNodeType.type === 'decks') {
+                      deckNodeType.nodes.forEach(deckNode => {
+                        // Create an edge from user to deck
+                        edges.push({
+                          id: `edge_user_${node.id}_deck_${deckNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${deckNodeType.type}_${deckNode.id}`,
+                          label: 'created deck',
+                          style: {
+                            stroke: '#5B8FF9', // Blue for user-deck relationship
                             lineWidth: 2
                           }
                         });
