@@ -45,7 +45,7 @@
   }
 </script>
 
-<header class="bg-surface-50-900-token border-b border-surface-200-700/50 sticky top-0 z-50 transition-all duration-200">
+<header class="bg-surface-50-900 border-b border-surface-200-700/50 sticky top-0 z-50 transition-all duration-200">
   <div class="container mx-auto flex justify-between items-center h-16 px-4">
     <!-- Logo and Brand -->
     <a href="/" class="flex items-center space-x-2 h-full">
