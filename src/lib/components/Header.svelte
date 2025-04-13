@@ -27,7 +27,7 @@
         }
 </script>
 
-<header class="bg-surface-50-900 border-b border-surface-200-800/50 sticky top-0 z-50 transition-all duration-200">
+<header class="bg-surface-50 dark:bg-surface-900 border-b border-surface-200/50 dark:border-surface-800/50 sticky top-0 z-50 transition-all duration-200">
         <div class="container mx-auto flex justify-between items-center h-16 px-4">
                 <!-- Logo and Brand -->
                 <a href="/" class="flex items-center space-x-2 h-full">
@@ -129,7 +129,7 @@
                    on:keydown={(e) => e.key === 'Escape' && toggleMenu()}
                    aria-label="Close menu overlay">
             </button>
-            <div class="lg:hidden fixed inset-y-0 right-0 z-50 w-64 bg-surface-100-800 shadow-xl transform transition-transform duration-300 ease-in-out {isMenuOpen ? 'translate-x-0' : 'translate-x-full'}">
+            <div class="lg:hidden fixed inset-y-0 right-0 z-50 w-64 bg-surface-100 dark:bg-surface-800 shadow-xl transform transition-transform duration-300 ease-in-out {isMenuOpen ? 'translate-x-0' : 'translate-x-full'}">
                 <div class="p-5 flex flex-col h-full">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-xl font-bold">Menu</h2>
@@ -157,7 +157,7 @@
                         </a>
                     </nav>
                     
-                    <div class="mt-auto pt-5 border-t border-surface-500/20">
+                    <div class="mt-auto pt-5 border-t border-surface-300/20 dark:border-surface-600/20">
                         {#if $userStore.isAuthenticated}
                             <button 
                                 class="flex items-center w-full space-x-2 p-3 text-error-500 hover:bg-error-500/10 rounded-lg"
