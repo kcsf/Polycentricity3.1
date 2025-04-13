@@ -41,11 +41,17 @@ function applyTheme(theme: Theme): void {
   if (theme === 'dark') {
     // Add dark class to html element (this is how Skeleton UI works)
     htmlElement.classList.add('dark');
-    console.log('Applied dark class to HTML element');
+    
+    // Explicitly set color-scheme to override prefers-color-scheme
+    htmlElement.style.colorScheme = 'dark';
+    console.log('Applied dark class to HTML element with color-scheme:dark');
   } else {
     // Remove dark class from html element
     htmlElement.classList.remove('dark');
-    console.log('Removed dark class from HTML element');
+    
+    // Explicitly set color-scheme to light to override prefers-color-scheme
+    htmlElement.style.colorScheme = 'light';
+    console.log('Removed dark class from HTML element with color-scheme:light');
   }
   
   // Store the preference
