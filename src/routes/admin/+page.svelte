@@ -874,12 +874,7 @@
               </div>
             </div>
             
-            <!-- Consolidated Database Tools Component -->
-            <div class="mb-6">
-              <DatabaseTools />
-            </div>
-            
-            <!-- DeckManager moved to Decks tab -->
+            <!-- Database tools moved to Maintenance tab -->
             
             <h3 class="h3 mb-4">Database Structure</h3>
             
