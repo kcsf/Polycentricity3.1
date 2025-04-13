@@ -34,13 +34,14 @@ function initializeTheme(): Theme {
 function applyTheme(theme: Theme): void {
   if (!browser) return;
   
-  // Use Skeleton UI's theme system
-  // The light/dark mode is controlled via the data-mode attribute
+  // Use Skeleton UI's full theming system
   if (theme === 'dark') {
-    document.documentElement.setAttribute('data-mode', 'dark');
+    // Apply dark mode - skeleton theme
+    document.documentElement.setAttribute('data-theme', 'skeleton');
     document.documentElement.classList.add('dark');
   } else {
-    document.documentElement.setAttribute('data-mode', 'light');
+    // Apply light mode - fennec theme
+    document.documentElement.setAttribute('data-theme', 'fennec');
     document.documentElement.classList.remove('dark');
   }
   

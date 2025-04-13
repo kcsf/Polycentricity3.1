@@ -27,7 +27,7 @@
         }
 </script>
 
-<header class="bg-surface-500/5 backdrop-blur-sm border-b border-surface-500/20 sticky top-0 z-50 transition-all duration-200">
+<header class="bg-surface-50 dark:bg-surface-900/90 backdrop-blur-sm border-b border-surface-200/50 dark:border-surface-700/20 sticky top-0 z-50 transition-all duration-200">
         <div class="container mx-auto flex justify-between items-center h-16 px-4">
                 <!-- Logo and Brand -->
                 <a href="/" class="flex items-center space-x-2 h-full">
@@ -129,7 +129,7 @@
                    on:keydown={(e) => e.key === 'Escape' && toggleMenu()}
                    aria-label="Close menu overlay">
             </button>
-            <div class="lg:hidden fixed inset-y-0 right-0 z-50 w-64 bg-surface-50-900-token shadow-xl transform transition-transform duration-300 ease-in-out {isMenuOpen ? 'translate-x-0' : 'translate-x-full'}">
+            <div class="lg:hidden fixed inset-y-0 right-0 z-50 w-64 bg-surface-100 dark:bg-surface-800 shadow-xl transform transition-transform duration-300 ease-in-out {isMenuOpen ? 'translate-x-0' : 'translate-x-full'}">
                 <div class="p-5 flex flex-col h-full">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-xl font-bold">Menu</h2>
