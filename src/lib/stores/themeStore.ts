@@ -31,27 +31,21 @@ function initializeTheme(): void {
   }
 }
 
-// Helper function to apply the theme directly with Skeleton UI
+// Helper function to apply the theme directly to the HTML element (Skeleton approach)
 function applyTheme(theme: Theme): void {
   if (!browser) return;
   
-  // Apply theme directly to the body element
-  const body = document.body;
+  // Get the HTML element (root element for dark mode in Skeleton)
+  const htmlElement = document.documentElement;
   
   if (theme === 'dark') {
-    // Add dark mode class to body element
-    body.classList.add('dark');
-    
-    // This is important - add data-theme attribute to keep colors consistent
-    body.setAttribute('data-theme', 'skeleton');
-    console.log('Applied dark mode to body');
+    // Add dark class to html element (this is how Skeleton UI works)
+    htmlElement.classList.add('dark');
+    console.log('Applied dark class to HTML element');
   } else {
-    // Remove dark mode class from body
-    body.classList.remove('dark');
-    
-    // Set light theme
-    body.setAttribute('data-theme', 'fennec');
-    console.log('Applied light mode to body');
+    // Remove dark class from html element
+    htmlElement.classList.remove('dark');
+    console.log('Removed dark class from HTML element');
   }
   
   // Store the preference
