@@ -581,7 +581,7 @@
               </div>
             </div>
           {:else}
-            <div class="card p-4 bg-surface-50-900 border border-surface-300-600">
+            <div class="card p-4 bg-surface-200-800 border border-surface-300-600">
               <div class="visualization-section">
                 <div class="mb-4 p-4 bg-surface-100-800 border border-surface-300-600 rounded">
                   <p class="text-sm text-surface-700-300">
@@ -730,7 +730,7 @@
             </div>
           {:else}
             <!-- Inner tabs for data types -->
-            <div class="card p-4 bg-surface-50-900 border border-surface-300-600">
+            <div class="card p-4 bg-surface-200-800 border border-surface-300-600">
               <div class="data-tabs mb-4">
                 {#each databaseNodes as nodeType}
                   <button 
@@ -889,7 +889,7 @@
             <h3 class="h3 mb-4">Database Structure</h3>
             
             {#if databaseNodes.length === 0}
-              <div class="card p-8 variant-ghost-surface text-center">
+              <div class="card p-8 bg-surface-200-800 border border-surface-300-600 text-center">
                 <svelte:component this={icons.Database} class="w-16 h-16 mx-auto mb-4 text-surface-500" />
                 <h4 class="h4 mb-2">No Data Found</h4>
                 <p class="text-sm max-w-lg mx-auto">
@@ -903,7 +903,7 @@
             {:else}
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {#each databaseNodes as nodeType}
-                  <div class="card p-4 variant-ghost-surface">
+                  <div class="card p-4 bg-surface-200-800 border border-surface-300-600">
                     <div class="flex justify-between items-center mb-3">
                       <h4 class="font-semibold flex items-center">
                         <span class="w-3 h-3 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
