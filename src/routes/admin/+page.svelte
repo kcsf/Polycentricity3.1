@@ -510,7 +510,7 @@
     </p>
   </header>
   
-  <div class="card p-0 bg-white dark:bg-surface-800 shadow rounded-lg overflow-hidden">
+  <div class="card p-0 bg-surface-50-900 shadow rounded-lg overflow-hidden border border-surface-300-600">
     <div class="admin-tabs">
       <button 
         class="admin-tab {activeTab === 'overview' ? 'active' : ''}" 
@@ -554,12 +554,12 @@
     <div class="tab-content">
       {#if activeTab === 'visualize'}
         <div class="p-2">
-          <div class="card p-4 bg-surface-100-800-token mb-4">
+          <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
               <svelte:component this={icons.Network} class="text-primary-500" />
               <div>
-                <h3 class="h4">Database Visualization</h3>
-                <p class="text-sm">This interactive graph shows the nodes and relationships in your Gun.js database.</p>
+                <h3 class="h4 text-surface-900-50">Database Visualization</h3>
+                <p class="text-sm text-surface-700-300">This interactive graph shows the nodes and relationships in your Gun.js database.</p>
               </div>
             </div>
           </div>
@@ -702,12 +702,12 @@
         <DatabaseMaintenance />
       {:else if activeTab === 'data'}
         <div class="p-2">
-          <div class="card p-4 bg-surface-100-800-token mb-4">
+          <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
               <svelte:component this={icons.Database} class="text-primary-500" />
               <div>
-                <h3 class="h4">Database Data</h3>
-                <p class="text-sm">Browse and explore the raw data stored in your Gun.js database.</p>
+                <h3 class="h4 text-surface-900-50">Database Data</h3>
+                <p class="text-sm text-surface-700-300">Browse and explore the raw data stored in your Gun.js database.</p>
               </div>
             </div>
           </div>
@@ -824,12 +824,12 @@
         </div>
       {:else}
         <div class="p-2">
-          <div class="card p-4 bg-surface-100-800-token mb-4">
+          <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
               <svelte:component this={icons.Info} class="text-primary-500" />
               <div>
-                <h3 class="h4">Database Information</h3>
-                <p class="text-sm">This dashboard allows you to view and manage your Gun.js database.</p>
+                <h3 class="h4 text-surface-900-50">Database Information</h3>
+                <p class="text-sm text-surface-700-300">This dashboard allows you to view and manage your Gun.js database.</p>
               </div>
             </div>
           </div>
@@ -1020,9 +1020,9 @@
   
   .admin-tabs {
     display: flex;
-    background: var(--color-surface-200-700-token);
+    background: var(--color-surface-200-700);
     position: relative;
-    border-bottom: 1px solid var(--color-surface-300-600-token);
+    border-bottom: 1px solid var(--color-surface-300-600);
   }
   
   .admin-tab {
@@ -1032,20 +1032,20 @@
     font-weight: 500;
     position: relative;
     transition: all 0.2s ease-in-out;
-    border-right: 1px solid var(--color-surface-300-600-token);
-    color: var(--color-surface-700-300-token);
+    border-right: 1px solid var(--color-surface-300-600);
+    color: var(--color-surface-700-300);
     background: transparent;
     border-radius: 0;
   }
   
   .admin-tab:hover {
     color: var(--color-primary-500);
-    background-color: var(--color-surface-100-800-token);
+    background-color: var(--color-surface-100-800);
   }
   
   .admin-tab.active {
     color: var(--color-primary-500);
-    background-color: var(--color-surface-50-900-token);
+    background-color: var(--color-surface-50-900);
     border-top: 3px solid var(--color-primary-500);
     padding-top: calc(0.75rem - 3px);
   }
