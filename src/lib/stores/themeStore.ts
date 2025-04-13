@@ -59,7 +59,10 @@ if (browser) {
 // Toggle between light and dark
 export function toggleTheme(): void {
   themeStore.update(current => {
-    return current === 'light' ? 'dark' : 'light';
+    console.log('Current theme:', current);
+    const newTheme = current === 'light' ? 'dark' : 'light';
+    console.log('Switching to theme:', newTheme);
+    return newTheme;
   });
 }
 
