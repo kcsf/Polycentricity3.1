@@ -176,46 +176,73 @@
             const canvasWidth = container.clientWidth;
             const containerHeight = 550; // approximate working height
             
-            // Get node counts for each type to spread them horizontally
-            const nodeCounts = {};
-            const nodeIndices = {};
+            // Collect all nodes by their types
+            const nodesByType = {
+              users: [],
+              games: [],
+              decks: [],
+              cards: [],
+              values: [],
+              capabilities: [],
+              other: []
+            };
+            
+            // First pass - classify all nodes
             cy.nodes().forEach(n => {
               const type = n.data('type');
-              if (!nodeCounts[type]) {
-                nodeCounts[type] = 0;
-                nodeIndices[type] = 0;
+              if (nodesByType[type]) {
+                nodesByType[type].push(n.id());
+              } else {
+                nodesByType.other.push(n.id());
               }
-              nodeCounts[type]++;
             });
             
-            // Get node type
+            // Get current node type
             const nodeType = node.data('type');
             
-            // Calculate vertical position (y-coordinate) based on node type
-            // This creates exactly 4 rows as requested
-            let row = 0;
-            if (nodeType === 'users') row = 0;
-            else if (nodeType === 'decks') row = 1;
-            else if (nodeType === 'cards') row = 2;
-            else if (nodeType === 'values' || nodeType === 'capabilities') row = 3;
-            else row = 4; // any other types go at the bottom
+            // Determine row based on type (exactly 4 rows as requested)
+            let row = 4; // default for any unexpected types
+            let rowNodes = [];
             
-            // Initialize nodeIndices if not set
-            if (nodeIndices[nodeType] === undefined) {
-              nodeIndices[nodeType] = 0;
+            if (nodeType === 'users') {
+              row = 0;
+              rowNodes = nodesByType.users;
+            } else if (nodeType === 'decks') {
+              row = 1;
+              rowNodes = nodesByType.decks;
+            } else if (nodeType === 'cards') {
+              row = 2;
+              rowNodes = nodesByType.cards;
+            } else if (nodeType === 'values' || nodeType === 'capabilities') {
+              row = 3;
+              if (nodeType === 'values') {
+                rowNodes = nodesByType.values;
+              } else {
+                rowNodes = nodesByType.capabilities;
+              }
             }
             
-            // Calculate horizontal spacing based on number of nodes in this row
-            const horizSpacing = canvasWidth / (nodeCounts[nodeType] || 1);
-            const xPos = (nodeIndices[nodeType] * horizSpacing) + (horizSpacing / 2);
+            // Find this node's index within its type
+            const typeNodes = rowNodes;
+            const nodeIndex = typeNodes.indexOf(node.id());
             
-            // Increment index for this node type
-            nodeIndices[nodeType]++;
+            // Calculate horizontal spacing for this row
+            const nodeCount = typeNodes.length || 1;
             
-            // Calculate vertical position with even spacing
-            const rowHeight = containerHeight / 5; // 5 possible rows total
-            const yPos = (row * rowHeight) + (rowHeight / 2);
+            // Ensure even if only one node, it's centered
+            let xPos = canvasWidth / 2;
             
+            if (nodeCount > 1) {
+              const availableWidth = canvasWidth * 0.9; // leave some margin
+              const spacing = availableWidth / (nodeCount - 1);
+              xPos = (canvasWidth * 0.05) + (nodeIndex * spacing);
+            }
+            
+            // Vertical position calculation with equal row spacing
+            const rowSpacing = containerHeight / 4; // exactly 4 rows
+            const yPos = (row * rowSpacing) + (rowSpacing / 2);
+            
+            // Return the calculated position
             return { x: xPos, y: yPos };
           }
         };
@@ -352,9 +379,26 @@
       loading = true;
       error = null;
       
+      console.log("Starting with nodes:", nodes.length);
+      
       // Get unique node types and set them as available for filtering
       availableNodeTypes = [...new Set(nodes.map(node => node.type))].sort();
-      selectedNodeTypes = [...availableNodeTypes]; // Select all by default
+      console.log("Available node types:", availableNodeTypes);
+      
+      // Make sure all node types are selected by default
+      selectedNodeTypes = [...availableNodeTypes]; 
+      console.log("Selected node types:", selectedNodeTypes);
+      
+      // Ensure our common types are always included even if not in current data
+      const essentialTypes = ['users', 'decks', 'cards', 'values', 'capabilities'];
+      essentialTypes.forEach(type => {
+        if (!availableNodeTypes.includes(type)) {
+          availableNodeTypes.push(type);
+        }
+        if (!selectedNodeTypes.includes(type)) {
+          selectedNodeTypes.push(type);
+        }
+      });
       
       // Get unique edge types (connections between node types)
       const edgeTypes = new Set();
