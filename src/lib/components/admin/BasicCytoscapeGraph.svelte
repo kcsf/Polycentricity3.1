@@ -10,11 +10,15 @@
   let loading = true;
   let error = null;
   
-  // Node type filtering
+  // Node and edge type filtering
   let availableNodeTypes = [];
   let selectedNodeTypes = [];
   let filteredNodes = [];
   let filteredEdges = [];
+  
+  // Edge type filtering
+  let availableEdgeTypes = [];
+  let selectedEdgeTypes = [];
   
   // Layout options
   const layouts = [
@@ -29,28 +33,63 @@
   
   const dispatch = createEventDispatcher();
   
+  // Find the relationship type from an edge
+  function getEdgeType(edge) {
+    // Try to determine the edge type from source and target node types
+    if (!edge.source || !edge.target) return 'unknown';
+    
+    // Extract node types from the source and target IDs
+    const sourceType = edge.source.split('_')[0];
+    const targetType = edge.target.split('_')[0];
+    
+    return `${sourceType}-${targetType}`;
+  }
+  
   function applyFilters() {
-    // If no node types selected, show all
-    if (selectedNodeTypes.length === 0) {
-      filteredNodes = [...nodes];
-      filteredEdges = [...edges];
-      return;
-    }
+    // Filter nodes by selected types (if any selected)
+    filteredNodes = selectedNodeTypes.length === 0 
+      ? [...nodes] 
+      : nodes.filter(node => selectedNodeTypes.includes(node.type));
     
-    // Filter nodes by selected types
-    filteredNodes = nodes.filter(node => selectedNodeTypes.includes(node.type));
-    
-    // Only keep edges where both source and target nodes exist in filtered nodes
+    // First, filter edges based on node visibility
     const filteredNodeIds = new Set(filteredNodes.map(node => node.id));
-    filteredEdges = edges.filter(edge => 
+    let nodeFilteredEdges = edges.filter(edge => 
       filteredNodeIds.has(edge.source) && 
       filteredNodeIds.has(edge.target)
     );
+    
+    // Then, filter edges based on edge type selection (if any selected)
+    filteredEdges = selectedEdgeTypes.length === 0
+      ? nodeFilteredEdges
+      : nodeFilteredEdges.filter(edge => {
+          const edgeType = getEdgeType(edge);
+          return selectedEdgeTypes.includes(edgeType);
+        });
     
     // If the graph is already initialized, update it
     if (cy) {
       updateGraph();
     }
+  }
+  
+  function toggleEdgeType(type) {
+    const index = selectedEdgeTypes.indexOf(type);
+    if (index === -1) {
+      selectedEdgeTypes = [...selectedEdgeTypes, type];
+    } else {
+      selectedEdgeTypes = selectedEdgeTypes.filter(t => t !== type);
+    }
+    applyFilters();
+  }
+  
+  function selectAllEdgeTypes() {
+    selectedEdgeTypes = [...availableEdgeTypes];
+    applyFilters();
+  }
+  
+  function clearEdgeTypeSelection() {
+    selectedEdgeTypes = [];
+    applyFilters();
   }
   
   function updateGraph() {
@@ -252,6 +291,17 @@
       // Get unique node types and set them as available for filtering
       availableNodeTypes = [...new Set(nodes.map(node => node.type))].sort();
       selectedNodeTypes = [...availableNodeTypes]; // Select all by default
+      
+      // Get unique edge types (connections between node types)
+      const edgeTypes = new Set();
+      edges.forEach(edge => {
+        const edgeType = getEdgeType(edge);
+        if (edgeType !== 'unknown') {
+          edgeTypes.add(edgeType);
+        }
+      });
+      availableEdgeTypes = [...edgeTypes].sort();
+      selectedEdgeTypes = [...availableEdgeTypes]; // Select all by default
       
       // Initialize filtered nodes and edges
       applyFilters();
@@ -507,41 +557,70 @@
 </script>
 
 <div class="graph-controls mb-4 p-4 card bg-surface-200-800 border border-surface-300-600 shadow rounded-lg">
-  <div class="flex flex-col md:flex-row justify-between gap-4">
-    <!-- Node Type Filter -->
-    <div class="flex-1">
-      <h3 class="text-lg font-semibold mb-2">Filter Node Types</h3>
-      <div class="flex flex-wrap gap-2">
-        {#each availableNodeTypes as type}
-          <button 
-            class="btn btn-sm {selectedNodeTypes.includes(type) ? 
-              'variant-filled-primary' : 'variant-ghost-primary'}"
-            on:click={() => toggleNodeType(type)}
-          >
-            <span class="w-3 h-3 rounded-full mr-1" style="background-color: {getColorForNodeType(type)}"></span>
-            {type}
-          </button>
-        {/each}
+  <div class="flex flex-col gap-4">
+    <!-- Control Panels -->
+    <div class="flex flex-col md:flex-row gap-4">
+      <!-- Node Type Filter -->
+      <div class="flex-1">
+        <h3 class="text-lg font-semibold mb-2">Filter Node Types</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {#each availableNodeTypes as type}
+            <label class="flex items-center gap-2 p-2 rounded bg-surface-100-800 hover:bg-surface-200-700 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={selectedNodeTypes.includes(type)} 
+                on:change={() => toggleNodeType(type)}
+                class="checkbox"
+              />
+              <span class="w-3 h-3 rounded-full" style="background-color: {getColorForNodeType(type)}"></span>
+              <span>{type}</span>
+            </label>
+          {/each}
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn-sm variant-ghost" on:click={selectAllNodeTypes}>Select All</button>
+          <button class="btn btn-sm variant-ghost" on:click={clearNodeTypeSelection}>Clear All</button>
+        </div>
       </div>
-      <div class="flex gap-2 mt-2">
-        <button class="btn btn-sm variant-ghost" on:click={selectAllNodeTypes}>Select All</button>
-        <button class="btn btn-sm variant-ghost" on:click={clearNodeTypeSelection}>Clear All</button>
+      
+      <!-- Layout Selector -->
+      <div class="flex-none w-full md:w-64">
+        <h3 class="text-lg font-semibold mb-2">Graph Layout</h3>
+        <select 
+          class="select bg-surface-100-800 border border-surface-300-600 rounded w-full"
+          bind:value={selectedLayout}
+          on:change={handleLayoutChange}
+        >
+          {#each layouts as layout}
+            <option value={layout}>{layout.name}</option>
+          {/each}
+        </select>
       </div>
     </div>
     
-    <!-- Layout Selector -->
-    <div class="flex-none">
-      <h3 class="text-lg font-semibold mb-2">Graph Layout</h3>
-      <select 
-        class="select bg-surface-100-800 border border-surface-300-600 rounded w-full"
-        bind:value={selectedLayout}
-        on:change={handleLayoutChange}
-      >
-        {#each layouts as layout}
-          <option value={layout}>{layout.name}</option>
-        {/each}
-      </select>
-    </div>
+    <!-- Edge Type Filter -->
+    {#if availableEdgeTypes.length > 0}
+      <div>
+        <h3 class="text-lg font-semibold mb-2">Filter Edge Types</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {#each availableEdgeTypes as type}
+            <label class="flex items-center gap-2 p-2 rounded bg-surface-100-800 hover:bg-surface-200-700 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={selectedEdgeTypes.includes(type)} 
+                on:change={() => toggleEdgeType(type)}
+                class="checkbox"
+              />
+              <span>{type}</span>
+            </label>
+          {/each}
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn-sm variant-ghost" on:click={selectAllEdgeTypes}>Select All</button>
+          <button class="btn btn-sm variant-ghost" on:click={clearEdgeTypeSelection}>Clear All</button>
+        </div>
+      </div>
+    {/if}
   </div>
 </div>
 

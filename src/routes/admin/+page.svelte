@@ -105,18 +105,18 @@
       });
     });
     
-    // Create edges between related nodes
+    // Create edges between related nodes - more comprehensive edge detection
     databaseNodes.forEach(nodeType => {
       nodeType.nodes.forEach(node => {
         if (typeof node.data === 'object') {
           // Process properties that might be references
           Object.entries(node.data).forEach(([key, value]) => {
-            // Skip metadata, internal properties, and ID fields that aren't actual references
-            if (key === '_' || key === '#' || key === 'id' || 
-                key.endsWith('_id') || // Skip properties like value_id, card_id, capability_id
-                key === 'created_at' || 
-                key === 'updated_at' || 
-                key === 'creator') return;
+            // These are internal Gun.js properties or metadata fields we want to skip
+            const skipFields = ['_', '#', 'id', 'created_at', 'updated_at', 'creator'];
+            
+            // Skip ID fields that aren't actual references
+            if (skipFields.includes(key) || 
+                (key.endsWith('_id') && key !== 'deck_id' && key !== 'game_id')) return;
             
             // Handle string references that are actual references (not just the ID field with same name)
             if (typeof value === 'string' && value.length > 8 && !key.endsWith('_id')) {
