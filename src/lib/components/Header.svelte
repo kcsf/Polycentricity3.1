@@ -3,11 +3,37 @@
         import { logoutUser } from '$lib/services/authService';
         import { goto } from '$app/navigation';
         import { Sun, Moon, Menu, X, Sprout, LogOut, Gamepad2, Settings, LayoutDashboard } from 'svelte-lucide';
-        import themeStore, { toggleTheme } from '$lib/stores/themeStore';
         import { onMount } from 'svelte';
         
+        // Import the toggle function from the parent component using $props in runes mode
+        const { toggleTheme } = $props<{ toggleTheme: () => void }>();
+        
+        // Get theme state
+        let isDarkMode = $state(false);
+        
+        // Update isDarkMode when the theme changes
+        onMount(() => {
+                // Check the current state of dark mode
+                isDarkMode = document.documentElement.classList.contains('dark');
+                
+                // Set up a MutationObserver to track changes to the HTML element
+                const observer = new MutationObserver((mutations) => {
+                        for (const mutation of mutations) {
+                                if (mutation.attributeName === 'class') {
+                                        isDarkMode = document.documentElement.classList.contains('dark');
+                                }
+                        }
+                });
+                
+                // Start observing
+                observer.observe(document.documentElement, { attributes: true });
+                
+                // Clean up
+                return () => observer.disconnect();
+        });
+        
         // Mobile menu state
-        let isMenuOpen = false;
+        let isMenuOpen = $state(false);
         
         // Toggle mobile menu
         function toggleMenu() {
@@ -74,7 +100,7 @@
                             on:click={toggleTheme}
                             aria-label="Toggle theme"
                         >
-                            {#if $themeStore === 'dark'}
+                            {#if isDarkMode}
                                 <Sun size={20} class="text-yellow-400" />
                             {:else}
                                 <Moon size={20} class="text-indigo-600" />
