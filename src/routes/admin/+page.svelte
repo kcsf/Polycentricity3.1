@@ -581,21 +581,21 @@
               </div>
             </div>
           {:else}
-            <div class="card p-4 bg-surface-50-900-token">
+            <div class="card p-4 bg-surface-50-900 border border-surface-300-600">
               <div class="visualization-section">
-                <div class="mb-4 p-4 bg-surface-100-800-token rounded">
-                  <p class="text-sm">
+                <div class="mb-4 p-4 bg-surface-100-800 border border-surface-300-600 rounded">
+                  <p class="text-sm text-surface-700-300">
                     Visualizing {graphData.nodes.length} nodes and {graphData.edges.length} edges with Cytoscape.
                   </p>
                 </div>
                 
                 <BasicCytoscapeGraph nodes={graphData.nodes} edges={graphData.edges} />
                 
-                <div class="graph-stats mt-4 p-4 bg-surface-100-800-token rounded">
-                  <h4 class="font-semibold mb-2">Database Overview</h4>
+                <div class="graph-stats mt-4 p-4 bg-surface-100-800 border border-surface-300-600 rounded">
+                  <h4 class="font-semibold mb-2 text-surface-900-50">Database Overview</h4>
                   <div class="grid grid-cols-2 gap-2">
-                    <div class="p-3 rounded bg-surface-50-900-token">
-                      <h5 class="text-sm font-semibold">Most Connected Nodes</h5>
+                    <div class="p-3 rounded bg-surface-50-900 border border-surface-300-600">
+                      <h5 class="text-sm font-semibold text-surface-900-50">Most Connected Nodes</h5>
                       <ul class="mt-2 space-y-1 text-sm">
                         {#each graphData.nodes.slice(0, 5) as node}
                           <li class="flex items-center">
@@ -605,8 +605,8 @@
                         {/each}
                       </ul>
                     </div>
-                    <div class="p-3 rounded bg-surface-50-900-token">
-                      <h5 class="text-sm font-semibold">Node Type Distribution</h5>
+                    <div class="p-3 rounded bg-surface-50-900 border border-surface-300-600">
+                      <h5 class="text-sm font-semibold text-surface-900-50">Node Type Distribution</h5>
                       <ul class="mt-2 space-y-1 text-sm">
                         {#each databaseNodes as nodeType}
                           <li class="flex items-center justify-between">
@@ -623,8 +623,8 @@
                 </div>
               </div>
               
-              <div class="graph-legend mt-4 p-3 bg-surface-100-800-token rounded-lg">
-                <h5 class="font-semibold mb-2">Node Types</h5>
+              <div class="graph-legend mt-4 p-3 bg-surface-100-800 border border-surface-300-600 rounded-lg">
+                <h5 class="font-semibold mb-2 text-surface-900-50">Node Types</h5>
                 <div class="flex flex-wrap gap-3">
                   <div class="flex items-center">
                     <span class="w-3 h-3 mr-2 rounded-full bg-[#5B8FF9]"></span>
@@ -1057,7 +1057,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background-color: var(--color-surface-50-900-token);
+    background-color: var(--color-surface-50-900);
   }
   
   /* Data tab styles */
@@ -1065,7 +1065,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    border-bottom: 1px solid var(--color-surface-300-600-token);
+    border-bottom: 1px solid var(--color-surface-300-600);
     padding-bottom: 0.75rem;
     margin-bottom: 1rem;
   }
@@ -1078,12 +1078,12 @@
     font-size: 0.875rem;
     font-weight: 500;
     transition: all 0.2s ease;
-    background-color: var(--color-surface-200-700-token);
-    color: var(--color-surface-700-300-token);
+    background-color: var(--color-surface-200-700);
+    color: var(--color-surface-700-300);
   }
   
   .data-tab:hover {
-    background-color: var(--color-surface-300-600-token);
+    background-color: var(--color-surface-300-600);
   }
   
   .data-tab.active {
