@@ -277,12 +277,12 @@
 </script>
 
 <div class="deck-browser container mx-auto p-4">
-  <div class="card p-4 bg-surface-100-800-token mb-4 shadow-md">
+  <div class="card p-4 bg-surface-100-800 mb-4 shadow-md border border-surface-300-600">
     <div class="flex items-center space-x-4">
       <svelte:component this={icons.Layout} class="text-primary-500 w-6 h-6" />
       <div>
-        <h3 class="h3 font-bold text-surface-900 dark:text-surface-100">Deck Browser</h3>
-        <p class="text-sm text-surface-600 dark:text-surface-400">Explore cards in the selected deck with a vibrant new look.</p>
+        <h3 class="h3 font-bold text-surface-900-50">Deck Browser</h3>
+        <p class="text-sm text-surface-700-300">Explore cards in the selected deck with a vibrant new look.</p>
       </div>
     </div>
   </div>
@@ -300,11 +300,11 @@
         <div class="p-4">
           <!-- Deck selection -->
           <div class="mb-6">
-            <label for="deck-select" class="block text-sm font-medium mb-2 text-surface-900 dark:text-surface-100">Select Deck</label>
+            <label for="deck-select" class="block text-sm font-medium mb-2 text-surface-900-50">Select Deck</label>
             <div class="flex gap-4 items-center">
               <select 
                 id="deck-select" 
-                class="select rounded-md w-full md:w-1/2 lg:w-1/3 bg-surface-50 dark:bg-surface-900 text-surface-900 dark:text-surface-100"
+                class="select rounded-md w-full md:w-1/2 lg:w-1/3 bg-surface-100-800 text-surface-900-50 border border-surface-300-600"
                 value={selectedDeckId}
                 onchange={(e) => handleDeckChange(e)}
                 disabled={isLoading}
@@ -319,7 +319,7 @@
               </select>
               
               <button 
-                class="btn variant-filled-primary flex items-center gap-2"
+                class="btn bg-primary-500 hover:bg-primary-600 text-white flex items-center gap-2"
                 onclick={() => loadDeckCards(selectedDeckId)}
                 disabled={isLoading}
               >
@@ -331,7 +331,7 @@
           
           <!-- Error display -->
           {#if error}
-            <div class="alert variant-filled-error mb-4 flex items-center gap-3 rounded-md">
+            <div class="alert bg-error-500 text-white mb-4 flex items-center gap-3 rounded-md">
               <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
               <div>
                 <h3 class="text-sm font-bold">Error</h3>
@@ -343,22 +343,22 @@
           <!-- Loading indicator -->
           {#if isLoading}
             <div class="flex items-center justify-center p-12">
-              <div class="spinner-third w-10 h-10"></div>
-              <span class="ml-4 text-sm text-surface-600 dark:text-surface-400">Loading cards...</span>
+              <div class="spinner-third w-10 h-10 text-primary-500"></div>
+              <span class="ml-4 text-sm text-surface-700-300">Loading cards...</span>
             </div>
           {/if}
           
           <!-- Card grid -->
           {#if !isLoading && cards.length === 0}
-            <div class="card p-6 bg-surface-50-900-token text-center rounded-md shadow-md">
-              <svelte:component this={icons.Package} class="w-12 h-12 mx-auto mb-4 text-surface-400" />
-              <h3 class="text-base font-bold text-surface-900 dark:text-surface-100 mb-2">No Cards Found</h3>
-              <p class="text-xs text-surface-600 dark:text-surface-400">This deck doesn't contain any cards or couldn't be loaded properly.</p>
+            <div class="card p-6 bg-surface-50-900 text-center rounded-md shadow-md border border-surface-300-600">
+              <svelte:component this={icons.Package} class="w-12 h-12 mx-auto mb-4 text-surface-500-400" />
+              <h3 class="text-base font-bold text-surface-900-50 mb-2">No Cards Found</h3>
+              <p class="text-xs text-surface-700-300">This deck doesn't contain any cards or couldn't be loaded properly.</p>
             </div>
           {:else if !isLoading}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {#each cards as card}
-                <div class="card overflow-hidden rounded-md shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-800-token border border-surface-200-700-token card-glow">
+                <div class="card overflow-hidden rounded-md shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-800 border border-surface-300-600 card-glow">
                   <!-- Card header -->
                   <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500 to-{getCategoryColor(card.card_category)}-700 rounded-t-md">
                     <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
@@ -366,11 +366,11 @@
                     </div>
                     <div class="flex items-center justify-between pl-10">
                       <h3 class="text-base font-bold truncate">{card.role_title}</h3>
-                      <span class="badge variant-filled-surface text-xs px-2 py-1 rounded-full">{card.card_number}</span>
+                      <span class="badge bg-surface-100-800 text-surface-900-50 text-xs px-2 py-1 rounded-full">{card.card_number}</span>
                     </div>
                     <div class="flex items-center gap-2 text-xs mt-1 pl-10">
                       <span>{card.type}</span>
-                      <span class="badge variant-ghost-surface ml-auto px-2 py-0.5 rounded-full">{card.card_category}</span>
+                      <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{card.card_category}</span>
                     </div>
                   </header>
                   
@@ -378,15 +378,15 @@
                   <div class="p-2 space-y-1">
                     <!-- Backstory -->
                     <div>
-                      <h4 class="text-xs font-semibold text-surface-600-300-token">Backstory</h4>
-                      <p class="text-xs text-surface-900 dark:text-surface-100 line-clamp-2">{card.backstory}</p>
+                      <h4 class="text-xs font-semibold text-surface-700-300">Backstory</h4>
+                      <p class="text-xs text-surface-900-50 line-clamp-2">{card.backstory}</p>
                     </div>
                     
                     <!-- Values -->
                     {#if cardValues[card.card_id] && cardValues[card.card_id].length > 0}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-600-300-token">Values</h4>
-                        <ul class="list-disc list-inside text-xs text-surface-900 dark:text-surface-100">
+                        <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
+                        <ul class="list-disc list-inside text-xs text-surface-900-50">
                           {#each cardValues[card.card_id] as value}
                             <li>{value}</li>
                           {/each}
@@ -397,8 +397,8 @@
                     <!-- Capabilities -->
                     {#if cardCapabilities[card.card_id] && cardCapabilities[card.card_id].length > 0}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-600-300-token">Capabilities</h4>
-                        <ul class="list-disc list-inside text-xs text-surface-900 dark:text-surface-100">
+                        <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
+                        <ul class="list-disc list-inside text-xs text-surface-900-50">
                           {#each cardCapabilities[card.card_id] as capability}
                             <li>{capability}</li>
                           {/each}
@@ -409,33 +409,33 @@
                     <!-- Goals -->
                     {#if card.goals}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-600-300-token">Goals</h4>
-                        <p class="text-xs text-surface-900 dark:text-surface-100 line-clamp-2">{formatGoals(card.goals)}</p>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Goals</h4>
+                        <p class="text-xs text-surface-900-50 line-clamp-2">{formatGoals(card.goals)}</p>
                       </div>
                     {/if}
                     
                     <!-- Obligations -->
                     {#if card.obligations}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-600-300-token">Obligations</h4>
-                        <p class="text-xs text-surface-900 dark:text-surface-100 line-clamp-2">{card.obligations}</p>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Obligations</h4>
+                        <p class="text-xs text-surface-900-50 line-clamp-2">{card.obligations}</p>
                       </div>
                     {/if}
                     
                     <!-- IP & Resources -->
                     {#if card.intellectual_property || card.rivalrous_resources}
-                      <div class="space-y-1 border-t border-surface-200-700-token pt-1">
+                      <div class="space-y-1 border-t border-surface-300-600 pt-1">
                         {#if card.intellectual_property}
                           <div>
-                            <h4 class="text-xs font-semibold text-surface-600-300-token">IP</h4>
-                            <p class="text-xs text-surface-900 dark:text-surface-100 line-clamp-1">{card.intellectual_property}</p>
+                            <h4 class="text-xs font-semibold text-surface-700-300">IP</h4>
+                            <p class="text-xs text-surface-900-50 line-clamp-1">{card.intellectual_property}</p>
                           </div>
                         {/if}
                         
                         {#if card.rivalrous_resources}
                           <div>
-                            <h4 class="text-xs font-semibold text-surface-600-300-token">Resources</h4>
-                            <p class="text-xs text-surface-900 dark:text-surface-100 line-clamp-1">{card.rivalrous_resources}</p>
+                            <h4 class="text-xs font-semibold text-surface-700-300">Resources</h4>
+                            <p class="text-xs text-surface-900-50 line-clamp-1">{card.rivalrous_resources}</p>
                           </div>
                         {/if}
                       </div>
