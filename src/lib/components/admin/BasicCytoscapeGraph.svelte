@@ -158,36 +158,66 @@
     
     // Configure layout based on selection
     switch (selectedLayout.id) {
-      // Our custom "Default" hierarchical layout that places nodes in the hierarchy:
-      // Users > Decks > Cards > Values & Capabilities
+      // Our custom "Default" hierarchical layout that places nodes in exact rows:
+      // Row 1: Users
+      // Row 2: Decks
+      // Row 3: Cards
+      // Row 4: Values and Capabilities
       case 'default':
         layoutOptions = {
-          name: 'dagre',
-          rankDir: 'TB', // Top to bottom
-          rankSep: 100, // Distance between layers
-          align: 'UL', // Align upper left
-          ranker: 'network-simplex',
-          // Define the order of node types from top to bottom
-          sort: function(a, b) {
-            const nodeTypeRanks = {
-              'users': 1,
-              'games': 2,
-              'decks': 3,
-              'actors': 4,
-              'cards': 5,
-              'values': 6,
-              'capabilities': 6,
-              'agreements': 7,
-              'chat': 7,
-            };
-            
-            const aRank = nodeTypeRanks[a.data('type')] || 99;
-            const bRank = nodeTypeRanks[b.data('type')] || 99;
-            
-            return aRank - bRank;
-          },
+          name: 'preset',
+          fit: true,
           animate: true,
-          padding: 30
+          animationDuration: 500,
+          padding: 30,
+          // Custom positioning function for our exact hierarchy
+          positions: function(node) {
+            // Get canvas dimensions
+            const canvasWidth = container.clientWidth;
+            const containerHeight = 550; // approximate working height
+            
+            // Get node counts for each type to spread them horizontally
+            const nodeCounts = {};
+            const nodeIndices = {};
+            cy.nodes().forEach(n => {
+              const type = n.data('type');
+              if (!nodeCounts[type]) {
+                nodeCounts[type] = 0;
+                nodeIndices[type] = 0;
+              }
+              nodeCounts[type]++;
+            });
+            
+            // Get node type
+            const nodeType = node.data('type');
+            
+            // Calculate vertical position (y-coordinate) based on node type
+            // This creates exactly 4 rows as requested
+            let row = 0;
+            if (nodeType === 'users') row = 0;
+            else if (nodeType === 'decks') row = 1;
+            else if (nodeType === 'cards') row = 2;
+            else if (nodeType === 'values' || nodeType === 'capabilities') row = 3;
+            else row = 4; // any other types go at the bottom
+            
+            // Initialize nodeIndices if not set
+            if (nodeIndices[nodeType] === undefined) {
+              nodeIndices[nodeType] = 0;
+            }
+            
+            // Calculate horizontal spacing based on number of nodes in this row
+            const horizSpacing = canvasWidth / (nodeCounts[nodeType] || 1);
+            const xPos = (nodeIndices[nodeType] * horizSpacing) + (horizSpacing / 2);
+            
+            // Increment index for this node type
+            nodeIndices[nodeType]++;
+            
+            // Calculate vertical position with even spacing
+            const rowHeight = containerHeight / 5; // 5 possible rows total
+            const yPos = (row * rowHeight) + (rowHeight / 2);
+            
+            return { x: xPos, y: yPos };
+          }
         };
         break;
         
@@ -717,5 +747,42 @@
     transform: translate(-50%, -50%);
     text-align: center;
     width: 80%;
+  }
+  
+  /* Super small checkboxes */
+  .checkbox-xs {
+    width: 0.75rem !important;
+    height: 0.75rem !important;
+    min-width: 0.75rem !important;
+    min-height: 0.75rem !important;
+    border-width: 1px !important;
+  }
+  
+  /* Compact controls */
+  .graph-controls {
+    font-size: 0.7rem !important;
+  }
+  
+  .graph-controls h3 {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  
+  .graph-controls label {
+    padding: 0.15rem 0.25rem !important;
+  }
+  
+  .graph-controls button {
+    font-size: 0.7rem !important;
+    padding: 0.1rem 0.25rem !important;
+    height: 1.25rem !important;
+    min-height: unset !important;
+  }
+  
+  .graph-controls select {
+    height: 1.5rem !important;
+    min-height: unset !important;
+    padding: 0.1rem 0.25rem !important;
+    font-size: 0.7rem !important;
   }
 </style>
