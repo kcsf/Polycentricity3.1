@@ -1207,91 +1207,15 @@
       // Console logs for debug
       console.log(`Card ${card.card_id} raw data:`, JSON.stringify(cardDataForViz).substring(0, 200) + "...");
       
-      // Preload all values and capabilities into cache for better naming
-      await new Promise<void>((resolve) => {
-        let valuesLoaded = 0;
-        let loadingComplete = false;
-        
-        // Load all values into cache
-        gun.get(nodes.values).map().once((value: Value, valueId: string) => {
-          if (value && value.name && valueId !== '_') {
-            console.log(`Preloaded value: ${valueId} - ${value.name}`);
-            valueCache.set(valueId, value);
-            valuesLoaded++;
-          }
-        });
-        
-        // Load all capabilities into cache
-        gun.get(nodes.capabilities).map().once((capability: Capability, capabilityId: string) => {
-          if (capability && capability.name && capabilityId !== '_') {
-            console.log(`Preloaded capability: ${capabilityId} - ${capability.name}`);
-            capabilityCache.set(capabilityId, capability);
-          }
-        });
-        
-        // Ensure we have at least some values loaded or timeout
-        setTimeout(() => {
-          if (!loadingComplete) {
-            loadingComplete = true;
-            console.log(`Finished preloading ${valuesLoaded} values and ${capabilityCache.size} capabilities`);
-            resolve();
-          }
-        }, 500);
-      });
-      
-      // Add fallback data if needed
+      // Add test data if needed
       if (!cardDataForViz.values || Object.keys(cardDataForViz.values).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Using fallback values for card ${card.card_id}`);
-        
-        // Use the values we've already loaded into the cache, or create dummies if none available
-        if (valueCache.size > 0) {
-          cardDataForViz.values = {};
-          // Use up to 3 values from our cache
-          let count = 0;
-          for (const [valueId, value] of valueCache.entries()) {
-            cardDataForViz.values[valueId] = true;
-            count++;
-            if (count >= 3) break;
-          }
-        } else {
-          // Fallback to generic names with descriptive labels
-          cardDataForViz.values = { 
-            "value_sustainability": true, 
-            "value_community": true, 
-            "value_resilience": true 
-          };
-          
-          // Create fake entries in the cache
-          valueCache.set("value_sustainability", { name: "Sustainability", value_id: "value_sustainability" });
-          valueCache.set("value_community", { name: "Community", value_id: "value_community" });
-          valueCache.set("value_resilience", { name: "Resilience", value_id: "value_resilience" });
-        }
+        console.log(`Creating dummy values for card ${card.card_id}`);
+        cardDataForViz.values = { value1: true, value2: true, value3: true };
       }
       
       if (!cardDataForViz.capabilities || Object.keys(cardDataForViz.capabilities).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Using fallback capabilities for card ${card.card_id}`);
-        
-        // Use the capabilities we've already loaded into the cache, or create dummies if none available  
-        if (capabilityCache.size > 0) {
-          cardDataForViz.capabilities = {};
-          // Use up to 2 capabilities from our cache
-          let count = 0;
-          for (const [capabilityId, capability] of capabilityCache.entries()) {
-            cardDataForViz.capabilities[capabilityId] = true;
-            count++;
-            if (count >= 2) break;
-          }
-        } else {
-          // Fallback to generic names with descriptive labels
-          cardDataForViz.capabilities = { 
-            "capability_funding": true, 
-            "capability_expertise": true 
-          };
-          
-          // Create fake entries in the cache
-          capabilityCache.set("capability_funding", { name: "Funding Resources", capability_id: "capability_funding" });
-          capabilityCache.set("capability_expertise", { name: "Technical Expertise", capability_id: "capability_expertise" });
-        }
+        console.log(`Creating dummy capabilities for card ${card.card_id}`);
+        cardDataForViz.capabilities = { capability1: true, capability2: true };
       }
       
       // Map legacy field names 
