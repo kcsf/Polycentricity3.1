@@ -438,6 +438,22 @@
     console.log("D3CardBoard: Real-time listeners initialized");
   }
 
+  // Define color scale for categories
+  const categoryColors = d3.scaleOrdinal([
+    "#A7C731", // Bright lime
+    "#9BC23D", // Lime green
+    "#8FBC49", // Fresh green
+    "#83B655", // Pea green
+    "#77B061", // Medium green
+    "#6BA96D", // Forest green
+    "#5FA279", // Pine green
+    "#539B85", // Deep seafoam
+    "#479491", // Teal
+    "#3B8D9D", // Blue-teal
+    "#2F86A9", // Ocean blue
+    "#237FB5", // Deep blue
+  ]);
+
   // Function to initialize D3 visualization
   function initializeGraph() {
     if (!svgRef) return;
@@ -449,11 +465,22 @@
       height = boundingRect.height;
     }
     
+    // CSS variables for node sizing
+    const root = document.documentElement;
+    const cardNodeRadius = 35; // Standard size for card nodes
+    const agreementNodeRadius = 17; // Smaller size for agreement nodes
+    const donutThickness = 15; // Extra space for radial menus
+
+    // Define custom CSS variables to match React implementation
+    root.style.setProperty('--actor-node-radius', `${cardNodeRadius}px`);
+    root.style.setProperty('--agreement-node-radius', `${agreementNodeRadius}px`);
+    root.style.setProperty('--donut-thickness', `${donutThickness}px`);
+    
     // Prepare nodes and links data
     let nodes: D3Node[] = [
       ...cardsWithPosition.map((card) => ({
         id: card.card_id,
-        name: card.role_title,
+        name: card.role_title || "Unnamed Card",
         type: "card" as const,
         data: card,
         x: card.position?.x || Math.random() * width,
@@ -464,7 +491,7 @@
       })),
       ...agreements.map((agreement) => ({
         id: agreement.agreement_id,
-        name: agreement.title,
+        name: agreement.title || "Unnamed Agreement",
         type: "agreement" as const,
         data: agreement,
         x: agreement.position?.x || Math.random() * width,
@@ -582,9 +609,7 @@
       .enter()
       .append("line")
       .attr("class", "link-line")  // Use CSS class for consistent styling
-      .attr("stroke", "#E5E5E5")    // Light gray
-      .attr("stroke-width", 1)      // Thinner lines for clean design
-      .attr("marker-end", "url(#arrow-marker)"); // Apply the arrow marker
+      .attr("stroke-width", 1);    // Thinner lines per design reference
 
     // Function to update link positions and agreement node positions
     function updateLinks() {
@@ -592,7 +617,7 @@
       nodes.forEach(node => {
         if (node.type === 'agreement') {
           const agreement = node.data as AgreementWithPosition;
-          // For bilateral agreements, position at midpoint
+          // Only for bilateral agreements
           if (agreement.parties && Object.keys(agreement.parties).length === 2) {
             const partyActorIds = Object.keys(agreement.parties);
             const partyCardIds = partyActorIds
@@ -634,11 +659,6 @@
         // Get node types to determine radius
         const sourceType = sourceNode.type;
         const targetType = targetNode.type;
-        
-        // Get node radii
-        const cardNodeRadius = 35; // Standard size for card nodes
-        const agreementNodeRadius = 17; // Smaller size for agreement nodes
-        const donutThickness = 15; // Extra space for radial menus
         
         // Calculate radii with 110% factor for padding
         const sourceRadius = sourceType === "card" 
@@ -758,6 +778,9 @@
     // Initialize link positions
     updateLinks();
 
+    // Add donut rings around card nodes
+    addDonutRings();
+    
     // Add center circles with gradients and add text on top
     const cardNodes = nodeElements.filter((d) => d.type === "card");
 
@@ -861,6 +884,9 @@
     // Create agreement nodes with smaller circles
     const agreementNodes = nodeElements.filter((d) => d.type === "agreement");
     
+    // Generate random IDs for our agreements (e.g., AG1, AG2)
+    let agreementCounter = 1;
+    
     agreementNodes.each(function(d) {
       // Add a small circle for agreement nodes
       d3.select(this)
@@ -871,19 +897,26 @@
         .attr("stroke-width", 1)
         .attr("class", "agreement-circle");
         
+      // Create an agreement ID (AG1, AG2, etc.)
+      const agreementId = `AG${agreementCounter++}`;
+        
       // Add a title text label
       d3.select(this)
         .append("text")
         .attr("class", "agreement-title")
         .attr("text-anchor", "middle")
         .attr("dy", "0.3em") // Center vertically
-        .attr("font-size", "9px")
-        .attr("fill", "#333333") // Dark gray
+        .attr("font-size", "12px") // Slightly larger
+        .attr("font-weight", "bold") // Make bold for better visibility
+        .attr("fill", "#555555") // Darker for contrast
+        .text(agreementId);
+        
+      // Add agreement title below on hover (handled by CSS)
+      d3.select(this)
+        .append("title")
         .text((d) => {
           const agreement = d.data as Agreement;
-          return agreement.title.length > 12 
-            ? agreement.title.slice(0, 10) + "..." 
-            : agreement.title;
+          return agreement.title || "Untitled Agreement";
         });
     });
 
@@ -898,6 +931,289 @@
     svg.call(zoomBehavior);
   }
 
+  // Add donut-like rings around card nodes
+  function addDonutRings() {
+    // Get all card nodes
+    const cardNodes = nodeElements.filter((d) => d.type === "card");
+    
+    // Base sizing values
+    const baseNodeRadius = 35; // Base radius for card nodes
+    const baseDonutThickness = 15; // Thickness of the donut segments
+    
+    // Create arcs for categories (e.g., Values, Capabilities)
+    const categories = ["values", "capabilities", "intellectualProperty", "skills"];
+    
+    // Process each card node
+    cardNodes.each(function(actor) {
+      const actorNode = d3.select(this);
+      const card = actor.data as Card;
+      
+      // Get the total number of categories for this actor
+      let activeCategoryCount = 0;
+      
+      // Count the number of non-empty categories
+      categories.forEach(category => {
+        if (card[category] && Object.keys(card[category]).length > 0) {
+          activeCategoryCount++;
+        }
+      });
+      
+      // Skip nodes without categorized items
+      if (activeCategoryCount === 0) return;
+      
+      // Calculate angles for each category pie slice
+      const degreesPerCategory = 360 / activeCategoryCount;
+      let categoryIndex = 0;
+      
+      // Process each category that has items
+      categories.forEach(category => {
+        // Skip empty categories
+        const content = card[category] || {};
+        if (Object.keys(content).length === 0) return;
+        
+        // Calculate start and end angles for this category's pie slice
+        const startAngle = (categoryIndex * degreesPerCategory) * (Math.PI / 180);
+        const endAngle = ((categoryIndex + 1) * degreesPerCategory) * (Math.PI / 180);
+        
+        // Create the main category arc (wedge)
+        const categoryArc = d3.arc()
+          .innerRadius(baseNodeRadius)
+          .outerRadius(baseNodeRadius + baseDonutThickness)
+          .startAngle(startAngle)
+          .endAngle(endAngle)
+          .padAngle(0.03); // Add a small gap between categories
+        
+        // Expanded arc for hover state
+        const expandedArc = d3.arc()
+          .innerRadius(baseNodeRadius)
+          .outerRadius(baseNodeRadius + baseDonutThickness + 5) // Slightly larger
+          .startAngle(startAngle)
+          .endAngle(endAngle)
+          .padAngle(0.03);
+        
+        // Add the main category wedge
+        const wedge = actorNode
+          .append("path")
+          .datum({ startAngle, endAngle })
+          .attr("d", categoryArc)
+          .attr("fill", categoryColors(category))
+          .attr("stroke", "none")
+          .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
+          .attr("class", "category-wedge")
+          .attr("cursor", "pointer");
+        
+        // Create a container for the sub-wedges (individual items)
+        const subWedgesGroup = actorNode
+          .append("g")
+          .attr("class", "sub-wedges")
+          .style("visibility", "hidden")
+          .attr("opacity", 0);
+        
+        // Create container for the label elements
+        const labelsContainer = actorNode
+          .append("g")
+          .attr("class", "category-labels")
+          .style("visibility", "hidden")
+          .attr("opacity", 0);
+        
+        // Get the items for this category (values, capabilities, etc.)
+        const itemIds = Object.keys(content);
+        
+        // Create individual wedges for each item
+        const subWedgeArc = d3.arc()
+          .innerRadius(baseNodeRadius + baseDonutThickness + 2)
+          .outerRadius(baseNodeRadius + baseDonutThickness + 15)
+          .padAngle(0.02);
+        
+        const arcLength = endAngle - startAngle - 0.1; // Adjust for padding
+        const wedgeAngle = arcLength / itemIds.length;
+        
+        // Create and position labels and sub-wedges
+        itemIds.forEach((item, i) => {
+          // Calculate angles for this individual sub-wedge
+          const itemStartAngle = startAngle + (i * wedgeAngle);
+          const itemEndAngle = itemStartAngle + wedgeAngle;
+          
+          // Create the sub-wedge
+          subWedgesGroup
+            .append("path")
+            .datum({ startAngle: itemStartAngle, endAngle: itemEndAngle })
+            .attr("d", subWedgeArc)
+            .attr("fill", d3.color(categoryColors(category)).brighter(0.2))
+            .attr("stroke", "white")
+            .attr("stroke-width", 0.5)
+            .attr("class", "sub-wedge");
+          
+          // Calculate position for the label
+          const midAngle = itemStartAngle + (wedgeAngle / 2);
+          const midAngleDeg = midAngle * (180 / Math.PI);
+          
+          // Calculate the radial position for the label
+          const labelRadius = baseNodeRadius + baseDonutThickness + 25; // Outside the sub-wedges
+          const labelPositionX = Math.cos(midAngle) * labelRadius;
+          const labelPositionY = Math.sin(midAngle) * labelRadius;
+          
+          // Determine if this label is on the left side of the circle
+          const isLeftSide = (midAngleDeg > 90 && midAngleDeg < 270);
+          
+          // Create a container for this label
+          const labelGroup = labelsContainer.append("g");
+          
+          // Set text anchor based on which side of the circle we're on
+          const textAnchor = isLeftSide ? "end" : "start";
+          
+          // Text should follow the radial angle for readability
+          const textRotationDegrees = midAngleDeg;
+          // Rotate text 180 degrees on the left side so it's not upside down
+          const finalRotationDegrees = isLeftSide 
+            ? textRotationDegrees + 180 
+            : textRotationDegrees;
+          
+          // Add text that follows the radial path
+          labelGroup
+            .append("text")
+            .attr("x", labelPositionX)
+            .attr("y", labelPositionY)
+            .attr("text-anchor", textAnchor) // Start or end based on side
+            .attr("dominant-baseline", "middle")
+            .attr("font-size", "11px") // Slightly larger for better readability
+            .attr("fill", categoryColors(category))
+            .attr("font-weight", "500") // Medium weight for better visibility
+            .attr(
+              "transform",
+              `rotate(${finalRotationDegrees},${labelPositionX},${labelPositionY})`
+            )
+            .text(() => {
+              // Look up the name from the appropriate cache
+              if (category === "values" && valueCache.has(item)) {
+                return valueCache.get(item).name;
+              } else if (category === "capabilities" && capabilityCache.has(item)) {
+                return capabilityCache.get(item).name;
+              } else {
+                return item; // Fallback if not in cache
+              }
+            });
+        });
+        
+        // Format category display name to be more readable
+        const formatCategoryName = (cat: string) => {
+          // Convert camelCase to Title Case with spaces
+          const formatted = cat
+            .replace(/([A-Z])/g, " $1") // Insert a space before all uppercase letters
+            .replace(/^./, (str) => str.toUpperCase()); // Capitalize the first letter
+          return formatted.trim();
+        };
+        
+        // Move mouse handlers directly to the wedge to avoid event bubbling issues
+        wedge
+          .on("mouseenter", (event) => {
+            // Prevent bubbling of events to avoid flickering
+            event.stopPropagation();
+            
+            // Store the hovered category
+            hoveredCategory = category;
+            
+            // Expand the wedge
+            wedge
+              .transition()
+              .duration(150)
+              .attr("d", expandedArc)
+              .attr("filter", "drop-shadow(0px 0px 3px rgba(0,0,0,0.3))");
+            
+            // Show the sub-wedges
+            subWedgesGroup
+              .style("visibility", "visible")
+              .transition()
+              .duration(150)
+              .attr("opacity", 1);
+            
+            // Show the labels
+            labelsContainer
+              .style("visibility", "visible")
+              .transition()
+              .duration(150)
+              .attr("opacity", 1);
+            
+            // Update central text indicators
+            // Get the node id from the wedge and count items
+            const formattedCategory = formatCategoryName(category);
+            const itemCount = Object.keys(content).length;
+            
+            d3.select(`#node-${actor.id}`)
+              .select(".count-text")
+              .text(itemCount.toString());
+              
+            d3.select(`#node-${actor.id}`)
+              .select(".options-text")
+              .text(formattedCategory);
+          })
+          .on("mouseleave", (event) => {
+            // Prevent bubbling of events to avoid flickering
+            event.stopPropagation();
+            
+            // Clear hovered category
+            hoveredCategory = null;
+            
+            // Shrink wedge back to original size
+            wedge
+              .transition()
+              .duration(200)
+              .attr("d", categoryArc)
+              .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
+            
+            // Hide the sub-wedges
+            subWedgesGroup
+              .transition()
+              .duration(100)
+              .attr("opacity", 0)
+              .on("end", function () {
+                d3.select(this).style("visibility", "hidden");
+              });
+            
+            // Hide the labels
+            labelsContainer
+              .transition()
+              .duration(100)
+              .attr("opacity", 0)
+              .on("end", function () {
+                d3.select(this).style("visibility", "hidden");
+              });
+            
+            // Clear the central text indicators
+            d3.select(`#node-${actor.id}`)
+              .select(".count-text")
+              .text("");
+              
+            d3.select(`#node-${actor.id}`)
+              .select(".options-text")
+              .text("");
+          });
+        
+        // Increment the category index for the next category
+        categoryIndex++;
+      });
+      
+      // Add central display for active category info
+      const countText = actorNode
+        .append("text")
+        .attr("class", "count-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "-0.3em")
+        .attr("font-size", "18px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#4B5563");
+        
+      const optionsText = actorNode
+        .append("text")
+        .attr("class", "options-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "1em")
+        .attr("font-size", "10px")
+        .attr("fill", "#6B7280");
+    });
+  }
+  
+  // Legacy radial menu update function - kept for reference
   function updateRadialMenu(node: D3Node) {
     if (node.type !== 'card') return;
     
@@ -931,7 +1247,7 @@
           nodeX: node.x,
           nodeY: node.y,
           category: 'Values',
-          categoryColor: '#3B82F6', // Blue for values
+          categoryColor: categoryColors('values'),
           index,
           totalItems: valueIds.length
         };
@@ -967,7 +1283,7 @@
           nodeX: node.x,
           nodeY: node.y,
           category: 'Capabilities',
-          categoryColor: '#10B981', // Green for capabilities
+          categoryColor: categoryColors('capabilities'),
           index,
           totalItems: capabilityIds.length
         };
