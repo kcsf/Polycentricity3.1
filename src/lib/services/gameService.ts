@@ -102,6 +102,29 @@ export async function createGame(
                                     }
                                 }
                                 
+                                // Create explicit relationships for visualization in the admin graph
+                                try {
+                                    // Create user-to-game relationship
+                                    gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id);
+                                    
+                                    // Create game-to-user (creator) relationship
+                                    gun.get(nodes.games).get(game_id).get('creator_ref').put({
+                                        '#': `${nodes.users}/${currentUser.user_id}`
+                                    });
+                                    
+                                    // Create game-to-deck relationship if using a predefined deck
+                                    if (deckType === 'eco-village' || deckType === 'community-garden') {
+                                        const deckId = deckType === 'eco-village' ? 'd1' : 'd2';
+                                        gun.get(nodes.games).get(game_id).get('deck_ref').put({
+                                            '#': `${nodes.decks}/${deckId}`
+                                        });
+                                    }
+                                    
+                                    console.log(`Created graph relationships for game ${game_id}`);
+                                } catch (err) {
+                                    console.warn(`Error creating graph relationships: ${err}, but game was created`);
+                                }
+                                
                                 console.log(`Game created: ${game_id}`);
                                 resolve(gameData);
                             });
@@ -216,6 +239,22 @@ export async function joinGame(gameId: string): Promise<boolean> {
                 }
                 
                 console.log(`Joined game: ${gameId}`);
+                
+                // Create explicit relationships for visualization in the admin graph
+                try {
+                    // Create user-to-game relationship
+                    gun.get(nodes.users).get(currentUser.user_id).get('games').set(gameId);
+                    
+                    // Create game-to-players relationship
+                    gun.get(nodes.games).get(gameId).get('player_refs').set({
+                        '#': `${nodes.users}/${currentUser.user_id}`
+                    });
+                    
+                    console.log(`Created graph relationships for player ${currentUser.user_id} joining game ${gameId}`);
+                } catch (err) {
+                    console.warn(`Error creating graph relationships: ${err}, but user joined game`);
+                }
+                
                 resolve(true);
             });
         });
@@ -441,6 +480,27 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
                 }
                 
                 console.log(`Actors set for game ${gameId}`);
+                
+                // Create explicit relationships for visualization in the admin graph
+                try {
+                    // Create game-to-actor relationships for each actor
+                    for (const actor of actors) {
+                        // Game references actor
+                        gun.get(nodes.games).get(gameId).get('actor_refs').set({
+                            '#': `${nodes.actors}/${actor.actor_id}`
+                        });
+                        
+                        // Actor references game
+                        gun.get(nodes.actors).get(actor.actor_id).get('game_refs').set({
+                            '#': `${nodes.games}/${gameId}`
+                        });
+                    }
+                    
+                    console.log(`Created graph relationships between game ${gameId} and its actors`);
+                } catch (err) {
+                    console.warn(`Error creating actor graph relationships: ${err}, but actors were set`);
+                }
+                
                 resolve(true);
             });
         });
