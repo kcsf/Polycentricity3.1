@@ -799,23 +799,8 @@
       .attr("stroke-width", 1)        // Thin lines per design reference
       .attr("stroke-opacity", 0.8)    // Slightly transparent
       .attr("marker-start", null)     // NO start markers - explicitly remove
-      .attr("marker-end", function(d) {
-        // Only add end marker for specific cases based on the direction
-        const sourceType = typeof d.source === "string" ? 
-          nodes.find(n => n.id === d.source)?.type : d.source.type;
-        const targetType = typeof d.target === "string" ? 
-          nodes.find(n => n.id === d.target)?.type : d.target.type;
-          
-        // When from Actor to Agreement, the arrow should be at the Agreement end
-        if (sourceType === "actor" && targetType === "agreement") {
-          return "url(#arrow-marker)";
-        }
-        // When from Agreement to Actor, the arrow should be at the Actor end
-        else if (sourceType === "agreement" && targetType === "actor") {
-          return "url(#arrow-marker)";
-        }
-        return null; // No arrow in other cases
-      })
+      .attr("marker-end", null)       // Also remove all end markers by default
+      // We'll handle arrows differently - NO ARROWS AT ALL to match reference image exactly
       .style("cursor", "pointer"); // Show pointer cursor on hover
       
     // Debug: How many lines were actually created?
