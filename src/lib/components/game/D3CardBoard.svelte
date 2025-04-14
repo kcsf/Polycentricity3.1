@@ -1336,86 +1336,100 @@
     
     subItems = [];
     
-    // Create Value items for the radial menu
-    if (card.values) {
-      // Filter out Gun.js metadata and potential duplicate keys
-      const valueIds = Object.keys(card.values)
-        .filter(id => id !== '_' && id !== '#')
-        .filter((id, index, self) => self.indexOf(id) === index);
-        
-      console.log(`D3CardBoard: Card has ${valueIds.length} values`);
+    // Helper function to ensure valid arrays from any property
+    const ensureArray = (field: any): string[] => {
+      if (!field) return [];
+      if (Array.isArray(field)) return field;
+      if (typeof field === 'object') {
+        // Handle Gun.js objects and references
+        if (field['#']) {
+          // This is a reference case but we already processed it in loadCardDetails
+          // Return the valueIds or capabilityIds we've already gathered
+          return Object.keys(field).filter(id => id !== '_' && id !== '#');
+        }
+        // Regular object case
+        return Object.keys(field).filter(id => id !== '_' && id !== '#');
+      }
+      if (typeof field === 'string') {
+        return field.split(',').map(item => item.trim());
+      }
+      return [];
+    };
+    
+    const categories = ['values', 'capabilities', 'intellectualProperty', 'resources', 'goals'];
+    const itemsByCategory: Record<string, string[]> = {};
+    
+    // Populate item arrays for each category
+    for (const category of categories) {
+      let items: string[] = [];
       
-      if (valueIds.length > 0) {
+      if (category === 'values' && card.values) {
+        items = ensureArray(card.values);
+        console.log(`D3CardBoard: Card has ${items.length} values`);
+        
         // Log cached values for debugging
-        for (const valueId of valueIds) {
+        for (const valueId of items) {
           if (valueCache.has(valueId)) {
             console.log(`D3CardBoard: Found value ${valueId} in cache: ${valueCache.get(valueId)?.name}`);
           } else {
             console.log(`D3CardBoard: Value ${valueId} not in cache`);
           }
         }
+      } 
+      else if (category === 'capabilities' && card.capabilities) {
+        items = ensureArray(card.capabilities);
+        console.log(`D3CardBoard: Card has ${items.length} capabilities`);
         
-        // Create SubItem objects for each value
-        const valueItems: SubItem[] = valueIds.map((valueId, index) => {
-          const value = valueCache.get(valueId);
-          return {
-            id: valueId,
-            label: value?.name || 'Loading...',
-            angle: (index * (360 / valueIds.length) + 270) % 360, // Start from top
-            radius: 60, // Distance from center
-            nodeX: node.x,
-            nodeY: node.y,
-            category: 'Values',
-            categoryColor: categoryColors('values'),
-            index,
-            totalItems: valueIds.length
-          };
-        });
-        
-        subItems = [...subItems, ...valueItems];
-      }
-    } else {
-      console.log(`D3CardBoard: Card has no values property`);
-    }
-    
-    // Create Capability items for the radial menu
-    if (card.capabilities) {
-      // Filter out Gun.js metadata and potential duplicate keys
-      const capabilityIds = Object.keys(card.capabilities)
-        .filter(id => id !== '_' && id !== '#')
-        .filter((id, index, self) => self.indexOf(id) === index);
-        
-      console.log(`D3CardBoard: Card has ${capabilityIds.length} capabilities`);
-      
-      if (capabilityIds.length > 0) {
         // Log cached capabilities for debugging
-        for (const capId of capabilityIds) {
+        for (const capId of items) {
           if (capabilityCache.has(capId)) {
             console.log(`D3CardBoard: Found capability ${capId} in cache: ${capabilityCache.get(capId)?.name}`);
           } else {
             console.log(`D3CardBoard: Capability ${capId} not in cache`);
           }
         }
-        
-        // Create SubItem objects for each capability
-        const capabilityItems: SubItem[] = capabilityIds.map((capabilityId, index) => {
-          const capability = capabilityCache.get(capabilityId);
-          return {
-            id: capabilityId,
-            label: capability?.name || 'Loading...',
-            angle: (index * (360 / capabilityIds.length) + 90) % 360, // Start from bottom
-            radius: 60, // Distance from center
-            nodeX: node.x,
-            nodeY: node.y,
-            category: 'Capabilities',
-            categoryColor: categoryColors('capabilities'),
-            index,
-            totalItems: capabilityIds.length
-          };
-        });
-        
-        subItems = [...subItems, ...capabilityItems];
       }
+      else if (card[category]) {
+        items = ensureArray(card[category]);
+        console.log(`D3CardBoard: Card has ${items.length} ${category}`);
+      }
+      
+      if (items.length > 0) {
+        itemsByCategory[category] = items;
+      }
+    }
+    
+    // Generate SubItem objects for each category's items
+    for (const [category, items] of Object.entries(itemsByCategory)) {
+      // Create SubItem objects for the items in this category
+      const itemObjects = items.map((itemId, index) => {
+        // Get item name from cache if available
+        let itemName = itemId;
+        if (category === 'values' && valueCache.has(itemId)) {
+          itemName = valueCache.get(itemId).name;
+        } else if (category === 'capabilities' && capabilityCache.has(itemId)) {
+          itemName = capabilityCache.get(itemId).name;
+        }
+        
+        // Calculate angle (distribute items evenly within their category wedge)
+        // This will be better determined by the pie layout in the visualization
+        const angle = (index * (360 / items.length) + (category === 'values' ? 270 : 90)) % 360;
+        
+        return {
+          id: itemId,
+          label: itemName || 'Loading...',
+          angle: angle,
+          radius: 60, // Distance from center
+          nodeX: node.x,
+          nodeY: node.y,
+          category: category,
+          categoryColor: categoryColors(category),
+          index,
+          totalItems: items.length
+        };
+      });
+      
+      subItems = [...subItems, ...itemObjects];
     }
   }
 
