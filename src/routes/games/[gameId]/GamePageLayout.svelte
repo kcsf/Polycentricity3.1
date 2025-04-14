@@ -15,7 +15,7 @@
     ChevronUp,
     Maximize
   } from 'svelte-lucide';
-  import { gameStore, activeActorId } from '$lib/stores/enhancedGameStore';
+  import gameStore, { activeActorId } from '$lib/stores/enhancedGameStore';
   import { userStore } from '$lib/stores/userStore';
   import type { Game, Actor } from '$lib/types';
   
