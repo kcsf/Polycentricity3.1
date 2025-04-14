@@ -25,11 +25,28 @@
         try {
             isLoading = true;
             
-            // Load existing actors
-            existingActors = await getUserActors();
+            // Load both user's actors and actors assigned to this game
+            const userActors = await getUserActors();
+            const gameActors = await getGameActors(gameId);
+            
+            // Combine the lists, making sure to avoid duplicates
+            const actorMap = new Map();
+            
+            // Add all user actors first
+            userActors.forEach(actor => {
+                actorMap.set(actor.actor_id, actor);
+            });
+            
+            // Add game actors, which will overwrite user actors if there are duplicates
+            gameActors.forEach(actor => {
+                actorMap.set(actor.actor_id, actor);
+            });
+            
+            // Convert back to array
+            existingActors = Array.from(actorMap.values());
             
             // Include all actors, including those assigned to this game
-            console.log(`Found ${existingActors.length} actors total for user`);
+            console.log(`Found ${existingActors.length} actors total for user (including game actors)`);
             
             // Load available cards for this game
             availableCards = await getAvailableCardsForGame(gameId);
@@ -176,6 +193,7 @@
                             {#each existingActors as actor}
                                 <option value={actor.actor_id}>
                                     {actor.custom_name || 'Actor'} ({actor.actor_type || 'Unknown Type'})
+                                    {actor.game_id === gameId ? ' ✓ (Already in this game)' : ''}
                                 </option>
                             {/each}
                         </select>
