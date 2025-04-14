@@ -44,6 +44,24 @@
   let playersExpanded = false;
   let chatExpanded = true;
   
+  // Subscribe to changes in left sidebar state
+  $: {
+    if (leftSidebarOpen) {
+      console.log('Left sidebar is now OPEN');
+    } else {
+      console.log('Left sidebar is now CLOSED');
+    }
+  }
+  
+  // Subscribe to changes in right sidebar state
+  $: {
+    if (rightSidebarOpen) {
+      console.log('Right sidebar is now OPEN');
+    } else {
+      console.log('Right sidebar is now CLOSED');
+    }
+  }
+  
   // Handle zoom in/out
   function zoomIn() {
     currentZoom = Math.min(currentZoom + 0.2, 2);
@@ -367,17 +385,36 @@
   .left-sidebar, .right-sidebar {
     width: var(--sidebar-width);
     max-width: 90vw;
+    top: 0; /* Make sure sidebars start from the very top */
+    bottom: 0; /* Ensure sidebars extend to bottom */
+    height: 100% !important; /* Force full height */
+    z-index: 50 !important; /* Higher z-index to ensure they appear above other elements */
   }
   
   .left-sidebar {
     left: calc(-1 * var(--sidebar-width));
   }
   
+  .left-sidebar.left-0 {
+    left: 0 !important;
+  }
+  
   .right-sidebar {
     right: calc(-1 * var(--sidebar-width));
   }
   
+  .right-sidebar.right-0 {
+    right: 0 !important;
+  }
+  
   .main-content-area {
     transition: all 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
   }
 </style>

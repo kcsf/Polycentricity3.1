@@ -176,7 +176,7 @@
         }
 </script>
 
-<div class="w-full">
+<div class="game-page-wrapper w-full h-full m-0 p-0 overflow-hidden">
         {#if isLoading}
                 <div class="card p-8 text-center">
                         <p>Loading game...</p>
@@ -218,3 +218,25 @@
                 </div>
         {/if}
 </div>
+
+<style>
+  /* Override parent container styles to achieve full width/height without padding or margins */
+  :global(main.flex.grow.container.mx-auto.p-4) {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+  
+  .game-page-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw !important;
+    height: 100vh !important; 
+  }
+</style>
