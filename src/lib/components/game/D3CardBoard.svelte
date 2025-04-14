@@ -828,10 +828,10 @@
         const targetType = targetNode.type;
         
         // Calculate radii with 110% factor for padding
-        const sourceRadius = sourceType === "card" 
+        const sourceRadius = sourceType === "actor" 
           ? (cardNodeRadius + donutThickness) * 1.1 
           : agreementNodeRadius * 1.1;
-        const targetRadius = targetType === "card" 
+        const targetRadius = targetType === "actor" 
           ? (cardNodeRadius + donutThickness) * 1.1 
           : agreementNodeRadius * 1.1;
         
@@ -894,7 +894,7 @@
             );
             
             // Save position data
-            if (d.type === 'card') {
+            if (d.type === 'actor') {
               const card = d.data as CardWithPosition;
               card.position = { x: d.x, y: d.y };
             } else if (d.type === 'agreement') {
@@ -915,7 +915,7 @@
         );
 
         // Set active card
-        if (d.type === 'card') {
+        if (d.type === 'actor') {
           activeCardId = d.id;
           
           // Find the actor with this card
@@ -928,7 +928,7 @@
       .on("mouseover", (event, d) => {
         // On hover, set the hovered node but don't use the separate radial menu
         // The donut rings handle everything with their own mouse events
-        if (d.type === 'card') {
+        if (d.type === 'actor') {
           hoveredNode = d.id;
           // No need to call updateRadialMenu - all visualization is handled by D3
         }
@@ -945,7 +945,7 @@
     addDonutRings();
     
     // Add center circles with gradients and add text on top
-    const cardNodes = nodeElements.filter((d) => d.type === "card");
+    const cardNodes = nodeElements.filter((d) => d.type === "actor");
 
     // Define gradient for center button
     cardNodes.each(function (d) {
@@ -1333,7 +1333,7 @@
     // ----- EXACTLY MATCH REACT APPROACH -----
     
     // Get all card nodes
-    const cardNodes = nodeElements.filter((d) => d.type === "card");
+    const cardNodes = nodeElements.filter((d) => d.type === "actor");
     
     // Fixed values for radii (from CSS variables in React)
     const baseActorRadius = 35; 
