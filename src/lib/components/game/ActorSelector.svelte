@@ -25,44 +25,41 @@
         try {
             isLoading = true;
             
-            // Load both user's actors and actors assigned to this game
+            // Only load actors created by the current user
             const userActors = await getUserActors();
-            const gameActors = await getGameActors(gameId);
+            console.log('Getting only user actors created by the current user:', userActors);
             
-            // Combine the lists, making sure to avoid duplicates
-            const actorMap = new Map();
+            // Filter to only include actors created by this user AND for this game
+            existingActors = userActors.filter(actor => actor.game_id === gameId);
             
-            // Add all user actors first
-            userActors.forEach(actor => {
-                actorMap.set(actor.actor_id, actor);
-            });
+            console.log(`Found ${existingActors.length} actors for user in game ${gameId}`);
             
-            // Add game actors, which will overwrite user actors if there are duplicates
-            gameActors.forEach(actor => {
-                actorMap.set(actor.actor_id, actor);
-            });
-            
-            // Convert back to array
-            existingActors = Array.from(actorMap.values());
-            
-            // Include all actors, including those assigned to this game
-            console.log(`Found ${existingActors.length} actors total for user (including game actors)`);
-            
-            // Load available cards for this game
-            availableCards = await getAvailableCardsForGame(gameId);
-            
-            // Preselect first available card if any
-            if (availableCards.length > 0) {
-                selectedCardId = availableCards[0].card_id;
-            }
-            
-            // Preselect first existing actor if any
-            if (existingActors.length > 0) {
+            // If no existing actors for this game, check if there are any actors without game assignment
+            if (existingActors.length === 0) {
+                console.log('No actors found for this game, checking for unassigned actors');
+                // No actors exist for this game, load available cards
+                availableCards = await getAvailableCardsForGame(gameId);
+                console.log(`Found ${availableCards.length} available cards for game ${gameId}`);
+                
+                // Preselect first available card if any
+                if (availableCards.length > 0) {
+                    selectedCardId = availableCards[0].card_id;
+                }
+                
+                // Default to create mode since no existing actors for this game
+                selectedExistingActor = false;
+                mode = 'create';
+            } else {
+                // User has existing actors for this game
                 selectedActorId = existingActors[0].actor_id;
                 selectedExistingActor = true;
-            } else {
-                selectedExistingActor = false;
-                mode = 'create'; // Default to creation if no existing actors
+                
+                // Still load available cards in case user wants to create a new actor
+                availableCards = await getAvailableCardsForGame(gameId);
+                
+                if (availableCards.length > 0) {
+                    selectedCardId = availableCards[0].card_id;
+                }
             }
         } catch (err) {
             console.error('Error loading actors and cards:', err);

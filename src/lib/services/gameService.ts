@@ -344,9 +344,9 @@ export async function assignRole(gameId: string, userId: string, actorId: string
 }
 
 // Get a player's role in a game
-export async function getPlayerRole(gameId: string, userId: string): Promise<Actor | null> {
+export async function getPlayerRole(gameId: string, userId: string, specifiedActorId?: string): Promise<Actor | null> {
     try {
-        console.log(`Getting role for user ${userId} in game ${gameId}`);
+        console.log(`Getting role for user ${userId} in game ${gameId}${specifiedActorId ? ` with actorId: ${specifiedActorId}` : ''}`);
         const gun = getGun();
         
         if (!gun) {
@@ -354,6 +354,23 @@ export async function getPlayerRole(gameId: string, userId: string): Promise<Act
             return null;
         }
         
+        // If a specific actorId is provided, use it directly
+        if (specifiedActorId) {
+            return new Promise((resolve) => {
+                gun.get(nodes.actors).get(specifiedActorId).once((actorData: Actor) => {
+                    if (!actorData) {
+                        console.log(`Specified actor not found: ${specifiedActorId}`);
+                        resolve(null);
+                        return;
+                    }
+                    
+                    console.log(`Got role using specified actorId for user ${userId} in game ${gameId}`);
+                    resolve(actorData);
+                });
+            });
+        }
+        
+        // Otherwise look up the actorId from game's role_assignment
         const game = await getGame(gameId);
         if (!game || !game.role_assignment) {
             console.error(`Game not found or no role assignments: ${gameId}`);
@@ -374,7 +391,7 @@ export async function getPlayerRole(gameId: string, userId: string): Promise<Act
                     return;
                 }
                 
-                console.log(`Got role for user ${userId} in game ${gameId}: ${actorData.role_title}`);
+                console.log(`Got role for user ${userId} in game ${gameId}: ${actorData.name || actorData.actor_id}`);
                 resolve(actorData);
             });
         });
