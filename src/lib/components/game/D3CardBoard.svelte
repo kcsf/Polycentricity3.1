@@ -1732,28 +1732,6 @@
     <!-- All visualization elements are now created directly with D3 -->
   </svg>
   
-  <!-- Controls -->
-  <div class="search-container">
-    <input 
-      type="text" 
-      bind:value={searchTerm} 
-      placeholder="Search cards..." 
-      class="search-input"
-    />
-    <button class="search-button" on:click={handleSearch}>
-      <Search size={18} />
-    </button>
-  </div>
-  
-  <div class="controls">
-    <button class="control-button" on:click={handleZoomIn}>
-      <ZoomIn size={18} />
-    </button>
-    <button class="control-button" on:click={handleZoomOut}>
-      <ZoomOut size={18} />
-    </button>
-    <button class="control-button" on:click={handleReset}>
-      <Maximize size={18} />
-    </button>
-  </div>
+  <!-- Controls will be connected to page header -->
+  <!-- Removed redundant search and zoom controls that will be handled by GamePageLayout header -->
 </div>
