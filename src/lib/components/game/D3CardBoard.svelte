@@ -699,19 +699,41 @@
         else if (participatingCardIds.length > 0) {
           console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating one-way visualization links`);
           
-          // For visualization purposes only create ONE-WAY links to match the reference design
-          // We'll only create links from card to agreement to avoid double arrows
-          participatingCardIds.forEach((cardId, i) => {
-            // Create a single directional link from card to agreement
+          // For visualization purposes, implement the Card → Agreement → Card pattern
+          if (participatingCardIds.length >= 2) {
+            // Get the first card to act as creator (source) and the second as recipient (target)
+            const creatorCardId = participatingCardIds[0];
+            const recipientCardId = participatingCardIds[1];
+            
+            // Create link from creator card to agreement
+            links.push({
+              source: creatorCardId,
+              target: agreement.agreement_id,
+              type: "obligation", // Represents the obligation flow
+              id: `vis_from_${creatorCardId}_to_${agreement.agreement_id}`,
+            });
+            
+            // Create link from agreement to recipient card
+            links.push({
+              source: agreement.agreement_id,
+              target: recipientCardId,
+              type: "benefit", // Represents the benefit flow
+              id: `vis_from_${agreement.agreement_id}_to_${recipientCardId}`,
+            });
+            
+            console.log(`Added Card→Agreement→Card pattern: ${creatorCardId} → ${agreement.agreement_id} → ${recipientCardId}`);
+          } 
+          // Fallback if only one card is connected to the agreement
+          else if (participatingCardIds.length === 1) {
+            const cardId = participatingCardIds[0];
             links.push({
               source: cardId,
               target: agreement.agreement_id,
-              type: "obligation", // Visual type only
-              id: `visual_${cardId}_to_${agreement.agreement_id}`,
+              type: "obligation",
+              id: `single_${cardId}_to_${agreement.agreement_id}`,
             });
-            
-            console.log(`Added one-way visualization link: ${cardId} -> ${agreement.agreement_id}`);
-          });
+            console.log(`Added single link: ${cardId} → ${agreement.agreement_id}`);
+          }
         }
       }
     });
@@ -766,17 +788,17 @@
     // First ensure we have a proper defs element for our gradients and markers
     const defs = svg.append("defs");
     
-    // Create an arrow marker definition for the links - improved styling to match reference
+    // Create an arrow marker definition for the links - following exact instructions
     defs.append("marker")
       .attr("id", "arrow-marker")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 6) // Move this closer to better position the arrowhead
+      .attr("refX", 15) // IMPORTANT: Ensure the line doesn't extend past the arrowhead
       .attr("refY", 0)
-      .attr("markerWidth", 5) // Slightly smaller for better aesthetics
-      .attr("markerHeight", 5)
+      .attr("markerWidth", 6) 
+      .attr("markerHeight", 6)
       .attr("orient", "auto")
       .append("path")
-      .attr("fill", "#CCCCCC") // Lighter gray for subtle arrows
+      .attr("fill", "#AAAAAA") // Medium gray for clear visibility
       .attr("d", "M0,-5L10,0L0,5");
 
     // Create link group that appears behind nodes
@@ -799,8 +821,7 @@
       .attr("stroke-width", 1)        // Thin lines per design reference
       .attr("stroke-opacity", 0.8)    // Slightly transparent
       .attr("marker-start", null)     // NO start markers - explicitly remove
-      .attr("marker-end", null)       // Also remove all end markers by default
-      // We'll handle arrows differently - NO ARROWS AT ALL to match reference image exactly
+      .attr("marker-end", "url(#arrow-marker)")  // Apply arrow ONLY at the target end as instructed
       .style("cursor", "pointer"); // Show pointer cursor on hover
       
     // Debug: How many lines were actually created?
@@ -890,8 +911,9 @@
         const sourceY = sourceNode.y + Math.sin(angle) * sourceRadius;
         
         // Adjust the target position accounting for the arrow marker
-        // The refX value in the marker definition influences this
-        const arrowPadding = 5; // Adjust to match the marker refX
+        // The refX (15) value in the marker definition is important here
+        // Ensure the line doesn't extend past the arrowhead
+        const arrowPadding = 15; // CRITICAL: Must match the refX value exactly
         const targetX = targetNode.x - Math.cos(angle) * (targetRadius + arrowPadding);
         const targetY = targetNode.y - Math.sin(angle) * (targetRadius + arrowPadding);
         
