@@ -153,48 +153,8 @@
     <Menu size={20} />
   </button>
   
-  <!-- Top Search Bar (Matches First Design) -->
-  <div class="search-container absolute top-4 left-16 right-16 z-10 flex justify-center">
-    <div class="relative flex max-w-md">
-      <input 
-        type="text" 
-        bind:value={searchQuery}
-        placeholder="Search nodes..." 
-        class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300 dark:border-surface-600"
-      />
-      <button 
-        class="bg-surface-200 dark:bg-surface-700 border-y border-r border-surface-300 dark:border-surface-600 px-3 rounded-r-md shadow-md flex items-center justify-center hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors"
-        onclick={handleSearch}
-        aria-label="Search"
-      >
-        <Search size={20} />
-      </button>
-    </div>
-  </div>
-  
   <!-- Right Controls -->
   <div class="controls-container absolute top-4 right-4 z-20 flex items-center space-x-2">
-    <button 
-      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
-      onclick={zoomOut} 
-      aria-label="Zoom out"
-    >
-      <ZoomOut size={20} />
-    </button>
-    <button 
-      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
-      onclick={resetZoom} 
-      aria-label="Reset zoom"
-    >
-      <Maximize size={20} />
-    </button>
-    <button 
-      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
-      onclick={zoomIn} 
-      aria-label="Zoom in"
-    >
-      <ZoomIn size={20} />
-    </button>
     <button 
       class="bg-primary-500 hover:bg-primary-600 text-white p-2 rounded-md shadow-md border border-primary-600 flex items-center transition-colors" 
       aria-label="New agreement"

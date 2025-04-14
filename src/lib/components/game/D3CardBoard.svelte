@@ -1209,13 +1209,31 @@
       
       // Add test data if needed
       if (!cardDataForViz.values || Object.keys(cardDataForViz.values).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Creating dummy values for card ${card.card_id}`);
-        cardDataForViz.values = { value1: true, value2: true, value3: true };
+        console.log(`Creating sample values for card ${card.card_id}`);
+        // If we don't have values, use a few from our value collection to show proper names
+        // This is only for visualization if no values are set
+        gun.get(nodes.values).map().once(async (value: Value, valueId: string) => {
+          if (value && value.name && valueId !== '_') {
+            console.log(`Found value: ${valueId} - ${value.name}`);
+            valueCache.set(valueId, value);
+            if (!cardDataForViz.values) cardDataForViz.values = {};
+            cardDataForViz.values[valueId] = true;
+          }
+        });
       }
       
       if (!cardDataForViz.capabilities || Object.keys(cardDataForViz.capabilities).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Creating dummy capabilities for card ${card.card_id}`);
-        cardDataForViz.capabilities = { capability1: true, capability2: true };
+        console.log(`Creating sample capabilities for card ${card.card_id}`);
+        // If we don't have capabilities, use a few from our capability collection to show proper names
+        // This is only for visualization if no capabilities are set
+        gun.get(nodes.capabilities).map().once(async (capability: Capability, capabilityId: string) => {
+          if (capability && capability.name && capabilityId !== '_') {
+            console.log(`Found capability: ${capabilityId} - ${capability.name}`);
+            capabilityCache.set(capabilityId, capability);
+            if (!cardDataForViz.capabilities) cardDataForViz.capabilities = {};
+            cardDataForViz.capabilities[capabilityId] = true;
+          }
+        });
       }
       
       // Map legacy field names 
