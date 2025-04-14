@@ -9,6 +9,7 @@
 
   // Props
   export let gameId: string;
+  export let activeActorId: string | undefined = undefined;
   
   // Local variables
   let svgRef: SVGSVGElement;

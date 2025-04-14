@@ -4,8 +4,10 @@
     import { getGame, subscribeToGame } from '$lib/services/gameService';
     import D3GameBoardIntegrated from './D3GameBoardIntegrated.svelte';
     import GameHeader from './GameHeader.svelte';
+    import gameStore from '$lib/stores/enhancedGameStore';
     
     export let gameId: string;
+    export let activeActorId: string | undefined = undefined;
     
     let game: Game | null = null;
     let isLoading = true;
@@ -26,6 +28,12 @@
             unsubscribe = subscribeToGame(gameId, (updatedGame) => {
                 game = updatedGame;
             });
+            
+            // Initialize the active actor in the store if it's provided
+            if (activeActorId) {
+                console.log(`Setting active actor in game board: ${activeActorId}`);
+                gameStore.setActiveActorId(activeActorId);
+            }
         } catch (err) {
             console.error('Error loading game board:', err);
             error = 'Failed to load game data';
@@ -57,7 +65,10 @@
             
             <!-- D3 Game Board Visualization -->
             <div class="flex-grow overflow-hidden">
-                <D3GameBoardIntegrated {gameId} />
+                <D3GameBoardIntegrated 
+                    {gameId} 
+                    activeActorId={activeActorId}
+                />
             </div>
         </div>
     {:else}

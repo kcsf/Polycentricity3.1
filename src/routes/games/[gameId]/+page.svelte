@@ -194,7 +194,10 @@
                                 <div class="lg:col-span-2">
                                         {#if isCurrentUserInGame()}
                                                 <div class="mb-4">
-                                                        <GameBoard {gameId} />
+                                                        <GameBoard 
+                                                                {gameId} 
+                                                                activeActorId={playerRole?.actor_id}
+                                                        />
                                                 </div>
                                                 
                                                 <div class="card p-4 h-64">

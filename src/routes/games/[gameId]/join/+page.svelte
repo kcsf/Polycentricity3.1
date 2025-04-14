@@ -70,7 +70,8 @@
             selectedActor = actor;
             actorSelected = true;
             
-            // Redirect to game page
+            // Redirect to game page to show the D3GameBoard
+            console.log(`Actor selected: ${actor.actor_id} - redirecting to game page`);
             goto(`/games/${gameId}`);
         } catch (err) {
             console.error('Error selecting actor:', err);
