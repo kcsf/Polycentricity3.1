@@ -394,8 +394,13 @@
       });
       
       // Only select the relevant node types by default as requested
-      const relevantNodeTypes = ['users', 'decks', 'cards', 'values', 'capabilities'];
+      const relevantNodeTypes = ['users', 'decks', 'cards', 'values', 'capabilities', 'games'];
       selectedNodeTypes = availableNodeTypes.filter(type => relevantNodeTypes.includes(type));
+      
+      // Add "games" to the available types for display even if none exist
+      if (!availableNodeTypes.includes('games')) {
+        availableNodeTypes.push('games');
+      }
       console.log("Selected node types:", selectedNodeTypes);
       
       // Get unique edge types (connections between node types)
