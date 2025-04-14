@@ -270,9 +270,20 @@
     
     try {
       console.log('Starting game relationship fixing');
+      
+      // First let's log some information about the existing state
+      await logCurrentGameRelationships();
+      
+      // Now fix the relationships
       gameFixResult = await fixGameRelationships();
       console.log('Game relationships fixed', gameFixResult);
       gameFixSuccess = gameFixResult.success;
+      
+      // Log the updated state after fixing
+      if (gameFixSuccess) {
+        console.log('Checking post-fix game relationships...');
+        await logCurrentGameRelationships();
+      }
       
       // Dispatch a custom event for parent components to know relationships were fixed
       dispatch('relationshipsFixed', gameFixResult);
@@ -283,6 +294,55 @@
     } finally {
       isFixingGames = false;
     }
+  }
+  
+  // Helper function to log current game relationships for debugging
+  async function logCurrentGameRelationships() {
+    const gun = getGun();
+    if (!gun) return;
+    
+    return new Promise<void>(resolve => {
+      let gamesFound = 0;
+      let gamesWithUsers = 0;
+      let gamesWithActors = 0;
+      let gamesWithDecks = 0;
+      
+      gun.get(nodes.games).map().once((gameData, gameId) => {
+        if (!gameData) return;
+        
+        gamesFound++;
+        console.log(`Checking game ${gameId} relationships`);
+        
+        // Check for player references
+        if (gameData.player_refs) {
+          console.log(`- Game ${gameId} has player_refs:`, gameData.player_refs);
+          gamesWithUsers++;
+        }
+        
+        // Check for actor references
+        if (gameData.actor_refs) {
+          console.log(`- Game ${gameId} has actor_refs:`, gameData.actor_refs);
+          gamesWithActors++;
+        }
+        
+        // Check for deck references
+        if (gameData.deck_ref) {
+          console.log(`- Game ${gameId} has deck_ref:`, gameData.deck_ref);
+          gamesWithDecks++;
+        }
+      });
+      
+      // Give it a moment to fetch data before resolving
+      setTimeout(() => {
+        console.log('Game relationship check complete:', {
+          gamesFound,
+          gamesWithUsers,
+          gamesWithActors,
+          gamesWithDecks
+        });
+        resolve();
+      }, 1000);
+    });
   }
   
   onMount(() => {

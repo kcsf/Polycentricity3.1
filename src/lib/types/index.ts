@@ -80,6 +80,7 @@ export interface Game {
     description?: string;
     creator: string; // user_id of creator
     deck_id: string; // Reference to deck used in this game
+    deck_type?: string; // Type of deck ('eco-village' or 'community-garden')
     role_assignment: 'random' | 'choice'; // How roles are assigned
     players: Record<string, string>; // Map of user_id to actor_id
     created_at: number;
@@ -88,6 +89,15 @@ export interface Game {
     end_date?: number;
     max_players?: number;
     password?: string; // Optional password for private games
+    
+    // Legacy fields used in older data - may be accessed via type casting
+    deck?: Record<string, any>; // Used in older data for role assignments
+    roles?: Record<string, any>; // Used for tracking role assignments
+    
+    // Reference fields for visualization
+    player_refs?: Record<string, any>; // References to users
+    actor_refs?: Record<string, any>; // References to actors
+    deck_ref?: Record<string, any>; // Reference to deck
 }
 
 // Actor interface (instance of card in game)
