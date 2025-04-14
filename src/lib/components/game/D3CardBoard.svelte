@@ -927,6 +927,9 @@
       const nodeGroup = d3.select(this);
       const iconSize = 24; // Size of the icon
       
+      // Debug log for icon values
+      console.log(`Card icon debug - title: ${card.role_title}, icon value: ${card.icon}`);
+      
       // Determine which icon to use based on card.icon or fallback to card.type
       let iconPath = "";
       
