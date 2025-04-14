@@ -541,20 +541,19 @@
 
   // Function to initialize D3 visualization
   function initializeGraph() {
-    try {
-      console.log("Starting graph initialization");
-      if (!svgRef) {
-        console.error("SVG reference is missing");
-        return;
-      }
-      
-      // Set up dimensions based on container size
-      const boundingRect = svgRef.parentElement?.getBoundingClientRect();
-      if (boundingRect) {
-        width = boundingRect.width;
-        height = boundingRect.height;
-        console.log(`Graph dimensions: ${width}x${height}`);
-      }
+    console.log("Starting graph initialization");
+    if (!svgRef) {
+      console.error("SVG reference is missing");
+      return;
+    }
+    
+    // Set up dimensions based on container size
+    const boundingRect = svgRef.parentElement?.getBoundingClientRect();
+    if (boundingRect) {
+      width = boundingRect.width;
+      height = boundingRect.height;
+      console.log(`Graph dimensions: ${width}x${height}`);
+    }
     
     // CSS variables for node sizing
     const root = document.documentElement;
