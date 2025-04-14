@@ -20,7 +20,7 @@
   let height = 600;
   let hoveredNode: string | null = null;
   let hoveredCategory: string | null = null;
-  // No longer using separate subItems array - using D3 to create all UI elements
+  // All UI elements are now handled directly with D3
   let categoryCount = 0;
   let nodeElements: d3.Selection<any, D3Node, any, any>; // Store node elements for access in multiple functions
   
@@ -845,20 +845,16 @@
         }
       })
       .on("mouseover", (event, d) => {
-        // On hover, show the radial menu for cards
+        // On hover, set the hovered node but don't use the separate radial menu
+        // The donut rings handle everything with their own mouse events
         if (d.type === 'card') {
           hoveredNode = d.id;
-          updateRadialMenu(d);
+          // No need to call updateRadialMenu - all visualization is handled by D3
         }
       })
       .on("mouseout", (event, d) => {
-        // Hide radial menu on mouseout after a slight delay
+        // Just clear hover state - donut rings handle their own events
         hoveredNode = null;
-        setTimeout(() => {
-          if (!hoveredNode) {
-            subItems = [];
-          }
-        }, 200);
       });
 
     // Initialize link positions
@@ -1432,113 +1428,7 @@
     });
   }
   
-  // All helper functions have been integrated directly into addDonutRings()
-  
-  // Update the radial menu display based on card properties
-  function updateRadialMenu(node: D3Node) {
-    if (node.type !== 'card') return;
-    
-    const card = node.data as Card;
-    console.log(`D3CardBoard: Updating radial menu for card ${card.card_id}`);
-    
-    subItems = [];
-    
-    // Helper function to ensure valid arrays from any property
-    const ensureArray = (field: any): string[] => {
-      if (!field) return [];
-      if (Array.isArray(field)) return field;
-      if (typeof field === 'object') {
-        // Handle Gun.js objects and references
-        if (field['#']) {
-          // This is a reference case but we already processed it in loadCardDetails
-          // Return the valueIds or capabilityIds we've already gathered
-          return Object.keys(field).filter(id => id !== '_' && id !== '#');
-        }
-        // Regular object case
-        return Object.keys(field).filter(id => id !== '_' && id !== '#');
-      }
-      if (typeof field === 'string') {
-        return field.split(',').map(item => item.trim());
-      }
-      return [];
-    };
-    
-    const categories = ['values', 'capabilities', 'intellectualProperty', 'resources', 'goals'];
-    const itemsByCategory: Record<string, string[]> = {};
-    
-    // Populate item arrays for each category
-    for (const category of categories) {
-      let items: string[] = [];
-      
-      if (category === 'values' && card.values) {
-        items = ensureArray(card.values);
-        console.log(`D3CardBoard: Card has ${items.length} values`);
-        
-        // Log cached values for debugging
-        for (const valueId of items) {
-          if (valueCache.has(valueId)) {
-            console.log(`D3CardBoard: Found value ${valueId} in cache: ${valueCache.get(valueId)?.name}`);
-          } else {
-            console.log(`D3CardBoard: Value ${valueId} not in cache`);
-          }
-        }
-      } 
-      else if (category === 'capabilities' && card.capabilities) {
-        items = ensureArray(card.capabilities);
-        console.log(`D3CardBoard: Card has ${items.length} capabilities`);
-        
-        // Log cached capabilities for debugging
-        for (const capId of items) {
-          if (capabilityCache.has(capId)) {
-            console.log(`D3CardBoard: Found capability ${capId} in cache: ${capabilityCache.get(capId)?.name}`);
-          } else {
-            console.log(`D3CardBoard: Capability ${capId} not in cache`);
-          }
-        }
-      }
-      else if (card[category]) {
-        items = ensureArray(card[category]);
-        console.log(`D3CardBoard: Card has ${items.length} ${category}`);
-      }
-      
-      if (items.length > 0) {
-        itemsByCategory[category] = items;
-      }
-    }
-    
-    // Generate SubItem objects for each category's items
-    for (const [category, items] of Object.entries(itemsByCategory)) {
-      // Create SubItem objects for the items in this category
-      const itemObjects = items.map((itemId, index) => {
-        // Get item name from cache if available
-        let itemName = itemId;
-        if (category === 'values' && valueCache.has(itemId)) {
-          itemName = valueCache.get(itemId).name;
-        } else if (category === 'capabilities' && capabilityCache.has(itemId)) {
-          itemName = capabilityCache.get(itemId).name;
-        }
-        
-        // Calculate angle (distribute items evenly within their category wedge)
-        // This will be better determined by the pie layout in the visualization
-        const angle = (index * (360 / items.length) + (category === 'values' ? 270 : 90)) % 360;
-        
-        return {
-          id: itemId,
-          label: itemName || 'Loading...',
-          angle: angle,
-          radius: 60, // Distance from center
-          nodeX: node.x,
-          nodeY: node.y,
-          category: category,
-          categoryColor: categoryColors(category),
-          index,
-          totalItems: items.length
-        };
-      });
-      
-      subItems = [...subItems, ...itemObjects];
-    }
-  }
+  // All visualization is now handled directly by D3 in the addDonutRings() function
 
   function handleSearch() {
     // Implement search logic here
