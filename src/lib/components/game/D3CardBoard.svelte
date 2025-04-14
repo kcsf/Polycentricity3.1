@@ -104,7 +104,27 @@
     console.log(`D3CardBoard: Initializing for game ${gameId}`);
     
     try {
-      await loadGameData();
+      // First, use any cards passed directly from the parent component
+      if (cards && cards.length > 0) {
+        console.log(`D3CardBoard: Using ${cards.length} cards passed from parent component`);
+        cards.forEach(card => {
+          const cardWithPosition: CardWithPosition = {
+            ...card,
+            position: {
+              x: Math.random() * width,
+              y: Math.random() * height
+            }
+          };
+          cardsWithPosition = [...cardsWithPosition, cardWithPosition];
+          
+          // Load card details (values and capabilities)
+          loadCardDetails(card);
+        });
+      } else {
+        // If no cards were passed directly, fetch from database
+        console.log(`D3CardBoard: No cards passed from parent, loading from database`);
+        await loadGameData();
+      }
       
       // If activeActorId is provided, find its card
       if (activeActorId) {
@@ -120,7 +140,7 @@
       
       // Initialize the graph visualization
       console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
-      if (cardsWithPosition.length > 0 || cards.length > 0) {
+      if (cardsWithPosition.length > 0) {
         console.log("D3CardBoard: Initializing graph visualization");
         initializeGraph();
       } else {
