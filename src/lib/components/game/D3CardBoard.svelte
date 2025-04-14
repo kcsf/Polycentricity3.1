@@ -73,7 +73,15 @@
     };
   }
   
-  interface AgreementWithPosition extends Agreement {
+  // Create a custom type for AgreementWithPosition to avoid type conflicts
+  interface AgreementWithPosition {
+    agreement_id: string;
+    title: string;
+    description?: string;
+    status: string;
+    created_at: number;
+    parties?: Record<string, boolean>;
+    terms?: string;
     position?: {
       x: number;
       y: number;
