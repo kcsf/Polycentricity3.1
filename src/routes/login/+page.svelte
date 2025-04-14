@@ -64,24 +64,30 @@
                                         </div>
                                 {/if}
                                 
-                                <label class="label">
+                                <label class="label" for="email">
                                         <span>Email</span>
                                         <input 
+                                                id="email"
+                                                name="email"
                                                 type="email" 
                                                 class="input" 
                                                 bind:value={email} 
                                                 placeholder="Enter your email"
+                                                autocomplete="username email"
                                                 required
                                         />
                                 </label>
                                 
-                                <label class="label">
+                                <label class="label" for="password">
                                         <span>Password</span>
                                         <input 
+                                                id="password"
+                                                name="password"
                                                 type="password" 
                                                 class="input" 
                                                 bind:value={password} 
                                                 placeholder="Enter your password"
+                                                autocomplete="current-password"
                                                 required
                                         />
                                 </label>

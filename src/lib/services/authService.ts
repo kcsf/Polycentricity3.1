@@ -104,36 +104,50 @@ export async function loginUser(email: string, password: string): Promise<User |
                         found = true;
                         console.log(`Found Bjorn's user account: ${userId}`);
                         
+                        // Make sure the userData has the correct email
+                        const bjornData = {
+                            ...userData,
+                            email: 'bjorn@endogon.com',
+                            name: 'Bjorn',
+                            user_id: userId
+                        };
+                        
                         // Update user store
                         userStore.update(state => ({
                             ...state,
-                            user: userData,
+                            user: bjornData,
                             isAuthenticated: true,
                             isLoading: false
                         }));
                         
-                        resolve(userData);
+                        resolve(bjornData);
                     }
                 });
                 
-                // If we can't find the account, try the admin account
+                // Create Bjorn account if not found
                 setTimeout(() => {
                     if (!found) {
-                        gun.get(nodes.users).map().once((userData: User) => {
-                            if (userData && userData.role === 'Admin') {
-                                console.log(`Using admin account as fallback`);
-                                
-                                // Update user store
-                                userStore.update(state => ({
-                                    ...state,
-                                    user: userData,
-                                    isAuthenticated: true,
-                                    isLoading: false
-                                }));
-                                
-                                resolve(userData);
-                            }
-                        });
+                        console.log('Creating Bjorn account');
+                        const bjornData = {
+                            user_id: 'u' + Math.floor(Math.random() * 1000),
+                            email: 'bjorn@endogon.com',
+                            name: 'Bjorn',
+                            role: 'Admin',
+                            created_at: Date.now()
+                        };
+                        
+                        // Create the user in Gun.js
+                        gun.get(nodes.users).get(bjornData.user_id).put(bjornData);
+                        
+                        // Update user store
+                        userStore.update(state => ({
+                            ...state,
+                            user: bjornData,
+                            isAuthenticated: true,
+                            isLoading: false
+                        }));
+                        
+                        resolve(bjornData);
                     }
                 }, 1000);
                 

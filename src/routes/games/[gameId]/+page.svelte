@@ -105,23 +105,38 @@
                 }
         }
         
+        async function loadPlayerRole() {
+                if (game && $userStore.user) {
+                    playerRole = await getPlayerRole(gameId, $userStore.user.user_id);
+                    console.log('Player role:', playerRole);
+                }
+        }
+                
         function isCurrentUserInGame(): boolean {
                 if (!game) return false;
                 
                 // If there's a logged in user, check if they're in the game
                 if ($userStore.user) {
                     const userId = $userStore.user.user_id;
+                    
+                    // First check if player is in the players array/object
+                    let isInPlayers = false;
                     if (Array.isArray(game.players)) {
-                        return game.players.includes(userId);
+                        isInPlayers = game.players.includes(userId);
                     } else {
                         // Check if player exists in the object-based players structure
-                        return game.players && game.players[userId] === true;
+                        isInPlayers = game.players && game.players[userId] === true;
                     }
+                    
+                    // If they have a role assigned, they're definitely in the game
+                    const hasRole = playerRole !== null;
+                    
+                    return isInPlayers || hasRole;
                 }
                 
-                // For development: always return true when no user is logged in
-                console.warn('No user logged in. Treating as if user is in game for development.');
-                return true;
+                // For development: always return false when no user is logged in
+                console.warn('No user logged in. User is not in game.');
+                return false;
         }
 </script>
 
