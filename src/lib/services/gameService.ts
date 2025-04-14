@@ -1,6 +1,6 @@
-import { getGun, nodes, generateId } from './gunService';
+import { getGun, nodes, generateId, createRelationship } from './gunService';
 import { getCurrentUser } from './authService';
-import type { Game, Actor, RoleAssignment } from '$lib/types';
+import type { Game, Actor, Card } from '$lib/types';
 import { GameStatus } from '$lib/types';
 import { currentGameStore, setUserGames } from '$lib/stores/gameStore';
 import { get } from 'svelte/store';
@@ -549,6 +549,349 @@ export async function getUserGames(): Promise<Game[]> {
  * Fixes relationships for existing games to ensure they appear correctly in the graph visualization
  * This creates explicit relationships between games and their related entities (users, decks, actors)
  */
+// Get available cards for a game (cards not yet assigned to players)
+export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> {
+    try {
+        console.log(`Getting available cards for game: ${gameId}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return [];
+        }
+        
+        const game = await getGame(gameId);
+        if (!game) {
+            console.error(`Game not found: ${gameId}`);
+            return [];
+        }
+        
+        // Get all cards in the game's deck
+        let deckId = '';
+        if (game.deck_type === 'eco-village') {
+            deckId = 'd1';
+        } else if (game.deck_type === 'community-garden') {
+            deckId = 'd2';
+        } else if (game.deck_id) {
+            deckId = game.deck_id;
+        }
+        
+        if (!deckId) {
+            console.error(`No deck found for game ${gameId}`);
+            return [];
+        }
+        
+        // Get all cards in the deck
+        return new Promise((resolve) => {
+            const cards: Card[] = [];
+            const usedCardIds = new Set<string>();
+            
+            // First, check which cards are already in use by getting all actors in this game
+            gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
+                if (actorData && actorData.game_id === gameId && actorData.card_id) {
+                    usedCardIds.add(actorData.card_id);
+                }
+            });
+            
+            // Then get all cards in the deck, filtering out used ones
+            setTimeout(() => {
+                gun.get(nodes.decks).get(deckId).get('cards').map().once((cardValue: any, cardId: string) => {
+                    if (cardValue && cardId !== '_' && !usedCardIds.has(cardId)) {
+                        // Fetch the card details
+                        gun.get(nodes.cards).get(cardId).once((cardData: Card) => {
+                            if (cardData) {
+                                cards.push(cardData);
+                            }
+                        });
+                    }
+                });
+                
+                // Give Gun time to fetch the card data
+                setTimeout(() => {
+                    console.log(`Found ${cards.length} available cards for game ${gameId}`);
+                    resolve(cards);
+                }, 500);
+            }, 500);
+        });
+    } catch (error) {
+        console.error('Get available cards error:', error);
+        return [];
+    }
+}
+
+// Get a specific card by ID
+export async function getCard(cardId: string): Promise<Card | null> {
+    try {
+        console.log(`Getting card: ${cardId}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return null;
+        }
+        
+        return new Promise((resolve) => {
+            gun.get(nodes.cards).get(cardId).once((cardData: Card) => {
+                if (!cardData) {
+                    console.log(`Card not found: ${cardId}`);
+                    resolve(null);
+                    return;
+                }
+                
+                console.log(`Card retrieved: ${cardId}`);
+                resolve(cardData);
+            });
+        });
+    } catch (error) {
+        console.error('Get card error:', error);
+        return null;
+    }
+}
+
+// Create a new actor for a user in a game
+export async function createActor(
+    gameId: string, 
+    cardId: string, 
+    actorType: 'National Identity' | 'Sovereign Identity',
+    customName?: string
+): Promise<Actor | null> {
+    try {
+        console.log(`Creating actor in game ${gameId} with card ${cardId}`);
+        const gun = getGun();
+        const currentUser = getCurrentUser();
+        
+        if (!gun || !currentUser) {
+            console.error('Gun or user not initialized');
+            return null;
+        }
+        
+        const game = await getGame(gameId);
+        if (!game) {
+            console.error(`Game not found: ${gameId}`);
+            return null;
+        }
+        
+        // Check if user is already in the game players
+        const playersObj = game.players as Record<string, boolean>;
+        if (!playersObj || !playersObj[currentUser.user_id]) {
+            // Add user to game players first
+            const success = await joinGame(gameId);
+            if (!success) {
+                console.error(`Failed to join game ${gameId}`);
+                return null;
+            }
+        }
+        
+        // Create actor
+        const actorId = generateId();
+        const actor: Actor = {
+            actor_id: actorId,
+            game_id: gameId,
+            user_id: currentUser.user_id,
+            card_id: cardId,
+            created_at: Date.now(),
+            custom_name: customName,
+            actor_type: actorType,
+            status: 'active',
+            agreements: {}
+        };
+        
+        return new Promise((resolve, reject) => {
+            gun.get(nodes.actors).get(actorId).put(actor, async (ack: any) => {
+                if (ack.err) {
+                    console.error('Error creating actor:', ack.err);
+                    reject(ack.err);
+                    return;
+                }
+                
+                try {
+                    // Update game role_assignment
+                    await assignRole(gameId, currentUser.user_id, actorId);
+                    
+                    // Create explicit relationships for visualization
+                    // 1. User to Actor relationship
+                    createRelationship(`${nodes.users}/${currentUser.user_id}`, 'actors', `${nodes.actors}/${actorId}`);
+                    
+                    // 2. Actor to Card relationship
+                    createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`);
+                    
+                    // 3. Actor to Game relationship
+                    createRelationship(`${nodes.actors}/${actorId}`, 'game', `${nodes.games}/${gameId}`);
+                    
+                    // 4. Add to game chat participants
+                    gun.get(nodes.chat).get(`${gameId}_group`).get('participants').set(currentUser.user_id);
+                    
+                    console.log(`Actor created: ${actorId} for user ${currentUser.user_id} in game ${gameId}`);
+                    resolve(actor);
+                } catch (err) {
+                    console.warn(`Error creating relationships: ${err}, but actor was created`);
+                    resolve(actor);
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Create actor error:', error);
+        return null;
+    }
+}
+
+// Get a user's actors from all games
+export async function getUserActors(userId?: string): Promise<Actor[]> {
+    try {
+        const gun = getGun();
+        const currentUser = getCurrentUser();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return [];
+        }
+        
+        // If userId is not provided, use current user's ID
+        const userToCheck = userId || (currentUser?.user_id);
+        
+        if (!userToCheck) {
+            console.warn('No user ID available. Using mock user ID for development.');
+            return [];
+        }
+        
+        console.log(`Getting actors for user: ${userToCheck}`);
+        
+        return new Promise((resolve) => {
+            const actors: Actor[] = [];
+            gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
+                if (actorData && actorData.user_id === userToCheck) {
+                    actors.push({...actorData, actor_id: actorId});
+                }
+            });
+            
+            // Use setTimeout to give Gun time to fetch data
+            setTimeout(() => {
+                console.log(`Found ${actors.length} actors for user ${userToCheck}`);
+                resolve(actors);
+            }, 500);
+        });
+    } catch (error) {
+        console.error('Get user actors error:', error);
+        return [];
+    }
+}
+
+// Get all actors for a specific game
+export async function getGameActors(gameId: string): Promise<Actor[]> {
+    try {
+        console.log(`Getting actors for game: ${gameId}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return [];
+        }
+        
+        return new Promise((resolve) => {
+            const actors: Actor[] = [];
+            gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
+                if (actorData && actorData.game_id === gameId) {
+                    actors.push({...actorData, actor_id: actorId});
+                }
+            });
+            
+            // Use setTimeout to give Gun time to fetch data
+            setTimeout(() => {
+                console.log(`Found ${actors.length} actors for game ${gameId}`);
+                resolve(actors);
+            }, 500);
+        });
+    } catch (error) {
+        console.error('Get game actors error:', error);
+        return [];
+    }
+}
+
+// Assign a card to an actor randomly or by choice
+export async function assignCardToActor(gameId: string, actorId: string, cardId?: string): Promise<boolean> {
+    try {
+        console.log(`Assigning card to actor ${actorId} in game ${gameId}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return false;
+        }
+        
+        const game = await getGame(gameId);
+        if (!game) {
+            console.error(`Game not found: ${gameId}`);
+            return false;
+        }
+        
+        // If cardId is not provided, assign a random card
+        let finalCardId = cardId;
+        if (!finalCardId) {
+            const availableCards = await getAvailableCardsForGame(gameId);
+            if (availableCards.length === 0) {
+                console.error('No available cards to assign');
+                return false;
+            }
+            
+            // Pick a random card
+            const randomIndex = Math.floor(Math.random() * availableCards.length);
+            finalCardId = availableCards[randomIndex].card_id;
+        }
+        
+        if (!finalCardId) {
+            console.error('No card ID available to assign');
+            return false;
+        }
+        
+        return new Promise((resolve, reject) => {
+            gun.get(nodes.actors).get(actorId).get('card_id').put(finalCardId, (ack: any) => {
+                if (ack.err) {
+                    console.error('Error assigning card to actor:', ack.err);
+                    reject(ack.err);
+                    return;
+                }
+                
+                // Create explicit relationship for visualization
+                createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${finalCardId}`);
+                
+                console.log(`Card ${finalCardId} assigned to actor ${actorId}`);
+                resolve(true);
+            });
+        });
+    } catch (error) {
+        console.error('Assign card error:', error);
+        return false;
+    }
+}
+
+// Check if a game is full (reached max_players)
+export async function isGameFull(gameId: string): Promise<boolean> {
+    try {
+        console.log(`Checking if game ${gameId} is full`);
+        const game = await getGame(gameId);
+        
+        if (!game) {
+            console.error(`Game not found: ${gameId}`);
+            return false;
+        }
+        
+        // If max_players is not set, game is never full
+        if (!game.max_players) {
+            return false;
+        }
+        
+        const playersObj = game.players as Record<string, boolean>;
+        const playerCount = playersObj ? Object.keys(playersObj).length : 0;
+        
+        const isFull = playerCount >= game.max_players;
+        console.log(`Game ${gameId} has ${playerCount}/${game.max_players} players. Full: ${isFull}`);
+        return isFull;
+    } catch (error) {
+        console.error('Check if game is full error:', error);
+        return false;
+    }
+}
+
 export async function fixGameRelationships(): Promise<{success: boolean, gamesFixed: number}> {
     try {
         console.log('Fixing game relationships for visualization');
