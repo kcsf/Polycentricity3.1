@@ -5,18 +5,33 @@
         import { formatDateTime } from '$lib/utils/helpers';
         import { userStore } from '$lib/stores/userStore';
         import * as icons from 'svelte-lucide';
-        import { joinGame } from '$lib/services/gameService';
+        import { joinGame, leaveGame } from '$lib/services/gameService';
         
         export let game: Game;
+        export let showActions = true; // Whether to show action buttons
         
         let isJoining = false;
-        let joinError = '';
+        let isLeaving = false;
+        let actionError = '';
         
         // Computed properties for game state
         $: playerCount = Object.keys(game.players || {}).length;
         $: isFull = game.max_players && playerCount >= game.max_players;
         $: isUserInGame = $userStore.user && game.players && $userStore.user.user_id in game.players;
         $: canJoin = !isUserInGame && !isFull && game.status === GameStatus.ACTIVE;
+        $: isCreator = $userStore.user && game.creator === $userStore.user.user_id;
+        
+        // Format the role assignment type for display
+        $: roleAssignmentDisplay = game.role_assignment_type ? 
+            (game.role_assignment_type === 'player-choice' ? 'Player Choice' : 'Random') : 
+            'Random';
+            
+        // Get a user-friendly deck type name
+        $: deckTypeDisplay = {
+            'eco-village': 'Eco-Village',
+            'community-garden': 'Community Garden',
+            'custom': 'Custom Deck'
+        }[game.deck_type] || game.deck_type;
         
         function getStatusBadgeVariant(status: GameStatus): string {
                 switch (status) {
@@ -25,7 +40,7 @@
                         case GameStatus.SETUP:
                                 return 'variant-soft-warning';
                         case GameStatus.ACTIVE:
-                                return 'variant-soft-success';
+                                return 'variant-filled-success';
                         case GameStatus.PAUSED:
                                 return 'variant-soft-tertiary';
                         case GameStatus.COMPLETED:
@@ -33,6 +48,23 @@
                         default:
                                 return 'variant-soft-primary';
                 }
+        }
+        
+        function getStatusIcon(status: GameStatus) {
+            switch (status) {
+                case GameStatus.CREATED:
+                    return icons.FileSparkles;
+                case GameStatus.SETUP:
+                    return icons.Settings;
+                case GameStatus.ACTIVE:
+                    return icons.Play;
+                case GameStatus.PAUSED:
+                    return icons.Pause;
+                case GameStatus.COMPLETED:
+                    return icons.CheckCircle;
+                default:
+                    return icons.FileSparkles;
+            }
         }
         
         function enterGame() {
@@ -47,94 +79,193 @@
                 
                 try {
                         isJoining = true;
-                        joinError = '';
+                        actionError = '';
                         
                         // Direct to game join page instead of directly joining
                         // This will allow for actor selection/creation
                         goto(`/games/${game.game_id}/join`);
                 } catch (err) {
                         console.error('Error joining game:', err);
-                        joinError = 'Failed to join game. Please try again.';
+                        actionError = 'Failed to join game. Please try again.';
                 } finally {
                         isJoining = false;
                 }
         }
+        
+        async function handleLeaveGame() {
+            if (!$userStore.user) {
+                goto('/login');
+                return;
+            }
+            
+            try {
+                isLeaving = true;
+                actionError = '';
+                
+                const success = await leaveGame(game.game_id);
+                if (success) {
+                    // Update UI to reflect the user has left
+                    // This will be handled by reactivity once the game store updates
+                } else {
+                    actionError = 'Failed to leave game. Please try again.';
+                }
+            } catch (err) {
+                console.error('Error leaving game:', err);
+                actionError = 'Failed to leave game. Please try again.';
+            } finally {
+                isLeaving = false;
+            }
+        }
+        
+        // Get the day's difference between now and the game created date
+        function getDaysSinceCreation(): string {
+            const now = new Date();
+            const created = new Date(game.created_at);
+            const diffTime = Math.abs(now.getTime() - created.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            return `${diffDays} days ago`;
+        }
+        
+        // Get date formatted to be more human readable
+        $: createdDate = new Date(game.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
 </script>
 
-<div class="card p-4 shadow-lg hover:shadow-xl transition-all duration-200 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
-        <header class="card-header mb-2">
-                <h3 class="h3 text-primary-500 dark:text-primary-400">{game.name}</h3>
-                <div class="badge {getStatusBadgeVariant(game.status)} text-sm font-medium">
-                        {game.status}
+<div class="card p-0 shadow-xl hover:shadow-2xl transition-all duration-200 bg-surface-50 dark:bg-surface-900 border border-surface-200-700-token overflow-hidden flex flex-col h-full">
+        <!-- Game Banner & Header -->
+        <div class="relative bg-primary-500/10 dark:bg-primary-500/20 p-5 border-b border-surface-200-700-token">
+            <!-- Status Badge -->
+            <div class="absolute top-3 right-3 flex items-center gap-2">
+                <div class="badge {getStatusBadgeVariant(game.status)} font-medium">
+                    <svelte:component this={getStatusIcon(game.status)} size={14} class="mr-1" />
+                    {game.status}
                 </div>
-        </header>
-        <section class="p-4 bg-surface-100-800-token rounded-lg">
-                <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col">
-                                <p class="text-sm font-semibold text-tertiary-500 dark:text-tertiary-400">Players:</p>
-                                <div class="flex items-center">
-                                        <p class="text-sm text-surface-900 dark:text-surface-50">
-                                                {playerCount} {game.max_players ? `/ ${game.max_players}` : ''}
-                                        </p>
-                                        {#if isFull}
-                                                <div class="badge variant-filled-warning text-xs ml-2">Full</div>
-                                        {/if}
-                                </div>
-                        </div>
-                        <div class="flex flex-col">
-                                <p class="text-sm font-semibold text-tertiary-500 dark:text-tertiary-400">Deck Type:</p>
-                                <p class="text-sm text-surface-900 dark:text-surface-50 capitalize">{game.deck_type}</p>
-                        </div>
-                        <div class="flex flex-col">
-                                <p class="text-sm font-semibold text-tertiary-500 dark:text-tertiary-400">Role Assignment:</p>
-                                <p class="text-sm text-surface-900 dark:text-surface-50 capitalize">{game.role_assignment || 'random'}</p>
-                        </div>
-                        <div class="flex flex-col">
-                                <p class="text-sm font-semibold text-tertiary-500 dark:text-tertiary-400">Created:</p>
-                                <p class="text-sm text-surface-900 dark:text-surface-50">{formatDateTime(game.created_at)}</p>
-                        </div>
-                        {#if game.description}
-                                <div class="flex flex-col col-span-2 mt-2">
-                                        <p class="text-sm text-surface-900 dark:text-surface-50">{game.description}</p>
-                                </div>
-                        {/if}
-                </div>
-        </section>
-        <footer class="card-footer flex justify-end mt-3 space-x-2">
-                {#if isUserInGame}
-                        <button class="btn variant-filled-primary" on:click={enterGame}>
-                                <span class="mr-2">
-                                        <icons.LogIn size={18} />
-                                </span>
-                                Continue Game
-                        </button>
-                {:else if game.status === GameStatus.ACTIVE}
-                        <button 
-                                class="btn variant-filled-success" 
-                                on:click={handleJoinGame} 
-                                disabled={isJoining || isFull}
-                        >
-                                {#if isJoining}
-                                        <span class="spinner-third w-4 h-4 mr-2"></span>
-                                        Joining...
-                                {:else}
-                                        <span class="mr-2">
-                                                <icons.UserPlus size={18} />
-                                        </span>
-                                        Join Game
-                                {/if}
-                        </button>
-                {/if}
                 
-                <button class="btn variant-ghost-primary" on:click={enterGame}>
-                        <span class="mr-2">
-                                <icons.Info size={18} />
-                        </span>
-                        Details
-                </button>
-        </footer>
+                {#if isCreator}
+                    <div class="badge variant-filled-secondary">
+                        <icons.Crown size={14} class="mr-1" />
+                        Creator
+                    </div>
+                {/if}
+            </div>
+            
+            <!-- Game Title -->
+            <h3 class="h3 text-primary-700 dark:text-primary-300 pr-16">{game.name}</h3>
+            
+            <!-- Date & Players Info -->
+            <div class="flex flex-wrap justify-between items-center mt-3 text-xs text-surface-700 dark:text-surface-300">
+                <div class="flex items-center">
+                    <icons.Calendar size={14} class="mr-1" />
+                    <span class="mr-1">{createdDate}</span>
+                    <span class="opacity-75">({getDaysSinceCreation()})</span>
+                </div>
+                
+                <div class="flex items-center mt-1 sm:mt-0">
+                    <icons.Users size={14} class="mr-1" />
+                    <span>
+                        {playerCount} {game.max_players ? `/ ${game.max_players}` : 'players'}
+                    </span>
+                    {#if isFull}
+                        <div class="badge variant-filled-warning text-xs ml-2">Full</div>
+                    {/if}
+                </div>
+            </div>
+        </div>
         
-        {#if joinError}
-                <div class="mt-2 text-error-500 text-sm">{joinError}</div>
+        <!-- Game Details Section -->
+        <div class="p-5 flex-grow flex flex-col">
+            <!-- Game Properties -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="flex flex-col">
+                    <p class="text-xs font-semibold text-tertiary-500 dark:text-tertiary-400 mb-1">Deck Type</p>
+                    <div class="flex items-center">
+                        <icons.LayoutGrid size={16} class="mr-2 text-tertiary-500" />
+                        <p class="text-sm text-surface-900 dark:text-surface-50 capitalize">{deckTypeDisplay}</p>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col">
+                    <p class="text-xs font-semibold text-tertiary-500 dark:text-tertiary-400 mb-1">Role Assignment</p>
+                    <div class="flex items-center">
+                        <icons.SwitchCamera size={16} class="mr-2 text-tertiary-500" />
+                        <p class="text-sm text-surface-900 dark:text-surface-50">{roleAssignmentDisplay}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Description -->
+            {#if game.description}
+                <div class="mb-4">
+                    <p class="text-xs font-semibold text-tertiary-500 dark:text-tertiary-400 mb-1">Description</p>
+                    <p class="text-sm text-surface-700-300-token">{game.description || 'No description provided.'}</p>
+                </div>
+            {/if}
+            
+            <!-- Spacer to push buttons to bottom when description is short -->
+            <div class="flex-grow"></div>
+            
+            <!-- Action Buttons Section -->
+            {#if showActions}
+                <div class="flex flex-col sm:flex-row gap-2 mt-3">
+                    {#if isUserInGame}
+                        <button class="btn variant-filled-primary flex-1" on:click={enterGame}>
+                            <icons.LogIn size={18} class="mr-2" />
+                            Enter Game
+                        </button>
+                        
+                        {#if !isCreator}
+                            <button 
+                                class="btn variant-soft-error" 
+                                on:click={handleLeaveGame}
+                                disabled={isLeaving}
+                            >
+                                {#if isLeaving}
+                                    <div class="spinner-third w-4 h-4 mr-2"></div>
+                                    Leaving...
+                                {:else}
+                                    <icons.LogOut size={18} class="mr-2" />
+                                    Leave
+                                {/if}
+                            </button>
+                        {/if}
+                    {:else if game.status === GameStatus.ACTIVE}
+                        <button 
+                            class="btn variant-filled-success flex-1" 
+                            on:click={handleJoinGame} 
+                            disabled={isJoining || isFull}
+                        >
+                            {#if isJoining}
+                                <div class="spinner-third w-4 h-4 mr-2"></div>
+                                Joining...
+                            {:else}
+                                <icons.UserPlus size={18} class="mr-2" />
+                                Join Game
+                            {/if}
+                        </button>
+                        
+                        <button class="btn variant-ghost" on:click={enterGame}>
+                            <icons.Info size={18} class="mr-2" />
+                            Details
+                        </button>
+                    {:else}
+                        <button class="btn variant-ghost-primary flex-1" on:click={enterGame}>
+                            <icons.Info size={18} class="mr-2" />
+                            View Details
+                        </button>
+                    {/if}
+                </div>
+            {/if}
+        </div>
+        
+        {#if actionError}
+            <div class="p-3 bg-error-500/10 border-t border-error-500/20 text-error-500 text-sm text-center">
+                {actionError}
+            </div>
         {/if}
 </div>
