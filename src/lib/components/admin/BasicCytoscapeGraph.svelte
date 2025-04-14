@@ -165,7 +165,7 @@
     switch (selectedLayout.id) {
       // Game-centric layout that uses CISE clustering centered around a specific game
       case 'game-layout':
-        // Prepare and apply game-specific layout
+        // Prepare and apply game-specific layout with reduced animation and better stability
         layoutOptions = {
           name: 'cise',
           clusters: (function() {
@@ -183,18 +183,23 @@
             });
             return Object.values(clusterMap);
           })(),
+          // Reduce jiggling by adjusting these parameters
           allowNodesInsideCircle: false,
-          quality: 0.9,
-          nodeSeparation: 30,
+          quality: 1,                            // Higher quality means more stable final layout
+          nodeSeparation: 50,                    // More separation helps avoid overlaps
           animate: true,
-          animationDuration: 800,
-          gravity: 0.5,
-          gravityRange: 4.0,
-          idealInterClusterEdgeLengthCoefficient: 1.8,
-          refresh: 10,
+          animationDuration: 500,                // Shorter animation
+          animationEasing: 'ease-out',           // Smoother easing
+          gravity: 0.8,                          // Higher gravity for more stability
+          gravityRange: 5.0,                     // Larger gravity range
+          idealInterClusterEdgeLengthCoefficient: 2.0, // Larger spaces between clusters
+          refresh: 5,                            // Fewer refreshes
+          maxIterations: 1500,                   // More iterations for better convergence
           fit: true,
-          padding: 40,
-          showClusters: false
+          padding: 50,
+          showClusters: false,
+          // Use deterministic positioning with jitter reduction
+          randomize: false                      // Don't randomize positions between runs
         };
         break;
         
@@ -393,10 +398,31 @@
   
   function handleLayoutChange() {
     if (cy) {
-      // If game layout is selected, ensure we load available games
-      if (selectedLayout.id === 'game-layout' && availableGames.length === 0) {
-        loadAvailableGames();
+      // If game layout is selected, configure special settings for it
+      if (selectedLayout.id === 'game-layout') {
+        // Ensure games are loaded
+        if (availableGames.length === 0) {
+          loadAvailableGames();
+        }
+        
+        // Set appropriate node types for game-centric view
+        // Ensure we see cards, actors, users, values, capabilities, agreements
+        // Hide games, decks, chat, node_positions
+        const gameViewNodeTypes = ['cards', 'actors', 'users', 'values', 
+                                  'capabilities', 'agreements'];
+        const hideNodeTypes = ['games', 'decks', 'chat', 'node_positions'];
+        
+        // Update selectedNodeTypes to include only relevant node types
+        selectedNodeTypes = availableNodeTypes.filter(type => 
+          gameViewNodeTypes.includes(type) || 
+          (type !== 'games' && type !== 'decks' && 
+           type !== 'chat' && type !== 'node_positions')
+        );
+        
+        // Apply filters with updated node type selection
+        applyFilters();
       }
+      
       applyLayout();
     }
   }
@@ -821,44 +847,44 @@
         </div>
       </div>
       
-      <!-- Layout Selector -->
-      <div class="flex-none w-full md:w-48">
-        <h3 class="text-sm font-semibold mb-1">Layout</h3>
-        <select 
-          class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
-          bind:value={selectedLayout}
-          on:change={handleLayoutChange}
-        >
-          {#each layouts as layout}
-            <option value={layout}>{layout.name}</option>
-          {/each}
-        </select>
-      </div>
-    </div>
-    
-    <!-- Game Selector for Game Layout -->
-    {#if selectedLayout.id === 'game-layout' && availableGames.length > 0}
-      <div class="mt-2 mb-2 p-2 bg-surface-100/30 rounded-md border border-surface-300-600/30">
-        <h3 class="text-sm font-semibold mb-1">Select Game</h3>
-        <div class="flex gap-2">
+      <!-- Layout Controls Column -->
+      <div class="flex-none w-full md:w-48 flex flex-col gap-1">
+        <!-- Layout Selector -->
+        <div>
+          <h3 class="text-sm font-semibold mb-1">Layout</h3>
           <select 
             class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
-            bind:value={selectedGameId}
-            on:change={handleGameChange}
+            bind:value={selectedLayout}
+            on:change={handleLayoutChange}
           >
-            {#each availableGames as game}
-              <option value={game.id}>{game.name}</option>
+            {#each layouts as layout}
+              <option value={layout}>{layout.name}</option>
             {/each}
           </select>
-          <button class="btn btn-xs variant-filled-primary" on:click={handleGameChange}>
-            Apply
-          </button>
         </div>
-        <p class="text-xs mt-2 opacity-75">
-          Showing nodes within 2 connections of the selected game
-        </p>
+        
+        <!-- Game Selector (compact version) -->
+        {#if selectedLayout.id === 'game-layout' && availableGames.length > 0}
+          <div class="mt-1">
+            <h3 class="text-sm font-semibold mb-1">Game</h3>
+            <div class="flex gap-1">
+              <select 
+                class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
+                bind:value={selectedGameId}
+                on:change={handleGameChange}
+              >
+                {#each availableGames as game}
+                  <option value={game.id}>{game.name}</option>
+                {/each}
+              </select>
+              <button class="btn btn-xs variant-filled-primary" on:click={handleGameChange}>
+                <span class="text-xs">Apply</span>
+              </button>
+            </div>
+          </div>
+        {/if}
       </div>
-    {/if}
+    </div>
     
     <!-- Edge Type Filter -->
     {#if availableEdgeTypes.length > 0}
