@@ -339,7 +339,11 @@
       
       // Load Values with improved Gun.js reference handling
       if (card.values && typeof card.values === 'object') {
-        const valueIds = Object.keys(card.values).filter(id => id !== '_');
+        // Filter out metadata key and handle the special Gun.js reference key properly
+        const valueIds = Object.keys(card.values)
+          .filter(id => id !== '_')
+          .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+          
         console.log(`D3CardBoard: Card has ${valueIds.length} values to load`);
         
         // Handle Gun.js references properly
@@ -351,9 +355,14 @@
             
             await new Promise<void>((resolve) => {
               try {
+                // Use a Set to track processed keys and avoid duplicates
+                const processedKeys = new Set<string>();
+                
                 // Direct query to the values soul reference
                 gun.get(reference).map().once((val, key) => {
-                  if (key === '_') return; // Skip Gun.js metadata
+                  if (key === '_' || processedKeys.has(key)) return; // Skip metadata and duplicates
+                  
+                  processedKeys.add(key);
                   
                   gun.get(nodes.values).get(key).once((valueData: Value) => {
                     if (valueData && valueData.value_id) {
@@ -375,7 +384,7 @@
         } else {
           // Regular values case (direct ids)
           for (const valueId of valueIds) {
-            if (!valueId || valueId === '_') continue; // Skip invalid or Gun.js metadata entries
+            if (!valueId || valueId === '_' || valueId === '#') continue; // Skip metadata and reference keys
             
             if (!valueCache.has(valueId)) {
               console.log(`D3CardBoard: Loading value ${valueId}`);
@@ -409,7 +418,11 @@
       
       // Load Capabilities with improved Gun.js reference handling
       if (card.capabilities && typeof card.capabilities === 'object') {
-        const capIds = Object.keys(card.capabilities).filter(id => id !== '_');
+        // Filter out metadata key and handle the special Gun.js reference key properly
+        const capIds = Object.keys(card.capabilities)
+          .filter(id => id !== '_')
+          .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+        
         console.log(`D3CardBoard: Card has ${capIds.length} capabilities to load`);
         
         // Handle Gun.js references properly
@@ -421,9 +434,14 @@
             
             await new Promise<void>((resolve) => {
               try {
+                // Use a Set to track processed keys and avoid duplicates
+                const processedKeys = new Set<string>();
+                
                 // Direct query to the capabilities soul reference
                 gun.get(reference).map().once((val, key) => {
-                  if (key === '_') return; // Skip Gun.js metadata
+                  if (key === '_' || processedKeys.has(key)) return; // Skip metadata and duplicates
+                  
+                  processedKeys.add(key);
                   
                   gun.get(nodes.capabilities).get(key).once((capData: Capability) => {
                     if (capData && capData.capability_id) {
@@ -445,7 +463,7 @@
         } else {
           // Regular capabilities case (direct ids)
           for (const capId of capIds) {
-            if (!capId || capId === '_') continue; // Skip invalid or Gun.js metadata entries
+            if (!capId || capId === '_' || capId === '#') continue; // Skip metadata and reference keys
             
             if (!capabilityCache.has(capId)) {
               console.log(`D3CardBoard: Loading capability ${capId}`);
