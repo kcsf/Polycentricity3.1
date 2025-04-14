@@ -22,6 +22,7 @@
   let hoveredCategory: string | null = null;
   let subItems: SubItem[] = [];
   let categoryCount = 0;
+  let nodeElements: d3.Selection<any, D3Node, any, any>; // Store node elements for access in multiple functions
   
   // Dataset
   let cardsWithPosition: CardWithPosition[] = [];
@@ -756,7 +757,7 @@
     }
 
     // Create node selection and elements with CSS classes for styling
-    const nodeElements = nodeGroup
+    nodeElements = nodeGroup
       .selectAll("g")
       .data(nodes)
       .enter()
