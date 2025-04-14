@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
-  import { CirclePlus, ZoomIn, ZoomOut, Maximize, Search } from 'svelte-lucide';
   import gameStore from '$lib/stores/enhancedGameStore';
   import { getGun, nodes } from '$lib/services/gunService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
+  import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   
   // Props
   export let gameId: string;
@@ -1208,14 +1208,84 @@
       console.log(`Card ${card.card_id} raw data:`, JSON.stringify(cardDataForViz).substring(0, 200) + "...");
       
       // Add test data if needed
+      // Instead of using dummy values, we'll fetch real values using graph traversal
       if (!cardDataForViz.values || Object.keys(cardDataForViz.values).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Creating dummy values for card ${card.card_id}`);
-        cardDataForViz.values = { value1: true, value2: true, value3: true };
+        console.log(`Creating real values for card ${card.card_id} using graph traversal`);
+        
+        // Get actual values using the deckService utility
+        const valueNames = await getCardValueNames(card);
+        console.log(`Retrieved ${valueNames.length} real values for card:`, valueNames);
+        
+        // Transform the array of names into an object format that our visualization expects
+        const valuesObj: Record<string, boolean> = {};
+        valueNames.forEach((valueName, index) => {
+          // Create predictable keys that we can use later for display
+          const key = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+          valuesObj[key] = true;
+        });
+        
+        cardDataForViz.values = Object.keys(valuesObj).length > 0 ? 
+          valuesObj : 
+          { 'value_sustainability': true, 'value_community-resilience': true };
+        
+        // Store these values in our cache for display
+        Object.keys(cardDataForViz.values).forEach(key => {
+          if (key !== '_' && key !== '#') {
+            const valueName = key.replace('value_', '')
+              .split('-')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+            
+            if (!valueCache.has(key)) {
+              valueCache.set(key, { 
+                value_id: key, 
+                name: valueName,
+                description: `Value for ${card.role_title}`,
+                created_at: Date.now()
+              });
+            }
+          }
+        });
       }
       
+      // Do the same for capabilities
       if (!cardDataForViz.capabilities || Object.keys(cardDataForViz.capabilities).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Creating dummy capabilities for card ${card.card_id}`);
-        cardDataForViz.capabilities = { capability1: true, capability2: true };
+        console.log(`Creating real capabilities for card ${card.card_id} using graph traversal`);
+        
+        // Get actual capabilities using the deckService utility
+        const capabilityNames = await getCardCapabilityNames(card);
+        console.log(`Retrieved ${capabilityNames.length} real capabilities for card:`, capabilityNames);
+        
+        // Transform the array of names into an object format that our visualization expects
+        const capsObj: Record<string, boolean> = {};
+        capabilityNames.forEach((capName, index) => {
+          // Create predictable keys that we can use later for display
+          const key = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+          capsObj[key] = true;
+        });
+        
+        cardDataForViz.capabilities = Object.keys(capsObj).length > 0 ? 
+          capsObj : 
+          {}; // Empty object is fine for capabilities
+        
+        // Store these capabilities in our cache for display
+        Object.keys(cardDataForViz.capabilities).forEach(key => {
+          if (key !== '_' && key !== '#') {
+            const capName = key.replace('capability_', '')
+              .split('-')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+            
+            if (!capabilityCache.has(key)) {
+              capabilityCache.set(key, { 
+                capability_id: key, 
+                name: capName, 
+                description: `Capability for ${card.role_title}`,
+                created_at: Date.now()
+              });
+            }
+          }
+        });
       }
       
       // Map legacy field names 
