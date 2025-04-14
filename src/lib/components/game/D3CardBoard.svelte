@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
-  import { PlusCircle, ZoomIn, ZoomOut, Maximize, Search } from 'svelte-lucide';
+  import { CirclePlus, ZoomIn, ZoomOut, Maximize, Search } from 'svelte-lucide';
   import gameStore from '$lib/stores/enhancedGameStore';
   import { getGun, nodes } from '$lib/services/gunService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
