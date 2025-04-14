@@ -93,23 +93,37 @@
   // Load data on mount
   onMount(async () => {
     console.log(`D3CardBoard: Initializing for game ${gameId}`);
-    await loadGameData();
     
-    // If activeActorId is provided, find its card
-    if (activeActorId) {
-      const actor = actors.find(a => a.actor_id === activeActorId);
-      if (actor && actor.card_id) {
-        activeCardId = actor.card_id;
+    try {
+      await loadGameData();
+      
+      // If activeActorId is provided, find its card
+      if (activeActorId) {
+        console.log(`D3CardBoard: Finding card for actor ${activeActorId}`);
+        const actor = actors.find(a => a.actor_id === activeActorId);
+        if (actor && actor.card_id) {
+          activeCardId = actor.card_id;
+          console.log(`D3CardBoard: Set active card to ${activeCardId}`);
+        } else {
+          console.log(`D3CardBoard: Could not find card for actor ${activeActorId}`);
+        }
       }
+      
+      // Initialize the graph visualization
+      console.log(`D3CardBoard: Loaded ${cards.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
+      if (cards.length > 0) {
+        console.log("D3CardBoard: Initializing graph visualization");
+        initializeGraph();
+      } else {
+        console.warn("D3CardBoard: No cards to display");
+      }
+      
+      // Set up real-time listeners
+      setupRealTimeListeners();
+      
+    } catch (error) {
+      console.error("D3CardBoard: Error initializing", error);
     }
-    
-    // Initialize the graph visualization
-    if (cards.length > 0) {
-      initializeGraph();
-    }
-    
-    // Set up real-time listeners
-    setupRealTimeListeners();
   });
 
   onDestroy(() => {
@@ -127,21 +141,35 @@
     try {
       const gun = getGun();
       if (!gun) {
-        console.error("Gun not initialized");
+        console.error("D3CardBoard: Gun not initialized");
         return;
       }
+      
+      console.log(`D3CardBoard: Loading game data for ${gameId}`);
       
       // Load the game to get deck_id
       const game = await getGame(gameId);
       if (!game) {
-        console.error(`Game not found: ${gameId}`);
+        console.error(`D3CardBoard: Game not found: ${gameId}`);
         return;
       }
       
-      const deckId = game.deck_id;
+      console.log(`D3CardBoard: Game loaded:`, game);
+      
+      let deckId = game.deck_id;
       if (!deckId) {
-        console.error(`No deck found for game ${gameId}`);
-        return;
+        console.warn(`D3CardBoard: No deck_id found, checking deck_type`);
+        // Try to get deck_id from deck_type
+        if (game.deck_type === 'eco-village') {
+          deckId = 'd1'; // Default eco-village deck
+          console.log(`D3CardBoard: Using default eco-village deck (d1)`);
+        } else if (game.deck_type === 'community-garden') {
+          deckId = 'd2'; // Default community garden deck
+          console.log(`D3CardBoard: Using default community garden deck (d2)`);
+        } else {
+          console.error(`D3CardBoard: No deck found for game ${gameId}`);
+          return;
+        }
       }
       
       // 1. Load Cards for this deck
@@ -285,13 +313,21 @@
     if (!gun) return;
     
     // Listen for changes to cards
-    cardUnsubscribe = () => {};
+    cardUnsubscribe = () => {
+      console.log("D3CardBoard: Set up card listener cleanup");
+    };
     
     // Listen for changes to agreements
-    agreementUnsubscribe = () => {};
+    agreementUnsubscribe = () => {
+      console.log("D3CardBoard: Set up agreement listener cleanup");
+    };
     
     // Listen for changes to actors
-    actorUnsubscribe = () => {};
+    actorUnsubscribe = () => {
+      console.log("D3CardBoard: Set up actor listener cleanup");
+    };
+    
+    console.log("D3CardBoard: Real-time listeners initialized");
   }
 
   // Function to initialize D3 visualization
@@ -926,34 +962,7 @@
     filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.1));
   }
   
-  /* Link styling */
-  .link-line {
-    stroke: #e5e5e5;
-    stroke-width: 1;
-  }
-  
-  /* Card node styling */
-  .card-center-circle {
-    cursor: pointer;
-    transition: r 0.3s ease;
-  }
-  
-  .card-center-circle.active {
-    r: 40;
-    stroke: #3B82F6;
-    stroke-width: 2;
-  }
-  
-  /* Agreement node styling */
-  .agreement-circle {
-    cursor: pointer;
-    transition: r 0.3s ease;
-  }
-  
-  .agreement-circle.active {
-    stroke: #10B981;
-    stroke-width: 2;
-  }
+  /* Node styling is applied directly via D3 attributes */
 </style>
 
 <div class="game-board-container">
