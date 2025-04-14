@@ -999,14 +999,19 @@
       // Get card color to match label color with card
       const cardData = d.data as CardWithPosition;
       
-      // Add the rounded rectangle background - positioned close to the node
+      // Calculate position below the outer ring (donut)
+      // The outer ring radius = nodeRadius + donutThickness (35 + 15 = 50)
+      const outerRingRadius = cardNodeRadius + donutThickness;
+      const labelYPosition = outerRingRadius + (outerRingRadius * 0.1); // Position 10% below the outer ring
+      
+      // Add the rounded rectangle background - positioned below the outer ring
       group.append("rect")
         .attr("rx", 4) // Rounded corners
         .attr("ry", 4)
         .attr("width", rectWidth)
         .attr("height", rectHeight)
         .attr("x", -rectWidth / 2) // Center horizontally
-        .attr("y", cardNodeRadius + 5) // Position immediately below node with small gap
+        .attr("y", labelYPosition) // Position below the outer ring
         .attr("fill", "#333333")
         .attr("fill-opacity", 0.7) // Semi-transparent dark background
         .attr("stroke", "none"); // No stroke for cleaner look
@@ -1016,7 +1021,7 @@
         .attr("class", "name-text")
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle") // Better centering
-        .attr("y", cardNodeRadius + 14) // Position text in center of background
+        .attr("y", labelYPosition + (rectHeight / 2)) // Center text vertically in background
         .attr("font-size", "11px") 
         .attr("font-weight", "500")
         .attr("fill", "white") // White text on dark background for better contrast
