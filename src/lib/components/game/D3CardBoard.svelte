@@ -1349,6 +1349,15 @@
             });
           }
         }
+
+        // Add white background circle for better visibility with text
+        node.append("circle")
+          .attr("class", "center-background-circle")
+          .attr("r", baseActorRadius * scaleFactor)
+          .attr("fill", "white")
+          .attr("stroke", "#e5e5e5")
+          .attr("stroke-width", 0.5)
+          .attr("opacity", 0.95);
         
         // Start async loading for future updates
         (async function loadRealCapabilitiesForFutureUpdates() {
@@ -1688,6 +1697,29 @@
             .text("");
         });
       });
+      
+      // Create the text group at the very end to ensure it appears on top of everything
+      const centerTextGroup = node.append("g")
+        .attr("class", "center-text-group")
+        .attr("pointer-events", "none")
+        .style("z-index", 1000); // Higher z-index for SVG stacking context
+      
+      centerTextGroup.append("text")
+        .attr("class", "count-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "-0.2em")
+        .attr("font-size", "18px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#555555")
+        .text("");
+        
+      centerTextGroup.append("text")
+        .attr("class", "options-text") 
+        .attr("text-anchor", "middle")
+        .attr("dy", "1em")
+        .attr("font-size", "12px")
+        .attr("fill", "#777777")
+        .text("");
     });
   }
   
