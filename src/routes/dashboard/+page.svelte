@@ -187,7 +187,7 @@
                                         <div class="p-5">
                                                 <div class="grid grid-cols-2 gap-4">
                                                         <div class="card variant-soft-primary p-4 text-center flex flex-col items-center justify-center">
-                                                                <icons.GameController2 size={24} class="mb-2" />
+                                                                <icons.Gamepad2 size={24} class="mb-2" />
                                                                 <p class="h3 text-primary-600 dark:text-primary-400 font-bold">
                                                                         {formatNumber(dashboardStats.gamesJoined)}
                                                                 </p>
@@ -285,7 +285,7 @@
                                 {#if $userGamesStore.length === 0}
                                         <div class="card variant-ghost p-10 text-center shadow-xl border border-surface-300-600-token">
                                                 <div class="flex flex-col items-center justify-center">
-                                                        <icons.GameController2 size={64} class="text-surface-400-500-token mb-4" />
+                                                        <icons.Gamepad2 size={64} class="text-surface-400-500-token mb-4" />
                                                         <h3 class="h3 text-primary-500 dark:text-primary-400 mb-2">No Games Yet</h3>
                                                         <p class="mb-6 text-surface-700-300-token max-w-md">
                                                                 You haven't joined any games yet. Browse available games or create
