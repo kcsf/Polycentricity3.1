@@ -608,71 +608,119 @@
       const partyActorIds = agreement.parties ? Object.keys(agreement.parties) : [];
       console.log(`Agreement ${agreement.agreement_id} has ${partyActorIds.length} parties: ${partyActorIds.join(', ')}`);
       
-      // For each obligation
-      agreement.obligations.forEach((obligation) => {
-        const fromActorId = obligation.fromActorId;
-        const toActorId = obligation.toActorId;
-        
-        // Get the corresponding card IDs
-        const fromCardId = actorCardMap.get(fromActorId);
-        
-        if (fromCardId) {
-          // Create a link from the card to the agreement
-          links.push({
-            source: fromCardId,
-            target: agreement.agreement_id,
-            type: "obligation",
-            id: obligation.id,
-          });
-          console.log(`Added obligation link: ${fromCardId} -> ${agreement.agreement_id}`);
-        }
-      });
-
-      // For each benefit
-      agreement.benefits.forEach((benefit) => {
-        const fromActorId = benefit.fromActorId;
-        const toActorId = benefit.toActorId;
-        
-        // Get the corresponding card IDs
-        const toCardId = actorCardMap.get(toActorId);
-        
-        if (toCardId) {
-          // Create a link from the agreement to the card
-          links.push({
-            source: agreement.agreement_id,
-            target: toCardId,
-            type: "benefit",
-            id: benefit.id,
-          });
-          console.log(`Added benefit link: ${agreement.agreement_id} -> ${toCardId}`);
+      // IMPROVED APPROACH: First ensure we have a complete list of participating card IDs to create proper connections
+      const participatingCardIds: string[] = [];
+      partyActorIds.forEach(actorId => {
+        const cardId = actorCardMap.get(actorId);
+        if (cardId) {
+          participatingCardIds.push(cardId);
         }
       });
       
-      // If no specific obligations/benefits, create basic links to all parties
-      if (agreement.obligations.length === 0 && agreement.benefits.length === 0 && partyActorIds.length > 0) {
-        console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating general links`);
-        
-        partyActorIds.forEach(actorId => {
-          const cardId = actorCardMap.get(actorId);
-          if (cardId) {
-            // Create a bidirectional link for visualization purposes
+      console.log(`Agreement ${agreement.agreement_id} involves cards: ${participatingCardIds.join(', ')}`);
+      
+      // If we have multiple cards, we need to connect them through the agreement
+      if (participatingCardIds.length >= 2) {
+        // Using specific obligations/benefits if available
+        if (agreement.obligations.length > 0 || agreement.benefits.length > 0) {
+          // For each obligation
+          agreement.obligations.forEach((obligation) => {
+            const fromActorId = obligation.fromActorId;
+            const toActorId = obligation.toActorId;
+            
+            // Get the corresponding card IDs
+            const fromCardId = actorCardMap.get(fromActorId);
+            const toCardId = actorCardMap.get(toActorId); // Also get target card
+            
+            if (fromCardId) {
+              // Create a link from the card to the agreement
+              links.push({
+                source: fromCardId,
+                target: agreement.agreement_id,
+                type: "obligation",
+                id: obligation.id,
+              });
+              console.log(`Added obligation link: ${fromCardId} -> ${agreement.agreement_id}`);
+              
+              // If we have the second card, connect from agreement to it
+              if (toCardId) {
+                links.push({
+                  source: agreement.agreement_id,
+                  target: toCardId,
+                  type: "benefit", // This becomes the benefit direction
+                  id: `${obligation.id}_completion`,
+                });
+                console.log(`Added completion link: ${agreement.agreement_id} -> ${toCardId}`);
+              }
+            }
+          });
+
+          // For each benefit
+          agreement.benefits.forEach((benefit) => {
+            const fromActorId = benefit.fromActorId;
+            const toActorId = benefit.toActorId;
+            
+            // Get the corresponding card IDs
+            const fromCardId = actorCardMap.get(fromActorId);
+            const toCardId = actorCardMap.get(toActorId);
+            
+            // Only add if not already connected by obligations
+            if (toCardId) {
+              // Create a link from the agreement to the card
+              links.push({
+                source: agreement.agreement_id,
+                target: toCardId,
+                type: "benefit",
+                id: benefit.id,
+              });
+              console.log(`Added benefit link: ${agreement.agreement_id} -> ${toCardId}`);
+              
+              // If we have the source card and haven't made the obligation connection yet, add it
+              if (fromCardId) {
+                // Check if this connection already exists
+                const linkExists = links.some(link => 
+                  (typeof link.source === 'string' ? link.source : link.source.id) === fromCardId && 
+                  (typeof link.target === 'string' ? link.target : link.target.id) === agreement.agreement_id);
+                
+                if (!linkExists) {
+                  links.push({
+                    source: fromCardId,
+                    target: agreement.agreement_id,
+                    type: "obligation",
+                    id: `${benefit.id}_source`,
+                  });
+                  console.log(`Added source link: ${fromCardId} -> ${agreement.agreement_id}`);
+                }
+              }
+            }
+          });
+        } 
+        // If no specific obligations/benefits, create basic links between all parties
+        else if (participatingCardIds.length > 0) {
+          console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating general links`);
+          
+          // Create direct connections between all participating cards through the agreement
+          // First connect all cards to the agreement
+          participatingCardIds.forEach((cardId, i) => {
+            // Create a link from card to agreement
             links.push({
               source: cardId,
               target: agreement.agreement_id,
               type: "obligation",
-              id: `general_${actorId}_to_${agreement.agreement_id}`,
+              id: `general_${cardId}_to_${agreement.agreement_id}`,
             });
             
+            // Create a link from agreement back to card
             links.push({
               source: agreement.agreement_id,
               target: cardId,
               type: "benefit",
-              id: `general_${agreement.agreement_id}_to_${actorId}`,
+              id: `general_${agreement.agreement_id}_to_${cardId}`,
             });
             
             console.log(`Added general links between ${cardId} <-> ${agreement.agreement_id}`);
-          }
-        });
+          });
+        }
       }
     });
 
@@ -1252,8 +1300,8 @@
         }
       ],
       position: {
-        x: (card1.position?.x || 0 + card2.position?.x || 0) / 2,
-        y: (card1.position?.y || 0 + card2.position?.y || 0) / 2
+        x: ((card1.position?.x || 0) + (card2.position?.x || 0)) / 2,
+        y: ((card1.position?.y || 0) + (card2.position?.y || 0)) / 2
       }
     };
     
