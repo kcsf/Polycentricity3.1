@@ -6,7 +6,7 @@
     Search, 
     ZoomIn, 
     ZoomOut, 
-    FileEdit, 
+    Plus, 
     User, 
     Users,
     MessageSquare,
@@ -130,7 +130,7 @@
         <ZoomIn size={18} />
       </button>
       <button class="btn btn-sm variant-filled-primary" aria-label="New agreement">
-        <FileEdit size={18} />
+        <Plus size={18} />
         <span class="hidden md:inline ml-2">Agreement</span>
       </button>
       <button 
