@@ -745,6 +745,9 @@
     // Create a container for the nodes that appears on top of links
     const nodeGroup = svg.append("g").attr("class", "nodes");
 
+    // Debug logging: How many links do we have?
+    console.log(`Creating ${links.length} links:`, links);
+    
     // Create the link elements with consistent unified styling
     const linkElements = linkGroup
       .selectAll("line")
@@ -756,7 +759,24 @@
       .attr("stroke-width", 1)     // Thin lines per design reference
       .attr("stroke-opacity", 0.8) // Slightly transparent
       .attr("marker-end", "url(#arrow-marker)") // Apply the arrow marker
-      .style("cursor", "pointer")  // Show pointer cursor on hover
+      .style("cursor", "pointer"); // Show pointer cursor on hover
+      
+    // Debug: How many lines were actually created?
+    console.log(`Created ${linkElements.size()} link elements`);
+    
+    // Add title tooltips to links
+    linkElements.append("title")
+      .text(d => {
+        const sourceType = typeof d.source === "string" ? 
+          nodes.find(n => n.id === d.source)?.type : 
+          d.source.type;
+          
+        const targetType = typeof d.target === "string" ? 
+          nodes.find(n => n.id === d.target)?.type : 
+          d.target.type;
+          
+        return `${d.type} link: ${sourceType} → ${targetType}`; 
+      });
 
     // Function to update link positions and agreement node positions
     function updateLinks() {
