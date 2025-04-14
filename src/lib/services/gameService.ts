@@ -544,3 +544,92 @@ export async function getUserGames(): Promise<Game[]> {
         return [];
     }
 }
+
+/**
+ * Fixes relationships for existing games to ensure they appear correctly in the graph visualization
+ * This creates explicit relationships between games and their related entities (users, decks, actors)
+ */
+export async function fixGameRelationships(): Promise<{success: boolean, gamesFixed: number}> {
+    try {
+        console.log('Fixing game relationships for visualization');
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized');
+            return {success: false, gamesFixed: 0};
+        }
+        
+        const allGames = await getAllGames();
+        let gamesFixed = 0;
+        
+        for (const game of allGames) {
+            try {
+                // Create relationships for each game
+                if (game.creator) {
+                    // Game references creator
+                    gun.get(nodes.games).get(game.game_id).get('creator_ref').put({
+                        '#': `${nodes.users}/${game.creator}`
+                    });
+                    
+                    // User references game
+                    gun.get(nodes.users).get(game.creator).get('games').set(game.game_id);
+                }
+                
+                // Game references deck
+                if (game.deck_type) {
+                    const deckId = game.deck_type === 'eco-village' ? 'd1' : 'd2';
+                    gun.get(nodes.games).get(game.game_id).get('deck_ref').put({
+                        '#': `${nodes.decks}/${deckId}`
+                    });
+                }
+                
+                // Add relationships for each player
+                if (game.players) {
+                    const players = Array.isArray(game.players) 
+                        ? game.players 
+                        : Object.keys(game.players as Record<string, boolean>);
+                        
+                    for (const playerId of players) {
+                        // Skip if playerId is just the Gun metadata property '_'
+                        if (playerId === '_') continue;
+                        
+                        // Create user-to-game relationship
+                        gun.get(nodes.users).get(playerId).get('games').set(game.game_id);
+                        
+                        // Create game-to-player relationship
+                        gun.get(nodes.games).get(game.game_id).get('player_refs').set({
+                            '#': `${nodes.users}/${playerId}`
+                        });
+                    }
+                }
+                
+                // Fix relationships for actors/roles if they exist
+                if (game.deck && typeof game.deck === 'object') {
+                    const actorIds = Object.keys(game.deck).filter(key => key !== '_');
+                    
+                    for (const actorId of actorIds) {
+                        // Game references actor
+                        gun.get(nodes.games).get(game.game_id).get('actor_refs').set({
+                            '#': `${nodes.actors}/${actorId}`
+                        });
+                        
+                        // Actor references game
+                        gun.get(nodes.actors).get(actorId).get('game_refs').set({
+                            '#': `${nodes.games}/${game.game_id}`
+                        });
+                    }
+                }
+                
+                gamesFixed++;
+            } catch (error) {
+                console.warn(`Error fixing relationships for game ${game.game_id}:`, error);
+            }
+        }
+        
+        console.log(`Fixed relationships for ${gamesFixed} games`);
+        return {success: true, gamesFixed};
+    } catch (error) {
+        console.error('Fix game relationships error:', error);
+        return {success: false, gamesFixed: 0};
+    }
+}
