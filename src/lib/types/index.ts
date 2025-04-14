@@ -108,6 +108,7 @@ export interface Actor {
     card_id: string;
     created_at: number;
     custom_name?: string; // Optional custom name for this instance
+    actor_type?: 'National Identity' | 'Sovereign Identity'; // Type of actor
     status?: 'active' | 'inactive'; // Status of this actor in the game
     agreements?: Record<string, boolean>; // Agreements this actor is part of
 }

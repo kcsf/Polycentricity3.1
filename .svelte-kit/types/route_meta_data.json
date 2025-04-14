@@ -26,6 +26,9 @@
 	"/games/[gameId]/chat": [
 		"src/routes/+layout.ts"
 	],
+	"/games/[gameId]/join": [
+		"src/routes/+layout.ts"
+	],
 	"/login": [
 		"src/routes/+layout.ts"
 	],
