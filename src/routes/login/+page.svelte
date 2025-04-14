@@ -9,11 +9,18 @@
         let password = 'admin123';
         let isLoggingIn = false;
         let error = '';
+        let rememberMe = true;
         
         onMount(() => {
                 // Check if user is already logged in, redirect to dashboard if true
                 if ($userStore.user) {
                         goto('/dashboard');
+                }
+                
+                // Attempt to get stored credentials from localStorage
+                const storedEmail = localStorage.getItem('polycentricity_email');
+                if (storedEmail) {
+                        email = storedEmail;
                 }
         });
         
@@ -35,6 +42,14 @@
                         
                         if (user) {
                                 console.log(`Login successful: ${user.user_id}`);
+                                
+                                // Save email to localStorage if remember me is checked
+                                if (rememberMe) {
+                                        localStorage.setItem('polycentricity_email', email);
+                                } else {
+                                        localStorage.removeItem('polycentricity_email');
+                                }
+                                
                                 goto('/dashboard');
                         } else {
                                 error = 'Invalid email or password';
@@ -91,6 +106,15 @@
                                                 autocomplete="current-password"
                                                 required
                                         />
+                                </label>
+                                
+                                <label class="flex items-center space-x-2 mb-4">
+                                        <input 
+                                                type="checkbox" 
+                                                bind:checked={rememberMe}
+                                                class="checkbox"
+                                        />
+                                        <span class="text-sm">Remember my email</span>
                                 </label>
                                 
                                 <button 

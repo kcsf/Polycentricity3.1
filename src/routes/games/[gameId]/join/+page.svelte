@@ -2,8 +2,9 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGame, isGameFull, joinGame, getUserActors } from '$lib/services/gameService';
+    import { getGame, isGameFull, joinGame, getUserActors, assignRole } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
+    import { activeActorId } from '$lib/stores/enhancedGameStore'; 
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     import type { Game, Actor } from '$lib/types';
     import * as icons from 'svelte-lucide';
@@ -84,22 +85,47 @@
     
     async function handleActorSelection(actor: Actor) {
         try {
+            if (!$userStore.user) {
+                errorMessage = 'You must be logged in to join a game';
+                return;
+            }
+            
+            console.log(`Selected actor: ${actor.actor_id} for game ${gameId}`);
             selectedActor = actor;
             actorSelected = true;
             
-            // First attempt to join the game if not already joined
+            // Step 1: First join the game itself to add the player to the players array
+            console.log('Joining game...');
             const joinResult = await joinGame(gameId);
             console.log(`Join result: ${joinResult}`);
             
-            // Set the selected actor in localStorage to help with session persistence
+            if (!joinResult) {
+                errorMessage = 'Failed to join the game';
+                return;
+            }
+            
+            // Step 2: Assign the selected actor to the user in this game
+            console.log(`Assigning actor ${actor.actor_id} to user ${$userStore.user.user_id} in game ${gameId}`);
+            const roleAssigned = await assignRole(gameId, $userStore.user.user_id, actor.actor_id);
+            
+            if (!roleAssigned) {
+                errorMessage = 'Failed to assign role';
+                return;
+            }
+            
+            // Step 3: Set the selected actor in localStorage for persistence
             localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
             
-            // Redirect to game page to show the D3GameBoard
-            console.log(`Actor selected: ${actor.actor_id} - redirecting to game page`);
+            // Step 4: Update the active actor ID in the store
+            console.log(`Setting active actor in store: ${actor.actor_id}`);
+            activeActorId.set(actor.actor_id);
+            
+            // Now we can redirect straight to the game page - no need for a second click
+            console.log(`Actor selected and role assigned - redirecting to game page`);
             goto(`/games/${gameId}`);
         } catch (err) {
-            console.error('Error selecting actor:', err);
-            errorMessage = 'Failed to select actor';
+            console.error('Error during actor selection:', err);
+            errorMessage = 'Failed to process actor selection';
         }
     }
     
