@@ -1203,15 +1203,15 @@
       // Create an agreement ID (AG1, AG2, etc.)
       const agreementId = `AG${agreementCounter++}`;
         
-      // Add a title text label
+      // Add a title text label - IMPROVED to match reference exactly
       d3.select(this)
         .append("text")
         .attr("class", "agreement-title")
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle") // Better vertical centering
-        .attr("font-size", "12px") // Smaller font size to fit in circle
-        .attr("font-weight", "bold") // Make bold for better visibility
-        .attr("fill", "#555555") // Dark gray text on white background to match reference
+        .attr("font-size", "11px") // Smaller font for subtlety
+        .attr("font-weight", "normal") // Lighter weight to match reference
+        .attr("fill", "#999999") // Lighter gray text to match reference image
         .text(agreementId);
         
       // Add agreement title below on hover (handled by CSS)
