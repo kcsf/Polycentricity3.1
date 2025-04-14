@@ -541,14 +541,20 @@
 
   // Function to initialize D3 visualization
   function initializeGraph() {
-    if (!svgRef) return;
-    
-    // Set up dimensions based on container size
-    const boundingRect = svgRef.parentElement?.getBoundingClientRect();
-    if (boundingRect) {
-      width = boundingRect.width;
-      height = boundingRect.height;
-    }
+    try {
+      console.log("Starting graph initialization");
+      if (!svgRef) {
+        console.error("SVG reference is missing");
+        return;
+      }
+      
+      // Set up dimensions based on container size
+      const boundingRect = svgRef.parentElement?.getBoundingClientRect();
+      if (boundingRect) {
+        width = boundingRect.width;
+        height = boundingRect.height;
+        console.log(`Graph dimensions: ${width}x${height}`);
+      }
     
     // CSS variables for node sizing
     const root = document.documentElement;
@@ -1179,29 +1185,6 @@
       const node = d3.select(this);
       const card = nodeData.data as Card;
       const nodeId = nodeData.id;
-      
-      // Create central text elements
-      const centerTextGroup = node.append("g")
-        .attr("class", "center-text-group")
-        .attr("pointer-events", "none")
-        .style("z-index", "10"); // Ensure text appears above other elements
-      
-      centerTextGroup.append("text")
-        .attr("class", "count-text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "-0.2em")
-        .attr("font-size", "18px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#555555")
-        .text("");
-        
-      centerTextGroup.append("text")
-        .attr("class", "options-text") 
-        .attr("text-anchor", "middle")
-        .attr("dy", "1em")
-        .attr("font-size", "12px")
-        .attr("fill", "#777777")
-        .text("");
       
       // Process card data for visualization
       const cardDataForViz = { ...(card as any) };
