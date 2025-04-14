@@ -599,34 +599,81 @@
     ];
 
     let links: D3Link[] = [];
+    
+    // Debug to see what we've got
+    console.log(`Creating links from ${agreements.length} agreements with actor-card map of ${actorCardMap.size} entries`);
+    
     agreements.forEach((agreement) => {
+      // Get all party ids for this agreement
+      const partyActorIds = agreement.parties ? Object.keys(agreement.parties) : [];
+      console.log(`Agreement ${agreement.agreement_id} has ${partyActorIds.length} parties: ${partyActorIds.join(', ')}`);
+      
+      // For each obligation
       agreement.obligations.forEach((obligation) => {
-        const actorId = obligation.fromActorId;
-        const cardId = actorCardMap.get(actorId);
+        const fromActorId = obligation.fromActorId;
+        const toActorId = obligation.toActorId;
         
-        if (cardId) {
+        // Get the corresponding card IDs
+        const fromCardId = actorCardMap.get(fromActorId);
+        
+        if (fromCardId) {
+          // Create a link from the card to the agreement
           links.push({
-            source: cardId,
+            source: fromCardId,
             target: agreement.agreement_id,
             type: "obligation",
             id: obligation.id,
           });
+          console.log(`Added obligation link: ${fromCardId} -> ${agreement.agreement_id}`);
         }
       });
 
+      // For each benefit
       agreement.benefits.forEach((benefit) => {
-        const actorId = benefit.toActorId;
-        const cardId = actorCardMap.get(actorId);
+        const fromActorId = benefit.fromActorId;
+        const toActorId = benefit.toActorId;
         
-        if (cardId) {
+        // Get the corresponding card IDs
+        const toCardId = actorCardMap.get(toActorId);
+        
+        if (toCardId) {
+          // Create a link from the agreement to the card
           links.push({
             source: agreement.agreement_id,
-            target: cardId,
+            target: toCardId,
             type: "benefit",
             id: benefit.id,
           });
+          console.log(`Added benefit link: ${agreement.agreement_id} -> ${toCardId}`);
         }
       });
+      
+      // If no specific obligations/benefits, create basic links to all parties
+      if (agreement.obligations.length === 0 && agreement.benefits.length === 0 && partyActorIds.length > 0) {
+        console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating general links`);
+        
+        partyActorIds.forEach(actorId => {
+          const cardId = actorCardMap.get(actorId);
+          if (cardId) {
+            // Create a bidirectional link for visualization purposes
+            links.push({
+              source: cardId,
+              target: agreement.agreement_id,
+              type: "obligation",
+              id: `general_${actorId}_to_${agreement.agreement_id}`,
+            });
+            
+            links.push({
+              source: agreement.agreement_id,
+              target: cardId,
+              type: "benefit",
+              id: `general_${agreement.agreement_id}_to_${actorId}`,
+            });
+            
+            console.log(`Added general links between ${cardId} <-> ${agreement.agreement_id}`);
+          }
+        });
+      }
     });
 
     // Clear the SVG
