@@ -660,6 +660,13 @@
         <svelte:component this={icons.Wrench} class="w-4 h-4 mr-2" />
         Maintenance
       </button>
+      <button 
+        class="admin-tab {activeTab === 'tools' ? 'active' : ''}" 
+        on:click={() => handleTabChange('tools')}
+      >
+        <svelte:component this={icons.Settings} class="w-4 h-4 mr-2" />
+        Tools
+      </button>
     </div>
     
     <div class="p-4">
@@ -813,6 +820,25 @@
       {:else if activeTab === 'maintenance'}
         <!-- Render the DatabaseMaintenance component -->
         <DatabaseMaintenance />
+      {:else if activeTab === 'tools'}
+        <!-- Render the AdminTools component -->
+        <div class="p-2">
+          <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
+            <div class="flex items-center space-x-4">
+              <svelte:component this={icons.Settings} class="text-primary-500" />
+              <div>
+                <h3 class="h4 text-surface-900-50">Admin Tools</h3>
+                <p class="text-sm text-surface-700-300">Special administrative tools for managing users and database relationships.</p>
+              </div>
+            </div>
+          </div>
+          
+          <AdminTools on:relationshipsFixed={() => {
+            console.log('Game relationships fixed, refreshing visualization data');
+            fetchDatabaseStats();
+            loadGraphVisualization();
+          }} />
+        </div>
       {:else if activeTab === 'data'}
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
