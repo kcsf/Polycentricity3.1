@@ -9,21 +9,7 @@
         import type { Game, Actor } from '$lib/types';
         import { GameStatus } from '$lib/types';
         
-        // Basic components
-        import UserCard from '$lib/components/UserCard.svelte';
-        import RoleCard from '$lib/components/RoleCard.svelte';
-        import ChatBox from '$lib/components/ChatBox.svelte';
-        
-        // Game-specific components
-        import GameBoard from '$lib/components/game/GameBoard.svelte';
-        import CardBoard from '$lib/components/game/CardBoard.svelte';
-        import PlayersList from '$lib/components/game/PlayersList.svelte';
-        import GameDashboard from '$lib/components/game/GameDashboard.svelte';
-        import RoleSelector from '$lib/components/game/RoleSelector.svelte';
-        import D3GameBoardIntegrated from '$lib/components/game/D3GameBoardIntegrated.svelte';
-        
-        // View toggle state
-        let viewMode: 'actors' | 'cards' = 'actors';
+        import GamePageLayout from './GamePageLayout.svelte';
         
         export let data;
         
@@ -38,12 +24,6 @@
         const gameId = $page.params.gameId;
         
         onMount(async () => {
-                // Redirect to login if not authenticated (commented for development)
-                // if (!$userStore.user) {
-                //         goto('/login');
-                //         return;
-                // }
-                
                 // Load the initial game data
                 await loadGame();
                 
@@ -196,7 +176,7 @@
         }
 </script>
 
-<div class="container mx-auto p-4">
+<div class="container mx-auto">
         {#if isLoading}
                 <div class="card p-8 text-center">
                         <p>Loading game...</p>
@@ -209,117 +189,29 @@
                         </div>
                 </div>
         {:else if game}
-                <div class="flex flex-col space-y-4">
-                        <!-- Game header -->
-                        <div class="card p-4">
-                                <div class="flex justify-between items-center">
-                                        <div>
-                                                <h1 class="h1">{game.name}</h1>
-                                                <div class="badge {game.status === GameStatus.ACTIVE ? 'variant-filled-success' : 'variant-filled-primary'}">
-                                                        {game.status}
-                                                </div>
-                                                <p class="text-sm mt-2">Created: {new Date(game.created_at).toLocaleDateString()}</p>
-                                        </div>
-                                        
-                                        <div>
-                                                {#if !isCurrentUserInGame()}
-                                                        <button class="btn variant-filled-primary" on:click={handleJoinGame} disabled={isJoining}>
-                                                                {isJoining ? 'Joining...' : 'Join Game'}
-                                                        </button>
-                                                {:else}
-                                                        <a href="/games/{gameId}/chat" class="btn variant-filled-secondary">
-                                                                Open Chat
-                                                        </a>
-                                                {/if}
-                                        </div>
+                {#if isCurrentUserInGame()}
+                        <GamePageLayout {game} {gameId} {playerRole} />
+                {:else}
+                        <!-- Not in game yet - show join screen -->
+                        <div class="card p-8 m-4 text-center">
+                                <h1 class="h1 mb-2">{game.name}</h1>
+                                <div class="badge {game.status === GameStatus.ACTIVE ? 'variant-filled-success' : 'variant-filled-primary'} mb-4">
+                                        {game.status}
                                 </div>
-                        </div>
-                        
-                        <!-- Game content -->
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <!-- Player info and role -->
-                                <div class="lg:col-span-1 space-y-4">
-                                        <!-- Game Dashboard -->
-                                        {#if isCurrentUserInGame()}
-                                                <div class="mb-4">
-                                                        <GameDashboard {game} />
-                                                </div>
-                                        {/if}
-                                        
-                                        <!-- Players List -->
-                                        <PlayersList 
-                                                {game} 
-                                                highlightCurrentUser={true} 
-                                                currentUserId={$userStore.user?.user_id || null} 
-                                        />
-                                        
-                                        <!-- Role Selection/Display -->
-                                        {#if isCurrentUserInGame()}
-                                                <RoleSelector 
-                                                        {game} 
-                                                        userId={$userStore.user?.user_id || 'dev-user-' + Date.now()} 
-                                                />
-                                        {/if}
-                                </div>
+                                <p class="text-sm mb-6">Created: {new Date(game.created_at).toLocaleDateString()}</p>
                                 
-                                <!-- Game main content area -->
-                                <div class="lg:col-span-2">
-                                        {#if isCurrentUserInGame()}
-                                                <!-- View toggle buttons -->
-                                                <div class="flex justify-end mb-2">
-                                                        <div class="btn-group">
-                                                                <button 
-                                                                        class="btn {viewMode === 'actors' ? 'variant-filled-primary' : 'variant-ghost'}" 
-                                                                        on:click={() => viewMode = 'actors'}
-                                                                >
-                                                                        Actor View
-                                                                </button>
-                                                                <button 
-                                                                        class="btn {viewMode === 'cards' ? 'variant-filled-primary' : 'variant-ghost'}" 
-                                                                        on:click={() => viewMode = 'cards'}
-                                                                >
-                                                                        Card View
-                                                                </button>
-                                                        </div>
-                                                </div>
-                                                
-                                                <!-- Game visualization -->
-                                                <div class="mb-4">
-                                                        {#if viewMode === 'actors'}
-                                                                <GameBoard 
-                                                                        {gameId} 
-                                                                        activeActorId={playerRole?.actor_id}
-                                                                />
-                                                        {:else}
-                                                                <CardBoard 
-                                                                        {gameId} 
-                                                                        activeActorId={playerRole?.actor_id}
-                                                                />
-                                                        {/if}
-                                                </div>
-                                                
-                                                <!-- Chat -->
-                                                <div class="card p-4 h-64">
-                                                        <ChatBox {gameId} chatType="group" />
-                                                </div>
-                                        {:else}
-                                                <div class="card p-8 text-center bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
-                                                        <div class="flex flex-col items-center justify-center py-12">
-                                                                <div class="text-5xl text-primary-400 mb-4">🎲</div>
-                                                                <h2 class="h2 mb-2">Join to Participate</h2>
-                                                                <p class="mb-6 text-surface-600 dark:text-surface-400">You need to join this game to see the game content and participate.</p>
-                                                                <button class="btn variant-filled-primary" on:click={handleJoinGame} disabled={isJoining}>
-                                                                        {isJoining ? 'Joining...' : 'Join Game'}
-                                                                </button>
-                                                        </div>
-                                                </div>
-                                        {/if}
+                                <div class="card p-8 text-center bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                                        <h3 class="h3">Join the Game</h3>
+                                        <p class="mt-4">Join this game to view the game board and interact with other players.</p>
+                                        <button class="btn variant-filled-primary mt-6" onclick={handleJoinGame} disabled={isJoining}>
+                                                {isJoining ? 'Joining...' : 'Join Game'}
+                                        </button>
                                 </div>
                         </div>
-                </div>
+                {/if}
         {:else}
-                <div class="alert variant-filled-warning">
-                        <p>Game could not be found. It may have been deleted.</p>
+                <div class="alert variant-filled-error m-4">
+                        <p>Unable to load game data.</p>
                         <div class="mt-4">
                                 <a href="/games" class="btn variant-ghost-surface">Back to Games</a>
                         </div>

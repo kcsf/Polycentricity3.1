@@ -8,6 +8,7 @@
         export let gameId: string;
         export let chatType: 'group' | 'private' = 'group';
         export let otherUserId: string | undefined = undefined;
+        export let compact = false; // New prop for compact mode in sidebars
         
         let messages: ChatMessage[] = [];
         let newMessageContent: string = '';
@@ -33,6 +34,9 @@
                     } else if (chatType === 'private' && otherUserId) {
                         unsubscribe = subscribeToPrivateChat(gameId, otherUserId, handleNewMessage);
                     }
+                    
+                    // Scroll to the bottom of messages when loaded
+                    setTimeout(scrollToBottom, 100);
                 } catch (error) {
                     console.error('Error loading chat messages:', error);
                     messages = []; // Ensure messages is initialized
@@ -82,7 +86,8 @@
         }
 </script>
 
-<div class="card h-full flex flex-col">
+<div class="{!compact ? 'card' : ''} h-full flex flex-col">
+        {#if !compact}
         <header class="card-header p-4 flex items-center justify-between border-b border-surface-300-600-token">
                 <h3 class="h3">
                         {#if chatType === 'group'}
@@ -92,38 +97,39 @@
                         {/if}
                 </h3>
         </header>
+        {/if}
         
         <section class="p-2 flex-grow overflow-y-auto" bind:this={chatContainer}>
                 {#if !messages || messages.length === 0}
                         <div class="flex items-center justify-center h-full">
-                                <p class="text-center opacity-50">No messages yet. Start the conversation!</p>
+                                <p class="text-center opacity-50 text-{compact ? 'xs' : 'sm'}">No messages yet. Start the conversation!</p>
                         </div>
                 {:else if isLoading}
                         <div class="flex items-center justify-center h-full">
-                                <p class="text-center opacity-50">Loading messages...</p>
+                                <p class="text-center opacity-50 text-{compact ? 'xs' : 'sm'}">Loading messages...</p>
                         </div>
                 {:else}
-                        <div class="space-y-2 p-2">
+                        <div class="space-y-{compact ? '1' : '2'} p-{compact ? '1' : '2'}">
                                 {#each messages.filter(m => m && m.id) as message (message.id)}
                                         <div class="flex {isCurrentUser(message.user_id) ? 'justify-end' : 'justify-start'}">
                                                 <div 
-                                                        class="max-w-[80%] p-3 rounded-lg {isCurrentUser(message.user_id) 
+                                                        class="max-w-[80%] p-{compact ? '2' : '3'} rounded-lg {isCurrentUser(message.user_id) 
                                                                 ? 'bg-primary-500 text-white' 
                                                                 : 'bg-surface-200-700-token'}"
                                                 >
                                                         {#if !isCurrentUser(message.user_id)}
-                                                                <div class="flex items-center space-x-2 mb-1">
+                                                                <div class="flex items-center space-x-1 mb-1">
                                                                         <div 
-                                                                                class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs"
+                                                                                class="w-{compact ? '4' : '6'} h-{compact ? '4' : '6'} rounded-full flex items-center justify-center text-white text-{compact ? '2xs' : 'xs'}"
                                                                                 style="background-color: {stringToColor(message.user_id)};"
                                                                         >
                                                                                 {getInitials(message.user_name)}
                                                                         </div>
-                                                                        <span class="text-sm font-medium">{message.user_name}</span>
+                                                                        <span class="text-{compact ? 'xs' : 'sm'} font-medium">{message.user_name}</span>
                                                                 </div>
                                                         {/if}
-                                                        <p class="break-words">{message.content}</p>
-                                                        <p class="text-xs text-right mt-1 opacity-70">{formatTime(message.timestamp)}</p>
+                                                        <p class="break-words text-{compact ? 'xs' : 'base'}">{message.content}</p>
+                                                        <p class="text-{compact ? '2xs' : 'xs'} text-right mt-1 opacity-70">{formatTime(message.timestamp)}</p>
                                                 </div>
                                         </div>
                                 {/each}
@@ -131,15 +137,17 @@
                 {/if}
         </section>
         
-        <footer class="p-4 border-t border-surface-300-600-token">
-                <form on:submit|preventDefault={handleSendMessage} class="flex space-x-2">
+        <footer class="p-{compact ? '2' : '4'} border-t border-surface-300-600-token">
+                <form on:submit|preventDefault={handleSendMessage} class="flex space-x-1">
                         <input
                                 type="text"
-                                class="input w-full"
+                                class="input input-{compact ? 'sm' : 'md'} w-full"
                                 placeholder="Type your message..."
                                 bind:value={newMessageContent}
                         />
-                        <button type="submit" class="btn variant-filled-primary">Send</button>
+                        <button type="submit" class="btn btn-{compact ? 'sm' : 'md'} variant-filled-primary">
+                                {compact ? 'Send' : 'Send Message'}
+                        </button>
                 </form>
         </footer>
 </div>
