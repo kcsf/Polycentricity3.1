@@ -92,7 +92,8 @@
                         const joined = await joinGame(gameId);
                         
                         if (joined) {
-                                await loadGame(); // Reload game data
+                                // Redirect to join page to select actor
+                                goto(`/games/${gameId}/join`);
                         } else {
                                 error = 'Failed to join the game';
                         }

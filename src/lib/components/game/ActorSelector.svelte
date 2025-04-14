@@ -28,8 +28,8 @@
             // Load existing actors
             existingActors = await getUserActors();
             
-            // Filter to only show actors not in this game
-            existingActors = existingActors.filter(actor => actor.game_id !== gameId);
+            // Include all actors, including those assigned to this game
+            console.log(`Found ${existingActors.length} actors total for user`);
             
             // Load available cards for this game
             availableCards = await getAvailableCardsForGame(gameId);

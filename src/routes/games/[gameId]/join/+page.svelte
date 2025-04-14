@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGame, isGameFull, joinGame } from '$lib/services/gameService';
+    import { getGame, isGameFull, joinGame, getUserActors } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     import type { Game, Actor } from '$lib/types';
@@ -48,6 +48,23 @@
             if (isFull) {
                 errorMessage = 'This game is already full';
                 return;
+            }
+            
+            // Check if current user already has a role in this game
+            const userId = $userStore.user.user_id;
+            if (userId) {
+                const existingActors = await getUserActors();
+                const actorForThisGame = existingActors.find(actor => actor.game_id === gameId);
+                
+                console.log(`Checking existing actors: ${existingActors.length} actors, Game ID: ${gameId}`);
+                if (actorForThisGame) {
+                    console.log(`User already has actor ${actorForThisGame.actor_id} assigned to game ${gameId}`);
+                    // Redirect back to game page
+                    goto(`/games/${gameId}`);
+                    return;
+                } else {
+                    console.log(`No actor found for game ${gameId}`);
+                }
             }
             
             // Check if user is already in the game
