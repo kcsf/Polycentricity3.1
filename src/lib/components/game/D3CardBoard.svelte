@@ -1322,16 +1322,22 @@
         // Add mouse event handlers exactly like React
         const wedge = group.select(".category-wedge");
         
-        // mouseenter event handler
+        // mouseenter event handler - FIXED same as mouseleave
         wedge.on("mouseenter", function(event) {
-          // Critical: Prevent event bubbling to fix flickering
+          // Critical: Prevent event bubbling
           event.stopPropagation();
           
-          // Reset all other wedges
-          node.selectAll(".category-wedge").each(function() {
-            const wedgeEl = d3.select(this);
-            if (wedgeEl.node() !== this) {
-              wedgeEl
+          // Store references to DOM elements to prevent issues with "this" context
+          const thisWedge = d3.select(this);
+          const thisSubWedges = subWedgesGroup;
+          const thisLabels = labelsContainer;
+          const thisNode = node;
+          
+          // Reset all other wedges to default
+          thisNode.selectAll(".category-wedge").each(function() {
+            const otherWedge = d3.select(this);
+            if (otherWedge.node() !== thisWedge.node()) {
+              otherWedge
                 .transition()
                 .duration(150)
                 .attr("d", categoryArc)
@@ -1339,79 +1345,85 @@
             }
           });
           
-          // Hide all sub-elements before showing this one's
-          node.selectAll(".sub-wedges, .label-container")
+          // Hide all sub-elements before showing the ones for this wedge
+          thisNode.selectAll(".sub-wedges, .label-container")
             .style("visibility", "hidden")
             .attr("opacity", 0);
           
           // Expand this wedge
-          d3.select(this)
+          thisWedge
             .transition()
             .duration(150)
             .attr("d", expandedArc)
             .attr("filter", "drop-shadow(0px 0px 3px rgba(0,0,0,0.3))");
           
-          // Show this wedge's sub-elements
-          subWedgesGroup
+          // Show sub-elements for this wedge with explicit references
+          thisSubWedges
             .style("visibility", "visible")
             .transition()
             .duration(150)
             .attr("opacity", 1);
           
-          labelsContainer
+          thisLabels
             .style("visibility", "visible")
             .transition()
             .duration(150)
             .attr("opacity", 1);
           
-          // Update central text indicators
-          node.select(".count-text")
+          // Update central text with explicit references
+          thisNode.select(".count-text")
             .transition()
             .duration(150)
             .text(content.length);
           
-          node.select(".options-text")
+          thisNode.select(".options-text")
             .transition()
             .duration(150)
             .text(formatCategoryName(category));
         });
         
-        // mouseleave event handler
+        // mouseleave event handler - CRITICAL FIX for disappearing nodes
         wedge.on("mouseleave", function(event) {
           // Critical: Prevent event bubbling
           event.stopPropagation();
           
-          // Reset wedge appearance
-          d3.select(this)
+          // Store references to DOM elements to prevent issues with "this" context
+          const thisWedge = d3.select(this);
+          const thisSubWedges = subWedgesGroup;
+          const thisLabels = labelsContainer;
+          const thisNode = node;
+          
+          // Reset this specific wedge's appearance
+          thisWedge
             .transition()
             .duration(200)
             .attr("d", categoryArc)
             .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
           
-          // Hide sub-elements
-          subWedgesGroup
+          // Hide sub-elements with explicit element references
+          thisSubWedges
             .transition()
             .duration(100)
             .attr("opacity", 0)
             .on("end", function() {
-              d3.select(this).style("visibility", "hidden");
+              thisSubWedges.style("visibility", "hidden");
             });
           
-          labelsContainer
+          thisLabels
             .transition()
             .duration(100)
             .attr("opacity", 0)
             .on("end", function() {
-              d3.select(this).style("visibility", "hidden");
+              thisLabels.style("visibility", "hidden");
             });
           
-          // Clear central text
-          node.select(".count-text")
+          // Clear central text with explicit references
+          thisNode.select(".count-text")
             .transition()
             .duration(200)
             .text("");
           
-          node.select(".options-text")
+          thisNode.select(".options-text")
             .transition()
             .duration(200)
             .text("");
