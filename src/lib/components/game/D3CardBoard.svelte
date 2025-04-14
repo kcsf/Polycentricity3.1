@@ -1025,9 +1025,10 @@
         .attr("height", rectHeight)
         .attr("x", -rectWidth / 2) // Center horizontally
         .attr("y", labelYPosition) // Position below the outer ring
-        .attr("fill", "#333333")
-        .attr("fill-opacity", 0.7) // Semi-transparent dark background
-        .attr("stroke", "none"); // No stroke for cleaner look
+        .attr("fill", "var(--color-tertiary-50, white)") // Use theme variable with white fallback
+        .attr("fill-opacity", 0.85) // Semi-transparent background
+        .attr("stroke", "var(--color-tertiary-300, #e5e5e5)") // Light border from theme
+        .attr("stroke-width", 0.5) // Thin border
       
       // Add the text on top of the background
       group.append("text")
@@ -1037,7 +1038,7 @@
         .attr("y", labelYPosition + (rectHeight / 2)) // Center text vertically in background
         .attr("font-size", "11px") 
         .attr("font-weight", "500")
-        .attr("fill", "white") // White text on dark background for better contrast
+        .attr("fill", "var(--color-tertiary-900, #333333)") // Dark text on light background for better contrast
         .text(labelText);
     });
 
