@@ -279,33 +279,68 @@
   
   async function loadCardDetails(card: Card) {
     const gun = getGun();
-    if (!gun || !card.card_id) return;
+    if (!gun || !card.card_id) {
+      console.error("D3CardBoard: Gun not initialized or card has no ID");
+      return;
+    }
+    
+    console.log(`D3CardBoard: Loading details for card ${card.card_id} (${card.role_title})`);
     
     // Load Values
     if (card.values) {
-      Object.keys(card.values).forEach(valueId => {
+      const valueIds = Object.keys(card.values);
+      console.log(`D3CardBoard: Card has ${valueIds.length} values to load`);
+      
+      for (const valueId of valueIds) {
         if (!valueCache.has(valueId)) {
-          gun.get(nodes.values).get(valueId).once((valueData: Value) => {
-            if (valueData && valueData.value_id) {
-              valueCache.set(valueId, valueData);
-            }
+          console.log(`D3CardBoard: Loading value ${valueId}`);
+          await new Promise<void>(resolve => {
+            gun.get(nodes.values).get(valueId).once((valueData: Value) => {
+              if (valueData && valueData.value_id) {
+                console.log(`D3CardBoard: Loaded value ${valueId}: ${valueData.name}`);
+                valueCache.set(valueId, valueData);
+              } else {
+                console.warn(`D3CardBoard: Value ${valueId} data not found or incomplete`);
+              }
+              resolve();
+            });
           });
+        } else {
+          console.log(`D3CardBoard: Value ${valueId} already in cache: ${valueCache.get(valueId)?.name}`);
         }
-      });
+      }
+    } else {
+      console.log(`D3CardBoard: Card ${card.card_id} has no values property`);
     }
     
     // Load Capabilities
     if (card.capabilities) {
-      Object.keys(card.capabilities).forEach(capabilityId => {
-        if (!capabilityCache.has(capabilityId)) {
-          gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: Capability) => {
-            if (capabilityData && capabilityData.capability_id) {
-              capabilityCache.set(capabilityId, capabilityData);
-            }
+      const capIds = Object.keys(card.capabilities);
+      console.log(`D3CardBoard: Card has ${capIds.length} capabilities to load`);
+      
+      for (const capId of capIds) {
+        if (!capabilityCache.has(capId)) {
+          console.log(`D3CardBoard: Loading capability ${capId}`);
+          await new Promise<void>(resolve => {
+            gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
+              if (capData && capData.capability_id) {
+                console.log(`D3CardBoard: Loaded capability ${capId}: ${capData.name}`);
+                capabilityCache.set(capId, capData);
+              } else {
+                console.warn(`D3CardBoard: Capability ${capId} data not found or incomplete`);
+              }
+              resolve();
+            });
           });
+        } else {
+          console.log(`D3CardBoard: Capability ${capId} already in cache: ${capabilityCache.get(capId)?.name}`);
         }
-      });
+      }
+    } else {
+      console.log(`D3CardBoard: Card ${card.card_id} has no capabilities property`);
     }
+    
+    console.log(`D3CardBoard: Finished loading details for card ${card.card_id}`);
   }
 
   function setupRealTimeListeners() {
@@ -794,11 +829,25 @@
     if (node.type !== 'card') return;
     
     const card = node.data as Card;
+    console.log(`D3CardBoard: Updating radial menu for card ${card.card_id}`);
+    
     subItems = [];
     
     // Create Value items for the radial menu
     if (card.values) {
       const valueIds = Object.keys(card.values);
+      console.log(`D3CardBoard: Card has ${valueIds.length} values`);
+      
+      if (valueIds.length > 0) {
+        for (const valueId of valueIds) {
+          if (valueCache.has(valueId)) {
+            console.log(`D3CardBoard: Found value ${valueId} in cache: ${valueCache.get(valueId)?.name}`);
+          } else {
+            console.log(`D3CardBoard: Value ${valueId} not in cache`);
+          }
+        }
+      }
+      
       const valueItems: SubItem[] = valueIds.map((valueId, index) => {
         const value = valueCache.get(valueId);
         return {
@@ -816,11 +865,25 @@
       });
       
       subItems = [...subItems, ...valueItems];
+    } else {
+      console.log(`D3CardBoard: Card has no values property`);
     }
     
     // Create Capability items for the radial menu
     if (card.capabilities) {
       const capabilityIds = Object.keys(card.capabilities);
+      console.log(`D3CardBoard: Card has ${capabilityIds.length} capabilities`);
+      
+      if (capabilityIds.length > 0) {
+        for (const capId of capabilityIds) {
+          if (capabilityCache.has(capId)) {
+            console.log(`D3CardBoard: Found capability ${capId} in cache: ${capabilityCache.get(capId)?.name}`);
+          } else {
+            console.log(`D3CardBoard: Capability ${capId} not in cache`);
+          }
+        }
+      }
+      
       const capabilityItems: SubItem[] = capabilityIds.map((capabilityId, index) => {
         const capability = capabilityCache.get(capabilityId);
         return {
