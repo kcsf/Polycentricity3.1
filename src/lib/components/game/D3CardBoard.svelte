@@ -1333,8 +1333,8 @@
         }
       ],
       position: {
-        x: (card2.position?.x || 0 + card3.position?.x || 0) / 2,
-        y: (card2.position?.y || 0 + card3.position?.y || 0) / 2
+        x: ((card2.position?.x || 0) + (card3.position?.x || 0)) / 2,
+        y: ((card2.position?.y || 0) + (card3.position?.y || 0)) / 2
       }
     };
     
@@ -1366,8 +1366,8 @@
         }
       ],
       position: {
-        x: (card3.position?.x || 0 + card1.position?.x || 0) / 2,
-        y: (card3.position?.y || 0 + card1.position?.y || 0) / 2
+        x: ((card3.position?.x || 0) + (card1.position?.x || 0)) / 2,
+        y: ((card3.position?.y || 0) + (card1.position?.y || 0)) / 2
       }
     };
     
