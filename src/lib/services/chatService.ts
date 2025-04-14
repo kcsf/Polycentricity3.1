@@ -15,33 +15,42 @@ export async function sendMessage(gameId: string, content: string, type: 'group'
         }
         
         const messageId = generateId();
+        
+        // Fix: Create a simple, flat message object without nested properties
+        // This avoids the paths like "game_id.id.recipient_id" that cause errors
         const message: ChatMessage = {
             id: messageId,
             game_id: gameId,
             user_id: currentUser.user_id,
             user_name: currentUser.name,
-            content,
+            content: content,
             timestamp: Date.now(),
-            type,
-            recipient_id: recipientId
+            type: type,
+            recipient_id: recipientId || null // Ensure this is never undefined
         };
         
-        // Determine the chat node path
+        // Determine the chat node path - fix the path format
+        // Use format chat/gameId_group or chat/gameId_private_userId_recipientId
         const chatNode = type === 'group' 
-            ? `${nodes.chat}:${gameId}:group` 
-            : `${nodes.chat}:${gameId}:private:${currentUser.user_id}:${recipientId}`;
+            ? `${nodes.chat}/${gameId}_group` 
+            : `${nodes.chat}/${gameId}_private_${currentUser.user_id}_${recipientId}`;
         
         return new Promise((resolve, reject) => {
-            gun.get(chatNode).get(messageId).put(message, (ack: any) => {
-                if (ack.err) {
-                    console.error('Error sending message:', ack.err);
-                    reject(ack.err);
-                    return;
-                }
-                
-                console.log(`Message sent to ${type} chat in game ${gameId}`);
-                resolve(message);
-            });
+            try {
+                gun.get(chatNode).get(messageId).put(message, (ack: any) => {
+                    if (ack.err) {
+                        console.error('Error sending message:', ack.err);
+                        reject(ack.err);
+                        return;
+                    }
+                    
+                    console.log(`Message sent to ${type} chat in game ${gameId}`);
+                    resolve(message);
+                });
+            } catch (err) {
+                console.error("Error in Gun put operation:", err);
+                reject(err);
+            }
         });
     } catch (error) {
         console.error('Send message error:', error);
@@ -60,7 +69,8 @@ export async function getGroupMessages(gameId: string): Promise<ChatMessage[]> {
             return [];
         }
         
-        const chatNode = `${nodes.chat}:${gameId}:group`;
+        // Use the updated path format for chatNode
+        const chatNode = `${nodes.chat}/${gameId}_group`;
         
         return new Promise((resolve) => {
             const messages: ChatMessage[] = [];
@@ -96,8 +106,9 @@ export async function getPrivateMessages(gameId: string, otherUserId: string): P
             return [];
         }
         
-        const chatNode1 = `${nodes.chat}:${gameId}:private:${currentUser.user_id}:${otherUserId}`;
-        const chatNode2 = `${nodes.chat}:${gameId}:private:${otherUserId}:${currentUser.user_id}`;
+        // Use the updated path format
+        const chatNode1 = `${nodes.chat}/${gameId}_private_${currentUser.user_id}_${otherUserId}`;
+        const chatNode2 = `${nodes.chat}/${gameId}_private_${otherUserId}_${currentUser.user_id}`;
         
         const messages1 = await new Promise<ChatMessage[]>((resolve) => {
             const messages: ChatMessage[] = [];
@@ -142,7 +153,8 @@ export function subscribeToGroupChat(gameId: string, callback: (message: ChatMes
             return () => {};
         }
         
-        const chatNode = `${nodes.chat}:${gameId}:group`;
+        // Use the updated path format
+        const chatNode = `${nodes.chat}/${gameId}_group`;
         
         const subscription = gun.get(chatNode).map().on((message: ChatMessage, messageId: string) => {
             if (message && messageId !== '_') {
@@ -172,8 +184,9 @@ export function subscribeToPrivateChat(gameId: string, otherUserId: string, call
             return () => {};
         }
         
-        const chatNode1 = `${nodes.chat}:${gameId}:private:${currentUser.user_id}:${otherUserId}`;
-        const chatNode2 = `${nodes.chat}:${gameId}:private:${otherUserId}:${currentUser.user_id}`;
+        // Use the updated path format
+        const chatNode1 = `${nodes.chat}/${gameId}_private_${currentUser.user_id}_${otherUserId}`;
+        const chatNode2 = `${nodes.chat}/${gameId}_private_${otherUserId}_${currentUser.user_id}`;
         
         const subscription1 = gun.get(chatNode1).map().on((message: ChatMessage, messageId: string) => {
             if (message && messageId !== '_') {
