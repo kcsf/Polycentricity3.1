@@ -4,13 +4,19 @@
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
-  import AdminTools from '$lib/components/admin/AdminTools.svelte';
+  import { fixGameRelationships } from '$lib/services/gameService';
   
   // Using $state() for reactivity
   let isLoading = $state(false);
   let error = $state<string | null>(null);
   let success = $state(false);
   let result = $state<{ success: boolean; processed: number } | null>(null);
+  
+  // Game relationship fixing variables
+  let isFixingGames = $state(false);
+  let gameFixError = $state<string | null>(null);
+  let gameFixSuccess = $state(false);
+  let gameFixResult = $state<{ success: boolean; gamesFixed: number } | null>(null);
   
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state([]);
@@ -249,6 +255,36 @@
     }
   }
   
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
+  
+  // Fix game relationships
+  async function fixGameRelationshipEdges() {
+    if (!confirm('Are you sure you want to fix game relationships? This will create edges between games and their related entities.')) {
+      return;
+    }
+    
+    isFixingGames = true;
+    gameFixError = null;
+    gameFixSuccess = false;
+    
+    try {
+      console.log('Starting game relationship fixing');
+      gameFixResult = await fixGameRelationships();
+      console.log('Game relationships fixed', gameFixResult);
+      gameFixSuccess = gameFixResult.success;
+      
+      // Dispatch a custom event for parent components to know relationships were fixed
+      dispatch('relationshipsFixed', gameFixResult);
+      
+    } catch (err) {
+      console.error('Error fixing game relationships:', err);
+      gameFixError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      isFixingGames = false;
+    }
+  }
+  
   onMount(() => {
     getRelationshipStats();
   });
@@ -405,6 +441,51 @@
             >
               <svelte:component this={icons.RefreshCw} class="w-4 h-4 mr-2" />
               Initialize Bidirectional Relationships
+            </button>
+          </div>
+          
+          <!-- Game Relationship Fixing Card -->
+          <div class="card p-4 bg-surface-50-900-token md:col-span-2">
+            <h3 class="h4 mb-4">Fix Game Relationships</h3>
+            
+            <p class="text-sm mb-4">
+              This utility fixes relationships between games and their associated entities (users, decks, actors).
+              It creates explicit edge connections for proper visualization in the graph view.
+            </p>
+            
+            {#if isFixingGames}
+              <div class="flex items-center justify-center p-6">
+                <div class="spinner-third w-8 h-8"></div>
+                <span class="ml-3">Processing Game Relationships...</span>
+              </div>
+            {:else if gameFixError}
+              <div class="alert variant-filled-error">
+                <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+                <div class="alert-message">
+                  <h3 class="h4">Error</h3>
+                  <p>{gameFixError}</p>
+                </div>
+                <div class="alert-actions">
+                  <button class="btn variant-filled" onclick={fixGameRelationshipEdges}>Retry</button>
+                </div>
+              </div>
+            {:else if gameFixSuccess}
+              <div class="alert variant-filled-success">
+                <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+                <div class="alert-message">
+                  <h3 class="h4">Success</h3>
+                  <p>Successfully fixed relationships for {gameFixResult?.gamesFixed} games. The graph visualization will now show these relationships correctly.</p>
+                </div>
+              </div>
+            {/if}
+            
+            <button 
+              class="btn variant-filled-tertiary w-full mt-4" 
+              onclick={fixGameRelationshipEdges}
+              disabled={isFixingGames}
+            >
+              <svelte:component this={icons.Network} class="w-4 h-4 mr-2" />
+              Fix Game Relationships
             </button>
           </div>
         </div>
