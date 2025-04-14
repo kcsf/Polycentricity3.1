@@ -53,7 +53,7 @@
       </button>
     </div>
   {:else}
-    <D3CardBoard {gameId} {activeActorId} />
+    <D3CardBoard {gameId} {activeActorId} {cards} />
   {/if}
 </div>
 

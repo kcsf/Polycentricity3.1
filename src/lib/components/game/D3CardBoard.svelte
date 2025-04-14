@@ -11,6 +11,7 @@
   // Props
   export let gameId: string;
   export let activeActorId: string | undefined = undefined;
+  export let cards: Card[] = [];
   
   // Local variables
   let svgRef: SVGSVGElement;
@@ -23,7 +24,7 @@
   let categoryCount = 0;
   
   // Dataset
-  let cards: CardWithPosition[] = [];
+  let cardsWithPosition: CardWithPosition[] = [];
   let agreements: AgreementWithPosition[] = [];
   let actors: Actor[] = [];
   let valueCache: Map<string, Value> = new Map();
@@ -118,8 +119,8 @@
       }
       
       // Initialize the graph visualization
-      console.log(`D3CardBoard: Loaded ${cards.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
-      if (cards.length > 0) {
+      console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
+      if (cardsWithPosition.length > 0 || cards.length > 0) {
         console.log("D3CardBoard: Initializing graph visualization");
         initializeGraph();
       } else {
@@ -193,7 +194,7 @@
                     y: Math.random() * height
                   }
                 };
-                cards = [...cards, cardWithPosition];
+                cardsWithPosition = [...cardsWithPosition, cardWithPosition];
                 
                 // Load Values and Capabilities for this card
                 loadCardDetails(cardData);
@@ -274,10 +275,10 @@
         setTimeout(resolve, 1000);
       });
       
-      console.log(`D3CardBoard: Loaded ${cards.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
+      console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
       
       // Initialize the graph after loading all data
-      if (cards.length > 0) {
+      if (cardsWithPosition.length > 0 || cards.length > 0) {
         initializeGraph();
       }
     } catch (error) {
@@ -386,7 +387,7 @@
     
     // Prepare nodes and links data
     let nodes: D3Node[] = [
-      ...cards.map((card) => ({
+      ...cardsWithPosition.map((card) => ({
         id: card.card_id,
         name: card.role_title,
         type: "card" as const,
