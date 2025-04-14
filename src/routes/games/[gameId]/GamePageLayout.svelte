@@ -44,6 +44,43 @@
   let playersExpanded = false;
   let chatExpanded = true;
   
+  // References to sidebar elements for click-outside detection
+  let leftSidebarElement: HTMLElement;
+  let rightSidebarElement: HTMLElement;
+  let leftToggleButton: HTMLElement;
+  let rightToggleButton: HTMLElement;
+  
+  // Handle click outside to close sidebars
+  function handleClickOutside(event: MouseEvent) {
+    // Check if clicking outside left sidebar
+    if (leftSidebarOpen && 
+        leftSidebarElement && 
+        !leftSidebarElement.contains(event.target as Node) &&
+        leftToggleButton && !leftToggleButton.contains(event.target as Node)) {
+      leftSidebarOpen = false;
+      console.log('Closing left sidebar (clicked outside)');
+    }
+    
+    // Check if clicking outside right sidebar
+    if (rightSidebarOpen && 
+        rightSidebarElement && 
+        !rightSidebarElement.contains(event.target as Node) &&
+        rightToggleButton && !rightToggleButton.contains(event.target as Node)) {
+      rightSidebarOpen = false;
+      console.log('Closing right sidebar (clicked outside)');
+    }
+  }
+  
+  onMount(() => {
+    // Add global click handler for closing sidebars when clicking outside
+    document.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      // Cleanup the event listener on component destroy
+      document.removeEventListener('click', handleClickOutside);
+    };
+  });
+  
   // Subscribe to changes in left sidebar state
   $: {
     if (leftSidebarOpen) {
@@ -108,6 +145,7 @@
 <div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-50-900-token" style="z-index: 10; height: calc(100vh - var(--app-bar-height, 64px))">
   <!-- Left Sidebar Toggle (Always Visible) -->
   <button 
+    bind:this={leftToggleButton}
     class="btn-sidebar-toggle absolute top-4 left-4 z-20 bg-surface-200 dark:bg-surface-700 rounded-md p-2 shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
     onclick={toggleLeftSidebar}
     aria-label="Toggle left sidebar"
@@ -165,6 +203,7 @@
       <span class="ml-1 mr-1 hidden md:inline">New Agreement</span>
     </button>
     <button 
+      bind:this={rightToggleButton}
       class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
       onclick={toggleRightSidebar}
       aria-label="Toggle players"
@@ -177,6 +216,7 @@
   <div class="main-content-area flex-1 flex relative overflow-hidden pt-16">
     <!-- Left Sidebar (Game Info, Role, View Toggle) -->
     <aside 
+      bind:this={leftSidebarElement}
       class="left-sidebar bg-surface-700/90 w-72 shadow-lg absolute inset-y-0 -left-72 transition-all duration-300 z-10 flex flex-col h-full overflow-y-auto"
       class:left-0={leftSidebarOpen}
     >
@@ -309,6 +349,7 @@
     
     <!-- Right Sidebar (Players and Chat) -->
     <aside 
+      bind:this={rightSidebarElement}
       class="right-sidebar bg-surface-700/90 w-72 shadow-lg absolute inset-y-0 -right-72 transition-all duration-300 z-10 flex flex-col h-full overflow-y-auto"
       class:right-0={rightSidebarOpen}
     >
