@@ -23,6 +23,7 @@
   // Layout options
   const layouts = [
     { id: 'default', name: 'Deck Hierarchy' },
+    { id: 'game-layout', name: 'Game Layout (CISE)' }, // Game-centric layout
     { id: 'cise', name: 'Circular Clusters (CISE)' },
     { id: 'concentric', name: 'Concentric' },
     { id: 'grid', name: 'Grid' },
@@ -31,6 +32,10 @@
     { id: 'dagre', name: 'Directed (DAG)' }
   ];
   let selectedLayout = layouts[0];
+  
+  // Game-specific layout options
+  let availableGames = [];
+  let selectedGameId = '';
   
   const dispatch = createEventDispatcher();
   
@@ -158,6 +163,41 @@
     
     // Configure layout based on selection
     switch (selectedLayout.id) {
+      // Game-centric layout that uses CISE clustering centered around a specific game
+      case 'game-layout':
+        // Prepare and apply game-specific layout
+        layoutOptions = {
+          name: 'cise',
+          clusters: (function() {
+            // Cluster nodes by type, but only include relevant types
+            const clusterMap = {};
+            const relevantTypes = ['cards', 'values', 'capabilities', 'users', 'actors', 'agreements'];
+            
+            filteredNodes.forEach(node => {
+              if (node.type && relevantTypes.includes(node.type)) {
+                if (!clusterMap[node.type]) {
+                  clusterMap[node.type] = [];
+                }
+                clusterMap[node.type].push(node.id);
+              }
+            });
+            return Object.values(clusterMap);
+          })(),
+          allowNodesInsideCircle: false,
+          quality: 0.9,
+          nodeSeparation: 30,
+          animate: true,
+          animationDuration: 800,
+          gravity: 0.5,
+          gravityRange: 4.0,
+          idealInterClusterEdgeLengthCoefficient: 1.8,
+          refresh: 10,
+          fit: true,
+          padding: 40,
+          showClusters: false
+        };
+        break;
+        
       // Our custom "Default" hierarchical layout that places nodes in exact rows:
       // Row 1: Users
       // Row 2: Decks
