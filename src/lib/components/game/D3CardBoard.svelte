@@ -157,6 +157,12 @@
       // Initialize the graph visualization
       console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
       if (cardsWithPosition.length > 0) {
+        // Add demo agreements for testing if no real agreements yet
+        if (agreements.length === 0 && cardsWithPosition.length >= 3) {
+          console.log("D3CardBoard: Adding demo agreements for visualization");
+          createDemoAgreements();
+        }
+        
         console.log("D3CardBoard: Initializing graph visualization");
         initializeGraph();
       } else {
@@ -315,6 +321,12 @@
       
       // Initialize the graph after loading all data
       if (cardsWithPosition.length > 0 || cards.length > 0) {
+        // Add demo agreements for testing if no real agreements yet
+        if (agreements.length === 0 && cardsWithPosition.length >= 3) {
+          console.log("D3CardBoard: Adding demo agreements for visualization");
+          createDemoAgreements();
+        }
+        
         initializeGraph();
       }
     } catch (error) {
@@ -1054,15 +1066,15 @@
     console.log(`D3CardBoard: Creating ${agreementNodes.size()} agreement nodes`);
     
     agreementNodes.each(function(d) {
-      // Add a small circle for agreement nodes
+      // Add a small circle for agreement nodes - styling to match the reference image
       d3.select(this)
         .append("circle")
         .attr("r", 17) // Smaller radius for agreement nodes
-        .attr("fill", "#444444") // Dark fill that matches reference image
-        .attr("stroke", "#555555") // Slightly lighter stroke
-        .attr("stroke-width", 1)
+        .attr("fill", "#ffffff") // White fill that matches reference image
+        .attr("stroke", "#e5e5e5") // Light gray stroke to match card styling
+        .attr("stroke-width", 1.5) // Slightly thicker stroke for visibility
         .attr("class", "agreement-circle")
-        .style("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.2))"); // Add subtle shadow
+        .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.15))"); // Enhanced shadow for better visibility
         
       // Create an agreement ID (AG1, AG2, etc.)
       const agreementId = `AG${agreementCounter++}`;
@@ -1073,9 +1085,9 @@
         .attr("class", "agreement-title")
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle") // Better vertical centering
-        .attr("font-size", "12px") // Slightly larger
+        .attr("font-size", "12px") // Smaller font size to fit in circle
         .attr("font-weight", "bold") // Make bold for better visibility
-        .attr("fill", "#FFFFFF") // White text on dark background
+        .attr("fill", "#555555") // Dark gray text on white background to match reference
         .text(agreementId);
         
       // Add agreement title below on hover (handled by CSS)
@@ -1972,8 +1984,16 @@
   .node-agreement .agreement-circle {
     fill: white;
     stroke: #e5e5e5;
-    stroke-width: 1;
-    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.08));
+    stroke-width: 1.5;
+    cursor: pointer;
+    filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.15));
+  }
+  
+  .node-agreement .agreement-title {
+    fill: #555555;
+    font-weight: bold;
+    font-size: 12px;
+    pointer-events: none;
   }
   
   .node-agreement.active .agreement-circle {
