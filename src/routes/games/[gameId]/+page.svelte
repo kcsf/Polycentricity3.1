@@ -4,7 +4,8 @@
         import { goto } from '$app/navigation';
         import { userStore } from '$lib/stores/userStore';
         import { currentGameStore } from '$lib/stores/gameStore';
-        import { getGame, subscribeToGame, joinGame, getPlayerRole } from '$lib/services/gameService';
+        import { activeActorId } from '$lib/stores/enhancedGameStore';
+        import { getGame, subscribeToGame, joinGame, getPlayerRole, assignRole } from '$lib/services/gameService';
         import type { Game, Actor } from '$lib/types';
         import { GameStatus } from '$lib/types';
         
@@ -18,6 +19,7 @@
         import PlayersList from '$lib/components/game/PlayersList.svelte';
         import GameDashboard from '$lib/components/game/GameDashboard.svelte';
         import RoleSelector from '$lib/components/game/RoleSelector.svelte';
+        import D3GameBoardIntegrated from '$lib/components/game/D3GameBoardIntegrated.svelte';
         
         export let data;
         
@@ -32,12 +34,13 @@
         const gameId = $page.params.gameId;
         
         onMount(async () => {
-                // Temporarily disabled authentication check for development
+                // Redirect to login if not authenticated (commented for development)
                 // if (!$userStore.user) {
                 //         goto('/login');
                 //         return;
                 // }
                 
+                // Load the initial game data
                 await loadGame();
                 
                 // Subscribe to game updates
@@ -46,29 +49,40 @@
                         currentGameStore.set(updatedGame);
                 });
                 
-                // Load player's role if they have one
-                let userId = $userStore.user?.user_id;
+                await loadPlayerRole();
                 
-                // Create a mock user ID for development if no user is logged in
-                if (!userId) {
-                    console.warn('No user ID available. Using mock user ID for development.');
-                    userId = 'dev-user-' + Date.now();
-                }
-                
-                if (game) {
-                    // First try to get the role normally
-                    playerRole = await getPlayerRole(gameId, userId);
-                    
-                    // If no role is found, check if we have one in localStorage from a recent join
-                    if (!playerRole) {
-                        const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
-                        if (savedActorId) {
-                            console.log(`Found saved actor ID in localStorage: ${savedActorId}`);
-                            // Try to get the player role again with the actor ID
-                            playerRole = await getPlayerRole(gameId, userId, savedActorId);
-                        }
+                // Update activeActorId store if we have a player role
+                if (playerRole) {
+                    console.log(`Setting active actor ID in store: ${playerRole.actor_id}`);
+                    activeActorId.set(playerRole.actor_id);
+                } else {
+                    // If no active actor, check localStorage from a recent join
+                    const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
+                    if (savedActorId) {
+                        console.log(`Found saved actor ID in localStorage: ${savedActorId}`);
+                        activeActorId.set(savedActorId);
+                        
+                        // Try to load player role with the actor ID
+                        await loadPlayerRoleWithActor(savedActorId);
                     }
                 }
+                
+                // Subscribe to changes in the activeActorId store
+                const unsubscribeActorId = activeActorId.subscribe(async (actorId) => {
+                    if (actorId && game && $userStore.user) {
+                        console.log(`Active actor ID changed to: ${actorId}`);
+                        
+                        // Check if we need to load (or reload) the player role
+                        if (!playerRole || playerRole.actor_id !== actorId) {
+                            await loadPlayerRoleWithActor(actorId);
+                        }
+                    }
+                });
+                
+                // Add cleanup for the actor ID subscription
+                return () => {
+                    if (unsubscribeActorId) unsubscribeActorId();
+                };
         });
         
         onDestroy(() => {
@@ -120,6 +134,33 @@
                 if (game && $userStore.user) {
                     playerRole = await getPlayerRole(gameId, $userStore.user.user_id);
                     console.log('Player role:', playerRole);
+                }
+        }
+        
+        async function loadPlayerRoleWithActor(actorId: string) {
+                if (!game || !$userStore.user) return;
+                
+                try {
+                    console.log(`Loading player role with actorId: ${actorId}`);
+                    playerRole = await getPlayerRole(gameId, $userStore.user.user_id, actorId);
+                    
+                    if (!playerRole) {
+                        // If the role doesn't exist yet, try to assign it
+                        console.log(`Assigning actor ${actorId} to user ${$userStore.user.user_id}`);
+                        const assigned = await assignRole(gameId, $userStore.user.user_id, actorId);
+                        
+                        if (assigned) {
+                            // Reload the player role
+                            playerRole = await getPlayerRole(gameId, $userStore.user.user_id, actorId);
+                            console.log('Role assigned and loaded:', playerRole);
+                        } else {
+                            console.error('Failed to assign role');
+                        }
+                    } else {
+                        console.log('Found existing player role:', playerRole);
+                    }
+                } catch (err) {
+                    console.error('Error in loadPlayerRoleWithActor:', err);
                 }
         }
                 
