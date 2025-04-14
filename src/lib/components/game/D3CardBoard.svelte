@@ -39,7 +39,7 @@
   interface D3Node {
     id: string;
     name: string;
-    type: "card" | "agreement";
+    type: "actor" | "agreement";  // Match React reference exactly: "actor" not "card"
     data: CardWithPosition | AgreementWithPosition;
     x: number;
     y: number;
@@ -578,7 +578,7 @@
       ...cardsWithPosition.map((card) => ({
         id: card.card_id,
         name: card.role_title || "Unnamed Card",
-        type: "card" as const,
+        type: "actor" as const,  // Using "actor" to match React reference
         data: card,
         x: card.position?.x || Math.random() * width,
         y: card.position?.y || Math.random() * height,
