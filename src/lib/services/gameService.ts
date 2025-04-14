@@ -186,7 +186,12 @@ export async function getAllGames(): Promise<Game[]> {
             const games: Game[] = [];
             gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
                 if (gameData && gameId !== '_') {
-                    games.push(gameData);
+                    // Ensure the game_id is included in the gameData 
+                    // This fixes duplicate key issues when using game_id as a key in loops
+                    games.push({
+                        ...gameData,
+                        game_id: gameId // Add or overwrite with the actual ID from Gun
+                    });
                 }
             });
             
