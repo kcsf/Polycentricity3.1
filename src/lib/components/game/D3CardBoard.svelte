@@ -1088,12 +1088,40 @@
       // Process card data to extract valid categories with items
       const actorDataForViz = { ...(card as any) };
       
+      // Log the raw card data for debugging
+      console.log(`Card ${card.card_id} (${card.role_title}) raw data:`, JSON.stringify(actorDataForViz));
+      
+      // Manually create dummy category data for testing if needed - we'll use both the card's real data and add some dummy data
+      if (!actorDataForViz.values || typeof actorDataForViz.values !== 'object' || Object.keys(actorDataForViz.values).filter(k => k !== '_' && k !== '#').length === 0) {
+        // If no values found, let's create dummy values for testing
+        console.log(`Creating dummy values for card ${card.card_id}`);
+        actorDataForViz.values = { value1: true, value2: true, value3: true };
+      }
+      
+      if (!actorDataForViz.capabilities || typeof actorDataForViz.capabilities !== 'object' || Object.keys(actorDataForViz.capabilities).filter(k => k !== '_' && k !== '#').length === 0) {
+        // If no capabilities found, let's create dummy capabilities for testing
+        console.log(`Creating dummy capabilities for card ${card.card_id}`);
+        actorDataForViz.capabilities = { capability1: true, capability2: true };
+      }
+      
+      if (!actorDataForViz.resources && card.rivalrous_resources) {
+        console.log(`Moving rivalrous_resources to resources for card ${card.card_id}`);
+        actorDataForViz.resources = card.rivalrous_resources;
+      }
+      
+      if (!actorDataForViz.intellectualProperty && card.intellectual_property) {
+        console.log(`Moving intellectual_property to intellectualProperty for card ${card.card_id}`);
+        actorDataForViz.intellectualProperty = card.intellectual_property;
+      }
+      
       // Pre-process card data to extract valid categories with items
       categories.forEach(cat => {
         if (typeof actorDataForViz[cat] === "string") {
           actorDataForViz[cat] = ensureArray(actorDataForViz[cat]);
+          console.log(`Processed ${cat} as string:`, actorDataForViz[cat]);
         } else if (typeof actorDataForViz[cat] === "object") {
           actorDataForViz[cat] = ensureArray(actorDataForViz[cat]);
+          console.log(`Processed ${cat} as object:`, actorDataForViz[cat]);
         }
       });
       
@@ -1101,6 +1129,8 @@
       const actorCategories = categories.filter(
         (cat) => ensureArray(actorDataForViz[cat]).length > 0
       );
+      
+      console.log(`Card ${card.card_id} has categories:`, actorCategories);
       
       // Skip nodes without categorized items
       if (actorCategories.length === 0) return;
