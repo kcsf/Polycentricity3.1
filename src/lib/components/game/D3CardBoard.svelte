@@ -991,32 +991,35 @@
       const textWidth = tempText.node().getBBox().width;
       tempText.remove(); // Remove the temporary element
       
-      // Create background rectangle with padding
-      const padding = 6;
+      // Create background rectangle with compact padding
+      const padding = 5;
       const rectWidth = textWidth + padding * 2;
-      const rectHeight = 22;
+      const rectHeight = 18;
       
-      // Add the rounded rectangle background
+      // Get card color to match label color with card
+      const cardData = d.data as CardWithPosition;
+      
+      // Add the rounded rectangle background - positioned close to the node
       group.append("rect")
         .attr("rx", 4) // Rounded corners
         .attr("ry", 4)
         .attr("width", rectWidth)
         .attr("height", rectHeight)
         .attr("x", -rectWidth / 2) // Center horizontally
-        .attr("y", `3.0em`) // Position below the node, aligned with text
-        .attr("fill", "white")
-        .attr("fill-opacity", 0.9) // Semi-transparent
-        .attr("stroke", "#e5e5e5")
-        .attr("stroke-width", 1);
+        .attr("y", cardNodeRadius + 5) // Position immediately below node with small gap
+        .attr("fill", "#333333")
+        .attr("fill-opacity", 0.7) // Semi-transparent dark background
+        .attr("stroke", "none"); // No stroke for cleaner look
       
       // Add the text on top of the background
       group.append("text")
         .attr("class", "name-text")
         .attr("text-anchor", "middle")
-        .attr("dy", "3.6em") // Position below the node
-        .attr("font-size", "12px")
+        .attr("dominant-baseline", "middle") // Better centering
+        .attr("y", cardNodeRadius + 14) // Position text in center of background
+        .attr("font-size", "11px") 
         .attr("font-weight", "500")
-        .attr("fill", "#444444") // Dark gray
+        .attr("fill", "white") // White text on dark background for better contrast
         .text(labelText);
     });
 
