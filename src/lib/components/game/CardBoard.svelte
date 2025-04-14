@@ -22,6 +22,12 @@
       const availableCards = await getAvailableCardsForGame(gameId);
       console.log(`CardBoard: Loaded ${availableCards.length} cards`);
       
+      if (availableCards.length === 0) {
+        console.warn(`CardBoard: No cards available for game ${gameId}`);
+      } else {
+        console.log(`CardBoard: First card:`, availableCards[0]);
+      }
+      
       // Set cards to pass to D3CardBoard
       cards = availableCards;
       
