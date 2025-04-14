@@ -5,6 +5,7 @@
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
   import { fixGameRelationships } from '$lib/services/gameService';
+  import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
   
   // Using $state() for reactivity
   let isLoading = $state(false);
@@ -17,6 +18,12 @@
   let gameFixError = $state<string | null>(null);
   let gameFixSuccess = $state(false);
   let gameFixResult = $state<{ success: boolean; gamesFixed: number } | null>(null);
+  
+  // Sample data initialization variables
+  let isInitializingSample = $state(false);
+  let sampleDataError = $state<string | null>(null);
+  let sampleDataSuccess = $state(false);
+  let sampleDataResult = $state<{ success: boolean; message: string } | null>(null);
   
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state([]);
@@ -296,6 +303,35 @@
     }
   }
   
+  // Initialize sample data function
+  async function initializeSampleDataFunction() {
+    if (!confirm('Are you sure you want to initialize sample data? This will add new sample users, cards, decks, games, actors, agreements, and node positions.')) {
+      return;
+    }
+    
+    isInitializingSample = true;
+    sampleDataError = null;
+    sampleDataSuccess = false;
+    
+    try {
+      console.log('Starting sample data initialization...');
+      sampleDataResult = await initializeSampleData();
+      console.log('Sample data initialization complete', sampleDataResult);
+      sampleDataSuccess = sampleDataResult.success;
+      
+      // Refresh statistics after initialization
+      await getRelationshipStats();
+      
+      // Dispatch a custom event for parent components
+      dispatch('sampleDataInitialized', sampleDataResult);
+    } catch (err) {
+      console.error('Error initializing sample data:', err);
+      sampleDataError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      isInitializingSample = false;
+    }
+  }
+  
   // Helper function to log current game relationships for debugging
   async function logCurrentGameRelationships() {
     const gun = getGun();
@@ -564,6 +600,52 @@
       
       {#snippet panel()}
         <div class="card p-4 bg-surface-200-800 border border-surface-300-600 mt-4">
+          <div class="p-4 bg-primary-500/10 border border-primary-500 rounded mb-4">
+            <h4 class="font-semibold mb-2 flex items-center">
+              <svelte:component this={icons.Database} class="w-5 h-5 mr-2 text-primary-500" />
+              Sample Data Management
+            </h4>
+            <p class="text-sm mb-4">
+              Initialize or reinitialize sample data for the application. This will create users, cards, decks, games,
+              actors, agreements, chat messages, and proper relationships between them.
+            </p>
+            
+            {#if isInitializingSample}
+              <div class="flex items-center justify-center p-6">
+                <div class="spinner-third w-8 h-8"></div>
+                <span class="ml-3">Initializing Sample Data...</span>
+              </div>
+            {:else if sampleDataError}
+              <div class="alert variant-filled-error">
+                <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+                <div class="alert-message">
+                  <h3 class="h4">Error</h3>
+                  <p>{sampleDataError}</p>
+                </div>
+                <div class="alert-actions">
+                  <button class="btn variant-filled" onclick={initializeSampleDataFunction}>Retry</button>
+                </div>
+              </div>
+            {:else if sampleDataSuccess}
+              <div class="alert variant-filled-success">
+                <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+                <div class="alert-message">
+                  <h3 class="h4">Success</h3>
+                  <p>{sampleDataResult?.message || "Sample data initialized successfully"}</p>
+                </div>
+              </div>
+            {/if}
+            
+            <button 
+              class="btn variant-filled-primary w-full mt-4" 
+              onclick={initializeSampleDataFunction}
+              disabled={isInitializingSample}
+            >
+              <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+              Reinitialize Sample Data
+            </button>
+          </div>
+          
           <AdminTools />
         </div>
       {/snippet}
