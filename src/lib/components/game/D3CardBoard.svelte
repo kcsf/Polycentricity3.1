@@ -693,9 +693,11 @@
       .enter()
       .append("line")
       .attr("class", "link-line")  // Use CSS class for consistent styling
-      .attr("stroke", "#e5e5e5")   // Light gray
-      .attr("stroke-width", 1)     // Thinner lines per design reference
-      .attr("marker-end", "url(#arrow-marker)"); // Apply the arrow marker
+      .attr("stroke", "#e5e5e5")   // Light gray matching reference image
+      .attr("stroke-width", 1)     // Thin lines per design reference
+      .attr("stroke-opacity", 0.8) // Slightly transparent
+      .attr("marker-end", "url(#arrow-marker)") // Apply the arrow marker
+      .style("cursor", "pointer")  // Show pointer cursor on hover
 
     // Function to update link positions and agreement node positions
     function updateLinks() {
@@ -1045,18 +1047,22 @@
     // Create agreement nodes with smaller circles
     const agreementNodes = nodeElements.filter((d) => d.type === "agreement");
     
-    // Generate random IDs for our agreements (e.g., AG1, AG2)
+    // Generate sequential IDs for our agreements (e.g., AG1, AG2)
     let agreementCounter = 1;
+    
+    // Log for debugging
+    console.log(`D3CardBoard: Creating ${agreementNodes.size()} agreement nodes`);
     
     agreementNodes.each(function(d) {
       // Add a small circle for agreement nodes
       d3.select(this)
         .append("circle")
         .attr("r", 17) // Smaller radius for agreement nodes
-        .attr("fill", "#FFFFFF") // White fill
-        .attr("stroke", "#E5E5E5") // Light gray stroke
+        .attr("fill", "#444444") // Dark fill that matches reference image
+        .attr("stroke", "#555555") // Slightly lighter stroke
         .attr("stroke-width", 1)
-        .attr("class", "agreement-circle");
+        .attr("class", "agreement-circle")
+        .style("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.2))"); // Add subtle shadow
         
       // Create an agreement ID (AG1, AG2, etc.)
       const agreementId = `AG${agreementCounter++}`;
@@ -1066,10 +1072,10 @@
         .append("text")
         .attr("class", "agreement-title")
         .attr("text-anchor", "middle")
-        .attr("dy", "0.3em") // Center vertically
+        .attr("dominant-baseline", "middle") // Better vertical centering
         .attr("font-size", "12px") // Slightly larger
         .attr("font-weight", "bold") // Make bold for better visibility
-        .attr("fill", "#555555") // Darker for contrast
+        .attr("fill", "#FFFFFF") // White text on dark background
         .text(agreementId);
         
       // Add agreement title below on hover (handled by CSS)
@@ -1120,6 +1126,129 @@
        });
   }
 
+  // Create demo agreements for testing when no real agreements exist
+  function createDemoAgreements() {
+    if (cardsWithPosition.length < 3) return;
+    
+    // Create a circular agreement between 3 cards
+    const card1 = cardsWithPosition[0];
+    const card2 = cardsWithPosition[1];
+    const card3 = cardsWithPosition[2];
+    
+    // Create mock actor IDs for cards if they don't exist
+    const actor1Id = `actor_${card1.card_id}`;
+    const actor2Id = `actor_${card2.card_id}`;
+    const actor3Id = `actor_${card3.card_id}`;
+    
+    // Map card IDs to actor IDs
+    actorCardMap.set(actor1Id, card1.card_id);
+    actorCardMap.set(actor2Id, card2.card_id);
+    actorCardMap.set(actor3Id, card3.card_id);
+    
+    // Create agreement 1: card1 -> card2
+    const agreement1: AgreementWithPosition = {
+      agreement_id: "agreement_1",
+      title: "Resource Sharing",
+      description: "Agreement to share resources between parties",
+      created_at: Date.now(),
+      status: "active",
+      parties: {
+        [actor1Id]: true,
+        [actor2Id]: true
+      },
+      obligations: [
+        {
+          id: "ob1",
+          fromActorId: actor1Id,
+          toActorId: actor2Id,
+          text: "Provide funding"
+        }
+      ],
+      benefits: [
+        {
+          id: "be1", 
+          fromActorId: actor2Id,
+          toActorId: actor1Id,
+          text: "Deliver results"
+        }
+      ],
+      position: {
+        x: (card1.position?.x || 0 + card2.position?.x || 0) / 2,
+        y: (card1.position?.y || 0 + card2.position?.y || 0) / 2
+      }
+    };
+    
+    // Create agreement 2: card2 -> card3
+    const agreement2: AgreementWithPosition = {
+      agreement_id: "agreement_2",
+      title: "Knowledge Sharing",
+      description: "Agreement to share knowledge and expertise",
+      created_at: Date.now(),
+      status: "active",
+      parties: {
+        [actor2Id]: true,
+        [actor3Id]: true
+      },
+      obligations: [
+        {
+          id: "ob2",
+          fromActorId: actor2Id,
+          toActorId: actor3Id,
+          text: "Share methodology"
+        }
+      ],
+      benefits: [
+        {
+          id: "be2",
+          fromActorId: actor3Id,
+          toActorId: actor2Id,
+          text: "Provide data"
+        }
+      ],
+      position: {
+        x: (card2.position?.x || 0 + card3.position?.x || 0) / 2,
+        y: (card2.position?.y || 0 + card3.position?.y || 0) / 2
+      }
+    };
+    
+    // Create agreement 3: card3 -> card1
+    const agreement3: AgreementWithPosition = {
+      agreement_id: "agreement_3",
+      title: "Community Support",
+      description: "Agreement to support community initiatives",
+      created_at: Date.now(),
+      status: "active",
+      parties: {
+        [actor3Id]: true,
+        [actor1Id]: true
+      },
+      obligations: [
+        {
+          id: "ob3",
+          fromActorId: actor3Id,
+          toActorId: actor1Id,
+          text: "Provide community support"
+        }
+      ],
+      benefits: [
+        {
+          id: "be3",
+          fromActorId: actor1Id,
+          toActorId: actor3Id,
+          text: "Provide mentorship"
+        }
+      ],
+      position: {
+        x: (card3.position?.x || 0 + card1.position?.x || 0) / 2,
+        y: (card3.position?.y || 0 + card1.position?.y || 0) / 2
+      }
+    };
+    
+    // Add agreements to the array
+    agreements = [agreement1, agreement2, agreement3];
+    console.log(`D3CardBoard: Created ${agreements.length} demo agreements for visualization`);
+  }
+  
   // Complete remake of donut rings to EXACTLY match React implementation
   function addDonutRings() {
     // ----- EXACTLY MATCH REACT APPROACH -----
