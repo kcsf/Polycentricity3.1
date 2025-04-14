@@ -774,17 +774,17 @@
     // First ensure we have a proper defs element for our gradients and markers
     const defs = svg.append("defs");
     
-    // Create an arrow marker definition for the links
+    // Create an arrow marker definition for the links - improved styling to match reference
     defs.append("marker")
       .attr("id", "arrow-marker")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 15)
+      .attr("refX", 6) // Move this closer to better position the arrowhead
       .attr("refY", 0)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
+      .attr("markerWidth", 5) // Slightly smaller for better aesthetics
+      .attr("markerHeight", 5)
       .attr("orient", "auto")
       .append("path")
-      .attr("fill", "#E5E5E5") // Light gray for all arrows
+      .attr("fill", "#CCCCCC") // Lighter gray for subtle arrows
       .attr("d", "M0,-5L10,0L0,5");
 
     // Create link group that appears behind nodes
@@ -875,31 +875,40 @@
         const sourceType = sourceNode.type;
         const targetType = targetNode.type;
         
-        // Calculate radii with 110% factor for padding
+        // IMPROVED: More precise distance calculations for different node types
+        // For Card (Actor) nodes, consider the full donut ring
+        // For Agreement nodes, consider just the circle
         const sourceRadius = sourceType === "actor" 
-          ? (cardNodeRadius + donutThickness) * 1.1 
-          : agreementNodeRadius * 1.1;
+          ? (cardNodeRadius + donutThickness) * 1.05  // Slightly tighter to card edge
+          : agreementNodeRadius * 1.05;
+          
         const targetRadius = targetType === "actor" 
-          ? (cardNodeRadius + donutThickness) * 1.1 
-          : agreementNodeRadius * 1.1;
+          ? (cardNodeRadius + donutThickness) * 1.05  // Slightly tighter to card edge
+          : agreementNodeRadius * 1.05;
         
         // Calculate the angle between source and target
         const dx = targetNode.x - sourceNode.x;
         const dy = targetNode.y - sourceNode.y;
         const angle = Math.atan2(dy, dx);
         
-        // Calculate the start and end points offset by radius * 1.1
+        // Calculate the start and end points with precise offsets
         const sourceX = sourceNode.x + Math.cos(angle) * sourceRadius;
         const sourceY = sourceNode.y + Math.sin(angle) * sourceRadius;
-        const targetX = targetNode.x - Math.cos(angle) * targetRadius;
-        const targetY = targetNode.y - Math.sin(angle) * targetRadius;
         
-        // Set the line coordinates
+        // Adjust the target position accounting for the arrow marker
+        // The refX value in the marker definition influences this
+        const arrowPadding = 5; // Adjust to match the marker refX
+        const targetX = targetNode.x - Math.cos(angle) * (targetRadius + arrowPadding);
+        const targetY = targetNode.y - Math.sin(angle) * (targetRadius + arrowPadding);
+        
+        // Set the line coordinates with improved positioning
         d3.select(this)
           .attr("x1", sourceX)
           .attr("y1", sourceY)
           .attr("x2", targetX)
-          .attr("y2", targetY);
+          .attr("y2", targetY)
+          .attr("stroke", "#CCCCCC") // Lighter gray to match reference
+          .attr("stroke-width", 1.25); // Slightly thicker for visibility
       });
     }
 
@@ -1181,15 +1190,15 @@
     console.log(`D3CardBoard: Creating ${agreementNodes.size()} agreement nodes`);
     
     agreementNodes.each(function(d) {
-      // Add a small circle for agreement nodes - styling to match the reference image
+      // Add a small circle for agreement nodes - IMPROVED styling to match the reference image exactly
       d3.select(this)
         .append("circle")
         .attr("r", 17) // Smaller radius for agreement nodes
-        .attr("fill", "#ffffff") // White fill that matches reference image
-        .attr("stroke", "#e5e5e5") // Light gray stroke to match card styling
-        .attr("stroke-width", 1.5) // Slightly thicker stroke for visibility
+        .attr("fill", "#ffffff") // Pure white fill that matches reference image
+        .attr("stroke", "#e5e5e5") // Very light gray stroke
+        .attr("stroke-width", 0.75) // Thinner stroke for subtle appearance
         .attr("class", "agreement-circle")
-        .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.15))"); // Enhanced shadow for better visibility
+        .style("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.05))"); // Very subtle shadow
         
       // Create an agreement ID (AG1, AG2, etc.)
       const agreementId = `AG${agreementCounter++}`;
