@@ -218,6 +218,50 @@
                   });
                 }
                 
+                // Special case for games <-> users relationship
+                else if (nodeType.type === 'games' && (key === 'player_refs' || key === 'creator_ref')) {
+                  // Find all users and create edges to this game
+                  databaseNodes.forEach(userNodeType => {
+                    if (userNodeType.type === 'users') {
+                      userNodeType.nodes.forEach(userNode => {
+                        // Create an edge from game to user
+                        edges.push({
+                          id: `edge_game_${node.id}_user_${userNode.id}_${key}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${userNodeType.type}_${userNode.id}`,
+                          label: key === 'creator_ref' ? 'created by' : 'played by',
+                          style: {
+                            stroke: '#5B8FF9', // Blue for game-user relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
+                
+                // Special case for games <-> actors relationship
+                else if (nodeType.type === 'games' && key === 'actor_refs') {
+                  // Find all actors and create edges to this game
+                  databaseNodes.forEach(actorNodeType => {
+                    if (actorNodeType.type === 'actors') {
+                      actorNodeType.nodes.forEach(actorNode => {
+                        // Create an edge from game to actor
+                        edges.push({
+                          id: `edge_game_${node.id}_actor_${actorNode.id}`,
+                          source: `${nodeType.type}_${node.id}`,
+                          target: `${actorNodeType.type}_${actorNode.id}`,
+                          label: 'has role',
+                          style: {
+                            stroke: '#5D7092', // Navy for game-actor relationship
+                            lineWidth: 2
+                          }
+                        });
+                      });
+                    }
+                  });
+                }
+                
                 // Special case for cards <-> values relationship (from card side)
                 else if (nodeType.type === 'cards' && key === 'values') {
                   // Find all values and create edges from this card

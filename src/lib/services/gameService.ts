@@ -604,8 +604,12 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
                 }
                 
                 // Fix relationships for actors/roles if they exist
-                if (game.deck && typeof game.deck === 'object') {
-                    const actorIds = Object.keys(game.deck).filter(key => key !== '_');
+                // Safely access the game.roles property (previously was incorrectly "deck")
+                const roles = game.roles || (game as any).deck;
+                
+                if (roles && typeof roles === 'object') {
+                    // Filter out internal Gun.js properties
+                    const actorIds = Object.keys(roles).filter(key => key !== '_');
                     
                     for (const actorId of actorIds) {
                         // Game references actor
