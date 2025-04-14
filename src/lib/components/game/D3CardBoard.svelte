@@ -1476,6 +1476,12 @@
               thisLabels.style("visibility", "hidden");
             });
           
+          // Show center icon again
+          thisNode.select(".center-icon")
+            .transition()
+            .duration(200)
+            .attr("opacity", 0.7);
+          
           // Clear central text with explicit references
           thisNode.select(".count-text")
             .transition()
