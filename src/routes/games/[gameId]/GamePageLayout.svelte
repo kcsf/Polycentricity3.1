@@ -61,8 +61,9 @@
   }
   
   function handleSearch() {
-    console.log(`Searching for: ${searchQuery}`);
-    // Implement search functionality
+    console.log(`Searching for nodes containing: ${searchQuery}`);
+    // This will be implemented after we integrate the proper search functionality
+    alert(`Search functionality coming soon. You searched for: ${searchQuery}`);
   }
   
   function toggleLeftSidebar() {
@@ -86,67 +87,76 @@
   }
 </script>
 
-<div class="game-page-layout relative h-screen flex flex-col overflow-hidden">
-  <!-- Header Bar -->
-  <header class="game-header bg-surface-700/90 p-2 shadow-lg flex items-center justify-between">
-    <!-- Left section: Hamburger and Search -->
-    <div class="flex items-center space-x-2">
+<div class="game-page-layout relative h-screen flex flex-col overflow-hidden bg-surface-50-900-token">
+  <!-- Left Sidebar Toggle (Always Visible) -->
+  <button 
+    class="btn-sidebar-toggle absolute top-4 left-4 z-20 bg-surface-200 dark:bg-surface-700 rounded-md p-2 shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
+    onclick={toggleLeftSidebar}
+    aria-label="Toggle left sidebar"
+  >
+    <Menu size={20} />
+  </button>
+  
+  <!-- Top Search Bar (Matches First Design) -->
+  <div class="search-container absolute top-4 left-16 right-16 z-10 flex justify-center">
+    <div class="relative flex max-w-md">
+      <input 
+        type="text" 
+        bind:value={searchQuery}
+        placeholder="Search nodes..." 
+        class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300 dark:border-surface-600"
+      />
       <button 
-        class="btn btn-sm variant-ghost-surface" 
-        onclick={toggleLeftSidebar}
-        aria-label="Toggle left sidebar"
+        class="bg-surface-200 dark:bg-surface-700 border-y border-r border-surface-300 dark:border-surface-600 px-3 rounded-r-md shadow-md flex items-center justify-center hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors"
+        onclick={handleSearch}
+        aria-label="Search"
       >
-        <Menu size={18} />
-      </button>
-      
-      <div class="search-container hidden lg:flex items-center space-x-2">
-        <input 
-          type="text" 
-          bind:value={searchQuery}
-          placeholder="Search nodes..." 
-          class="input input-sm w-40 lg:w-60"
-        />
-        <button class="btn btn-sm" onclick={handleSearch}>
-          <Search size={18} />
-        </button>
-      </div>
-    </div>
-    
-    <!-- Center: Game Title -->
-    <div class="game-title-container">
-      <h1 class="h3 text-center m-0">{game?.name || 'Game'}</h1>
-      <div class="badge variant-filled-{game?.status === 'active' ? 'success' : 'warning'} ml-2">
-        {game?.status || 'Unknown'}
-      </div>
-    </div>
-    
-    <!-- Right section: Controls -->
-    <div class="controls-container flex items-center space-x-2">
-      <button class="btn btn-sm variant-ghost-surface" onclick={zoomOut} aria-label="Zoom out">
-        <ZoomOut size={18} />
-      </button>
-      <button class="btn btn-sm variant-ghost-surface" onclick={resetZoom} aria-label="Reset zoom">
-        <Maximize size={18} />
-      </button>
-      <button class="btn btn-sm variant-ghost-surface" onclick={zoomIn} aria-label="Zoom in">
-        <ZoomIn size={18} />
-      </button>
-      <button class="btn btn-sm variant-filled-primary" aria-label="New agreement">
-        <Plus size={18} />
-        <span class="hidden md:inline ml-2">Agreement</span>
-      </button>
-      <button 
-        class="btn btn-sm variant-ghost-surface" 
-        onclick={toggleRightSidebar}
-        aria-label="Toggle right sidebar"
-      >
-        <Users size={18} />
+        <Search size={20} />
       </button>
     </div>
-  </header>
+  </div>
+  
+  <!-- Right Controls -->
+  <div class="controls-container absolute top-4 right-4 z-20 flex items-center space-x-2">
+    <button 
+      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
+      onclick={zoomOut} 
+      aria-label="Zoom out"
+    >
+      <ZoomOut size={20} />
+    </button>
+    <button 
+      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
+      onclick={resetZoom} 
+      aria-label="Reset zoom"
+    >
+      <Maximize size={20} />
+    </button>
+    <button 
+      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
+      onclick={zoomIn} 
+      aria-label="Zoom in"
+    >
+      <ZoomIn size={20} />
+    </button>
+    <button 
+      class="bg-primary-500 hover:bg-primary-600 text-white p-2 rounded-md shadow-md border border-primary-600 flex items-center transition-colors" 
+      aria-label="New agreement"
+    >
+      <Plus size={20} />
+      <span class="ml-1 mr-1 hidden md:inline">New Agreement</span>
+    </button>
+    <button 
+      class="bg-surface-200 dark:bg-surface-700 p-2 rounded-md shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
+      onclick={toggleRightSidebar}
+      aria-label="Toggle players"
+    >
+      <Users size={20} />
+    </button>
+  </div>
   
   <!-- Main Content Area with Sidebars -->
-  <div class="main-content-area flex-1 flex relative overflow-hidden">
+  <div class="main-content-area flex-1 flex relative overflow-hidden pt-16">
     <!-- Left Sidebar (Game Info, Role, View Toggle) -->
     <aside 
       class="left-sidebar bg-surface-700/90 w-72 shadow-lg absolute inset-y-0 -left-72 transition-all duration-300 z-10 flex flex-col h-full overflow-y-auto"
