@@ -46,6 +46,9 @@
     }
   }
   
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
+  
   async function fixGameGraphRelationships() {
     try {
       isFixingGames = true;
@@ -58,6 +61,10 @@
           success: true,
           message: `Successfully fixed relationships for ${result.gamesFixed} games`
         };
+        
+        // Notify parent components to refresh the visualization
+        dispatch('relationshipsFixed', { success: true });
+        
       } else {
         gameFixResult = {
           success: false,
