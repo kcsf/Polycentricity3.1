@@ -581,10 +581,9 @@
 
     // First ensure we have a proper defs element for our gradients and markers
     const defs = svg.append("defs");
-
-    // Create a unified arrow marker for the links
-    defs
-      .append("marker")
+    
+    // Create an arrow marker definition for the links
+    defs.append("marker")
       .attr("id", "arrow-marker")
       .attr("viewBox", "0 -5 10 10")
       .attr("refX", 15)
@@ -609,7 +608,9 @@
       .enter()
       .append("line")
       .attr("class", "link-line")  // Use CSS class for consistent styling
-      .attr("stroke-width", 1);    // Thinner lines per design reference
+      .attr("stroke", "#e5e5e5")   // Light gray
+      .attr("stroke-width", 1)     // Thinner lines per design reference
+      .attr("marker-end", "url(#arrow-marker)"); // Apply the arrow marker
 
     // Function to update link positions and agreement node positions
     function updateLinks() {
@@ -1326,12 +1327,14 @@
 </script>
 
 <style>
+  /* Main container */
   .game-board-container {
     height: 100%;
     position: relative;
     overflow: hidden;
   }
   
+  /* Control panel styling */
   .controls {
     position: absolute;
     top: 1rem;
@@ -1343,6 +1346,7 @@
     border-radius: 0.5rem;
     padding: 0.5rem;
     z-index: 10;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   }
   
   .control-button {
@@ -1362,6 +1366,7 @@
     background-color: #f3f4f6;
   }
   
+  /* Search container styling */
   .search-container {
     position: absolute;
     top: 1rem;
@@ -1372,6 +1377,7 @@
     border-radius: 0.5rem;
     padding: 0.5rem;
     z-index: 10;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   }
   
   .search-input {
@@ -1395,7 +1401,76 @@
     margin-left: 0.5rem;
   }
   
-  /* Radial menu styling */
+  /* D3 Node Styling */
+  .node {
+    cursor: pointer;
+  }
+  
+  /* Card nodes */
+  .node-card .center-circle {
+    fill: white;
+    stroke: #e5e5e5;
+    stroke-width: 1;
+    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.08));
+  }
+  
+  .node-card.active .center-circle {
+    stroke: #4299e1;
+    stroke-width: 2;
+  }
+  
+  .node-card .card-name-container {
+    pointer-events: none;
+  }
+  
+  /* Agreement nodes */
+  .node-agreement .agreement-circle {
+    fill: white;
+    stroke: #e5e5e5;
+    stroke-width: 1;
+    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.08));
+  }
+  
+  .node-agreement.active .agreement-circle {
+    stroke: #4299e1;
+    stroke-width: 2;
+  }
+  
+  /* Category wedges */
+  .category-wedge {
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .category-wedge:hover {
+    filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.3));
+  }
+  
+  /* Sub-wedges */
+  .sub-wedge {
+    opacity: 0.9;
+    filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.1));
+  }
+  
+  /* Connection links */
+  .link-line {
+    stroke: #e5e5e5;
+    stroke-width: 1.5;
+    opacity: 0.8;
+  }
+  
+  /* Text styling */
+  .count-text, .options-text {
+    pointer-events: none;
+    user-select: none;
+  }
+  
+  .card-title, .card-type, .name-text {
+    pointer-events: none;
+    user-select: none;
+  }
+  
+  /* Legacy radial menu styling */
   .radial-item {
     pointer-events: none;
     transition: opacity 0.3s;
@@ -1414,7 +1489,13 @@
     filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.1));
   }
   
-  /* Node styling is applied directly via D3 attributes */
+  /* Label styling for the sub-wedge items */
+  .category-labels text {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    pointer-events: none;
+    user-select: none;
+  }
 </style>
 
 <div class="game-board-container">
