@@ -56,7 +56,7 @@
                 </header>
                 
                 <section class="p-4">
-                        <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+                        <form method="post" on:submit|preventDefault={handleSubmit} class="space-y-4" id="login-form" name="login-form">
                                 {#if error}
                                         <div class="alert variant-ghost-warning">
                                                 <div class="alert-message">

@@ -56,7 +56,18 @@
                 }
                 
                 if (game) {
+                    // First try to get the role normally
                     playerRole = await getPlayerRole(gameId, userId);
+                    
+                    // If no role is found, check if we have one in localStorage from a recent join
+                    if (!playerRole) {
+                        const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
+                        if (savedActorId) {
+                            console.log(`Found saved actor ID in localStorage: ${savedActorId}`);
+                            // Try to get the player role again with the actor ID
+                            playerRole = await getPlayerRole(gameId, userId, savedActorId);
+                        }
+                    }
                 }
         });
         

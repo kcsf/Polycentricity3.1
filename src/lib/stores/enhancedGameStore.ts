@@ -414,6 +414,12 @@ export async function deleteAgreement(agreementId: string) {
     agreements.update(current => current.filter(agreement => agreement.id !== agreementId));
 }
 
+// Explicitly set the active actor ID
+export function setActiveActorId(actorId: string | null) {
+    console.log(`Setting active actor ID to: ${actorId}`);
+    activeActorId.set(actorId);
+}
+
 // Export a combined store for D3GameBoard
 export default {
     actors,
@@ -428,5 +434,6 @@ export default {
     createAgreement,
     updateAgreement,
     deleteAgreement,
-    initializeGameBoard
+    initializeGameBoard,
+    setActiveActorId
 };

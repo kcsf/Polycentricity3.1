@@ -104,14 +104,23 @@ export async function loginUser(email: string, password: string): Promise<User |
                         found = true;
                         console.log(`Found Bjorn's user account: ${userId}`);
                         
-                        // Make sure the userData has the correct email
+                        // Make sure the userData has the correct email and name
                         const bjornData: User = {
                             ...userData,
                             email: 'bjorn@endogon.com',
                             name: 'Bjorn',
                             user_id: userId,
-                            role: 'Admin'
+                            role: 'Admin' as 'Admin'
                         };
+                        
+                        // Update the data in Gun to ensure consistency
+                        gun.get(nodes.users).get(userId).put(bjornData, (ack) => {
+                            if (ack.err) {
+                                console.error('Error updating Bjorn data:', ack.err);
+                            } else {
+                                console.log('Updated Bjorn data in database');
+                            }
+                        });
                         
                         // Update user store
                         userStore.update(state => ({

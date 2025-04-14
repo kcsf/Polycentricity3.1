@@ -87,6 +87,13 @@
             selectedActor = actor;
             actorSelected = true;
             
+            // First attempt to join the game if not already joined
+            const joinResult = await joinGame(gameId);
+            console.log(`Join result: ${joinResult}`);
+            
+            // Set the selected actor in localStorage to help with session persistence
+            localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
+            
             // Redirect to game page to show the D3GameBoard
             console.log(`Actor selected: ${actor.actor_id} - redirecting to game page`);
             goto(`/games/${gameId}`);
