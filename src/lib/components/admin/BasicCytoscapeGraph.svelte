@@ -165,41 +165,73 @@
     switch (selectedLayout.id) {
       // Game-centric layout that uses CISE clustering centered around a specific game
       case 'game-layout':
-        // Prepare and apply game-specific layout with reduced animation and better stability
+        // Instead of using CISE for Game layout, now use a more stable preset approach
+        // This eliminates jittering by positioning nodes in fixed cluster locations
         layoutOptions = {
-          name: 'cise',
-          clusters: (function() {
-            // Cluster nodes by type, but only include relevant types
-            const clusterMap = {};
-            const relevantTypes = ['cards', 'values', 'capabilities', 'users', 'actors', 'agreements'];
-            
-            filteredNodes.forEach(node => {
-              if (node.type && relevantTypes.includes(node.type)) {
-                if (!clusterMap[node.type]) {
-                  clusterMap[node.type] = [];
-                }
-                clusterMap[node.type].push(node.id);
-              }
-            });
-            return Object.values(clusterMap);
-          })(),
-          // Reduce jiggling by adjusting these parameters
-          allowNodesInsideCircle: false,
-          quality: 1,                            // Higher quality means more stable final layout
-          nodeSeparation: 50,                    // More separation helps avoid overlaps
-          animate: true,
-          animationDuration: 500,                // Shorter animation
-          animationEasing: 'ease-out',           // Smoother easing
-          gravity: 0.8,                          // Higher gravity for more stability
-          gravityRange: 5.0,                     // Larger gravity range
-          idealInterClusterEdgeLengthCoefficient: 2.0, // Larger spaces between clusters
-          refresh: 5,                            // Fewer refreshes
-          maxIterations: 1500,                   // More iterations for better convergence
+          name: 'preset',
           fit: true,
-          padding: 50,
-          showClusters: false,
-          // Use deterministic positioning with jitter reduction
-          randomize: false                      // Don't randomize positions between runs
+          padding: 40,
+          animate: true,
+          animationDuration: 400,
+          animationEasing: 'ease',
+          
+          // Custom positioning function that places nodes in specific circular clusters based on type
+          positions: function(node) {
+            // Get canvas dimensions
+            const canvasWidth = container.clientWidth;
+            const canvasHeight = 550; // approximate working height
+            
+            // Center point
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            
+            // Cluster radius - distance from center to cluster center
+            const clusterRadius = Math.min(canvasWidth, canvasHeight) * 0.35;
+            
+            // Node type determines which cluster it belongs to
+            const nodeType = node.data('type');
+            
+            // Group nodes by type for clustering
+            const typeMap = {
+              'cards': { angle: 0, radius: clusterRadius, spreadFactor: 80 },
+              'values': { angle: Math.PI / 3, radius: clusterRadius, spreadFactor: 60 },
+              'capabilities': { angle: 2 * Math.PI / 3, radius: clusterRadius, spreadFactor: 60 },
+              'users': { angle: Math.PI, radius: clusterRadius, spreadFactor: 50 },
+              'actors': { angle: 4 * Math.PI / 3, radius: clusterRadius, spreadFactor: 60 },
+              'agreements': { angle: 5 * Math.PI / 3, radius: clusterRadius, spreadFactor: 70 }
+            };
+            
+            // Default to center if type not found
+            let position = { x: centerX, y: centerY };
+            
+            if (typeMap[nodeType]) {
+              const nodeConfig = typeMap[nodeType];
+              
+              // Find all nodes of this type to calculate position
+              let nodesOfType = cy.nodes().filter(n => n.data('type') === nodeType);
+              const totalNodes = nodesOfType.length;
+              
+              // Find position of this specific node in its type group
+              const nodeIndex = nodesOfType.toArray().findIndex(n => n.id() === node.id());
+              
+              // Calculate cluster center
+              const clusterX = centerX + nodeConfig.radius * Math.cos(nodeConfig.angle);
+              const clusterY = centerY + nodeConfig.radius * Math.sin(nodeConfig.angle);
+              
+              // Calculate node position within cluster (small random offset for visual separation)
+              // Use deterministic positioning based on nodeIndex to avoid jitter
+              const spreadX = (nodeIndex % 3) * (nodeConfig.spreadFactor / 3);
+              const spreadY = Math.floor(nodeIndex / 3) * (nodeConfig.spreadFactor / 3);
+              
+              // Apply offset from cluster center
+              position = {
+                x: clusterX + spreadX - nodeConfig.spreadFactor / 2,
+                y: clusterY + spreadY - nodeConfig.spreadFactor / 2
+              };
+            }
+            
+            return position;
+          }
         };
         break;
         
@@ -398,8 +430,10 @@
   
   function handleLayoutChange() {
     if (cy) {
+      const currentLayout = selectedLayout.id;
+      
       // If game layout is selected, configure special settings for it
-      if (selectedLayout.id === 'game-layout') {
+      if (currentLayout === 'game-layout') {
         // Ensure games are loaded
         if (availableGames.length === 0) {
           loadAvailableGames();
@@ -421,8 +455,25 @@
         
         // Apply filters with updated node type selection
         applyFilters();
+      } else {
+        // For other layouts, reset the node types to include essential ones
+        if (!selectedNodeTypes.includes('games')) {
+          selectedNodeTypes = [...selectedNodeTypes, 'games'];
+        }
+        if (!selectedNodeTypes.includes('decks')) {
+          selectedNodeTypes = [...selectedNodeTypes, 'decks'];
+        }
+        
+        // Reset game-related highlighting
+        if (cy) {
+          cy.elements().removeClass('highlighted related faded');
+        }
+        
+        // Apply filters with updated node type selection
+        applyFilters();
       }
       
+      // Apply the layout
       applyLayout();
     }
   }
