@@ -1182,7 +1182,8 @@
       // Create central text elements
       const centerTextGroup = node.append("g")
         .attr("class", "center-text-group")
-        .attr("pointer-events", "none");
+        .attr("pointer-events", "none")
+        .style("z-index", "10"); // Ensure text appears above other elements
       
       centerTextGroup.append("text")
         .attr("class", "count-text")
