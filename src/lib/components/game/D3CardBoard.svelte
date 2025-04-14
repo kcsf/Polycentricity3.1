@@ -1006,15 +1006,43 @@
         });
     });
 
-    // Handle zoom functionality
+    // Handle zoom functionality with better event handling
     const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.25, 3])
       .on("zoom", (event) => {
+        // Update transform for all groups to maintain consistent appearance
         nodeGroup.attr("transform", event.transform);
         linkGroup.attr("transform", event.transform);
+        
+        // Reset any active hover states to prevent visualization issues during zoom
+        if (hoveredCategory) {
+          hoveredCategory = null;
+          
+          // Hide all sub-wedges and labels immediately on zoom
+          d3.selectAll(".sub-wedges")
+            .style("opacity", 0)
+            .style("visibility", "hidden");
+            
+          d3.selectAll(".label-container")
+            .style("opacity", 0)
+            .style("visibility", "hidden");
+            
+          // Reset all wedges to normal size
+          d3.selectAll(".category-wedge")
+            .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
+            
+          // Clear all central text elements
+          d3.selectAll(".count-text, .options-text").text("");
+        }
       });
     
-    svg.call(zoomBehavior);
+    // Apply zoom behavior with event filtering
+    svg.call(zoomBehavior)
+       // Prevent standard mousewheel behavior and avoid event conflicts
+       .on("wheel", (event) => {
+         if (event.ctrlKey || event.metaKey) return; // Allow browser zoom with Ctrl/Cmd key
+         event.preventDefault(); // Prevent default browser scrolling
+       });
   }
 
   // Add donut-like rings around card nodes
@@ -1331,78 +1359,101 @@
         
         // Move mouse handlers directly to the wedge to avoid event bubbling issues
         wedge
-          .on("mouseenter", (event) => {
+          .on("mouseenter", function(event) {
+            // Get the D3 selection for this wedge
+            const currentWedge = d3.select(this);
+            
             // Prevent bubbling of events to avoid flickering
             event.stopPropagation();
+            
+            // Before activating this wedge, clear any existing hover state
+            if (hoveredCategory && hoveredCategory !== category) {
+              // Reset all UI elements with direct styling (no transitions)
+              d3.selectAll(".sub-wedges")
+                .style("opacity", 0)
+                .style("visibility", "hidden");
+                
+              d3.selectAll(".label-container")
+                .style("opacity", 0)
+                .style("visibility", "hidden");
+                
+              d3.selectAll(".category-wedge")
+                .each(function() {
+                  const wedgeEl = d3.select(this);
+                  wedgeEl.attr("d", categoryArc)
+                      .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
+                });
+                
+              // Reset all text elements
+              d3.selectAll(".count-text, .options-text").text("");
+            }
             
             // Store the hovered category
             hoveredCategory = category;
             
-            // Expand the wedge
-            wedge
+            // Apply direct styling first for immediate effect
+            subWedgesGroup.style("visibility", "visible");
+            labelsContainer.style("visibility", "visible");
+            
+            // Expand the wedge with a quick transition
+            currentWedge
               .transition()
-              .duration(150)
+              .duration(100)
               .attr("d", expandedArc)
               .attr("filter", "drop-shadow(0px 0px 3px rgba(0,0,0,0.3))");
             
-            // Show the sub-wedges
+            // Then apply transitions for smoother appearance
             subWedgesGroup
-              .style("visibility", "visible")
               .transition()
-              .duration(150)
+              .duration(100)
               .attr("opacity", 1);
             
-            // Show the labels
             labelsContainer
-              .style("visibility", "visible")
               .transition()
-              .duration(150)
+              .duration(100)
               .attr("opacity", 1);
             
-            // Update central text indicators
-            countText
-              .transition()
-              .duration(150)
-              .text(content.length.toString());
+            // Update central text indicators immediately
+            countText.text(content.length.toString());
             
             // Format category name nicely (values -> Values, intellectualProperty -> Intellectual Property)
             const formattedCategory = formatCategoryName(category);
-            optionsText
-              .transition()
-              .duration(150)
-              .text(formattedCategory);
+            optionsText.text(formattedCategory);
           })
           
-          .on("mouseleave", (event) => {
-            // Prevent bubbling of events to avoid flickering
+          .on("mouseleave", function(event) {
+            // Get the D3 selection for this wedge
+            const currentWedge = d3.select(this);
+            
+            // Prevent event bubbling
             event.stopPropagation();
             
-            // Critical fix: DO NOT run this in a setTimeout to avoid race conditions
-            // Reset hovered state only if this is the current hovered category
-            if (hoveredCategory === category) {
-              hoveredCategory = null;
-            
-              // Shrink wedge back to original size with a shorter duration
-              wedge
-                .transition()
-                .duration(100)
-                .attr("d", categoryArc)
-                .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
-              
-              // Hide the sub-wedges with safer transition handling
-              subWedgesGroup
-                .style("opacity", 0)
-                .style("visibility", "hidden");
-              
-              // Hide the labels with safer transition handling
-              labelsContainer
-                .style("opacity", 0)
-                .style("visibility", "hidden");
-              
-              // Instantly reset the center text to avoid glitches
-              countText.text("");
-              optionsText.text("");
-            }
+            // Create a small delay to prevent accidentally leaving during mouse movement
+            setTimeout(() => {
+              // Check if we're still supposed to be handling this mouseleave
+              // This prevents race conditions with multiple mouseleave events
+              if (hoveredCategory === category) {
+                hoveredCategory = null;
+                
+                // Reset this specific wedge
+                currentWedge
+                  .attr("d", categoryArc)
+                  .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
+                
+                // Reset associated elements with direct styling (no transitions)
+                subWedgesGroup
+                  .style("opacity", 0)
+                  .style("visibility", "hidden");
+                
+                labelsContainer
+                  .style("opacity", 0)
+                  .style("visibility", "hidden");
+                
+                // Clear text elements
+                countText.text("");
+                optionsText.text("");
+              }
+            }, 50); // Small delay to prevent accidental triggers
           });
       });
     });
