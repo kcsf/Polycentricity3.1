@@ -107,7 +107,17 @@
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
         console.log(`D3CardBoard: Using ${cards.length} cards passed from parent component`);
-        cards.forEach(card => {
+        
+        // Create a new array instead of modifying the original cards array
+        const newCardsWithPosition: CardWithPosition[] = [];
+        
+        // Process each card to add position data
+        for (const card of cards) {
+          if (!card || !card.card_id) {
+            console.warn(`D3CardBoard: Invalid card data found, skipping`, card);
+            continue;
+          }
+          
           const cardWithPosition: CardWithPosition = {
             ...card,
             position: {
@@ -115,11 +125,16 @@
               y: Math.random() * height
             }
           };
-          cardsWithPosition = [...cardsWithPosition, cardWithPosition];
           
-          // Load card details (values and capabilities)
-          loadCardDetails(card);
-        });
+          newCardsWithPosition.push(cardWithPosition);
+          
+          // Load card details (values and capabilities) 
+          await loadCardDetails(card);
+        }
+        
+        // Update the cardsWithPosition array with all processed cards at once
+        cardsWithPosition = newCardsWithPosition;
+        console.log(`D3CardBoard: Processed ${cardsWithPosition.length} cards with positions`);
       } else {
         // If no cards were passed directly, fetch from database
         console.log(`D3CardBoard: No cards passed from parent, loading from database`);
@@ -307,69 +322,98 @@
   }
   
   async function loadCardDetails(card: Card) {
-    const gun = getGun();
-    if (!gun || !card.card_id) {
-      console.error("D3CardBoard: Gun not initialized or card has no ID");
-      return;
-    }
-    
-    console.log(`D3CardBoard: Loading details for card ${card.card_id} (${card.role_title})`);
-    
-    // Load Values
-    if (card.values) {
-      const valueIds = Object.keys(card.values);
-      console.log(`D3CardBoard: Card has ${valueIds.length} values to load`);
-      
-      for (const valueId of valueIds) {
-        if (!valueCache.has(valueId)) {
-          console.log(`D3CardBoard: Loading value ${valueId}`);
-          await new Promise<void>(resolve => {
-            gun.get(nodes.values).get(valueId).once((valueData: Value) => {
-              if (valueData && valueData.value_id) {
-                console.log(`D3CardBoard: Loaded value ${valueId}: ${valueData.name}`);
-                valueCache.set(valueId, valueData);
-              } else {
-                console.warn(`D3CardBoard: Value ${valueId} data not found or incomplete`);
-              }
-              resolve();
-            });
-          });
-        } else {
-          console.log(`D3CardBoard: Value ${valueId} already in cache: ${valueCache.get(valueId)?.name}`);
-        }
+    try {
+      const gun = getGun();
+      if (!gun) {
+        console.error("D3CardBoard: Gun not initialized");
+        return;
       }
-    } else {
-      console.log(`D3CardBoard: Card ${card.card_id} has no values property`);
-    }
-    
-    // Load Capabilities
-    if (card.capabilities) {
-      const capIds = Object.keys(card.capabilities);
-      console.log(`D3CardBoard: Card has ${capIds.length} capabilities to load`);
       
-      for (const capId of capIds) {
-        if (!capabilityCache.has(capId)) {
-          console.log(`D3CardBoard: Loading capability ${capId}`);
-          await new Promise<void>(resolve => {
-            gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
-              if (capData && capData.capability_id) {
-                console.log(`D3CardBoard: Loaded capability ${capId}: ${capData.name}`);
-                capabilityCache.set(capId, capData);
-              } else {
-                console.warn(`D3CardBoard: Capability ${capId} data not found or incomplete`);
-              }
-              resolve();
-            });
-          });
-        } else {
-          console.log(`D3CardBoard: Capability ${capId} already in cache: ${capabilityCache.get(capId)?.name}`);
-        }
+      if (!card || !card.card_id) {
+        console.error("D3CardBoard: Invalid card object or missing card_id", card);
+        return;
       }
-    } else {
-      console.log(`D3CardBoard: Card ${card.card_id} has no capabilities property`);
+      
+      console.log(`D3CardBoard: Loading details for card ${card.card_id} (${card.role_title || 'Untitled Role'})`);
+      
+      // Load Values with proper error handling
+      if (card.values && typeof card.values === 'object') {
+        const valueIds = Object.keys(card.values);
+        console.log(`D3CardBoard: Card has ${valueIds.length} values to load`);
+        
+        for (const valueId of valueIds) {
+          if (!valueId || valueId === '_') continue; // Skip invalid or Gun.js metadata entries
+          
+          if (!valueCache.has(valueId)) {
+            console.log(`D3CardBoard: Loading value ${valueId}`);
+            await new Promise<void>((resolve) => {
+              try {
+                gun.get(nodes.values).get(valueId).once((valueData: Value) => {
+                  if (valueData && valueData.value_id) {
+                    console.log(`D3CardBoard: Loaded value ${valueId}: ${valueData.name}`);
+                    valueCache.set(valueId, valueData);
+                  } else {
+                    console.warn(`D3CardBoard: Value ${valueId} data not found or incomplete`);
+                  }
+                  resolve();
+                });
+                
+                // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
+                setTimeout(resolve, 500);
+              } catch (error) {
+                console.error(`D3CardBoard: Error loading value ${valueId}:`, error);
+                resolve();
+              }
+            });
+          } else {
+            console.log(`D3CardBoard: Value ${valueId} already in cache: ${valueCache.get(valueId)?.name}`);
+          }
+        }
+      } else {
+        console.log(`D3CardBoard: Card ${card.card_id} has no valid values property:`, card.values);
+      }
+      
+      // Load Capabilities with proper error handling
+      if (card.capabilities && typeof card.capabilities === 'object') {
+        const capIds = Object.keys(card.capabilities);
+        console.log(`D3CardBoard: Card has ${capIds.length} capabilities to load`);
+        
+        for (const capId of capIds) {
+          if (!capId || capId === '_') continue; // Skip invalid or Gun.js metadata entries
+          
+          if (!capabilityCache.has(capId)) {
+            console.log(`D3CardBoard: Loading capability ${capId}`);
+            await new Promise<void>((resolve) => {
+              try {
+                gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
+                  if (capData && capData.capability_id) {
+                    console.log(`D3CardBoard: Loaded capability ${capId}: ${capData.name}`);
+                    capabilityCache.set(capId, capData);
+                  } else {
+                    console.warn(`D3CardBoard: Capability ${capId} data not found or incomplete`);
+                  }
+                  resolve();
+                });
+                
+                // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
+                setTimeout(resolve, 500);
+              } catch (error) {
+                console.error(`D3CardBoard: Error loading capability ${capId}:`, error);
+                resolve();
+              }
+            });
+          } else {
+            console.log(`D3CardBoard: Capability ${capId} already in cache: ${capabilityCache.get(capId)?.name}`);
+          }
+        }
+      } else {
+        console.log(`D3CardBoard: Card ${card.card_id} has no valid capabilities property:`, card.capabilities);
+      }
+      
+      console.log(`D3CardBoard: Finished loading details for card ${card.card_id}`);
+    } catch (error) {
+      console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
-    
-    console.log(`D3CardBoard: Finished loading details for card ${card.card_id}`);
   }
 
   function setupRealTimeListeners() {
