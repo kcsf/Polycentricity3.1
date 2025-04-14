@@ -1026,98 +1026,152 @@
     const baseNodeRadius = 35; // Base radius for card nodes
     const baseDonutThickness = 15; // Thickness of the donut segments
     
-    // Create arcs for categories (e.g., Values, Capabilities)
-    const categories = ["values", "capabilities", "intellectualProperty", "skills"];
+    // Add a complete donut ring first
+    cardNodes.each(function(d) {
+      const node = d3.select(this);
+      node
+        .append("circle")
+        .attr("r", baseNodeRadius + baseDonutThickness)
+        .attr("class", "donut-ring")
+        .attr("fill", "transparent")
+        .attr("stroke", "var(--border)")
+        .attr("stroke-width", 1);
+    });
+    
+    // Create arcs for categories (e.g., Values, Capabilities, Resources)
+    const categories = ["values", "capabilities", "intellectualProperty", "resources", "goals"];
     
     // Process each card node
     cardNodes.each(function(actor) {
       const actorNode = d3.select(this);
       const card = actor.data as Card;
       
-      // Get the total number of categories for this actor
-      let activeCategoryCount = 0;
-      
-      // Count the number of non-empty categories
-      categories.forEach(category => {
-        if (card[category] && Object.keys(card[category]).length > 0) {
-          activeCategoryCount++;
-        }
+      // Get the categories that have items
+      const actorCategories = categories.filter(category => {
+        const content = card[category] || {};
+        // Filter out Gun.js metadata and handle objects with only metadata
+        return Object.keys(content)
+          .filter(key => key !== '_' && key !== '#')
+          .length > 0;
       });
       
       // Skip nodes without categorized items
-      if (activeCategoryCount === 0) return;
+      if (actorCategories.length === 0) return;
       
-      // Calculate angles for each category pie slice
-      const degreesPerCategory = 360 / activeCategoryCount;
-      let categoryIndex = 0;
+      // Create the category-level pie chart with proper angles
+      const categoryPie = d3.pie<string>()
+        .value(() => 1) // Equal size for all wedges
+        .sort(null); // Preserve the original order
+        
+      const categoryPieData = categoryPie(actorCategories);
       
-      // Process each category that has items
-      categories.forEach(category => {
-        // Skip empty categories
-        const content = card[category] || {};
-        if (Object.keys(content).length === 0) return;
+      // Define the category-level arcs
+      const categoryArc = d3.arc<d3.PieArcDatum<string>>()
+        .innerRadius(baseNodeRadius)
+        .outerRadius(baseNodeRadius + baseDonutThickness)
+        .cornerRadius(1)
+        .padAngle(0.02);
+      
+      // Define expanded arc for hover effect
+      const expandedArc = d3.arc<d3.PieArcDatum<string>>()
+        .innerRadius(baseNodeRadius)
+        .outerRadius(baseNodeRadius + baseDonutThickness + 5)
+        .cornerRadius(3)
+        .padAngle(0.04);
+      
+      // Create a parent group for each wedge and its labels
+      const categoryGroup = actorNode
+        .selectAll(".category-group")
+        .data(categoryPieData)
+        .enter()
+        .append("g")
+        .attr("class", "category-group")
+        .attr("data-category", (d) => d.data);
+      
+      // Add the wedge path to each group with event handlers
+      const wedges = categoryGroup
+        .append("path")
+        .attr("class", "category-wedge")
+        .attr("d", categoryArc)
+        .attr("fill", (d) => categoryColors(d.data))
+        .attr("stroke", "white")
+        .attr("stroke-width", 1)
+        .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
+        .style("cursor", "pointer")
+        .attr("data-category", (d) => d.data);
+      
+      // Create central text elements for count and category name display
+      const countText = actorNode
+        .append("text")
+        .attr("class", "count-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "-0.3em")
+        .attr("font-size", "22px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#4B5563")
+        .text("");
         
-        // Calculate start and end angles for this category's pie slice
-        const startAngle = (categoryIndex * degreesPerCategory) * (Math.PI / 180);
-        const endAngle = ((categoryIndex + 1) * degreesPerCategory) * (Math.PI / 180);
+      const optionsText = actorNode
+        .append("text")
+        .attr("class", "options-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "1em")
+        .attr("font-size", "11px")
+        .attr("fill", "#6B7280")
+        .text("");
+      
+      // Format category name to be more readable
+      const formatCategoryName = (cat: string) => {
+        // Convert camelCase to Title Case with spaces
+        const formatted = cat
+          .replace(/([A-Z])/g, " $1") // Insert a space before all uppercase letters
+          .replace(/^./, (str) => str.toUpperCase()); // Capitalize the first letter
+        return formatted.trim();
+      };
+      
+      // Handle interactions for each wedge
+      categoryGroup.each(function(d) {
+        const group = d3.select(this);
+        const wedge = group.select(".category-wedge");
+        const category = d.data;
         
-        // Create the main category arc (wedge)
-        const categoryArc = d3.arc()
-          .innerRadius(baseNodeRadius)
-          .outerRadius(baseNodeRadius + baseDonutThickness)
-          .startAngle(startAngle)
-          .endAngle(endAngle)
-          .padAngle(0.03); // Add a small gap between categories
+        // Pre-create containers for sub-wedges and labels
+        const labelsContainer = group
+          .append("g")
+          .attr("class", "label-container")
+          .style("visibility", "hidden")
+          .attr("opacity", 0)
+          .attr("pointer-events", "none"); // Disable pointer events on labels
         
-        // Expanded arc for hover state
-        const expandedArc = d3.arc()
-          .innerRadius(baseNodeRadius)
-          .outerRadius(baseNodeRadius + baseDonutThickness + 5) // Slightly larger
-          .startAngle(startAngle)
-          .endAngle(endAngle)
-          .padAngle(0.03);
-        
-        // Add the main category wedge
-        const wedge = actorNode
-          .append("path")
-          .datum({ startAngle, endAngle })
-          .attr("d", categoryArc)
-          .attr("fill", categoryColors(category))
-          .attr("stroke", "none")
-          .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
-          .attr("class", "category-wedge")
-          .attr("cursor", "pointer");
-        
-        // Create a container for the sub-wedges (individual items)
-        const subWedgesGroup = actorNode
+        const subWedgesGroup = group
           .append("g")
           .attr("class", "sub-wedges")
           .style("visibility", "hidden")
-          .attr("opacity", 0);
+          .attr("opacity", 0)
+          .attr("pointer-events", "none"); // Disable pointer events on sub-wedges
         
-        // Create container for the label elements
-        const labelsContainer = actorNode
-          .append("g")
-          .attr("class", "category-labels")
-          .style("visibility", "hidden")
-          .attr("opacity", 0);
+        // Get the items for this category, filtering out special keys
+        const content = card[category] || {};
+        const itemIds = Object.keys(content)
+          .filter(id => id !== '_' && id !== '#')
+          .filter((id, index, self) => self.indexOf(id) === index);
         
-        // Get the items for this category (values, capabilities, etc.)
-        const itemIds = Object.keys(content);
+        if (itemIds.length === 0) return; // Skip if no valid items
         
-        // Create individual wedges for each item
+        // Define arc for sub-wedges
         const subWedgeArc = d3.arc()
           .innerRadius(baseNodeRadius + baseDonutThickness + 2)
           .outerRadius(baseNodeRadius + baseDonutThickness + 15)
           .padAngle(0.02);
         
-        const arcLength = endAngle - startAngle - 0.1; // Adjust for padding
-        const wedgeAngle = arcLength / itemIds.length;
+        // Calculate angles for sub-items
+        const arcLength = d.endAngle - d.startAngle - 0.05; // Adjust for padding
+        const wedgeAngle = itemIds.length > 0 ? arcLength / itemIds.length : 0;
         
-        // Create and position labels and sub-wedges
+        // Create sub-wedges for each item
         itemIds.forEach((item, i) => {
           // Calculate angles for this individual sub-wedge
-          const itemStartAngle = startAngle + (i * wedgeAngle);
+          const itemStartAngle = d.startAngle + (i * wedgeAngle);
           const itemEndAngle = itemStartAngle + wedgeAngle;
           
           // Create the sub-wedge
@@ -1162,9 +1216,9 @@
             .attr("y", labelPositionY)
             .attr("text-anchor", textAnchor) // Start or end based on side
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "11px") // Slightly larger for better readability
+            .attr("font-size", "11px")
             .attr("fill", categoryColors(category))
-            .attr("font-weight", "500") // Medium weight for better visibility
+            .attr("font-weight", "500")
             .attr(
               "transform",
               `rotate(${finalRotationDegrees},${labelPositionX},${labelPositionY})`
@@ -1181,16 +1235,7 @@
             });
         });
         
-        // Format category display name to be more readable
-        const formatCategoryName = (cat: string) => {
-          // Convert camelCase to Title Case with spaces
-          const formatted = cat
-            .replace(/([A-Z])/g, " $1") // Insert a space before all uppercase letters
-            .replace(/^./, (str) => str.toUpperCase()); // Capitalize the first letter
-          return formatted.trim();
-        };
-        
-        // Move mouse handlers directly to the wedge to avoid event bubbling issues
+        // Add mouse interaction events to the wedge
         wedge
           .on("mouseenter", (event) => {
             // Prevent bubbling of events to avoid flickering
@@ -1220,86 +1265,69 @@
               .duration(150)
               .attr("opacity", 1);
             
-            // Update central text indicators
-            // Get the node id from the wedge and count items
-            const formattedCategory = formatCategoryName(category);
-            const itemCount = Object.keys(content).length;
+            // Update the center text to show the category name and count
+            const count = itemIds.length;
+            const groupName = formatCategoryName(category);
             
-            d3.select(`#node-${actor.id}`)
-              .select(".count-text")
-              .text(itemCount.toString());
+            // Update center text display
+            countText
+              .text(`${count}`)
+              .attr("fill", categoryColors(category));
               
-            d3.select(`#node-${actor.id}`)
-              .select(".options-text")
-              .text(formattedCategory);
+            optionsText
+              .text(groupName)
+              .attr("fill", categoryColors(category))
+              .attr("fill-opacity", 0.9);
           })
+          
+          // Handle mouse leaving the wedge
           .on("mouseleave", (event) => {
-            // Prevent bubbling of events to avoid flickering
+            // Prevent event bubbling
             event.stopPropagation();
             
-            // Clear hovered category
-            hoveredCategory = null;
+            // Reset hovered state only if this is the current hovered category
+            if (hoveredCategory === category) {
+              hoveredCategory = null;
             
-            // Shrink wedge back to original size
-            wedge
-              .transition()
-              .duration(200)
-              .attr("d", categoryArc)
-              .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
-            
-            // Hide the sub-wedges
-            subWedgesGroup
-              .transition()
-              .duration(100)
-              .attr("opacity", 0)
-              .on("end", function () {
-                d3.select(this).style("visibility", "hidden");
-              });
-            
-            // Hide the labels
-            labelsContainer
-              .transition()
-              .duration(100)
-              .attr("opacity", 0)
-              .on("end", function () {
-                d3.select(this).style("visibility", "hidden");
-              });
-            
-            // Clear the central text indicators
-            d3.select(`#node-${actor.id}`)
-              .select(".count-text")
-              .text("");
+              // Reset wedge to normal size
+              wedge
+                .transition()
+                .duration(150)
+                .attr("d", categoryArc)
+                .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
               
-            d3.select(`#node-${actor.id}`)
-              .select(".options-text")
-              .text("");
+              // Hide sub-wedges
+              subWedgesGroup
+                .transition()
+                .duration(150)
+                .attr("opacity", 0)
+                .on("end", () => {
+                  if (hoveredCategory !== category) {
+                    subWedgesGroup.style("visibility", "hidden");
+                  }
+                });
+              
+              // Hide labels
+              labelsContainer
+                .transition()
+                .duration(150)
+                .attr("opacity", 0)
+                .on("end", () => {
+                  if (hoveredCategory !== category) {
+                    labelsContainer.style("visibility", "hidden");
+                  }
+                });
+              
+              // Reset center text
+              countText.text("");
+              optionsText.text("");
+            }
           });
-        
-        // Increment the category index for the next category
-        categoryIndex++;
       });
-      
-      // Add central display for active category info
-      const countText = actorNode
-        .append("text")
-        .attr("class", "count-text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "-0.3em")
-        .attr("font-size", "18px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#4B5563");
-        
-      const optionsText = actorNode
-        .append("text")
-        .attr("class", "options-text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "1em")
-        .attr("font-size", "10px")
-        .attr("fill", "#6B7280");
     });
   }
   
-  // Legacy radial menu update function - kept for reference
+  // Update the radial menu display based on card properties
   function updateRadialMenu(node: D3Node) {
     if (node.type !== 'card') return;
     
@@ -1310,10 +1338,15 @@
     
     // Create Value items for the radial menu
     if (card.values) {
-      const valueIds = Object.keys(card.values);
+      // Filter out Gun.js metadata and potential duplicate keys
+      const valueIds = Object.keys(card.values)
+        .filter(id => id !== '_' && id !== '#')
+        .filter((id, index, self) => self.indexOf(id) === index);
+        
       console.log(`D3CardBoard: Card has ${valueIds.length} values`);
       
       if (valueIds.length > 0) {
+        // Log cached values for debugging
         for (const valueId of valueIds) {
           if (valueCache.has(valueId)) {
             console.log(`D3CardBoard: Found value ${valueId} in cache: ${valueCache.get(valueId)?.name}`);
@@ -1321,35 +1354,41 @@
             console.log(`D3CardBoard: Value ${valueId} not in cache`);
           }
         }
+        
+        // Create SubItem objects for each value
+        const valueItems: SubItem[] = valueIds.map((valueId, index) => {
+          const value = valueCache.get(valueId);
+          return {
+            id: valueId,
+            label: value?.name || 'Loading...',
+            angle: (index * (360 / valueIds.length) + 270) % 360, // Start from top
+            radius: 60, // Distance from center
+            nodeX: node.x,
+            nodeY: node.y,
+            category: 'Values',
+            categoryColor: categoryColors('values'),
+            index,
+            totalItems: valueIds.length
+          };
+        });
+        
+        subItems = [...subItems, ...valueItems];
       }
-      
-      const valueItems: SubItem[] = valueIds.map((valueId, index) => {
-        const value = valueCache.get(valueId);
-        return {
-          id: valueId,
-          label: value?.name || 'Loading...',
-          angle: (index * (360 / valueIds.length) + 270) % 360, // Start from top
-          radius: 60, // Distance from center
-          nodeX: node.x,
-          nodeY: node.y,
-          category: 'Values',
-          categoryColor: categoryColors('values'),
-          index,
-          totalItems: valueIds.length
-        };
-      });
-      
-      subItems = [...subItems, ...valueItems];
     } else {
       console.log(`D3CardBoard: Card has no values property`);
     }
     
     // Create Capability items for the radial menu
     if (card.capabilities) {
-      const capabilityIds = Object.keys(card.capabilities);
+      // Filter out Gun.js metadata and potential duplicate keys
+      const capabilityIds = Object.keys(card.capabilities)
+        .filter(id => id !== '_' && id !== '#')
+        .filter((id, index, self) => self.indexOf(id) === index);
+        
       console.log(`D3CardBoard: Card has ${capabilityIds.length} capabilities`);
       
       if (capabilityIds.length > 0) {
+        // Log cached capabilities for debugging
         for (const capId of capabilityIds) {
           if (capabilityCache.has(capId)) {
             console.log(`D3CardBoard: Found capability ${capId} in cache: ${capabilityCache.get(capId)?.name}`);
@@ -1357,25 +1396,26 @@
             console.log(`D3CardBoard: Capability ${capId} not in cache`);
           }
         }
+        
+        // Create SubItem objects for each capability
+        const capabilityItems: SubItem[] = capabilityIds.map((capabilityId, index) => {
+          const capability = capabilityCache.get(capabilityId);
+          return {
+            id: capabilityId,
+            label: capability?.name || 'Loading...',
+            angle: (index * (360 / capabilityIds.length) + 90) % 360, // Start from bottom
+            radius: 60, // Distance from center
+            nodeX: node.x,
+            nodeY: node.y,
+            category: 'Capabilities',
+            categoryColor: categoryColors('capabilities'),
+            index,
+            totalItems: capabilityIds.length
+          };
+        });
+        
+        subItems = [...subItems, ...capabilityItems];
       }
-      
-      const capabilityItems: SubItem[] = capabilityIds.map((capabilityId, index) => {
-        const capability = capabilityCache.get(capabilityId);
-        return {
-          id: capabilityId,
-          label: capability?.name || 'Loading...',
-          angle: (index * (360 / capabilityIds.length) + 90) % 360, // Start from bottom
-          radius: 60, // Distance from center
-          nodeX: node.x,
-          nodeY: node.y,
-          category: 'Capabilities',
-          categoryColor: categoryColors('capabilities'),
-          index,
-          totalItems: capabilityIds.length
-        };
-      });
-      
-      subItems = [...subItems, ...capabilityItems];
     }
   }
 
