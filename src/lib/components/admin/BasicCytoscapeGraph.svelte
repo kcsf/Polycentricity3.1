@@ -393,8 +393,82 @@
   
   function handleLayoutChange() {
     if (cy) {
+      // If game layout is selected, ensure we load available games
+      if (selectedLayout.id === 'game-layout' && availableGames.length === 0) {
+        loadAvailableGames();
+      }
       applyLayout();
     }
+  }
+  
+  // Load available games for the game-centric layout
+  function loadAvailableGames() {
+    // Find all game nodes from the original unfiltered data
+    availableGames = nodes
+      .filter(node => node.type === 'games')
+      .map(game => ({
+        id: game.id,
+        name: game.label || game.id.replace('games_', '')
+      }));
+    
+    // Set the first game as selected by default if available
+    if (availableGames.length > 0 && !selectedGameId) {
+      selectedGameId = availableGames[0].id;
+      // If we have a game selection, apply filtering
+      filterNodesForSelectedGame();
+    }
+  }
+  
+  // Filter nodes to only show those connected to the selected game
+  function filterNodesForSelectedGame() {
+    if (!selectedGameId || selectedLayout.id !== 'game-layout') return;
+    
+    // If no graph yet, return
+    if (!cy) return;
+    
+    // Start with the game node
+    const gameNode = cy.getElementById(selectedGameId);
+    if (!gameNode.length) return;
+    
+    // Clear previous highlights
+    cy.elements().removeClass('highlighted related faded');
+    
+    // Get all connected nodes up to 2 hops away
+    const connectedNodes = gameNode.neighborhood().neighborhood().add(gameNode);
+    const connectedNodeIds = new Set();
+    
+    connectedNodes.forEach(node => {
+      if (node.isNode()) {
+        connectedNodeIds.add(node.id());
+      }
+    });
+    
+    // Highlight connected nodes and fade others
+    cy.nodes().forEach(node => {
+      if (connectedNodeIds.has(node.id())) {
+        node.removeClass('faded').addClass('related');
+      } else {
+        node.removeClass('related').addClass('faded');
+      }
+    });
+    
+    // Highlight edges between connected nodes
+    cy.edges().forEach(edge => {
+      const sourceId = edge.source().id();
+      const targetId = edge.target().id();
+      
+      if (connectedNodeIds.has(sourceId) && connectedNodeIds.has(targetId)) {
+        edge.removeClass('faded').addClass('related');
+      } else {
+        edge.removeClass('related').addClass('faded');
+      }
+    });
+  }
+  
+  // Handle game selection change
+  function handleGameChange() {
+    filterNodesForSelectedGame();
+    applyLayout();
   }
   
   function toggleNodeType(type) {
@@ -658,6 +732,9 @@
         ]
       });
       
+      // Initialize game list for game layout option
+      loadAvailableGames();
+      
       // Apply initial layout
       applyLayout();
       
@@ -758,6 +835,30 @@
         </select>
       </div>
     </div>
+    
+    <!-- Game Selector for Game Layout -->
+    {#if selectedLayout.id === 'game-layout' && availableGames.length > 0}
+      <div class="mt-2 mb-2 p-2 bg-surface-100/30 rounded-md border border-surface-300-600/30">
+        <h3 class="text-sm font-semibold mb-1">Select Game</h3>
+        <div class="flex gap-2">
+          <select 
+            class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
+            bind:value={selectedGameId}
+            on:change={handleGameChange}
+          >
+            {#each availableGames as game}
+              <option value={game.id}>{game.name}</option>
+            {/each}
+          </select>
+          <button class="btn btn-xs variant-filled-primary" on:click={handleGameChange}>
+            Apply
+          </button>
+        </div>
+        <p class="text-xs mt-2 opacity-75">
+          Showing nodes within 2 connections of the selected game
+        </p>
+      </div>
+    {/if}
     
     <!-- Edge Type Filter -->
     {#if availableEdgeTypes.length > 0}
