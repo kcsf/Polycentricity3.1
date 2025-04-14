@@ -16,10 +16,14 @@
         
         // Game-specific components
         import GameBoard from '$lib/components/game/GameBoard.svelte';
+        import CardBoard from '$lib/components/game/CardBoard.svelte';
         import PlayersList from '$lib/components/game/PlayersList.svelte';
         import GameDashboard from '$lib/components/game/GameDashboard.svelte';
         import RoleSelector from '$lib/components/game/RoleSelector.svelte';
         import D3GameBoardIntegrated from '$lib/components/game/D3GameBoardIntegrated.svelte';
+        
+        // View toggle state
+        let viewMode: 'actors' | 'cards' = 'actors';
         
         export let data;
         
@@ -261,13 +265,40 @@
                                 <!-- Game main content area -->
                                 <div class="lg:col-span-2">
                                         {#if isCurrentUserInGame()}
-                                                <div class="mb-4">
-                                                        <GameBoard 
-                                                                {gameId} 
-                                                                activeActorId={playerRole?.actor_id}
-                                                        />
+                                                <!-- View toggle buttons -->
+                                                <div class="flex justify-end mb-2">
+                                                        <div class="btn-group">
+                                                                <button 
+                                                                        class="btn {viewMode === 'actors' ? 'variant-filled-primary' : 'variant-ghost'}" 
+                                                                        on:click={() => viewMode = 'actors'}
+                                                                >
+                                                                        Actor View
+                                                                </button>
+                                                                <button 
+                                                                        class="btn {viewMode === 'cards' ? 'variant-filled-primary' : 'variant-ghost'}" 
+                                                                        on:click={() => viewMode = 'cards'}
+                                                                >
+                                                                        Card View
+                                                                </button>
+                                                        </div>
                                                 </div>
                                                 
+                                                <!-- Game visualization -->
+                                                <div class="mb-4">
+                                                        {#if viewMode === 'actors'}
+                                                                <GameBoard 
+                                                                        {gameId} 
+                                                                        activeActorId={playerRole?.actor_id}
+                                                                />
+                                                        {:else}
+                                                                <CardBoard 
+                                                                        {gameId} 
+                                                                        activeActorId={playerRole?.actor_id}
+                                                                />
+                                                        {/if}
+                                                </div>
+                                                
+                                                <!-- Chat -->
                                                 <div class="card p-4 h-64">
                                                         <ChatBox {gameId} chatType="group" />
                                                 </div>
