@@ -541,19 +541,13 @@
 
   // Function to initialize D3 visualization
   function initializeGraph() {
-    try {
-      console.log("Starting graph initialization");
-      if (!svgRef) {
-        console.error("SVG reference is missing");
-        return;
-      }
+    if (!svgRef) return;
     
     // Set up dimensions based on container size
     const boundingRect = svgRef.parentElement?.getBoundingClientRect();
     if (boundingRect) {
       width = boundingRect.width;
       height = boundingRect.height;
-      console.log(`Graph dimensions: ${width}x${height}`);
     }
     
     // CSS variables for node sizing
@@ -1186,6 +1180,29 @@
       const card = nodeData.data as Card;
       const nodeId = nodeData.id;
       
+      // Create central text elements
+      const centerTextGroup = node.append("g")
+        .attr("class", "center-text-group")
+        .attr("pointer-events", "none")
+        .style("z-index", "10"); // Ensure text appears above other elements
+      
+      centerTextGroup.append("text")
+        .attr("class", "count-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "-0.2em")
+        .attr("font-size", "18px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#555555")
+        .text("");
+        
+      centerTextGroup.append("text")
+        .attr("class", "options-text") 
+        .attr("text-anchor", "middle")
+        .attr("dy", "1em")
+        .attr("font-size", "12px")
+        .attr("fill", "#777777")
+        .text("");
+      
       // Process card data for visualization
       const cardDataForViz = { ...(card as any) };
       
@@ -1349,15 +1366,6 @@
             });
           }
         }
-
-        // Add white background circle for better visibility with text
-        node.append("circle")
-          .attr("class", "center-background-circle")
-          .attr("r", baseActorRadius * scaleFactor)
-          .attr("fill", "white")
-          .attr("stroke", "#e5e5e5")
-          .attr("stroke-width", 0.5)
-          .attr("opacity", 0.95);
         
         // Start async loading for future updates
         (async function loadRealCapabilitiesForFutureUpdates() {
@@ -1697,33 +1705,7 @@
             .text("");
         });
       });
-      
-      // Create the text group at the very end to ensure it appears on top of everything
-      const centerTextGroup = node.append("g")
-        .attr("class", "center-text-group")
-        .attr("pointer-events", "none")
-        .style("z-index", 1000); // Higher z-index for SVG stacking context
-      
-      centerTextGroup.append("text")
-        .attr("class", "count-text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "-0.2em")
-        .attr("font-size", "18px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#555555")
-        .text("");
-        
-      centerTextGroup.append("text")
-        .attr("class", "options-text") 
-        .attr("text-anchor", "middle")
-        .attr("dy", "1em")
-        .attr("font-size", "12px")
-        .attr("fill", "#777777")
-        .text("");
     });
-    } catch (err) {
-      console.error("D3CardBoard: Error initializing", err);
-    }
   }
   
   // All visualization is now handled directly by D3 in the addDonutRings() function
