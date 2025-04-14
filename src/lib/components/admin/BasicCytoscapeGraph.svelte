@@ -184,6 +184,7 @@
               cards: [],
               values: [],
               capabilities: [],
+              actors: [],
               other: []
             };
             
@@ -200,13 +201,17 @@
             // Get current node type
             const nodeType = node.data('type');
             
-            // Determine row based on type (exactly 4 rows as requested)
+            // Determine row based on type (still maintaining 4 rows as requested)
             let row = 4; // default for any unexpected types
             let rowNodes = [];
             
-            if (nodeType === 'users') {
+            if (nodeType === 'users' || nodeType === 'games') {
               row = 0;
-              rowNodes = nodesByType.users;
+              if (nodeType === 'users') {
+                rowNodes = nodesByType.users;
+              } else {
+                rowNodes = nodesByType.games;
+              }
             } else if (nodeType === 'decks') {
               row = 1;
               rowNodes = nodesByType.decks;
@@ -386,7 +391,7 @@
       console.log("Available node types:", availableNodeTypes);
       
       // Ensure all node types are in the available list, even if not in the current data
-      const essentialTypes = ['users', 'decks', 'cards', 'values', 'capabilities'];
+      const essentialTypes = ['users', 'decks', 'cards', 'values', 'capabilities', 'games', 'actors'];
       essentialTypes.forEach(type => {
         if (!availableNodeTypes.includes(type)) {
           availableNodeTypes.push(type);
@@ -394,13 +399,8 @@
       });
       
       // Only select the relevant node types by default as requested
-      const relevantNodeTypes = ['users', 'decks', 'cards', 'values', 'capabilities', 'games'];
+      const relevantNodeTypes = ['users', 'decks', 'cards', 'values', 'capabilities', 'games', 'actors'];
       selectedNodeTypes = availableNodeTypes.filter(type => relevantNodeTypes.includes(type));
-      
-      // Add "games" to the available types for display even if none exist
-      if (!availableNodeTypes.includes('games')) {
-        availableNodeTypes.push('games');
-      }
       console.log("Selected node types:", selectedNodeTypes);
       
       // Get unique edge types (connections between node types)
@@ -414,8 +414,14 @@
       availableEdgeTypes = [...edgeTypes].sort();
       
       // Only select the relevant edge types by default
-      const relevantEdgeTypes = ['decks-cards', 'cards-values', 'cards-capabilities', 
-                                'values-cards', 'capabilities-cards'];
+      const relevantEdgeTypes = [
+        // Core relationships
+        'decks-cards', 'cards-values', 'cards-capabilities', 
+        'values-cards', 'capabilities-cards',
+        // Game relationships
+        'games-users', 'users-games', 'games-decks', 'decks-games',
+        'games-actors', 'actors-games'
+      ];
       selectedEdgeTypes = availableEdgeTypes.filter(type => relevantEdgeTypes.includes(type));
       
       // Initialize filtered nodes and edges
