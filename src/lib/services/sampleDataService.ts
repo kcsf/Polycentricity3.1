@@ -773,6 +773,23 @@ export async function initializeSampleData() {
     toSoul: `${nodes.actors}/${actor2.actor_id}`
   });
   
+  // Define actor -> card relationships
+  console.log("[seed] Creating actors → cards relationships in batch");
+  
+  // Actor 1 -> Card 1 (first card)
+  allEdges.push({
+    fromSoul: `${nodes.actors}/${actor1.actor_id}`,
+    field: "cards",
+    toSoul: `${nodes.cards}/${cards[0].card_id}`
+  });
+  
+  // Actor 2 -> Card 2 (second card)
+  allEdges.push({
+    fromSoul: `${nodes.actors}/${actor2.actor_id}`,
+    field: "cards", 
+    toSoul: `${nodes.cards}/${cards[1].card_id}`
+  });
+  
   // Create all edges in a batch
   console.log(`[seed] Creating all ${allEdges.length} relationships in one batch operation`);
   const batchResult = await createEdgesBatch(allEdges);

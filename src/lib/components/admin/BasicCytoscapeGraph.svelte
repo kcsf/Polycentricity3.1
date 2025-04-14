@@ -611,7 +611,11 @@
         'values-cards', 'capabilities-cards',
         // Game relationships
         'games-users', 'users-games', 'games-decks', 'decks-games',
-        'games-actors', 'actors-games'
+        'games-actors', 'actors-games',
+        // Additional important relationships
+        'actors-agreements', 'agreements-actors',
+        'users-actors', 'actors-users',
+        'actors-cards', 'cards-actors'
       ];
       selectedEdgeTypes = availableEdgeTypes.filter(type => relevantEdgeTypes.includes(type));
       
