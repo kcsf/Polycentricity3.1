@@ -697,28 +697,20 @@
         } 
         // If no specific obligations/benefits, create basic links between all parties
         else if (participatingCardIds.length > 0) {
-          console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating general links`);
+          console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating one-way visualization links`);
           
-          // Create direct connections between all participating cards through the agreement
-          // First connect all cards to the agreement
+          // For visualization purposes only create ONE-WAY links to match the reference design
+          // We'll only create links from card to agreement to avoid double arrows
           participatingCardIds.forEach((cardId, i) => {
-            // Create a link from card to agreement
+            // Create a single directional link from card to agreement
             links.push({
               source: cardId,
               target: agreement.agreement_id,
-              type: "obligation",
-              id: `general_${cardId}_to_${agreement.agreement_id}`,
+              type: "obligation", // Visual type only
+              id: `visual_${cardId}_to_${agreement.agreement_id}`,
             });
             
-            // Create a link from agreement back to card
-            links.push({
-              source: agreement.agreement_id,
-              target: cardId,
-              type: "benefit",
-              id: `general_${agreement.agreement_id}_to_${cardId}`,
-            });
-            
-            console.log(`Added general links between ${cardId} <-> ${agreement.agreement_id}`);
+            console.log(`Added one-way visualization link: ${cardId} -> ${agreement.agreement_id}`);
           });
         }
       }
@@ -802,11 +794,28 @@
       .data(links)
       .enter()
       .append("line")
-      .attr("class", "link-line")  // Use CSS class for consistent styling
-      .attr("stroke", "#e5e5e5")   // Light gray matching reference image
-      .attr("stroke-width", 1)     // Thin lines per design reference
-      .attr("stroke-opacity", 0.8) // Slightly transparent
-      .attr("marker-end", "url(#arrow-marker)") // Apply the arrow marker
+      .attr("class", "link-line")     // Use CSS class for consistent styling
+      .attr("stroke", "#e5e5e5")      // Light gray matching reference image
+      .attr("stroke-width", 1)        // Thin lines per design reference
+      .attr("stroke-opacity", 0.8)    // Slightly transparent
+      .attr("marker-start", null)     // NO start markers - explicitly remove
+      .attr("marker-end", function(d) {
+        // Only add end marker for specific cases based on the direction
+        const sourceType = typeof d.source === "string" ? 
+          nodes.find(n => n.id === d.source)?.type : d.source.type;
+        const targetType = typeof d.target === "string" ? 
+          nodes.find(n => n.id === d.target)?.type : d.target.type;
+          
+        // When from Actor to Agreement, the arrow should be at the Agreement end
+        if (sourceType === "actor" && targetType === "agreement") {
+          return "url(#arrow-marker)";
+        }
+        // When from Agreement to Actor, the arrow should be at the Actor end
+        else if (sourceType === "agreement" && targetType === "actor") {
+          return "url(#arrow-marker)";
+        }
+        return null; // No arrow in other cases
+      })
       .style("cursor", "pointer"); // Show pointer cursor on hover
       
     // Debug: How many lines were actually created?
