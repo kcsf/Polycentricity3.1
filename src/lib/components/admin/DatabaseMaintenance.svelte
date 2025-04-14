@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import * as icons from 'svelte-lucide';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
+  import AdminTools from './AdminTools.svelte';
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
   import { fixGameRelationships } from '$lib/services/gameService';
