@@ -1377,45 +1377,31 @@
             // Prevent bubbling of events to avoid flickering
             event.stopPropagation();
             
+            // Critical fix: DO NOT run this in a setTimeout to avoid race conditions
             // Reset hovered state only if this is the current hovered category
             if (hoveredCategory === category) {
               hoveredCategory = null;
             
-              // Shrink wedge back to original size
+              // Shrink wedge back to original size with a shorter duration
               wedge
                 .transition()
-                .duration(200)
+                .duration(100)
                 .attr("d", categoryArc)
                 .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))");
               
-              // Hide the sub-wedges
+              // Hide the sub-wedges with safer transition handling
               subWedgesGroup
-                .transition()
-                .duration(100)
-                .attr("opacity", 0)
-                .on("end", function () {
-                  d3.select(this).style("visibility", "hidden");
-                });
+                .style("opacity", 0)
+                .style("visibility", "hidden");
               
-              // Hide the labels
+              // Hide the labels with safer transition handling
               labelsContainer
-                .transition()
-                .duration(100)
-                .attr("opacity", 0)
-                .on("end", function () {
-                  d3.select(this).style("visibility", "hidden");
-                });
+                .style("opacity", 0)
+                .style("visibility", "hidden");
               
-              // Restore central text - just clear the indicator text
-              countText
-                .transition()
-                .duration(200)
-                .text("");
-                
-              optionsText
-                .transition()
-                .duration(200)
-                .text("");
+              // Instantly reset the center text to avoid glitches
+              countText.text("");
+              optionsText.text("");
             }
           });
       });
