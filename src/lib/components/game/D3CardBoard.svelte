@@ -921,22 +921,12 @@
       .attr("class", "central-text-group")
       .attr("pointer-events", "none"); // Make text group non-interactive
 
-    // Central text for card information
-    centralTextGroup
-      .append("text")
-      .attr("class", "card-title")
-      .attr("text-anchor", "middle")
-      .attr("dy", "0em") // Position in the center of the node
-      .attr("font-size", "12px")
-      .attr("font-weight", "bold")
-      .attr("fill", "#4B5563") // Dark gray
-      .text((d) => d.type === "card" ? (d.data as Card).role_title.slice(0, 20) : "");
-
+    // Only show the card type in the center (not the title - that will be below the node)
     centralTextGroup
       .append("text")
       .attr("class", "card-type")
       .attr("text-anchor", "middle")
-      .attr("dy", "1.2em") // Positioned below the title
+      .attr("dy", "0.3em") // Center vertically 
       .attr("font-size", "10px")
       .attr("fill", "#6B7280") // Medium gray
       .text((d) => d.type === "card" ? (d.data as Card).type : "");
@@ -946,22 +936,54 @@
       .append("g")
       .attr("class", "card-name-container")
       .attr("pointer-events", "none"); // Make label non-interactive
+    
+    // Add background rectangle for label with semi-transparent background and rounded corners
+    cardNameGroups.each(function(d) {
+      const group = d3.select(this);
+      const card = d.data as Card;
+      const labelText = card.role_title.length > 20 
+        ? card.role_title.slice(0, 17) + "..." 
+        : card.role_title;
       
-    // Add name text elements that appear below the node
-    cardNameGroups
-      .append("text")
-      .attr("class", "name-text")
-      .attr("text-anchor", "middle")
-      .attr("dy", "3.5em") // Position below the node
-      .attr("font-size", "12px")
-      .attr("font-weight", "500")
-      .attr("fill", "#444444") // Dark gray
-      .text((d) => {
-        const card = d.data as Card;
-        return card.role_title.length > 20 
-          ? card.role_title.slice(0, 17) + "..." 
-          : card.role_title;
-      });
+      // First create a temporary text element to measure text width
+      const tempText = group.append("text")
+        .attr("text-anchor", "middle")
+        .attr("font-size", "12px")
+        .text(labelText)
+        .style("visibility", "hidden");
+        
+      // Measure the text width (use getBBox method)
+      const textWidth = tempText.node().getBBox().width;
+      tempText.remove(); // Remove the temporary element
+      
+      // Create background rectangle with padding
+      const padding = 6;
+      const rectWidth = textWidth + padding * 2;
+      const rectHeight = 22;
+      
+      // Add the rounded rectangle background
+      group.append("rect")
+        .attr("rx", 4) // Rounded corners
+        .attr("ry", 4)
+        .attr("width", rectWidth)
+        .attr("height", rectHeight)
+        .attr("x", -rectWidth / 2) // Center horizontally
+        .attr("y", `3.0em`) // Position below the node, aligned with text
+        .attr("fill", "white")
+        .attr("fill-opacity", 0.9) // Semi-transparent
+        .attr("stroke", "#e5e5e5")
+        .attr("stroke-width", 1);
+      
+      // Add the text on top of the background
+      group.append("text")
+        .attr("class", "name-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "3.6em") // Position below the node
+        .attr("font-size", "12px")
+        .attr("font-weight", "500")
+        .attr("fill", "#444444") // Dark gray
+        .text(labelText);
+    });
 
     // Create agreement nodes with smaller circles
     const agreementNodes = nodeElements.filter((d) => d.type === "agreement");
