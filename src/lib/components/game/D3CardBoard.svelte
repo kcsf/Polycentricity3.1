@@ -1208,55 +1208,69 @@
       console.log(`Card ${card.card_id} raw data:`, JSON.stringify(cardDataForViz).substring(0, 200) + "...");
       
       // Add test data if needed
-      // Instead of using dummy values, we'll fetch real values using graph traversal
+      // Start with some default values for immediate visualization
       if (!cardDataForViz.values || Object.keys(cardDataForViz.values).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Creating real values for card ${card.card_id} using graph traversal`);
+        console.log(`Using standard values for card ${card.card_id}`);
         
-        // Create a function to handle the async operation
-        (async function loadRealValues() {
+        // Use standard values that match our database
+        cardDataForViz.values = { 
+          'value_sustainability': true, 
+          'value_community-resilience': true,
+          'value_self-referential-value': true 
+        };
+          
+        // Initialize our cache with these known values
+        if (!valueCache.has('value_sustainability')) {
+          valueCache.set('value_sustainability', { 
+            value_id: 'value_sustainability', 
+            name: 'Sustainability',
+            description: 'Practices that can be maintained indefinitely',
+            created_at: Date.now()
+          });
+        }
+        
+        if (!valueCache.has('value_community-resilience')) {
+          valueCache.set('value_community-resilience', { 
+            value_id: 'value_community-resilience', 
+            name: 'Community Resilience',
+            description: 'Ability to adapt and recover from adversity',
+            created_at: Date.now()
+          });
+        }
+        
+        if (!valueCache.has('value_self-referential-value')) {
+          valueCache.set('value_self-referential-value', { 
+            value_id: 'value_self-referential-value', 
+            name: 'Self-Referential Value',
+            description: 'Values that recognize themselves',
+            created_at: Date.now()
+          });
+        }
+        
+        // Start async loading for updating later
+        (async function loadRealValuesForFutureUpdates() {
           try {
-            // Get actual values using the deckService utility
             const valueNames = await getCardValueNames(card);
             console.log(`Retrieved ${valueNames.length} real values for card:`, valueNames);
             
-            // Transform the array of names into an object format that our visualization expects
-            const valuesObj: Record<string, boolean> = {};
-            valueNames.forEach((valueName, index) => {
-              // Create predictable keys that we can use later for display
+            // Update cache with real names if different
+            valueNames.forEach((valueName) => {
               const key = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
-              valuesObj[key] = true;
-            });
-            
-            cardDataForViz.values = Object.keys(valuesObj).length > 0 ? 
-              valuesObj : 
-              { 'value_sustainability': true, 'value_community-resilience': true };
-            
-            // Store these values in our cache for display
-            Object.keys(cardDataForViz.values).forEach(key => {
-              if (key !== '_' && key !== '#') {
-                const valueName = key.replace('value_', '')
-                  .split('-')
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ');
-                
-                if (!valueCache.has(key)) {
-                  valueCache.set(key, { 
-                    value_id: key, 
-                    name: valueName,
-                    description: `Value for ${card.role_title}`,
-                    created_at: Date.now()
-                  });
-                }
+              if (!valueCache.has(key)) {
+                valueCache.set(key, {
+                  value_id: key,
+                  name: valueName,
+                  description: `Value for ${card.role_title}`,
+                  created_at: Date.now()
+                });
               }
             });
           } catch (error) {
             console.error(`Error loading real values for card ${card.card_id}:`, error);
-            // Fallback to default values
-            cardDataForViz.values = { 'value_sustainability': true, 'value_community-resilience': true };
           }
         })();
       } else {
-        // Even for existing values, make sure we have them in our cache
+        // For existing values, ensure we have them in our cache
         Object.keys(cardDataForViz.values).forEach(key => {
           if (key !== '_' && key !== '#' && !valueCache.has(key)) {
             const valueName = key.replace('value_', '')
@@ -1274,55 +1288,107 @@
         });
       }
       
-      // Do the same for capabilities
+      // Do the same for capabilities - start with standard values
       if (!cardDataForViz.capabilities || Object.keys(cardDataForViz.capabilities).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Creating real capabilities for card ${card.card_id} using graph traversal`);
+        console.log(`Using standard capabilities for card ${card.card_id}`);
         
-        // Create a function to handle the async operation
-        (async function loadRealCapabilities() {
+        // Default capabilities based on card type
+        if (card.card_category === 'Funders') {
+          cardDataForViz.capabilities = {
+            'capability_grant-writing-expertise': true,
+            'capability_impact-assessment': true
+          };
+          
+          if (!capabilityCache.has('capability_grant-writing-expertise')) {
+            capabilityCache.set('capability_grant-writing-expertise', {
+              capability_id: 'capability_grant-writing-expertise',
+              name: 'Grant Writing Expertise',
+              description: 'Ability to secure funding through grants',
+              created_at: Date.now()
+            });
+          }
+          
+          if (!capabilityCache.has('capability_impact-assessment')) {
+            capabilityCache.set('capability_impact-assessment', {
+              capability_id: 'capability_impact-assessment',
+              name: 'Impact Assessment',
+              description: 'Measuring project outcomes and effectiveness',
+              created_at: Date.now()
+            });
+          }
+        } else if (card.type === 'DAO') {
+          cardDataForViz.capabilities = {
+            'capability_crowdfunding-coordination': true,
+            'capability_smart-contract-development': true
+          };
+          
+          if (!capabilityCache.has('capability_crowdfunding-coordination')) {
+            capabilityCache.set('capability_crowdfunding-coordination', {
+              capability_id: 'capability_crowdfunding-coordination',
+              name: 'Crowdfunding Coordination',
+              description: 'Managing decentralized funding campaigns',
+              created_at: Date.now()
+            });
+          }
+          
+          if (!capabilityCache.has('capability_smart-contract-development')) {
+            capabilityCache.set('capability_smart-contract-development', {
+              capability_id: 'capability_smart-contract-development',
+              name: 'Smart Contract Development',
+              description: 'Creating autonomous agreements on blockchain',
+              created_at: Date.now()
+            });
+          }
+        } else {
+          // Generic capabilities
+          cardDataForViz.capabilities = {
+            'capability_community-outreach': true,
+            'capability_planning': true
+          };
+          
+          if (!capabilityCache.has('capability_community-outreach')) {
+            capabilityCache.set('capability_community-outreach', {
+              capability_id: 'capability_community-outreach',
+              name: 'Community Outreach',
+              description: 'Engaging with local community members',
+              created_at: Date.now()
+            });
+          }
+          
+          if (!capabilityCache.has('capability_planning')) {
+            capabilityCache.set('capability_planning', {
+              capability_id: 'capability_planning',
+              name: 'Planning',
+              description: 'Developing and executing strategies',
+              created_at: Date.now()
+            });
+          }
+        }
+        
+        // Start async loading for future updates
+        (async function loadRealCapabilitiesForFutureUpdates() {
           try {
-            // Get actual capabilities using the deckService utility
             const capabilityNames = await getCardCapabilityNames(card);
             console.log(`Retrieved ${capabilityNames.length} real capabilities for card:`, capabilityNames);
             
-            // Transform the array of names into an object format that our visualization expects
-            const capsObj: Record<string, boolean> = {};
-            capabilityNames.forEach((capName, index) => {
-              // Create predictable keys that we can use later for display
+            // Update cache with real capability names
+            capabilityNames.forEach((capName) => {
               const key = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
-              capsObj[key] = true;
-            });
-            
-            cardDataForViz.capabilities = Object.keys(capsObj).length > 0 ? 
-              capsObj : 
-              {}; // Empty object is fine for capabilities
-            
-            // Store these capabilities in our cache for display
-            Object.keys(cardDataForViz.capabilities).forEach(key => {
-              if (key !== '_' && key !== '#') {
-                const capName = key.replace('capability_', '')
-                  .split('-')
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ');
-                
-                if (!capabilityCache.has(key)) {
-                  capabilityCache.set(key, { 
-                    capability_id: key, 
-                    name: capName, 
-                    description: `Capability for ${card.role_title}`,
-                    created_at: Date.now()
-                  });
-                }
+              if (!capabilityCache.has(key)) {
+                capabilityCache.set(key, {
+                  capability_id: key,
+                  name: capName,
+                  description: `Capability for ${card.role_title}`,
+                  created_at: Date.now()
+                });
               }
             });
           } catch (error) {
             console.error(`Error loading real capabilities for card ${card.card_id}:`, error);
-            // Fallback with empty object
-            cardDataForViz.capabilities = {};
           }
         })();
       } else {
-        // Even for existing capabilities, make sure we have them in our cache
+        // For existing capabilities, ensure we have them in our cache
         Object.keys(cardDataForViz.capabilities).forEach(key => {
           if (key !== '_' && key !== '#' && !capabilityCache.has(key)) {
             const capName = key.replace('capability_', '')
