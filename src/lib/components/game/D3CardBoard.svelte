@@ -628,69 +628,108 @@
             const fromActorId = obligation.fromActorId;
             const toActorId = obligation.toActorId;
             
-            // Get the corresponding card IDs
-            const fromCardId = actorCardMap.get(fromActorId);
-            const toCardId = actorCardMap.get(toActorId); // Also get target card
+            // Get the corresponding card IDs - creator is the one with obligation
+            const creatorCardId = actorCardMap.get(fromActorId);
+            const recipientCardId = actorCardMap.get(toActorId);
             
-            if (fromCardId) {
-              // Create a link from the card to the agreement
+            // FOLLOW EXACT INSTRUCTIONS:
+            // Card associated with Actor that created agreement → Agreement → Card associated with recipient
+            if (creatorCardId && recipientCardId) {
+              // Step 1: Connect creator's card to agreement (with arrow at agreement end)
               links.push({
-                source: fromCardId,
+                source: creatorCardId,            // FROM: Creator card 
+                target: agreement.agreement_id,   // TO: Agreement
+                type: "obligation",               // Type for styling
+                id: `from_${obligation.id}`,      // Unique ID
+              });
+              
+              // Step 2: Connect agreement to recipient's card (with arrow at recipient end)  
+              links.push({
+                source: agreement.agreement_id,   // FROM: Agreement
+                target: recipientCardId,          // TO: Recipient card
+                type: "benefit",                  // Type for styling
+                id: `to_${obligation.id}`,        // Unique ID
+              });
+              
+              console.log(`Created path: ${creatorCardId} → ${agreement.agreement_id} → ${recipientCardId}`);
+            }
+            // Fallback if we only have one endpoint
+            else if (creatorCardId) {
+              links.push({
+                source: creatorCardId,
                 target: agreement.agreement_id,
                 type: "obligation",
                 id: obligation.id,
               });
-              console.log(`Added obligation link: ${fromCardId} -> ${agreement.agreement_id}`);
-              
-              // If we have the second card, connect from agreement to it
-              if (toCardId) {
-                links.push({
-                  source: agreement.agreement_id,
-                  target: toCardId,
-                  type: "benefit", // This becomes the benefit direction
-                  id: `${obligation.id}_completion`,
-                });
-                console.log(`Added completion link: ${agreement.agreement_id} -> ${toCardId}`);
-              }
             }
           });
 
-          // For each benefit
+          // For each benefit - follow same pattern as obligations
           agreement.benefits.forEach((benefit) => {
             const fromActorId = benefit.fromActorId;
             const toActorId = benefit.toActorId;
             
             // Get the corresponding card IDs
-            const fromCardId = actorCardMap.get(fromActorId);
-            const toCardId = actorCardMap.get(toActorId);
+            const creatorCardId = actorCardMap.get(fromActorId);  
+            const recipientCardId = actorCardMap.get(toActorId);
             
-            // Only add if not already connected by obligations
-            if (toCardId) {
-              // Create a link from the agreement to the card
-              links.push({
-                source: agreement.agreement_id,
-                target: toCardId,
-                type: "benefit",
-                id: benefit.id,
-              });
-              console.log(`Added benefit link: ${agreement.agreement_id} -> ${toCardId}`);
+            // FOLLOW SAME PATTERN: Creator Card → Agreement → Recipient Card
+            if (creatorCardId && recipientCardId) {
+              // Check if this path already exists from obligation handling
+              const pathExists = links.some(link => 
+                ((typeof link.source === 'string' ? link.source : link.source.id) === creatorCardId && 
+                 (typeof link.target === 'string' ? link.target : link.target.id) === agreement.agreement_id) ||
+                ((typeof link.source === 'string' ? link.source : link.source.id) === agreement.agreement_id && 
+                 (typeof link.target === 'string' ? link.target : link.target.id) === recipientCardId));
               
-              // If we have the source card and haven't made the obligation connection yet, add it
-              if (fromCardId) {
-                // Check if this connection already exists
-                const linkExists = links.some(link => 
-                  (typeof link.source === 'string' ? link.source : link.source.id) === fromCardId && 
-                  (typeof link.target === 'string' ? link.target : link.target.id) === agreement.agreement_id);
+              // Only create links if they don't already exist
+              if (!pathExists) {
+                // Create link from creator's card to agreement
+                links.push({
+                  source: creatorCardId,
+                  target: agreement.agreement_id,
+                  type: "obligation",
+                  id: `from_${benefit.id}`,
+                });
                 
-                if (!linkExists) {
-                  links.push({
-                    source: fromCardId,
-                    target: agreement.agreement_id,
-                    type: "obligation",
-                    id: `${benefit.id}_source`,
-                  });
-                  console.log(`Added source link: ${fromCardId} -> ${agreement.agreement_id}`);
-                }
+                // Create link from agreement to recipient's card
+                links.push({
+                  source: agreement.agreement_id, 
+                  target: recipientCardId,
+                  type: "benefit",
+                  id: `to_${benefit.id}`,
+                });
+                
+                console.log(`Created benefit path: ${creatorCardId} → ${agreement.agreement_id} → ${recipientCardId}`);
+              }
+            }
+            // If we only have one of the cards, add single link
+            else if (creatorCardId) {
+              const linkExists = links.some(link => 
+                (typeof link.source === 'string' ? link.source : link.source.id) === creatorCardId && 
+                (typeof link.target === 'string' ? link.target : link.target.id) === agreement.agreement_id);
+                
+              if (!linkExists) {
+                links.push({
+                  source: creatorCardId,
+                  target: agreement.agreement_id,
+                  type: "obligation",
+                  id: `single_from_${benefit.id}`,
+                });
+              }
+            }
+            else if (recipientCardId) {
+              const linkExists = links.some(link => 
+                (typeof link.source === 'string' ? link.source : link.source.id) === agreement.agreement_id && 
+                (typeof link.target === 'string' ? link.target : link.target.id) === recipientCardId);
+                
+              if (!linkExists) {
+                links.push({
+                  source: agreement.agreement_id,
+                  target: recipientCardId,
+                  type: "benefit",
+                  id: `single_to_${benefit.id}`,
+                });
               }
             }
           });
@@ -788,17 +827,17 @@
     // First ensure we have a proper defs element for our gradients and markers
     const defs = svg.append("defs");
     
-    // Create an arrow marker definition for the links - following exact instructions
+    // Create an arrow marker definition for the links - EXACT SPECIFICATIONS
     defs.append("marker")
       .attr("id", "arrow-marker")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 15) // IMPORTANT: Ensure the line doesn't extend past the arrowhead
+      .attr("refX", 15) // Important: This ensures the line doesn't extend past the arrow
       .attr("refY", 0)
-      .attr("markerWidth", 6) 
-      .attr("markerHeight", 6)
+      .attr("markerWidth", 4) // Smaller width for better appearance
+      .attr("markerHeight", 4) // Smaller height for better appearance
       .attr("orient", "auto")
       .append("path")
-      .attr("fill", "#AAAAAA") // Medium gray for clear visibility
+      .attr("fill", "#BBBBBB") // Light gray to match image
       .attr("d", "M0,-5L10,0L0,5");
 
     // Create link group that appears behind nodes
