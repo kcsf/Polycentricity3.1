@@ -26,7 +26,7 @@
   // Subscribe to stores
   let actors: ActorWithPosition[] = [];
   let agreements: AgreementWithPosition[] = [];
-  let activeActorId: string | null = null;
+  let storeActorId: string | null = null;
 
   // Set up subscriptions to the stores
   const actorsUnsubscribe = gameStore.actors.subscribe(value => {
@@ -44,7 +44,7 @@
   });
 
   const activeActorUnsubscribe = gameStore.activeActorId.subscribe(value => {
-    activeActorId = value;
+    storeActorId = value;
     if (svgRef) {
       initializeGraph();
     }
@@ -104,7 +104,7 @@
         y: actor.position?.y || Math.random() * height,
         fx: actor.position?.x || null,
         fy: actor.position?.y || null,
-        active: actor.actor_id === activeActorId,
+        active: actor.actor_id === (activeActorId || storeActorId),
       })),
       ...agreements.map((agreement) => ({
         id: agreement.id,
@@ -412,7 +412,7 @@
       );
       
       // If this is the active actor, scale the node radius by 1.5x
-      const isActive = d.id === activeActorId;
+      const isActive = d.id === (activeActorId || storeActorId);
       const nodeRadius = isActive ? baseNodeRadius * 1.5 : baseNodeRadius;
 
       d3.select(this)
@@ -480,6 +480,12 @@
       
       // Initialize the game board
       gameStore.initializeGameBoard(gameId);
+      
+      // Initialize the active actor ID if provided as a prop
+      if (activeActorId) {
+        console.log(`Setting active actor in D3GameBoard onMount: ${activeActorId}`);
+        gameStore.setActiveActorId(activeActorId);
+      }
     }
   });
 
