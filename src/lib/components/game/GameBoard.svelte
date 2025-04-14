@@ -3,7 +3,6 @@
     import type { Game, Actor } from '$lib/types';
     import { getGame, subscribeToGame } from '$lib/services/gameService';
     import D3GameBoardIntegrated from './D3GameBoardIntegrated.svelte';
-    import GameHeader from './GameHeader.svelte';
     import gameStore from '$lib/stores/enhancedGameStore';
     
     export let gameId: string;
@@ -60,9 +59,7 @@
             <p>{error}</p>
         </div>
     {:else if game}
-        <div class="bg-surface-100-800-token rounded-lg p-4 h-full flex flex-col">
-            <GameHeader {game} />
-            
+        <div class="bg-surface-100-800-token h-full flex flex-col">
             <!-- D3 Game Board Visualization -->
             <div class="flex-grow overflow-hidden">
                 <D3GameBoardIntegrated 
