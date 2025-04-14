@@ -336,74 +336,140 @@
       
       console.log(`D3CardBoard: Loading details for card ${card.card_id} (${card.role_title || 'Untitled Role'})`);
       
-      // Load Values with proper error handling
+      // Load Values with improved Gun.js reference handling
       if (card.values && typeof card.values === 'object') {
-        const valueIds = Object.keys(card.values);
+        const valueIds = Object.keys(card.values).filter(id => id !== '_');
         console.log(`D3CardBoard: Card has ${valueIds.length} values to load`);
         
-        for (const valueId of valueIds) {
-          if (!valueId || valueId === '_') continue; // Skip invalid or Gun.js metadata entries
-          
-          if (!valueCache.has(valueId)) {
-            console.log(`D3CardBoard: Loading value ${valueId}`);
+        // Handle Gun.js references properly
+        if (valueIds.length === 1 && valueIds[0] === '#') {
+          // Handle reference case
+          const reference = card.values['#'];
+          if (typeof reference === 'string' && reference.includes('/values/')) {
+            console.log(`D3CardBoard: Processing values reference: ${reference}`);
+            
             await new Promise<void>((resolve) => {
               try {
-                gun.get(nodes.values).get(valueId).once((valueData: Value) => {
-                  if (valueData && valueData.value_id) {
-                    console.log(`D3CardBoard: Loaded value ${valueId}: ${valueData.name}`);
-                    valueCache.set(valueId, valueData);
-                  } else {
-                    console.warn(`D3CardBoard: Value ${valueId} data not found or incomplete`);
-                  }
-                  resolve();
+                // Direct query to the values soul reference
+                gun.get(reference).map().once((val, key) => {
+                  if (key === '_') return; // Skip Gun.js metadata
+                  
+                  gun.get(nodes.values).get(key).once((valueData: Value) => {
+                    if (valueData && valueData.value_id) {
+                      console.log(`D3CardBoard: Loaded value ${key}: ${valueData.name}`);
+                      valueCache.set(key, valueData);
+                    } else {
+                      console.warn(`D3CardBoard: Value ${key} data not found`, valueData);
+                    }
+                  });
                 });
                 
-                // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
                 setTimeout(resolve, 500);
               } catch (error) {
-                console.error(`D3CardBoard: Error loading value ${valueId}:`, error);
+                console.error(`D3CardBoard: Error processing values reference:`, error);
                 resolve();
               }
             });
-          } else {
-            console.log(`D3CardBoard: Value ${valueId} already in cache: ${valueCache.get(valueId)?.name}`);
+          }
+        } else {
+          // Regular values case (direct ids)
+          for (const valueId of valueIds) {
+            if (!valueId || valueId === '_') continue; // Skip invalid or Gun.js metadata entries
+            
+            if (!valueCache.has(valueId)) {
+              console.log(`D3CardBoard: Loading value ${valueId}`);
+              await new Promise<void>((resolve) => {
+                try {
+                  gun.get(nodes.values).get(valueId).once((valueData: Value) => {
+                    if (valueData && valueData.value_id) {
+                      console.log(`D3CardBoard: Loaded value ${valueId}: ${valueData.name}`);
+                      valueCache.set(valueId, valueData);
+                    } else {
+                      console.warn(`D3CardBoard: Value ${valueId} data not found or incomplete`);
+                    }
+                    resolve();
+                  });
+                  
+                  // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
+                  setTimeout(resolve, 500);
+                } catch (error) {
+                  console.error(`D3CardBoard: Error loading value ${valueId}:`, error);
+                  resolve();
+                }
+              });
+            } else {
+              console.log(`D3CardBoard: Value ${valueId} already in cache: ${valueCache.get(valueId)?.name}`);
+            }
           }
         }
       } else {
         console.log(`D3CardBoard: Card ${card.card_id} has no valid values property:`, card.values);
       }
       
-      // Load Capabilities with proper error handling
+      // Load Capabilities with improved Gun.js reference handling
       if (card.capabilities && typeof card.capabilities === 'object') {
-        const capIds = Object.keys(card.capabilities);
+        const capIds = Object.keys(card.capabilities).filter(id => id !== '_');
         console.log(`D3CardBoard: Card has ${capIds.length} capabilities to load`);
         
-        for (const capId of capIds) {
-          if (!capId || capId === '_') continue; // Skip invalid or Gun.js metadata entries
-          
-          if (!capabilityCache.has(capId)) {
-            console.log(`D3CardBoard: Loading capability ${capId}`);
+        // Handle Gun.js references properly
+        if (capIds.length === 1 && capIds[0] === '#') {
+          // Handle reference case
+          const reference = card.capabilities['#'];
+          if (typeof reference === 'string' && reference.includes('/capabilities/')) {
+            console.log(`D3CardBoard: Processing capabilities reference: ${reference}`);
+            
             await new Promise<void>((resolve) => {
               try {
-                gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
-                  if (capData && capData.capability_id) {
-                    console.log(`D3CardBoard: Loaded capability ${capId}: ${capData.name}`);
-                    capabilityCache.set(capId, capData);
-                  } else {
-                    console.warn(`D3CardBoard: Capability ${capId} data not found or incomplete`);
-                  }
-                  resolve();
+                // Direct query to the capabilities soul reference
+                gun.get(reference).map().once((val, key) => {
+                  if (key === '_') return; // Skip Gun.js metadata
+                  
+                  gun.get(nodes.capabilities).get(key).once((capData: Capability) => {
+                    if (capData && capData.capability_id) {
+                      console.log(`D3CardBoard: Loaded capability ${key}: ${capData.name}`);
+                      capabilityCache.set(key, capData);
+                    } else {
+                      console.warn(`D3CardBoard: Capability ${key} data not found`, capData);
+                    }
+                  });
                 });
                 
-                // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
                 setTimeout(resolve, 500);
               } catch (error) {
-                console.error(`D3CardBoard: Error loading capability ${capId}:`, error);
+                console.error(`D3CardBoard: Error processing capabilities reference:`, error);
                 resolve();
               }
             });
-          } else {
-            console.log(`D3CardBoard: Capability ${capId} already in cache: ${capabilityCache.get(capId)?.name}`);
+          }
+        } else {
+          // Regular capabilities case (direct ids)
+          for (const capId of capIds) {
+            if (!capId || capId === '_') continue; // Skip invalid or Gun.js metadata entries
+            
+            if (!capabilityCache.has(capId)) {
+              console.log(`D3CardBoard: Loading capability ${capId}`);
+              await new Promise<void>((resolve) => {
+                try {
+                  gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
+                    if (capData && capData.capability_id) {
+                      console.log(`D3CardBoard: Loaded capability ${capId}: ${capData.name}`);
+                      capabilityCache.set(capId, capData);
+                    } else {
+                      console.warn(`D3CardBoard: Capability ${capId} data not found or incomplete`);
+                    }
+                    resolve();
+                  });
+                  
+                  // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
+                  setTimeout(resolve, 500);
+                } catch (error) {
+                  console.error(`D3CardBoard: Error loading capability ${capId}:`, error);
+                  resolve();
+                }
+              });
+            } else {
+              console.log(`D3CardBoard: Capability ${capId} already in cache: ${capabilityCache.get(capId)?.name}`);
+            }
           }
         }
       } else {

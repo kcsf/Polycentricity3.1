@@ -33,7 +33,7 @@
   export let playerRole: Actor | null = null;
   
   // Local state
-  let viewMode: 'actors' | 'cards' = 'actors';
+  let viewMode: 'actors' | 'cards' = 'cards';
   let leftSidebarOpen = false;
   let rightSidebarOpen = false;
   let currentZoom = 1;
