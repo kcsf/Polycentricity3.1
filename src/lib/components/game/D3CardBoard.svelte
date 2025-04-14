@@ -915,21 +915,56 @@
         .attr("class", `center-circle card-center-circle${d.active ? " active" : ""}`);
     });
 
-    // Now add text group AFTER the circle to make it appear on top
-    const centralTextGroup = nodeElements
+    // Now add center icon group based on card.icon
+    const centralIconGroup = nodeElements
       .append("g")
-      .attr("class", "central-text-group")
-      .attr("pointer-events", "none"); // Make text group non-interactive
+      .attr("class", "central-icon-group")
+      .attr("pointer-events", "none"); // Make icon group non-interactive
 
-    // Only show the card type in the center (not the title - that will be below the node)
-    centralTextGroup
-      .append("text")
-      .attr("class", "card-type")
-      .attr("text-anchor", "middle")
-      .attr("dy", "0.3em") // Center vertically 
-      .attr("font-size", "10px")
-      .attr("fill", "#6B7280") // Medium gray
-      .text((d) => d.type === "card" ? (d.data as Card).type : "");
+    // Add icon based on card.icon (if available)
+    cardNodes.each(function(d) {
+      const card = d.data as Card;
+      const nodeGroup = d3.select(this);
+      const iconSize = 24; // Size of the icon
+      
+      // Determine which icon to use based on card.icon or fallback to card.type
+      let iconPath = "";
+      
+      // Default icons based on type
+      if (card.type === "Investor") {
+        iconPath = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09v.58c0 .73-.6 1.33-1.33 1.33h-.01c-.73 0-1.33-.6-1.33-1.33v-.6c-1.33-.28-2.51-1.01-3.01-2.24-.23-.55.2-1.16.8-1.16h.24c.37 0 .67.25.81.6.29.75 1.05 1.27 2.51 1.27 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21v-.6c0-.73.6-1.33 1.33-1.33h.01c.73 0 1.33.6 1.33 1.33v.62c1.38.34 2.25 1.2 2.63 2.26.2.55-.22 1.13-.81 1.13h-.26c-.37 0-.67-.26-.77-.62-.23-.76-.86-1.25-2.12-1.25-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.02 1.83-1.39 2.83-3.13 3.16z";
+      } else if (card.type === "Funder") {
+        iconPath = "M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z";
+      } else if (card.type === "Steward") {
+        iconPath = "M8.65 3.35 5.86 6.14c-.32.31-.1.85.35.85H8V13c0 1.1.9 2 2 2h2c.55 0 1-.45 1-1s-.45-1-1-1h-2V7h1.79c.45 0 .67-.54.35-.85L9.35 3.35c-.19-.19-.51-.19-.7 0zM16 7h-1.79c-.45 0-.67.54-.35.85l2.79 2.79c.2.2.51.2.71 0l2.79-2.79c.32-.31.09-.85-.35-.85H18v-4h-2c-.55 0-1 .45-1 1s.45 1 1 1h1v4zm-4 12c-.55 0-1 .45-1 1s.45 1 1 1h4c1.1 0 2-.9 2-2v-7h-1.79c-.45 0-.67-.54-.35-.85l2.79-2.79c.2-.2.51-.2.71 0l2.79 2.79c.32.31.1.85-.35.85H20v7c0 2.21-1.79 4-4 4h-4c-1.1 0-2-.9-2-2s.9-2 2-2h4c.55 0 1 .45 1 1s-.45 1-1 1h-4z";
+      } else {
+        // Default icon
+        iconPath = "M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2v1.5h2v-1.5zm0 3h-2v1.5h2v-1.5zm-3-3h-1.5V7H18V5h-1.5v3H18v1.5h1.5V7zm0 3h-1.5v1.5H18V13h1.5v-1.5h-1.5V10zm-18 1.5v2h10v-2H1z";
+      }
+      
+      // Try to use card.icon if available
+      if (card.icon) {
+        // Simple icon mapping - in a real implementation, you'd have more mappings
+        if (card.icon === "coins") {
+          iconPath = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09v.58c0 .73-.6 1.33-1.33 1.33h-.01c-.73 0-1.33-.6-1.33-1.33v-.6c-1.33-.28-2.51-1.01-3.01-2.24-.23-.55.2-1.16.8-1.16h.24c.37 0 .67.25.81.6.29.75 1.05 1.27 2.51 1.27 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21v-.6c0-.73.6-1.33 1.33-1.33h.01c.73 0 1.33.6 1.33 1.33v.62c1.38.34 2.25 1.2 2.63 2.26.2.55-.22 1.13-.81 1.13h-.26c-.37 0-.67-.26-.77-.62-.23-.76-.86-1.25-2.12-1.25-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.02 1.83-1.39 2.83-3.13 3.16z";
+        } else if (card.icon === "leaf") {
+          iconPath = "M6.05 8.05c-2.73 2.73-2.73 7.15-.02 9.88 1.47-3.4 4.09-6.24 7.36-7.93-2.77 2.34-4.71 5.61-5.39 9.32C8.32 19.97 9.15 20 10 20c3.93 0 7.5-1.6 10.11-4.17.37-.32.74-.65 1.09-.99C18.67 12.3 15.6 10 12 10c-1.36 0-2.64.28-3.81.76.19.41.3.83.43 1.24 1.03-.3 2.2-.54 3.38-.54 2.97 0 5.61 1.5 7.22 3.78-1.52 1.2-3.32 2.13-5.28 2.67 1.56-.67 2.92-1.69 4.07-2.96C15.91 13.73 14 13 12 13c-1.2 0-2.33.22-3.39.59.67.74 1.24 1.56 1.65 2.41.53-.27 1.11-.45 1.74-.45 1.84 0 3.36 1.35 3.67 3.12.11-.35.2-.71.29-1.07-1.17.05-2.38.89-2.62 2.1-.24-.71-.38-1.45-.44-2.19-.98-.93-1.62-2.07-1.89-3.37-.63.7-1.11 1.5-1.5 2.34.09 1.6.42 3.12.95 4.53-1.41-.97-2.4-2.43-2.79-4.09T6 14.12c1.04-1.83 2.74-3.21 4.8-3.84-1.64.51-3.13 1.38-4.36 2.55 1.38-3.8 4.89-6.55 9.1-6.81C13.95 3.4 11.03 1.77 8 1.77c-1.41 0-2.73.37-3.87 1.01l.92.92L3.71 5.03 2.29 3.62 3 2.91C4.53 1.7 6.47 1 8.5 1c4.35 0 8.06 2.63 9.68 6.4.5.12.97.26 1.43.42.72.25 1.41.54 2.06.88C19.83 5.27 16.63 2.9 12.82 2.18 16.33 3.1 19.14 5.67 20 8.99c.75.48 1.42 1.04 2 1.68V4c-3.33 0-6.55 1.09-9.19 3.05C10.77 5.63 8.07 5.07 5.36 6L5 6.1v.9c0 .38.04.75.11 1.12l.93-.07z";
+        } else if (card.icon === "seedling") {
+          iconPath = "M22 3.51V2L4 3.99V12H2c0 3.69 2.47 6.86 6 8.25V22h8v-1.75c3.53-1.39 6-4.56 6-8.25H10.5V8.5h11.5V3.5L22 3.51zM8 19.5C5.24 19.5 3 17.26 3 14.5h5v5zm8 0h-5v-5h5v5zm-6.5-11v-1l10.5-.85V7.5H9.5z";
+        } else if (card.icon === "users") {
+          iconPath = "M12 12.75c1.63 0 3.07.39 4.24.9.1.04.21.03.31-.02.4-.2.72-.59.72-1.06 0-.47-.32-.87-.72-1.06-.1-.05-.21-.06-.31-.02-1.17.51-2.61.9-4.24.9-1.63 0-3.07-.39-4.24-.9-.1-.04-.21-.03-.31.02-.4.2-.72.59-.72 1.06 0 .47.32.87.72 1.06.1.05.21.06.31.02 1.17-.51 2.61-.9 4.24-.9zm0 1.5c-1.5 0-3.29.4-5 1.5v-10c1.71 1.1 3.5 1.5 5 1.5s3.29-.4 5-1.5v10c-1.71-1.1-3.5-1.5-5-1.5zm0-12c-2.19 0-4 1.79-4 4s1.81 4 4 4 4-1.79 4-4-1.81-4-4-4zM9 7c.83 0 1.5-.67 1.5-1.5S9.83 4 9 4s-1.5.67-1.5 1.5S8.17 7 9 7zm6 0c.83 0 1.5-.67 1.5-1.5S15.83 4 15 4s-1.5.67-1.5 1.5S14.17 7 15 7z";
+        } 
+        // Add more mappings as needed
+      }
+      
+      // Add the icon using SVG path
+      nodeGroup.append("path")
+        .attr("class", "center-icon")
+        .attr("d", iconPath)
+        .attr("transform", `translate(-${iconSize/2}, -${iconSize/2}) scale(${iconSize/24})`) // Center and scale
+        .attr("fill", "#555555")
+        .attr("opacity", 0.7);
+    });
 
     // Create name labels outside/below the node for better readability
     const cardNameGroups = cardNodes
@@ -1388,6 +1423,12 @@
             .duration(150)
             .attr("opacity", 1);
           
+          // Hide the center icon when a wedge is hovered
+          thisNode.select(".center-icon")
+            .transition()
+            .duration(150)
+            .attr("opacity", 0);
+            
           // Update central text with explicit references
           thisNode.select(".count-text")
             .transition()
