@@ -122,7 +122,7 @@ export interface ChatMessage {
     content: string;
     timestamp: number;
     type: 'group' | 'private';
-    recipient_id?: string; // For private messages
+    recipient_id?: string | null; // For private messages, null for group messages
     read_by?: Record<string, boolean>; // Track which users have read this message
 }
 

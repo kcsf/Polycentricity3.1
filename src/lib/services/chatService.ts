@@ -26,7 +26,7 @@ export async function sendMessage(gameId: string, content: string, type: 'group'
             content: content,
             timestamp: Date.now(),
             type: type,
-            recipient_id: recipientId || null // Ensure this is never undefined
+            recipient_id: recipientId || null // Using null for group chats
         };
         
         // Determine the chat node path - fix the path format
