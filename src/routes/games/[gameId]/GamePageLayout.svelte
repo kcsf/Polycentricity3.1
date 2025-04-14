@@ -105,7 +105,7 @@
   }
 </script>
 
-<div class="game-page-layout relative h-screen flex flex-col overflow-hidden bg-surface-50-900-token" style="z-index: 10;">
+<div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-50-900-token" style="z-index: 10; height: calc(100vh - var(--app-bar-height, 64px))">
   <!-- Left Sidebar Toggle (Always Visible) -->
   <button 
     class="btn-sidebar-toggle absolute top-4 left-4 z-20 bg-surface-200 dark:bg-surface-700 rounded-md p-2 shadow-md border border-surface-300 dark:border-surface-600 hover:bg-surface-300 dark:hover:bg-surface-800 transition-colors" 
