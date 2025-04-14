@@ -105,11 +105,12 @@ export async function loginUser(email: string, password: string): Promise<User |
                         console.log(`Found Bjorn's user account: ${userId}`);
                         
                         // Make sure the userData has the correct email
-                        const bjornData = {
+                        const bjornData: User = {
                             ...userData,
                             email: 'bjorn@endogon.com',
                             name: 'Bjorn',
-                            user_id: userId
+                            user_id: userId,
+                            role: 'Admin'
                         };
                         
                         // Update user store
@@ -128,11 +129,11 @@ export async function loginUser(email: string, password: string): Promise<User |
                 setTimeout(() => {
                     if (!found) {
                         console.log('Creating Bjorn account');
-                        const bjornData = {
+                        const bjornData: User = {
                             user_id: 'u' + Math.floor(Math.random() * 1000),
                             email: 'bjorn@endogon.com',
                             name: 'Bjorn',
-                            role: 'Admin',
+                            role: 'Admin' as 'Admin',
                             created_at: Date.now()
                         };
                         
@@ -338,7 +339,7 @@ export async function updateUserToAdmin(email: string): Promise<boolean> {
         if (existingUser.found && existingUser.userId) {
             return new Promise((resolve) => {
                 gun.get(nodes.users).get(existingUser.userId).put({
-                    role: 'Admin'
+                    role: 'Admin' as 'Admin'
                 }, (ack: any) => {
                     if (ack.err) {
                         console.error('Error updating user role:', ack.err);
@@ -353,7 +354,7 @@ export async function updateUserToAdmin(email: string): Promise<boolean> {
         // If user is not found, create a new admin user
         else {
             console.log(`User with email ${email} not found. Creating new admin user.`);
-            const result = await createUserDirectly(email, email.split('@')[0], 'Admin');
+            const result = await createUserDirectly(email, email.split('@')[0], 'Admin' as 'Admin');
             return result.success;
         }
     } catch (error) {

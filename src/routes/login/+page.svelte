@@ -4,8 +4,9 @@
         import { loginUser } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
         
-        let email = '';
-        let password = '';
+        // Pre-populate with Bjorn's credentials for easy testing
+        let email = 'bjorn@endogon.com';
+        let password = 'admin123';
         let isLoggingIn = false;
         let error = '';
         
@@ -73,7 +74,7 @@
                                                 class="input" 
                                                 bind:value={email} 
                                                 placeholder="Enter your email"
-                                                autocomplete="username email"
+                                                autocomplete="email"
                                                 required
                                         />
                                 </label>

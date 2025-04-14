@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { getUserActors, getAvailableCardsForGame, createActor, getCard } from '$lib/services/gameService';
+    import { getUserActors, getAvailableCardsForGame, createActor, getCard, getGameActors } from '$lib/services/gameService';
     import type { Actor, Card } from '$lib/types';
     import * as icons from 'svelte-lucide';
     
