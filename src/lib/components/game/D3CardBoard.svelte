@@ -1225,15 +1225,31 @@
           .style("cursor", "pointer")
           .style("pointer-events", "all"); // Enable pointer events ONLY on wedges
           
-        // Add mouse event handlers to the wedge
+        // Create sub-wedges and labels ahead of time but hide them
+        const { subWedgesGroup, labelGroup } = createSubWedgesAndLabels(
+          categoryGroup, d, content, category, actorRadius, nodeId
+        );
+        
+        // Initially hide the sub-elements
+        subWedgesGroup.style("opacity", 0).style("visibility", "hidden");
+        labelGroup.style("opacity", 0).style("visibility", "hidden");
+        
+        // Add mouse event handlers to the wedge with improved event handling
         wedge.on("mouseenter", function() {
-          // Clear any existing expanded wedges first
+          // Reset all other wedges first to avoid state conflicts
           donutContainer.selectAll(".category-wedge")
-            .attr("d", function(d: any) { return categoryArc(d); })
-            .attr("filter", null);
-            
-          // Clear any displayed labels
-          donutContainer.selectAll(".sub-wedge-group, .label-group").remove();
+            .each(function() {
+              const wedgeEl = d3.select(this);
+              if (wedgeEl.node() !== this) {
+                wedgeEl.attr("d", function(d: any) { return categoryArc(d); })
+                      .attr("filter", null);
+              }
+            });
+          
+          // Hide all other sub-elements
+          donutContainer.selectAll(".sub-wedge-group, .label-group")
+            .style("opacity", 0)
+            .style("visibility", "hidden");
           
           // Reset center text
           countText.text("");
@@ -1243,26 +1259,43 @@
           d3.select(this)
             .attr("d", expandedArc(d))
             .attr("filter", "drop-shadow(0px 0px 3px rgba(0,0,0,0.2))");
+          
+          // Show THIS category's sub-elements with opacity transition
+          subWedgesGroup
+            .style("visibility", "visible")
+            .style("opacity", 1);
             
+          labelGroup
+            .style("visibility", "visible")
+            .style("opacity", 1);
+          
           // Add center text information
           countText.text(content.length.toString());
           categoryText.text(formatCategoryName(category));
-          
-          // Generate sub-wedges for this category's items
-          createSubWedges(categoryGroup, d, content, category, actorRadius, nodeId);
         });
         
-        // Simplify mouse leave to just be a simple reset
+        // Handle mouseleave with better state preservation
         wedge.on("mouseleave", function() {
-          // Using a timeout to prevent flickering when moving between elements
+          // Store reference to current elements to avoid closure issues
+          const currentWedge = d3.select(this);
+          const currentSubWedges = subWedgesGroup;
+          const currentLabels = labelGroup;
+          
+          // Add a small delay to prevent flickering
           setTimeout(() => {
             // Reset wedge appearance
-            d3.select(this)
+            currentWedge
               .attr("d", categoryArc(d))
               .attr("filter", null);
-              
-            // Remove the sub-wedges and labels
-            categoryGroup.selectAll(".sub-wedge-group, .label-group").remove();
+            
+            // Hide sub-elements with direct styling
+            currentSubWedges
+              .style("opacity", 0)
+              .style("visibility", "hidden");
+            
+            currentLabels
+              .style("opacity", 0)
+              .style("visibility", "hidden");
             
             // Clear center text
             countText.text("");
@@ -1273,15 +1306,15 @@
     });
   }
   
-  // New helper function to create sub-wedges
-  function createSubWedges(
+  // New helper function to create sub-wedges and labels at once
+  function createSubWedgesAndLabels(
     parentGroup: d3.Selection<any, any, any, any>, 
     parentWedge: d3.PieArcDatum<string>,
     items: string[],
     category: string,
     actorRadius: number,
     nodeId: string
-  ) {
+  ): { subWedgesGroup: d3.Selection<any, any, any, any>, labelGroup: d3.Selection<any, any, any, any> } {
     // Create a pie layout for the sub-items that fits into the parent wedge
     const subItemPie = d3.pie<string>()
       .startAngle(parentWedge.startAngle)
@@ -1299,7 +1332,7 @@
       .padAngle(0.01);
       
     // Create a group for all sub-wedges
-    const subWedgeGroup = parentGroup.append("g")
+    const subWedgesGroup = parentGroup.append("g")
       .attr("class", "sub-wedge-group")
       .style("pointer-events", "none");
       
@@ -1309,7 +1342,7 @@
       .style("pointer-events", "none");
       
     // Add sub-wedges
-    subWedgeGroup.selectAll(".sub-wedge")
+    subWedgesGroup.selectAll(".sub-wedge")
       .data(subItemData)
       .enter()
       .append("path")
@@ -1361,6 +1394,9 @@
         .attr("transform", `rotate(${textRotation},${x},${y})`)
         .text(itemName);
     });
+    
+    // Return both groups for external manipulation
+    return { subWedgesGroup, labelGroup };
   }
   
   // Update the radial menu display based on card properties
