@@ -541,11 +541,12 @@
 
   // Function to initialize D3 visualization
   function initializeGraph() {
-    console.log("Starting graph initialization");
-    if (!svgRef) {
-      console.error("SVG reference is missing");
-      return;
-    }
+    try {
+      console.log("Starting graph initialization");
+      if (!svgRef) {
+        console.error("SVG reference is missing");
+        return;
+      }
     
     // Set up dimensions based on container size
     const boundingRect = svgRef.parentElement?.getBoundingClientRect();
@@ -1720,6 +1721,9 @@
         .attr("fill", "#777777")
         .text("");
     });
+    } catch (err) {
+      console.error("D3CardBoard: Error initializing", err);
+    }
   }
   
   // All visualization is now handled directly by D3 in the addDonutRings() function
