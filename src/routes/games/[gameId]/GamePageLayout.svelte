@@ -66,10 +66,12 @@
   }
   
   function toggleLeftSidebar() {
+    console.log('Toggling left sidebar');
     leftSidebarOpen = !leftSidebarOpen;
   }
   
   function toggleRightSidebar() {
+    console.log('Toggling right sidebar');
     rightSidebarOpen = !rightSidebarOpen;
   }
   

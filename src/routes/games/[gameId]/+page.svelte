@@ -176,7 +176,7 @@
         }
 </script>
 
-<div class="container mx-auto">
+<div class="w-full">
         {#if isLoading}
                 <div class="card p-8 text-center">
                         <p>Loading game...</p>
