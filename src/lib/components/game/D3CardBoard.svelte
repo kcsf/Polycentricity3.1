@@ -20,7 +20,7 @@
   let height = 600;
   let hoveredNode: string | null = null;
   let hoveredCategory: string | null = null;
-  let subItems: SubItem[] = [];
+  // No longer using separate subItems array - using D3 to create all UI elements
   let categoryCount = 0;
   let nodeElements: d3.Selection<any, D3Node, any, any>; // Store node elements for access in multiple functions
   
@@ -1749,27 +1749,7 @@
   <svg bind:this={svgRef} width="100%" height="100%">
     <!-- D3 visualization will be rendered here -->
     
-    <!-- Radial menu items -->
-    {#each subItems as item (item.id)}
-      <g class="radial-item" transform={`translate(${item.nodeX}, ${item.nodeY})`}>
-        <!-- Calculate position using angle and radius -->
-        <circle 
-          class="radial-item-bg"
-          cx={item.radius * Math.cos(item.angle * Math.PI / 180)} 
-          cy={item.radius * Math.sin(item.angle * Math.PI / 180)}
-          r="20" 
-          stroke={item.categoryColor}
-        />
-        <text 
-          class="radial-item-text"
-          x={item.radius * Math.cos(item.angle * Math.PI / 180)} 
-          y={item.radius * Math.sin(item.angle * Math.PI / 180)}
-          fill="#333333"
-        >
-          {item.label}
-        </text>
-      </g>
-    {/each}
+    <!-- All visualization elements are now created directly with D3 -->
   </svg>
   
   <!-- Controls -->
