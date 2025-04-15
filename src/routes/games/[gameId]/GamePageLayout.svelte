@@ -332,7 +332,7 @@
             <div class="mt-3" transition:slide={{ duration: 200 }}>
               {#if playerRole}
                 <!-- Updated Role Card with new design matching admin deck browser -->
-                <div class="card overflow-hidden rounded-md shadow-md bg-surface-100-800 border border-surface-300-600">
+                <div class="card overflow-hidden rounded-md shadow-md bg-surface-200-800/90 border border-surface-300-600">
                   <!-- Card header with gradient background based on category -->
                   <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
                     <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
@@ -469,7 +469,7 @@
                   </div>
                 </div>
               {:else}
-                <div class="card p-4 bg-surface-100-800 border border-surface-300-600 text-center">
+                <div class="card p-4 bg-surface-200-800/90 border border-surface-300-600 text-center">
                   <svelte:component this={User} class="w-12 h-12 mx-auto mb-3 text-surface-500-400" />
                   <h3 class="text-base font-bold text-surface-900-50 mb-2">No Role Card Assigned</h3>
                   <p class="text-xs text-surface-700-300 mb-4">Join this game to select a role card and start playing</p>
