@@ -2308,6 +2308,13 @@
   
   <!-- Popover Container -->
   {#if popoverOpen && popoverNode}
+    {@const cardCategory = popoverNode.card_category || 'Supporters'}
+    {@const categoryColor = 
+      cardCategory === 'Funders' ? 'primary' : 
+      cardCategory === 'Providers' ? 'success' : 
+      cardCategory === 'Supporters' ? 'secondary' : 'tertiary'
+    }
+    
     <div 
       class="absolute max-w-md max-h-[80vh] overflow-y-auto"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
@@ -2326,18 +2333,7 @@
       {#if popoverNodeType === 'actor'}
         <!-- Card styled to match DeckBrowser format exactly -->
         {#if popoverNode}
-          <!-- Get values and capabilities as arrays -->
-          {@const valueNames = getCardValueNames(popoverNode)}
-          {@const capabilityNames = getCardCapabilityNames(popoverNode)}
-          
-          <!-- Get category color -->
-          {@const cardCategory = popoverNode.card_category || 'Supporters'}
-          {@const categoryColor = 
-            cardCategory === 'Funders' ? 'primary' : 
-            cardCategory === 'Providers' ? 'success' : 
-            cardCategory === 'Supporters' ? 'secondary' : 'tertiary'
-          }
-          
+          <!-- Get values directly from the card's values property -->
           <!-- Card styled to exactly match the example image -->
           <div class="card bg-surface-50-900 rounded-lg shadow-lg border border-surface-300-600 w-80">
             <!-- Header with gradient -->
@@ -2370,25 +2366,25 @@
                 <p class="text-surface-900-50">{popoverNode.backstory}</p>
               </div>
               
-              <!-- Values -->
-              {#if valueNames && valueNames.length > 0}
+              <!-- Values - Get from values object directly -->
+              {#if popoverNode.values && Object.keys(popoverNode.values).length > 0}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Values</h4>
                   <ul class="list-disc list-inside">
-                    {#each valueNames as value}
-                      <li>{value}</li>
+                    {#each Object.keys(popoverNode.values) as valueId}
+                      <li>{valueId.replace('value_', '').replaceAll('-', ' ')}</li>
                     {/each}
                   </ul>
                 </div>
               {/if}
               
-              <!-- Capabilities -->
-              {#if capabilityNames && capabilityNames.length > 0}
+              <!-- Capabilities - Get from capabilities object directly -->
+              {#if popoverNode.capabilities && Object.keys(popoverNode.capabilities).length > 0}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Capabilities</h4>
                   <ul class="list-disc list-inside">
-                    {#each capabilityNames as capability}
-                      <li>{capability}</li>
+                    {#each Object.keys(popoverNode.capabilities) as capabilityId}
+                      <li>{capabilityId.replace('capability_', '').replaceAll('-', ' ')}</li>
                     {/each}
                   </ul>
                 </div>
