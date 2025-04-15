@@ -665,7 +665,6 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
             // REFERENCE DETECTION: If values is a Gun.js reference, return default values
             if ('#' in card.values) {
                 const valuesRef = (card.values as any)['#'];
-                console.log(`[getCardValueNames] Found Gun reference to values: ${valuesRef}`);
                 
                 // Extract the card ID from the reference and pretend it's regular values
                 if (valuesRef.includes('cards/')) {
@@ -706,8 +705,6 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
             }
         }
 
-        console.log(`[getCardValueNames] Processing ${valueIds.length} value IDs:`, valueIds);
-        
         // If we have raw values (e.g. "Sustainability"), convert to IDs
         if (valueIds.some(id => !id.startsWith('value_'))) {
             valueIds = valueIds.map(v => v.startsWith('value_') ? v : `value_${v.toLowerCase().replace(/\s+/g, '-')}`);
@@ -764,7 +761,6 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         );
         
         const filteredNames = valueNames.filter(Boolean);
-        console.log(`[getCardValueNames] Retrieved:`, filteredNames);
         return filteredNames;
     } catch (error) {
         console.error("[getCardValueNames] Error:", error);
@@ -812,7 +808,6 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
             if ('#' in card.capabilities) {
                 // It's a Gun reference, need to retrieve capabilities via the reference
                 const capsRef = (card.capabilities as any)['#'];
-                console.log(`[getCardCapabilityNames] Found Gun reference to capabilities: ${capsRef}`);
                 
                 // Get the actual capabilities from the reference
                 try {
@@ -844,7 +839,6 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                     return [];
                     
                 } catch (e) {
-                    console.log(`[getCardCapabilityNames] Couldn't follow reference: ${e}`);
                     return [];
                 }
             } else {
@@ -866,8 +860,6 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
             }
         }
 
-        console.log(`[getCardCapabilityNames] Processing ${capIds.length} capability IDs:`, capIds);
-        
         // If we have raw capabilities (e.g. "Farming"), convert to IDs
         if (capIds.some(id => !id.startsWith('capability_'))) {
             capIds = capIds.map(c => c.startsWith('capability_') ? c : `capability_${c.toLowerCase().replace(/\s+/g, '-')}`);
@@ -901,7 +893,6 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         );
         
         const filteredNames = capNames.filter(Boolean);
-        console.log(`[getCardCapabilityNames] Retrieved:`, filteredNames);
         return filteredNames;
     } catch (error) {
         console.error("[getCardCapabilityNames] Error:", error);
