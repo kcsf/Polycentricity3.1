@@ -1545,7 +1545,6 @@
       // Add test data if needed
       // Start with some default values for immediate visualization
       if (!cardDataForViz.values || Object.keys(cardDataForViz.values).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Using standard values for card ${card.card_id}`);
         
         // Use standard values that match our database
         cardDataForViz.values = { 
@@ -1586,7 +1585,6 @@
         (async function loadRealValuesForFutureUpdates() {
           try {
             const valueNames = await getCardValueNames(card);
-            console.log(`Retrieved ${valueNames.length} real values for card:`, valueNames);
             
             // Update cache with real names if different
             valueNames.forEach((valueName) => {
@@ -1625,7 +1623,6 @@
       
       // Do the same for capabilities - start with standard values
       if (!cardDataForViz.capabilities || Object.keys(cardDataForViz.capabilities).filter(k => k !== '_' && k !== '#').length === 0) {
-        console.log(`Using standard capabilities for card ${card.card_id}`);
         
         // Default capabilities based on card type
         if (card.card_category === 'Funders') {
@@ -1704,7 +1701,6 @@
         (async function loadRealCapabilitiesForFutureUpdates() {
           try {
             const capabilityNames = await getCardCapabilityNames(card);
-            console.log(`Retrieved ${capabilityNames.length} real capabilities for card:`, capabilityNames);
             
             // Update cache with real capability names
             capabilityNames.forEach((capName) => {
@@ -1743,12 +1739,10 @@
       
       // Map legacy field names 
       if (!cardDataForViz.resources && card.rivalrous_resources) {
-        console.log(`Moving rivalrous_resources to resources for card ${card.card_id}`);
         cardDataForViz.resources = card.rivalrous_resources;
       }
       
       if (!cardDataForViz.intellectualProperty && card.intellectual_property) {
-        console.log(`Moving intellectual_property to intellectualProperty for card ${card.card_id}`);
         cardDataForViz.intellectualProperty = card.intellectual_property;
       }
       
@@ -2045,7 +2039,6 @@
 
   function handleSearch() {
     // Implement search logic here
-    console.log(`Searching for: ${searchTerm}`);
   }
 
   function handleZoomIn() {
@@ -2300,7 +2293,6 @@
       // Check if click is directly on SVG background (not on a node)
       if (event.target === svgRef) {
         popoverOpen = false;
-        console.log("Closing popover - background clicked");
       }
     }}
   >
