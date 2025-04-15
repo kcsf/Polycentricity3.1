@@ -347,37 +347,74 @@
                                         </div>
                                 </div>
                                 
-                                <!-- Actor Stats Card -->
+                                <!-- Actors Card -->
                                 {#if actorStats.length > 0}
                                         <div class="card variant-filled-surface p-0 shadow-xl overflow-hidden">
                                                 <header class="bg-tertiary-500/10 dark:bg-tertiary-500/20 p-5">
-                                                        <h2 class="h2 text-tertiary-700 dark:text-tertiary-300">Actor Stats</h2>
+                                                        <h2 class="h2 text-tertiary-700 dark:text-tertiary-300">Actors</h2>
                                                 </header>
                                                 
                                                 <div class="p-5">
                                                         <div class="space-y-3">
                                                                 {#each actorStats as actor}
-                                                                        <div class="card variant-soft p-3 border border-surface-300-600-token">
-                                                                                <div class="flex justify-between items-center">
+                                                                        <div class="card variant-soft p-4 border border-surface-300-600-token">
+                                                                                <!-- Actor Header -->
+                                                                                <div class="flex justify-between items-start">
                                                                                         <div>
-                                                                                                <p class="font-semibold text-primary-600 dark:text-primary-400">
+                                                                                                <p class="font-semibold text-primary-600 dark:text-primary-400 text-lg">
                                                                                                         {actor.name || actor.role_title || 'Unnamed Actor'}
                                                                                                 </p>
-                                                                                                <p class="text-xs text-surface-600-300-token flex items-center">
-                                                                                                        <icons.Tag size={12} class="mr-1" />
-                                                                                                        {actor.actor_id.substring(0, 8)}...
-                                                                                                </p>
+                                                                                                {#if actor.card_details?.role_title && actor.card_details?.role_title !== actor.name}
+                                                                                                        <p class="text-sm text-secondary-500 -mt-1">
+                                                                                                                {actor.card_details.role_title}
+                                                                                                        </p>
+                                                                                                {/if}
                                                                                         </div>
                                                                                         <div class="badge variant-filled-secondary">
-                                                                                                {actor.role_title || 'No Role'}
+                                                                                                {#if actor.card_details?.card_category}
+                                                                                                        {actor.card_details.card_category}
+                                                                                                {:else}
+                                                                                                        Actor
+                                                                                                {/if}
                                                                                         </div>
                                                                                 </div>
+                                                                                
+                                                                                <!-- Actor Properties -->
+                                                                                <div class="grid grid-cols-2 gap-2 my-2">
+                                                                                        {#if actor.actor_id}
+                                                                                                <div class="flex items-center text-xs">
+                                                                                                        <icons.Tag size={12} class="mr-1 text-tertiary-500" />
+                                                                                                        <span class="opacity-75 overflow-hidden overflow-ellipsis whitespace-nowrap" 
+                                                                                                              title={actor.actor_id}>{actor.actor_id.substring(0, 10)}...</span>
+                                                                                                </div>
+                                                                                        {/if}
+                                                                                        
+                                                                                        {#if actor.card_details?.card_number}
+                                                                                                <div class="flex items-center text-xs">
+                                                                                                        <icons.CreditCard size={12} class="mr-1 text-tertiary-500" />
+                                                                                                        <span>Card #{actor.card_details.card_number}</span>
+                                                                                                </div>
+                                                                                        {/if}
+                                                                                </div>
+                                                                                
+                                                                                <!-- Actor Description (if available) -->
+                                                                                {#if actor.card_details?.backstory}
+                                                                                        <div class="mt-2 text-xs text-surface-700-300-token">
+                                                                                                <p class="line-clamp-2">{actor.card_details.backstory}</p>
+                                                                                        </div>
+                                                                                {/if}
+                                                                                
+                                                                                <!-- Game Link -->
                                                                                 {#if actor.game_id}
-                                                                                        <div class="mt-2 text-xs flex justify-end">
+                                                                                        <div class="mt-3 text-xs flex justify-end">
                                                                                                 <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary">
                                                                                                         <icons.LogIn size={14} class="mr-1"/>
                                                                                                         View Game
                                                                                                 </a>
+                                                                                        </div>
+                                                                                {:else}
+                                                                                        <div class="mt-3 text-xs text-surface-600-300-token italic">
+                                                                                                Not currently in a game
                                                                                         </div>
                                                                                 {/if}
                                                                         </div>

@@ -216,7 +216,7 @@
                     {#if isUserInGame}
                         <button class="btn variant-filled-primary flex-1" on:click={enterGame}>
                             <icons.LogIn size={18} class="mr-2" />
-                            Enter Game
+                            View Game
                         </button>
                         
                         {#if !isCreator}
