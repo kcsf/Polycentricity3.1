@@ -1274,7 +1274,7 @@
         .attr("y", labelYPosition + (rectHeight / 2)) // Center text vertically in background
         .attr("font-size", "11px") 
         .attr("font-weight", "500")
-        .attr("fill", "var(--color-tertiary-900, #333333)") // Dark text on light background for better contrast
+        .attr("fill", "var(--node-text-light, var(--color-tertiary-900))") // Use themed variable for proper color in both modes
         .text(labelText);
     });
 

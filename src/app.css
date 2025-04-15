@@ -52,6 +52,25 @@ html[class~="dark"] body {
   background-color: var(--body-background-color-dark) !important;
 }
 
+/* Explicitly override heading colors for light/dark modes */
+html:not([class~="dark"]) .h3,
+html:not([class~="dark"]) h3 {
+  color: var(--heading-font-color) !important;
+}
+
+html[class~="dark"] .h3,
+html[class~="dark"] h3 {
+  color: var(--heading-font-color-dark) !important;
+}
+
+/* Reset any prefers-color-scheme media queries */
+@media (prefers-color-scheme: dark) {
+  html:not([class~="dark"]) .h3,
+  html:not([class~="dark"]) h3 {
+    color: var(--heading-font-color) !important;
+  }
+}
+
 /* Force Skeleton UI token backgrounds to respect dark class */
 html:not([class~="dark"]) .bg-surface-50-900-token {
   background-color: var(--theme-color-surface-50) !important;
