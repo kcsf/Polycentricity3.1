@@ -307,7 +307,7 @@
                         <div class="mt-5 flex justify-center sm:mt-0">
                             <button 
                                 class="btn variant-soft-primary"
-                                on:click={openProfileUpdateModal}
+                                onclick={openProfileUpdateModal}
                             >
                                 <icons.UserCog size={16} class="mr-2" /> 
                                 Update Profile
