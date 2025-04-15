@@ -8,6 +8,7 @@
         import UserCard from '$lib/components/UserCard.svelte';
         import GameCard from '$lib/components/GameCard.svelte';
         import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
+        import ActorEditModal from '$lib/components/ActorEditModal.svelte';
         import * as icons from 'svelte-lucide';
         // Dashboard specific imports
         
@@ -260,12 +261,20 @@
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
         
-        // Modal state for profile update
+        // Modal states
         let profileModalOpen = false;
+        let actorEditModalOpen = false;
+        let selectedActor = null;
         
         // Modal handling for profile update
         function openProfileUpdateModal() {
             profileModalOpen = true;
+        }
+        
+        // Modal handling for actor edit
+        function openActorEditModal(actor) {
+            selectedActor = actor;
+            actorEditModalOpen = true;
         }
 </script>
 
@@ -386,11 +395,18 @@
                                                                                                         </p>
                                                                                                 </div>
                                                                                                 
-                                                                                                <!-- Status indicator -->
-                                                                                                <div class="shrink-0">
+                                                                                                <!-- Status indicator and edit button -->
+                                                                                                <div class="shrink-0 flex items-center gap-2">
                                                                                                         <span class="badge {actor.status === 'active' ? 'variant-filled-success' : 'variant-filled-warning'}">
                                                                                                                 {actor.status || 'Unknown'}
                                                                                                         </span>
+                                                                                                        <button 
+                                                                                                            class="btn-icon variant-soft-tertiary btn-sm" 
+                                                                                                            title="Edit Actor" 
+                                                                                                            on:click={() => openActorEditModal(actor)}
+                                                                                                        >
+                                                                                                            <icons.Edit size={14} />
+                                                                                                        </button>
                                                                                                 </div>
                                                                                         </div>
                                                                                         
@@ -541,3 +557,6 @@
 
 <!-- Profile Update Modal -->
 <ProfileUpdateModal bind:open={profileModalOpen} />
+
+<!-- Actor Edit Modal -->
+<ActorEditModal bind:open={actorEditModalOpen} bind:actor={selectedActor} />
