@@ -1219,17 +1219,17 @@
 
     
     agreementNodes.each(function(d) {
-      // Add a small circle for agreement nodes - IMPROVED styling to match the reference image exactly
+      // Add a small circle for agreement nodes - UPDATED styling to match the reference image exactly
       d3.select(this)
         .append("circle")
         .attr("r", 17) // Smaller radius for agreement nodes
-        .attr("fill", "#ffffff") // Pure white fill that matches reference image
-        .attr("stroke", "#e5e5e5") // Very light gray stroke
+        .attr("fill", "#444444") // Dark gray/black fill to match reference image
+        .attr("stroke", "#333333") // Slightly darker stroke for definition
         .attr("stroke-width", 0.75) // Thinner stroke for subtle appearance
         .attr("class", "agreement-circle")
         .style("cursor", "pointer")
         .attr("pointer-events", "all") // Ensure clickable
-        .style("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.05))") // Very subtle shadow
+        .style("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.2))") // Subtle shadow
         .on("click", function(event) {
           event.stopPropagation(); // Prevent event bubbling
           
@@ -1270,15 +1270,15 @@
       // Create an agreement ID (AG1, AG2, etc.)
       const agreementId = `AG${agreementCounter++}`;
         
-      // Add a title text label - IMPROVED to match reference exactly
+      // Add a title text label - UPDATED to match reference exactly
       d3.select(this)
         .append("text")
         .attr("class", "agreement-title")
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle") // Better vertical centering
         .attr("font-size", "11px") // Smaller font for subtlety
-        .attr("font-weight", "normal") // Lighter weight to match reference
-        .attr("fill", "#999999") // Lighter gray text to match reference image
+        .attr("font-weight", "bold") // Bold weight to match reference
+        .attr("fill", "#FFFFFF") // White text to match reference image
         .text(agreementId);
         
       // Add agreement title below on hover (handled by CSS)
