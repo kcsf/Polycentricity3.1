@@ -356,129 +356,22 @@
         return;
       }
       
-      // Load Values with improved Gun.js reference handling
-      if (card.values && typeof card.values === 'object') {
-        // Filter out metadata key and handle the special Gun.js reference key properly
-        const valueIds = Object.keys(card.values)
-          .filter(id => id !== '_')
-          .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
-        
-        // Handle Gun.js references properly
-        if (valueIds.length === 1 && valueIds[0] === '#') {
-          // Handle reference case
-          const reference = card.values['#'];
-          if (typeof reference === 'string' && reference.includes('/values/')) {
-            await new Promise<void>((resolve) => {
-              try {
-                // Use a Set to track processed keys and avoid duplicates
-                const processedKeys = new Set<string>();
-                
-                // Direct query to the values soul reference
-                gun.get(reference).map().once((val, key) => {
-                  if (key === '_' || processedKeys.has(key)) return; // Skip metadata and duplicates
-                  
-                  processedKeys.add(key);
-                  
-                  gun.get(nodes.values).get(key).once((valueData: Value) => {
-                    if (valueData && valueData.value_id) {
-                      valueCache.set(key, valueData);
-                    }
-                  });
-                });
-                
-                setTimeout(resolve, 500);
-              } catch (error) {
-                resolve();
-              }
-            });
-          }
-        } else {
-          // Regular values case (direct ids)
-          for (const valueId of valueIds) {
-            if (!valueId || valueId === '_' || valueId === '#') continue; // Skip metadata and reference keys
-            
-            if (!valueCache.has(valueId)) {
-              await new Promise<void>((resolve) => {
-                try {
-                  gun.get(nodes.values).get(valueId).once((valueData: Value) => {
-                    if (valueData && valueData.value_id) {
-                      valueCache.set(valueId, valueData);
-                    }
-                    resolve();
-                  });
-                  
-                  // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
-                  setTimeout(resolve, 500);
-                } catch (error) {
-                  resolve();
-                }
-              });
-            }
-          }
-        }
-      }
+      console.log(`Loading details for card: ${card.card_id} - ${card.role_title}`);
+
+      // Use our new optimized functions to get values and capabilities
+      const valueNames = await getCardValueNames(card);
+      console.log(`Values for ${card.role_title}:`, valueNames);
       
-      // Load Capabilities with improved Gun.js reference handling
-      if (card.capabilities && typeof card.capabilities === 'object') {
-        // Filter out metadata key and handle the special Gun.js reference key properly
-        const capIds = Object.keys(card.capabilities)
-          .filter(id => id !== '_')
-          .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
-        
-        // Handle Gun.js references properly
-        if (capIds.length === 1 && capIds[0] === '#') {
-          // Handle reference case
-          const reference = card.capabilities['#'];
-          if (typeof reference === 'string' && reference.includes('/capabilities/')) {
-            await new Promise<void>((resolve) => {
-              try {
-                // Use a Set to track processed keys and avoid duplicates
-                const processedKeys = new Set<string>();
-                
-                // Direct query to the capabilities soul reference
-                gun.get(reference).map().once((val, key) => {
-                  if (key === '_' || processedKeys.has(key)) return; // Skip metadata and duplicates
-                  
-                  processedKeys.add(key);
-                  
-                  gun.get(nodes.capabilities).get(key).once((capData: Capability) => {
-                    if (capData && capData.capability_id) {
-                      capabilityCache.set(key, capData);
-                    }
-                  });
-                });
-                
-                setTimeout(resolve, 500);
-              } catch (error) {
-                resolve();
-              }
-            });
-          }
-        } else {
-          // Regular capabilities case (direct ids)
-          for (const capId of capIds) {
-            if (!capId || capId === '_' || capId === '#') continue; // Skip metadata and reference keys
-            
-            if (!capabilityCache.has(capId)) {
-              await new Promise<void>((resolve) => {
-                try {
-                  gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
-                    if (capData && capData.capability_id) {
-                      capabilityCache.set(capId, capData);
-                    }
-                    resolve();
-                  });
-                  
-                  // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
-                  setTimeout(resolve, 500);
-                } catch (error) {
-                  resolve();
-                }
-              });
-            }
-          }
-        }
-      }
+      const capabilityNames = await getCardCapabilityNames(card);
+      console.log(`Capabilities for ${card.role_title}:`, capabilityNames);
+      
+      // Store these values in the card's metadata for visualization
+      (card as any)._valueNames = valueNames;
+      (card as any)._capabilityNames = capabilityNames;
+      
+      // After loading values and capabilities,
+      // update the visualization if needed by triggering redraw
+      // (no need to do this for now since we're just logging values)
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
