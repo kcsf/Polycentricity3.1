@@ -8,9 +8,10 @@
   
   // Define the props
   export let node: any = null; // Will be a Card or Agreement
-  export let nodeType: 'actor' | 'agreement' = 'actor';
-  export let trigger: HTMLElement | null = null;
+  export let nodeType: 'actor' | 'agreement' = 'actor'; 
   export let open: boolean = false;
+  // We'll use positioning options instead of a trigger element
+  export let positionData = { x: 0, y: 0 };
 
   // Create the popover
   const {
@@ -113,10 +114,9 @@
   }
 </script>
 
-<!-- Bind the trigger to any element -->
-{#if trigger}
-  <div use:popoverTrigger={trigger}></div>
-{/if}
+<!-- We don't actually need to bind the trigger since we're using programmatic opening -->
+<!-- The trigger is just a reference used for positioning -->
+<div style="display: none;" use:popoverTrigger></div>
 
 <!-- The popover content -->
 {#if $isOpen}

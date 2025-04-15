@@ -2286,8 +2286,8 @@
   <NodePopover
     node={popoverNode}
     nodeType={popoverNodeType}
-    trigger={popoverTriggerElement}
     open={popoverOpen}
+    positionData={{ x: 0, y: 0 }}
     on:close={handlePopoverClose}
   />
   
