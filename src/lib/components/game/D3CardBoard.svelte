@@ -1057,6 +1057,10 @@
         popoverTriggerElement = event.currentTarget;
         popoverOpen = true;
         
+        // Debug log
+        console.log("Node clicked:", d.type, d.id, "Popover should open now");
+        console.log("Popover trigger element:", popoverTriggerElement);
+        
         // Prevent event bubbling to avoid issues with other click handlers
         event.stopPropagation();
       })
