@@ -2387,31 +2387,48 @@
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
-      <button 
-        class="btn btn-sm variant-ghost-surface absolute top-2 right-2 z-10" 
-        on:click={handlePopoverClose}
-        aria-label="Close popover"
-      >
-        ×
-      </button>
+      <div class="absolute top-2 right-2 z-10">
+        <button 
+          class="btn btn-sm variant-ghost-surface" 
+          on:click={handlePopoverClose}
+          aria-label="Close popover"
+        >
+          ×
+        </button>
+      </div>
       
       {#if popoverNodeType === 'actor'}
         <!-- Directly use the RoleCard component -->
-        <!-- Create an actor object from the card data -->
         {#if popoverNode}
+          <!-- Get values and capabilities as arrays -->
+          {@const valueNames = getCardValueNames(popoverNode)}
+          {@const capabilityNames = getCardCapabilityNames(popoverNode)}
+          
+          <!-- Convert goals to array if it's a string -->
+          {@const goalsList = popoverNode.goals ? 
+            (typeof popoverNode.goals === 'string' ? [popoverNode.goals] : []) : 
+            []
+          }
+          
+          <!-- Create resources array from rivalrous_resources -->
+          {@const resourcesList = []}
+          {#if popoverNode.rivalrous_resources && typeof popoverNode.rivalrous_resources === 'string'}
+            {@const _ = resourcesList.push(popoverNode.rivalrous_resources)}
+          {/if}
+          
           <!-- Create actor object to pass to RoleCard -->
           {@const actorData = {
-            actor_id: `temporary_${popoverNode.card_id}`,
+            actor_id: `temp_${popoverNode.card_id || Math.random().toString(36).substring(2, 15)}`,
             game_id: gameId,
             user_id: "",
             card_id: popoverNode.card_id,
             created_at: popoverNode.created_at,
             role_title: popoverNode.role_title,
             backstory: popoverNode.backstory,
-            values: getCardValueNames(popoverNode),
-            goals: popoverNode.goals,
-            skills: getCardCapabilityNames(popoverNode),
-            resources: popoverNode.rivalrous_resources ? [popoverNode.rivalrous_resources] : []
+            values: valueNames,
+            goals: goalsList,
+            skills: capabilityNames,
+            resources: resourcesList
           }}
           <div class="relative">
             <RoleCard actor={actorData} />
