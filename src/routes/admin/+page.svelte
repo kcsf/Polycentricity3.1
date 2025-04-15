@@ -3,6 +3,7 @@
   import * as icons from 'svelte-lucide';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
+  import { replaceState } from '$app/navigation';
   import { getGun, nodes as gunNodes } from '$lib/services/gunService';
   import BasicCytoscapeGraph from '$lib/components/admin/BasicCytoscapeGraph.svelte';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
@@ -468,7 +469,8 @@
       const urlParams = new URLSearchParams(window.location.search);
       urlParams.set('tab', tab);
       const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-      window.history.replaceState({}, '', newUrl);
+      // Use SvelteKit's replaceState instead of direct history API
+      replaceState(newUrl, {});
     }
   }
   
