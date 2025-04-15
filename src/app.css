@@ -3,16 +3,12 @@
 
 @import '@skeletonlabs/skeleton';
 @import '@skeletonlabs/skeleton/optional/presets';
-/* Use the fennec theme which supports both light and dark modes */
-/*@import '@skeletonlabs/skeleton/themes/fennec';  */
+/* Use the polyc theme which supports both light and dark modes */
 @import './polyc';
 @source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 
 /* Custom styles */
 :root {
-  /* Default to light mode unless overridden */
-  color-scheme: light;
-  
   /* Game Node size variables */
   --actor-node-radius: 35px;
   --agreement-node-radius: 17px;
@@ -25,21 +21,25 @@
 
 
 
-/* Ensure color-scheme respects the toggle */
-html[data-theme="fennec"][class~="dark"] {
+/* Ensure color-scheme respects Tailwind 4 scheme classes */
+html.scheme-dark,
+html.scheme-only-dark {
   color-scheme: dark;
 }
 
-html[data-theme="fennec"]:not([class~="dark"]) {
+html.scheme-light,
+html.scheme-only-light {
   color-scheme: light;
 }
 
 /* Debug Skeleton UI variables */
-:root:not([class~="dark"]) {
+:root.scheme-light,
+:root.scheme-only-light {
   --debug-light-surface-50: var(--theme-color-surface-50);
 }
 
-:root[class~="dark"] {
+:root.scheme-dark,
+:root.scheme-only-dark {
   --debug-dark-surface-900: var(--theme-color-surface-900);
 }
 
@@ -48,31 +48,27 @@ body {
   background-color: var(--body-background-color) !important;
 }
 
-html[class~="dark"] body {
+html.scheme-dark body,
+html.scheme-only-dark body {
   background-color: var(--body-background-color-dark) !important;
 }
 
-/* Explicitly override heading colors for light/dark modes */
-html:not([class~="dark"]) .h3,
-html:not([class~="dark"]) h3 {
+/* Explicitly override heading colors for light/dark modes using scheme classes */
+html.scheme-light .h3,
+html.scheme-light h3,
+html.scheme-only-light .h3,
+html.scheme-only-light h3 {
   color: var(--heading-font-color) !important;
 }
 
-html[class~="dark"] .h3,
-html[class~="dark"] h3 {
+html.scheme-dark .h3,
+html.scheme-dark h3,
+html.scheme-only-dark .h3,
+html.scheme-only-dark h3 {
   color: var(--heading-font-color-dark) !important;
 }
 
-/* Override any prefers-color-scheme media queries using Tailwind 4 scheme classes */
-html.scheme-only-light h3,
-html.scheme-only-light .h3 {
-  color: var(--heading-font-color) !important;
-}
-
-html.scheme-only-dark h3,
-html.scheme-only-dark .h3 {
-  color: var(--heading-font-color-dark) !important;
-}
+/* Now using the consolidated heading color rules above */
 
 /* Force Skeleton UI token backgrounds to respect scheme classes */
 html.scheme-light .bg-surface-50-900-token,
@@ -85,12 +81,14 @@ html.scheme-only-dark .bg-surface-50-900-token {
   background-color: var(--theme-color-surface-900) !important;
 }
 
-/* Force background for debugging */
-html:not([class~="dark"]) {
+/* Force background for debugging with Tailwind 4 scheme classes */
+html.scheme-light,
+html.scheme-only-light {
   background-color: var(--theme-color-surface-50) !important;
 }
 
-html[class~="dark"] {
+html.scheme-dark,
+html.scheme-only-dark {
   background-color: var(--theme-color-surface-900) !important;
 }
 
