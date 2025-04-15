@@ -47,6 +47,11 @@
   let playersExpanded = false;
   let chatExpanded = true;
   
+  // Card data for the player role
+  let playerCard: Card | null = null;
+  let playerCardValues: string[] = [];
+  let playerCardCapabilities: string[] = [];
+  
   // References to sidebar elements for click-outside detection
   let leftSidebarElement: HTMLElement;
   let rightSidebarElement: HTMLElement;
@@ -100,6 +105,39 @@
     } else {
       console.log('Right sidebar is now CLOSED');
     }
+  }
+  
+  // Fetch card data when playerRole changes
+  $: {
+    async function fetchCardData() {
+      if (playerRole && playerRole.card_id) {
+        console.log(`Fetching card data for card_id: ${playerRole.card_id}`);
+        // Get the card data
+        playerCard = await getCard(playerRole.card_id);
+        
+        if (playerCard) {
+          console.log('Card data retrieved:', playerCard);
+          
+          // Get the value and capability names
+          playerCardValues = await getCardValueNames(playerCard);
+          playerCardCapabilities = await getCardCapabilityNames(playerCard);
+          
+          console.log('Card values:', playerCardValues);
+          console.log('Card capabilities:', playerCardCapabilities);
+        } else {
+          console.error(`Failed to load card data for card_id: ${playerRole.card_id}`);
+          playerCard = null;
+          playerCardValues = [];
+          playerCardCapabilities = [];
+        }
+      } else {
+        playerCard = null;
+        playerCardValues = [];
+        playerCardCapabilities = [];
+      }
+    }
+    
+    fetchCardData();
   }
   
   // Handle zoom in/out
@@ -301,33 +339,46 @@
                       <svelte:component this={User} class="w-5 h-5" />
                     </div>
                     <div class="flex items-center justify-between pl-10">
-                      <h3 class="text-base font-bold truncate">{playerRole.custom_name || playerRole.role_title || 'Unnamed Role'}</h3>
-                      {#if playerRole.card_number}
-                        <span class="badge bg-surface-100-800 text-surface-900-50 text-xs px-2 py-0.5 rounded-full">{playerRole.card_number}</span>
+                      <h3 class="text-base font-bold truncate">
+                        {#if playerCard}
+                          {playerCard.role_title || 'Unnamed Card'}
+                          {#if playerRole.custom_name && playerRole.custom_name !== playerCard.role_title}
+                            <span class="text-xs opacity-75">({playerRole.custom_name})</span>
+                          {/if}
+                        {:else}
+                          {playerRole.custom_name || 'Unnamed Role'}
+                        {/if}
+                      </h3>
+                      {#if playerCard && playerCard.card_number}
+                        <span class="badge bg-surface-100-800 text-surface-900-50 text-xs px-2 py-0.5 rounded-full">{playerCard.card_number}</span>
                       {/if}
                     </div>
                     <div class="flex items-center gap-2 text-xs mt-1 pl-10">
-                      <span>{playerRole.type || 'Actor'}</span>
+                      {#if playerCard}
+                        <span>{playerCard.card_category || 'Card'}</span>
+                      {:else}
+                        <span>{playerRole.type || 'Actor'}</span>
+                      {/if}
                       <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{playerRole.actor_type || 'Custom'}</span>
                     </div>
                   </header>
                   
-                  <!-- Card body with actor details -->
+                  <!-- Card body with card details -->
                   <div class="p-2 space-y-2">
                     <!-- Backstory -->
-                    {#if playerRole.backstory}
+                    {#if playerCard && playerCard.backstory}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Backstory</h4>
-                        <p class="text-xs text-surface-900-50">{playerRole.backstory}</p>
+                        <p class="text-xs text-surface-900-50">{playerCard.backstory}</p>
                       </div>
                     {/if}
                     
                     <!-- Values -->
-                    {#if playerRole.values && playerRole.values.length > 0}
+                    {#if playerCardValues && playerCardValues.length > 0}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
                         <ul class="list-disc list-inside text-xs text-surface-900-50">
-                          {#each playerRole.values as value}
+                          {#each playerCardValues as value}
                             <li>{value}</li>
                           {/each}
                         </ul>
@@ -335,27 +386,19 @@
                     {/if}
                     
                     <!-- Goals -->
-                    {#if playerRole.goals && (typeof playerRole.goals === 'string' ? playerRole.goals : playerRole.goals.length > 0)}
+                    {#if playerCard && playerCard.goals}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Goals</h4>
-                        {#if typeof playerRole.goals === 'string'}
-                          <p class="text-xs text-surface-900-50">{playerRole.goals}</p>
-                        {:else}
-                          <ul class="list-disc list-inside text-xs text-surface-900-50">
-                            {#each playerRole.goals as goal}
-                              <li>{goal}</li>
-                            {/each}
-                          </ul>
-                        {/if}
+                        <p class="text-xs text-surface-900-50">{playerCard.goals}</p>
                       </div>
                     {/if}
                     
                     <!-- Capabilities -->
-                    {#if playerRole.capabilities && playerRole.capabilities.length > 0}
+                    {#if playerCardCapabilities && playerCardCapabilities.length > 0}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
                         <div class="flex flex-wrap gap-1">
-                          {#each playerRole.capabilities as capability}
+                          {#each playerCardCapabilities as capability}
                             <span class="badge variant-soft-secondary text-xs">{capability}</span>
                           {/each}
                         </div>
@@ -363,27 +406,65 @@
                     {/if}
                     
                     <!-- Resources -->
-                    {#if playerRole.rivalrous_resources || (playerRole.resources && playerRole.resources.length > 0)}
+                    {#if playerCard && playerCard.rivalrous_resources}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Resources</h4>
-                        {#if playerRole.rivalrous_resources}
-                          <p class="text-xs text-surface-900-50">{playerRole.rivalrous_resources}</p>
-                        {:else if playerRole.resources && playerRole.resources.length > 0}
-                          <div class="flex flex-wrap gap-1">
-                            {#each playerRole.resources as resource}
-                              <span class="badge variant-soft-tertiary text-xs">{resource}</span>
-                            {/each}
-                          </div>
-                        {/if}
+                        <p class="text-xs text-surface-900-50">{playerCard.rivalrous_resources}</p>
                       </div>
                     {/if}
                     
                     <!-- IP -->
-                    {#if playerRole.intellectual_property}
+                    {#if playerCard && playerCard.intellectual_property}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">IP</h4>
-                        <p class="text-xs text-surface-900-50">{playerRole.intellectual_property}</p>
+                        <p class="text-xs text-surface-900-50">{playerCard.intellectual_property}</p>
                       </div>
+                    {/if}
+                    
+                    <!-- Fallback to Actor data if Card data is not available -->
+                    {#if !playerCard}
+                      {#if playerRole.backstory}
+                        <div>
+                          <h4 class="text-xs font-semibold text-surface-700-300">Backstory</h4>
+                          <p class="text-xs text-surface-900-50">{playerRole.backstory}</p>
+                        </div>
+                      {/if}
+                      
+                      {#if playerRole.values && playerRole.values.length > 0}
+                        <div>
+                          <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
+                          <ul class="list-disc list-inside text-xs text-surface-900-50">
+                            {#each playerRole.values as value}
+                              <li>{value}</li>
+                            {/each}
+                          </ul>
+                        </div>
+                      {/if}
+                      
+                      {#if playerRole.capabilities && playerRole.capabilities.length > 0}
+                        <div>
+                          <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
+                          <div class="flex flex-wrap gap-1">
+                            {#each playerRole.capabilities as capability}
+                              <span class="badge variant-soft-secondary text-xs">{capability}</span>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                      
+                      {#if playerRole.rivalrous_resources}
+                        <div>
+                          <h4 class="text-xs font-semibold text-surface-700-300">Resources</h4>
+                          <p class="text-xs text-surface-900-50">{playerRole.rivalrous_resources}</p>
+                        </div>
+                      {/if}
+                      
+                      {#if playerRole.intellectual_property}
+                        <div>
+                          <h4 class="text-xs font-semibold text-surface-700-300">IP</h4>
+                          <p class="text-xs text-surface-900-50">{playerRole.intellectual_property}</p>
+                        </div>
+                      {/if}
                     {/if}
                   </div>
                 </div>
