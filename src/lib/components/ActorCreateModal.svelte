@@ -113,11 +113,12 @@
     tabindex="0"
 >
     <!-- Modal Content -->
-    <button 
+    <div 
         class="bg-surface-50 dark:bg-surface-900 rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
         role="document"
+        tabindex="-1"
     >
         <!-- Modal Header -->
         <div class="bg-primary-500/10 dark:bg-primary-500/20 p-4">
@@ -201,6 +202,6 @@
                 </div>
             </form>
         </div>
-    </button>
+    </div>
 </div>
 {/if}
