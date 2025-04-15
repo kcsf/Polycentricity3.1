@@ -8,6 +8,7 @@
     ZoomOut, 
     Plus, 
     User, 
+    UserPlus,
     Users,
     MessageSquare,
     Info,
@@ -290,13 +291,110 @@
           {#if yourRoleExpanded}
             <div class="mt-3" transition:slide={{ duration: 200 }}>
               {#if playerRole}
-                <div class="text-sm font-bold mb-2">{playerRole.custom_name || 'Unnamed Role'}</div>
-                <RoleCard actor={playerRole} showDetails={true} compact={true} />
+                <!-- Updated Role Card with new design matching admin deck browser -->
+                <div class="card overflow-hidden rounded-md shadow-md bg-surface-100-800 border border-surface-300-600">
+                  <!-- Card header with gradient background based on category -->
+                  <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
+                    <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
+                      <svelte:component this={User} class="w-5 h-5" />
+                    </div>
+                    <div class="flex items-center justify-between pl-10">
+                      <h3 class="text-base font-bold truncate">{playerRole.custom_name || playerRole.role_title || 'Unnamed Role'}</h3>
+                      {#if playerRole.card_number}
+                        <span class="badge bg-surface-100-800 text-surface-900-50 text-xs px-2 py-0.5 rounded-full">{playerRole.card_number}</span>
+                      {/if}
+                    </div>
+                    <div class="flex items-center gap-2 text-xs mt-1 pl-10">
+                      <span>{playerRole.type || 'Actor'}</span>
+                      <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{playerRole.actor_type || 'Custom'}</span>
+                    </div>
+                  </header>
+                  
+                  <!-- Card body with actor details -->
+                  <div class="p-2 space-y-2">
+                    <!-- Backstory -->
+                    {#if playerRole.backstory}
+                      <div>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Backstory</h4>
+                        <p class="text-xs text-surface-900-50">{playerRole.backstory}</p>
+                      </div>
+                    {/if}
+                    
+                    <!-- Values -->
+                    {#if playerRole.values && playerRole.values.length > 0}
+                      <div>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
+                        <ul class="list-disc list-inside text-xs text-surface-900-50">
+                          {#each playerRole.values as value}
+                            <li>{value}</li>
+                          {/each}
+                        </ul>
+                      </div>
+                    {/if}
+                    
+                    <!-- Goals -->
+                    {#if playerRole.goals && (typeof playerRole.goals === 'string' ? playerRole.goals : playerRole.goals.length > 0)}
+                      <div>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Goals</h4>
+                        {#if typeof playerRole.goals === 'string'}
+                          <p class="text-xs text-surface-900-50">{playerRole.goals}</p>
+                        {:else}
+                          <ul class="list-disc list-inside text-xs text-surface-900-50">
+                            {#each playerRole.goals as goal}
+                              <li>{goal}</li>
+                            {/each}
+                          </ul>
+                        {/if}
+                      </div>
+                    {/if}
+                    
+                    <!-- Capabilities -->
+                    {#if playerRole.capabilities && playerRole.capabilities.length > 0}
+                      <div>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
+                        <div class="flex flex-wrap gap-1">
+                          {#each playerRole.capabilities as capability}
+                            <span class="badge variant-soft-secondary text-xs">{capability}</span>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+                    
+                    <!-- Resources -->
+                    {#if playerRole.rivalrous_resources || (playerRole.resources && playerRole.resources.length > 0)}
+                      <div>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Resources</h4>
+                        {#if playerRole.rivalrous_resources}
+                          <p class="text-xs text-surface-900-50">{playerRole.rivalrous_resources}</p>
+                        {:else if playerRole.resources && playerRole.resources.length > 0}
+                          <div class="flex flex-wrap gap-1">
+                            {#each playerRole.resources as resource}
+                              <span class="badge variant-soft-tertiary text-xs">{resource}</span>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    {/if}
+                    
+                    <!-- IP -->
+                    {#if playerRole.intellectual_property}
+                      <div>
+                        <h4 class="text-xs font-semibold text-surface-700-300">IP</h4>
+                        <p class="text-xs text-surface-900-50">{playerRole.intellectual_property}</p>
+                      </div>
+                    {/if}
+                  </div>
+                </div>
               {:else}
-                <div class="text-sm italic">No role assigned yet</div>
-                <a href="/games/{gameId}/join" class="btn btn-sm variant-ghost-primary mt-2">
-                  Join Game
-                </a>
+                <div class="card p-4 bg-surface-100-800 border border-surface-300-600 text-center">
+                  <svelte:component this={User} class="w-12 h-12 mx-auto mb-3 text-surface-500-400" />
+                  <h3 class="text-base font-bold text-surface-900-50 mb-2">No Role Assigned</h3>
+                  <p class="text-xs text-surface-700-300 mb-4">Join this game to select a role and start playing</p>
+                  <a href="/games/{gameId}/join" class="btn btn-sm variant-filled-primary w-full">
+                    <svelte:component this={UserPlus} class="w-4 h-4 mr-2" />
+                    Join Game
+                  </a>
+                </div>
               {/if}
             </div>
           {/if}
