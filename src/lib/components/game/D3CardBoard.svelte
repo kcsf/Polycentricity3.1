@@ -1277,6 +1277,34 @@
           return agreement.title || "Untitled Agreement";
         });
     });
+    
+    // Create central text elements LAST to ensure proper layering
+    // This ensures text appears above all other elements
+    cardNodes.each(function(nodeData) {
+      const node = d3.select(this);
+      
+      // Create central text group as the last child element for proper layering
+      const centerTextGroup = node.append("g")
+        .attr("class", "center-text-group")
+        .attr("pointer-events", "none");
+      
+      centerTextGroup.append("text")
+        .attr("class", "count-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "-0.2em")
+        .attr("font-size", "18px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#555555")
+        .text("");
+        
+      centerTextGroup.append("text")
+        .attr("class", "options-text") 
+        .attr("text-anchor", "middle")
+        .attr("dy", "1em")
+        .attr("font-size", "12px")
+        .attr("fill", "#777777")
+        .text("");
+    });
 
     // Handle zoom functionality with better event handling
     const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
@@ -1499,29 +1527,6 @@
       const node = d3.select(this);
       const card = nodeData.data as Card;
       const nodeId = nodeData.id;
-      
-      // Create central text elements
-      const centerTextGroup = node.append("g")
-        .attr("class", "center-text-group")
-        .attr("pointer-events", "none")
-        .style("z-index", "10"); // Ensure text appears above other elements
-      
-      centerTextGroup.append("text")
-        .attr("class", "count-text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "-0.2em")
-        .attr("font-size", "18px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#555555")
-        .text("");
-        
-      centerTextGroup.append("text")
-        .attr("class", "options-text") 
-        .attr("text-anchor", "middle")
-        .attr("dy", "1em")
-        .attr("font-size", "12px")
-        .attr("fill", "#777777")
-        .text("");
       
       // Process card data for visualization
       const cardDataForViz = { ...(card as any) };
