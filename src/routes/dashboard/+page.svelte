@@ -405,7 +405,7 @@
                                                                                                             title="Edit Actor" 
                                                                                                             on:click={() => openActorEditModal(actor)}
                                                                                                         >
-                                                                                                            <icons.Edit size={14} />
+                                                                                                            <svelte:component this={icons.Pencil} size={14} />
                                                                                                         </button>
                                                                                                 </div>
                                                                                         </div>
