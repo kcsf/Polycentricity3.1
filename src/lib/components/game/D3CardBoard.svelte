@@ -2291,7 +2291,7 @@
   <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card variant-filled-surface bg-surface-100-800-token rounded-lg shadow-xl p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      class="card bg-surface-100-900/80 rounded-lg shadow-xl p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
