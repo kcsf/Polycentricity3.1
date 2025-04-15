@@ -5,7 +5,6 @@
 @import '@skeletonlabs/skeleton/optional/presets';
 /* Use the polyc theme which supports both light and dark modes */
 @import './polyc';
-@source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 
 /* Custom styles */
 :root {
@@ -17,79 +16,80 @@
   /* Game colors */
   --node-bg-color: rgba(255, 255, 255, 0.9);
   --node-stroke: #e5e5e5;
+
+  /* Redefine Skeleton UI variables to use a single value controlled by the dark class */
+  /* Light mode defaults from polyc.css */
+  --base-font-color: #4F5B53; /* From --color-surface-900 */
+  --base-font-color-dark: #4F5B53; /* Set to light mode value by default */
+  --heading-font-color: #5A7A67; /* From --color-secondary-950 */
+  --heading-font-color-dark: #5A7A67; /* Set to light mode value by default */
+  --anchor-font-color: #9C6156; /* From --color-primary-600 */
+  --anchor-font-color-dark: #9C6156; /* Set to light mode value by default */
+  --body-background-color: #F5F5E8; /* From --color-surface-50 */
+  --body-background-color-dark: #F5F5E8; /* Set to light mode value by default */
+
+  /* Redefine token variables */
+  --color-surface-50-950: var(--color-surface-50);
+  --color-surface-100-900: var(--color-surface-100);
+  --color-surface-200-800: var(--color-surface-200);
+  --color-surface-700-300: var(--color-surface-700);
 }
 
+html[class~="dark"] {
+  /* Dark mode overrides from polyc.css */
+  --base-font-color: #DDE5D6; /* From --color-surface-100 */
+  --base-font-color-dark: #DDE5D6; /* Ensure it matches */
+  --heading-font-color: #D6E8DE; /* From --color-secondary-50 */
+  --heading-font-color-dark: #D6E8DE; /* Ensure it matches */
+  --anchor-font-color: #A66A5E; /* From --color-primary-500 */
+  --anchor-font-color-dark: #A66A5E; /* Ensure it matches */
+  --body-background-color: #222220; /* From --color-surface-950 */
+  --body-background-color-dark: #222220; /* Ensure it matches */
 
-
-/* Ensure color-scheme respects Tailwind 4 scheme classes */
-html.scheme-dark,
-html.scheme-only-dark {
-  color-scheme: dark;
+  /* Redefine token variables for dark mode */
+  --color-surface-50-950: var(--color-surface-950);
+  --color-surface-100-900: var(--color-surface-900);
+  --color-surface-200-800: var(--color-surface-800);
+  --color-surface-700-300: var(--color-surface-300);
 }
 
-html.scheme-light,
-html.scheme-only-light {
+/* Ensure color-scheme respects the dark class */
+html:not([class~="dark"]) {
   color-scheme: light;
 }
 
-/* Debug Skeleton UI variables */
-:root.scheme-light,
-:root.scheme-only-light {
-  --debug-light-surface-50: var(--theme-color-surface-50);
+html[class~="dark"] {
+  color-scheme: dark;
 }
 
-:root.scheme-dark,
-:root.scheme-only-dark {
-  --debug-dark-surface-900: var(--theme-color-surface-900);
+/* Game CSS */
+.node-actor {
+  cursor: pointer;
 }
 
-/* Override Skeleton UI's prefers-color-scheme media queries */
-body {
-  background-color: var(--body-background-color) !important;
+.node-agreement {
+  cursor: pointer;
 }
 
-html.scheme-dark body,
-html.scheme-only-dark body {
-  background-color: var(--body-background-color-dark) !important;
+.link-line {
+  stroke: var(--link-color);
+  stroke-width: 1.5px;
 }
 
-/* Explicitly override heading colors for light/dark modes using scheme classes */
-html.scheme-light .h3,
-html.scheme-light h3,
-html.scheme-only-light .h3,
-html.scheme-only-light h3 {
-  color: var(--heading-font-color) !important;
+.name-text {
+  fill: var(--text-primary);
 }
 
-html.scheme-dark .h3,
-html.scheme-dark h3,
-html.scheme-only-dark .h3,
-html.scheme-only-dark h3 {
-  color: var(--heading-font-color-dark) !important;
+.name-bg {
+  fill: var(--node-bg-color);
+  stroke: var(--node-stroke);
+  stroke-width: 1px;
 }
 
-/* Now using the consolidated heading color rules above */
-
-/* Force Skeleton UI token backgrounds to respect scheme classes */
-html.scheme-light .bg-surface-50-900-token,
-html.scheme-only-light .bg-surface-50-900-token {
-  background-color: var(--theme-color-surface-50) !important;
-}
-
-html.scheme-dark .bg-surface-50-900-token,
-html.scheme-only-dark .bg-surface-50-900-token {
-  background-color: var(--theme-color-surface-900) !important;
-}
-
-/* Force background for debugging with Tailwind 4 scheme classes */
-html.scheme-light,
-html.scheme-only-light {
-  background-color: var(--theme-color-surface-50) !important;
-}
-
-html.scheme-dark,
-html.scheme-only-dark {
-  background-color: var(--theme-color-surface-900) !important;
+.game-header {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid #e5e5e5;
 }
 
 @layer components {
@@ -128,38 +128,4 @@ html.scheme-only-dark {
 
 .spinner-third {
   animation: spin 1s linear infinite;
-}
-
-
-/* OLD GAME CSS */
-.node-actor {
-  cursor: pointer;
-}
-
-.node-actor.active .center-circle {
-}
-
-.node-agreement {
-  cursor: pointer;
-}
-
-.link-line {
-  stroke: var(--link-color);
-  stroke-width: 1.5px;
-}
-
-.name-text {
-  fill: var(--text-primary);
-}
-
-.name-bg {
-  fill: var(--node-bg-color);
-  stroke: var(--node-stroke);
-  stroke-width: 1px;
-}
-
-.game-header {
-  background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(4px);
-  border-bottom: 1px solid #e5e5e5;
 }

@@ -42,36 +42,18 @@ function applyTheme(theme: Theme): void {
 
   const htmlElement = document.documentElement;
 
-  // First, remove all scheme-related classes to start fresh
-  htmlElement.classList.remove("dark", "light", "scheme-dark", "scheme-light", "scheme-only-dark", "scheme-only-light");
-  
-  // Now add the appropriate classes for Tailwind 4
   if (theme === "dark") {
-    // Add both the legacy 'dark' class and new Tailwind 4 scheme classes
     htmlElement.classList.add("dark");
-    htmlElement.classList.add("scheme-dark");
-    // Force dark mode regardless of media queries (prevents auto-switching)
-    htmlElement.classList.add("scheme-only-dark");
-    
-    // Also set the color-scheme CSS property for browser controls
     htmlElement.style.colorScheme = "dark";
-    
     console.log(
-      "themeStore: Applied dark mode with Tailwind 4 scheme classes",
+      "themeStore: Applied dark mode: added dark class, color-scheme: dark",
     );
     console.log(`themeStore: HTML classList: ${htmlElement.classList}`);
   } else {
-    // Add light theme classes for Tailwind 4
-    htmlElement.classList.add("light");
-    htmlElement.classList.add("scheme-light");
-    // Force light mode regardless of media queries
-    htmlElement.classList.add("scheme-only-light");
-    
-    // Also set the color-scheme CSS property for browser controls
+    htmlElement.classList.remove("dark");
     htmlElement.style.colorScheme = "light";
-    
     console.log(
-      "themeStore: Applied light mode with Tailwind 4 scheme classes",
+      "themeStore: Applied light mode: removed dark class, color-scheme: light",
     );
     console.log(`themeStore: HTML classList: ${htmlElement.classList}`);
   }
@@ -87,8 +69,18 @@ function applyTheme(theme: Theme): void {
   const surface900 = rootStyle
     .getPropertyValue("--theme-color-surface-900")
     .trim();
+  const fontColor = rootStyle
+    .getPropertyValue(
+      theme === "dark" ? "--base-font-color-dark" : "--base-font-color",
+    )
+    .trim();
+  const headingColor = rootStyle
+    .getPropertyValue(
+      theme === "dark" ? "--heading-font-color-dark" : "--heading-font-color",
+    )
+    .trim();
   console.log(
-    `themeStore: After applying ${theme} mode - surface-50: ${surface50}, surface-900: ${surface900}`,
+    `themeStore: After applying ${theme} mode - surface-50: ${surface50}, surface-900: ${surface900}, fontColor: ${fontColor}, headingColor: ${headingColor}`,
   );
 }
 
