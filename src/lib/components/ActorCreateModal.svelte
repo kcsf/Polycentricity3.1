@@ -104,11 +104,19 @@
 
 <!-- Modal Background Overlay -->
 {#if open}
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick={() => open = false}>
+<div 
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" 
+    onclick={() => open = false}
+    onkeydown={(e) => e.key === 'Escape' && (open = false)}
+    role="dialog"
+    aria-modal="true"
+>
     <!-- Modal Content -->
     <div 
         class="bg-surface-50 dark:bg-surface-900 rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden"
         onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="document"
     >
         <!-- Modal Header -->
         <div class="bg-primary-500/10 dark:bg-primary-500/20 p-4">
