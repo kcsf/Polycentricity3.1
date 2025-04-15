@@ -411,6 +411,17 @@
                                                                                                         </p>
                                                                                                 </div>
                                                                                                 
+                                                                                                <!-- Edit button -->
+                                                                                                <div class="shrink-0 mr-2">
+                                                                                                        <button 
+                                                                                                                class="btn-icon btn-icon-sm variant-soft"
+                                                                                                                title="Edit Actor"
+                                                                                                                onclick={() => openActorEditModal(actor)}
+                                                                                                        >
+                                                                                                                <icons.Edit size={14} />
+                                                                                                        </button>
+                                                                                                </div>
+                                                                                                
                                                                                                 <!-- Status indicator -->
                                                                                                 <div class="shrink-0">
                                                                                                         <span class="badge {actor.status === 'active' ? 'variant-filled-success' : 'variant-filled-warning'}">
@@ -566,3 +577,9 @@
 
 <!-- Profile Update Modal -->
 <ProfileUpdateModal bind:open={profileModalOpen} />
+
+<!-- Actor Edit Modal -->
+<ActorEditModal bind:open={actorEditModalOpen} actor={selectedActor} />
+
+<!-- Actor Create Modal -->
+<ActorCreateModal bind:open={actorCreateModalOpen} />
