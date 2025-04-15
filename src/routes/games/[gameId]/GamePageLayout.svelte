@@ -18,7 +18,9 @@
   } from 'svelte-lucide';
   import gameStore, { activeActorId } from '$lib/stores/enhancedGameStore';
   import { userStore } from '$lib/stores/userStore';
-  import type { Game, Actor } from '$lib/types';
+  import type { Game, Actor, Card } from '$lib/types';
+  import { getCard } from '$lib/services/gameService';
+  import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   
   // Components
   import GameBoard from '$lib/components/game/GameBoard.svelte';
