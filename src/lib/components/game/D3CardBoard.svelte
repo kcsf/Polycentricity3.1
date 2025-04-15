@@ -802,9 +802,6 @@
     // Create a container for the nodes that appears on top of links
     const nodeGroup = svg.append("g").attr("class", "nodes");
 
-    // Debug logging: How many links do we have?
-    console.log(`Creating ${links.length} links:`, links);
-    
     // Create the link elements with consistent unified styling
     const linkElements = linkGroup
       .selectAll("line")
@@ -819,8 +816,7 @@
       .attr("marker-end", "url(#arrow-marker)")  // Apply arrow ONLY at the target end as instructed
       .style("cursor", "pointer"); // Show pointer cursor on hover
       
-    // Debug: How many lines were actually created?
-    console.log(`Created ${linkElements.size()} link elements`);
+
     
     // Add title tooltips to links
     linkElements.append("title")
@@ -955,7 +951,6 @@
           })
           .on("end", (event, d) => {
             // When drag ends, save the final position
-            console.log(`Saving node position: ${d.id} at x:${d.x} y:${d.y}`);
             d3.select(`#node-${d.id}`).attr(
               "transform",
               `translate(${d.x},${d.y})`,
@@ -1104,8 +1099,7 @@
       const nodeGroup = d3.select(this);
       const iconSize = 24; // Size of the icon
       
-      // Debug log for icon values
-      console.log(`Card icon debug - title: ${card.role_title}, icon value: ${card.icon}`);
+
       
       // Get icon SVG path based on card.icon (prioritize) or card.type
       let iconPath = "";
@@ -1134,17 +1128,14 @@
       // First check if we have a direct icon match in our mapping
       if (card.icon && iconPaths[card.icon.toLowerCase()]) {
         iconPath = iconPaths[card.icon.toLowerCase()];
-        console.log(`Using icon path for "${card.icon}"`);
       } 
       // If not found, fallback to type-based icon
       else if (card.type && iconPaths[card.type.toLowerCase()]) {
         iconPath = iconPaths[card.type.toLowerCase()];
-        console.log(`Falling back to type icon for "${card.type}"`);
       }
       // If neither is found, use default
       else {
         iconPath = iconPaths["default"];
-        console.log(`Using default icon for ${card.role_title}`);
       }
       
       // Add the icon using SVG path
