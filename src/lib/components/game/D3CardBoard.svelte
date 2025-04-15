@@ -7,6 +7,7 @@
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
+  import NodePopover from './NodePopover.svelte';
   
   // Props
   export let gameId: string;
@@ -34,6 +35,12 @@
   
   // Active actor/card IDs
   let activeCardId: string | null = null;
+  
+  // Popover state
+  let popoverOpen = false;
+  let popoverNode: any = null;
+  let popoverNodeType: 'actor' | 'agreement' = 'actor';
+  let popoverTriggerElement: HTMLElement | null = null;
   
   // Interfaces for D3 visualization
   interface D3Node {
@@ -1036,6 +1043,15 @@
             gameStore.setActiveActorId(actor.actor_id);
           }
         }
+        
+        // Open the popover to show node details
+        popoverNode = d.data;
+        popoverNodeType = d.type;
+        popoverTriggerElement = event.currentTarget;
+        popoverOpen = true;
+        
+        // Prevent event bubbling to avoid issues with other click handlers
+        event.stopPropagation();
       })
       .on("mouseover", (event, d) => {
         // On hover, set the hovered node but don't use the separate radial menu

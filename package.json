@@ -14,6 +14,7 @@
   "description": "",
   "dependencies": {
     "@antv/g6": "^5.0.45",
+    "@melt-ui/svelte": "^0.86.6",
     "@skeletonlabs/skeleton": "^3.1.2",
     "@skeletonlabs/skeleton-svelte": "^1.2.1",
     "@skeletonlabs/tw-plugin": "^0.4.1",
