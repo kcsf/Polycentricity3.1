@@ -7,7 +7,12 @@
         import { getGun, nodes } from '$lib/services/gunService';
         import UserCard from '$lib/components/UserCard.svelte';
         import GameCard from '$lib/components/GameCard.svelte';
+        import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
         import * as icons from 'svelte-lucide';
+        import { getModalStore, type ModalSettings, type ModalComponent } from '@skeletonlabs/skeleton';
+        
+        // Set up modal store for profile updates
+        const modalStore = getModalStore();
         
         // Dashboard state
         let isLoading = true;
@@ -257,10 +262,85 @@
         function formatNumber(num) {
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
+        
+        // Modal state for profile update
+        let profileModalOpen = false;
+        
+        // Modal handling for profile update
+        function openProfileUpdateModal() {
+            profileModalOpen = true;
+        }
 </script>
 
 <div class="container mx-auto px-4 py-6">
-        <h1 class="h1 mb-6 text-primary-500 dark:text-primary-400">Your Dashboard</h1>
+        <!-- Profile Header Card -->
+        {#if $userStore.user}
+            <div class="overflow-hidden rounded-lg bg-surface-50 dark:bg-surface-900 shadow-lg mb-6">
+                <h2 class="sr-only" id="profile-overview-title">Profile Overview</h2>
+                <div class="p-6">
+                    <div class="sm:flex sm:items-center sm:justify-between">
+                        <div class="sm:flex sm:space-x-5">
+                            <div class="shrink-0">
+                                <div class="mx-auto size-20 rounded-full bg-primary-500/20 dark:bg-primary-500/30 flex items-center justify-center text-2xl font-bold text-primary-700 dark:text-primary-300">
+                                    {$userStore.user.name ? $userStore.user.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                            </div>
+                            <div class="mt-4 text-center sm:mt-0 sm:pt-1 sm:text-left">
+                                <p class="text-sm font-medium text-surface-600 dark:text-surface-400">Welcome back,</p>
+                                <p class="text-xl font-bold text-primary-700 dark:text-primary-300 sm:text-2xl">{$userStore.user.name}</p>
+                                <p class="text-sm font-medium text-surface-600 dark:text-surface-400">{$userStore.user.role || 'Member'}</p>
+                            </div>
+                        </div>
+                        <div class="mt-5 flex justify-center sm:mt-0">
+                            <button 
+                                class="btn variant-soft-primary"
+                                on:click={openProfileUpdateModal}
+                            >
+                                <icons.UserCog size={16} class="mr-2" /> 
+                                Update Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 divide-y divide-surface-200 dark:divide-surface-700 border-t border-surface-200 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+                    <!-- Games Joined -->
+                    <div class="px-6 py-5 text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <icons.Gamepad2 class="text-primary-500 dark:text-primary-400 mr-2" size={18} />
+                            <span class="text-lg font-semibold text-primary-700 dark:text-primary-300">{formatNumber(dashboardStats.gamesJoined)}</span>
+                        </div>
+                        <span class="text-sm font-medium text-surface-600 dark:text-surface-400">Games Joined</span>
+                    </div>
+                    
+                    <!-- Decks Created -->
+                    <div class="px-6 py-5 text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <icons.FileCode class="text-secondary-500 dark:text-secondary-400 mr-2" size={18} />
+                            <span class="text-lg font-semibold text-secondary-700 dark:text-secondary-300">{formatNumber(dashboardStats.decksCreated)}</span>
+                        </div>
+                        <span class="text-sm font-medium text-surface-600 dark:text-surface-400">Decks Created</span>
+                    </div>
+                    
+                    <!-- Agreements -->
+                    <div class="px-6 py-5 text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <icons.Handshake class="text-tertiary-500 dark:text-tertiary-400 mr-2" size={18} />
+                            <span class="text-lg font-semibold text-tertiary-700 dark:text-tertiary-300">{formatNumber(dashboardStats.agreementsParticipating)}</span>
+                        </div>
+                        <span class="text-sm font-medium text-surface-600 dark:text-surface-400">Agreements</span>
+                    </div>
+                    
+                    <!-- Cards Owned -->
+                    <div class="px-6 py-5 text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <icons.CreditCard class="text-warning-500 dark:text-warning-400 mr-2" size={18} />
+                            <span class="text-lg font-semibold text-warning-700 dark:text-warning-300">{formatNumber(dashboardStats.cardsOwned)}</span>
+                        </div>
+                        <span class="text-sm font-medium text-surface-600 dark:text-surface-400">Cards Owned</span>
+                    </div>
+                </div>
+            </div>
+        {/if}
         
         {#if $userStore.isLoading || isLoading}
                 <div class="card variant-soft p-8 text-center animate-pulse">
