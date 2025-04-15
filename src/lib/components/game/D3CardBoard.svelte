@@ -2269,7 +2269,17 @@
   :global(html.dark) .options-text,
   :global(html.dark) .card-title,
   :global(html.dark) .card-type,
-  :global(html.dark) .name-text {
+  :global(html.dark) .name-text,
+  :global(html.scheme-dark) .count-text,
+  :global(html.scheme-dark) .options-text,
+  :global(html.scheme-dark) .card-title,
+  :global(html.scheme-dark) .card-type,
+  :global(html.scheme-dark) .name-text,
+  :global(html.scheme-only-dark) .count-text,
+  :global(html.scheme-only-dark) .options-text,
+  :global(html.scheme-only-dark) .card-title,
+  :global(html.scheme-only-dark) .card-type,
+  :global(html.scheme-only-dark) .name-text {
     fill: var(--node-text-dark);
   }
   
@@ -2287,7 +2297,9 @@
     fill: var(--node-text-light);
   }
   
-  :global(html.dark) .radial-item-text {
+  :global(html.dark) .radial-item-text,
+  :global(html.scheme-dark) .radial-item-text,
+  :global(html.scheme-only-dark) .radial-item-text {
     fill: var(--node-text-dark);
   }
   
@@ -2306,7 +2318,9 @@
     fill: var(--node-text-light);
   }
   
-  :global(html.dark) .category-labels text {
+  :global(html.dark) .category-labels text,
+  :global(html.scheme-dark) .category-labels text,
+  :global(html.scheme-only-dark) .category-labels text {
     fill: var(--node-text-dark);
   }
 </style>
@@ -2348,7 +2362,7 @@
       {#if popoverNodeType === 'actor'}
         <!-- Actor Card styled like RoleCard -->
         <header class="card-header mb-2">
-          <h3 class="h3 text-primary-700-200">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
+          <h3 class="h3 text-primary-700 dark:text-primary-200">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
         </header>
         
         <section class="p-2">
@@ -2359,7 +2373,7 @@
           <!-- Values section -->
           {#if popoverNode.values}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500-300">Values:</h4>
+              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Values:</h4>
               <ul class="list-disc list-inside">
                 {#if Array.isArray(popoverNode.values)}
                   {#each popoverNode.values as value}
@@ -2378,7 +2392,7 @@
           <!-- Goals section -->
           {#if popoverNode.goals}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500-300">Goals:</h4>
+              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Goals:</h4>
               <p class="text-sm">{popoverNode.goals}</p>
             </div>
           {/if}
@@ -2386,7 +2400,7 @@
           <!-- Capabilities section -->
           {#if popoverNode.capabilities}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500-300">Capabilities:</h4>
+              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Capabilities:</h4>
               <div class="flex flex-wrap gap-1">
                 {#if Array.isArray(popoverNode.capabilities)}
                   {#each popoverNode.capabilities as capability}
@@ -2405,7 +2419,7 @@
           <!-- Resources section -->
           {#if popoverNode.resources || popoverNode.rivalrous_resources}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500-300">Resources:</h4>
+              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Resources:</h4>
               <div class="flex flex-wrap gap-1">
                 {#if popoverNode.resources}
                   {#if Array.isArray(popoverNode.resources)}
@@ -2430,13 +2444,13 @@
       {:else if popoverNodeType === 'agreement'}
         <!-- Agreement Card -->
         <header class="card-header mb-2">
-          <h3 class="h3 text-tertiary-700-200">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
+          <h3 class="h3 text-tertiary-700 dark:text-tertiary-200">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
         </header>
         
         <section class="p-2">
           {#if popoverNode.description}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-tertiary-500-300">Description:</h4>
+              <h4 class="h4 mb-1 text-tertiary-500 dark:text-tertiary-300">Description:</h4>
               <p class="text-sm">{popoverNode.description}</p>
             </div>
           {/if}
@@ -2444,7 +2458,7 @@
           <!-- Obligations section -->
           {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-tertiary-500-300">Obligations:</h4>
+              <h4 class="h4 mb-1 text-tertiary-500 dark:text-tertiary-300">Obligations:</h4>
               <ul class="list-disc list-inside">
                 {#each popoverNode.obligations as obligation}
                   <li class="text-sm">
@@ -2459,7 +2473,7 @@
           <!-- Benefits section -->
           {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
             <div class="mb-2">
-              <h4 class="h4 mb-1 text-tertiary-500-300">Benefits:</h4>
+              <h4 class="h4 mb-1 text-tertiary-500 dark:text-tertiary-300">Benefits:</h4>
               <ul class="list-disc list-inside">
                 {#each popoverNode.benefits as benefit}
                   <li class="text-sm">
