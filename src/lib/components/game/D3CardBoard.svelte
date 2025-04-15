@@ -1027,58 +1027,17 @@
             }
           }),
       )
-      .on("click", (event, d) => {
-        // Update active state in the UI
-        nodes.forEach((node) => (node.active = false)); // Reset all
-        d.active = true; // Set current as active
-
-        // Update node classes to show active state
-        nodeElements.attr(
-          "class",
-          (node) => `node node-${node.type}${node.active ? " active" : ""}`,
-        );
-
-        // Set active card
+      // Node-level click handler removed. 
+      // Individual click handlers are now on the center circle and agreement circle elements.
+      //
+      // This improves the user experience by:
+      // 1. Making only the center circle clickable (not the donut ring)
+      // 2. Using current node coordinates for accurate popover positioning
+      .on("mouseenter", (event, d) => {
+        // Keep existing hover behavior
         if (d.type === 'actor') {
           activeCardId = d.id;
-          
-          // Find the actor with this card
-          const actor = actors.find(a => a.card_id === d.id);
-          if (actor) {
-            gameStore.setActiveActorId(actor.actor_id);
-          }
         }
-        
-        // Toggle popover when clicking the same node
-        const isSameNode = popoverOpen && popoverNode && 
-          ((popoverNodeType === 'actor' && d.type === 'actor' && (popoverNode as Actor).card_id === d.id) || 
-           (popoverNodeType === 'agreement' && d.type === 'agreement' && (popoverNode as Agreement).agreement_id === d.id));
-        
-        if (isSameNode) {
-          // Close popover when clicking the same node
-          popoverOpen = false;
-          console.log("Closing popover - same node clicked again");
-        } else {
-          // Open the popover to show node details for a different node
-          popoverNode = d.data;
-          popoverNodeType = d.type;
-          
-          // Calculate position for the popover
-          // Use the node's actual coordinates instead of mouse position
-          // This ensures popover is positioned relative to the node center
-          popoverPosition = { 
-            x: d.x, 
-            y: d.y 
-          };
-          popoverOpen = true;
-          
-          // Debug log
-          console.log("Node clicked:", d.type, d.id);
-          console.log("Popover position:", popoverPosition);
-        }
-        
-        // Prevent event bubbling to avoid issues with other click handlers
-        event.stopPropagation();
       })
       .on("mouseover", (event, d) => {
         // On hover, set the hovered node but don't use the separate radial menu
@@ -1148,7 +1107,45 @@
         .attr("stroke", "#e5e5e5") // Light gray stroke
         .attr("stroke-width", 1)
         .attr("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.08))") // Subtle shadow
-        .attr("class", `center-circle card-center-circle${d.active ? " active" : ""}`);
+        .attr("class", `center-circle card-center-circle${d.active ? " active" : ""}`)
+        .style("cursor", "pointer")
+        .attr("pointer-events", "all") // Ensure clickable
+        .on("click", function(event) {
+          event.stopPropagation(); // Prevent event bubbling
+          
+          // First, save the current node position to ensure latest coordinates are used
+          console.log(`Saving node position: ${d.id} at x:${d.x} y:${d.y}`);
+          
+          // Get the current node data from the simulation
+          const node = d3.select(this.parentNode).datum();
+          
+          // Toggle popover when clicking the same node
+          const isSameNode = popoverOpen && popoverNode && 
+            ((popoverNodeType === 'actor' && node.type === 'actor' && (popoverNode as Actor).card_id === node.id) || 
+             (popoverNodeType === 'agreement' && node.type === 'agreement' && (popoverNode as Agreement).agreement_id === node.id));
+          
+          if (isSameNode) {
+            // Close popover when clicking the same node
+            popoverOpen = false;
+            console.log("Closing popover - same node clicked again");
+          } else {
+            // Open the popover to show node details for a different node
+            popoverNode = node.data;
+            popoverNodeType = node.type;
+            
+            // Calculate position for the popover using CURRENT coordinates
+            // This ensures popover is positioned relative to the node's CURRENT position
+            popoverPosition = { 
+              x: node.x, 
+              y: node.y 
+            };
+            popoverOpen = true;
+            
+            // Debug log
+            console.log("Node clicked:", node.type, node.id);
+            console.log("Popover position:", popoverPosition);
+          }
+        });
     });
 
     // Now add center icon group based on card.icon
@@ -1296,7 +1293,45 @@
         .attr("stroke", "#e5e5e5") // Very light gray stroke
         .attr("stroke-width", 0.75) // Thinner stroke for subtle appearance
         .attr("class", "agreement-circle")
-        .style("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.05))"); // Very subtle shadow
+        .style("cursor", "pointer")
+        .attr("pointer-events", "all") // Ensure clickable
+        .style("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.05))") // Very subtle shadow
+        .on("click", function(event) {
+          event.stopPropagation(); // Prevent event bubbling
+          
+          // First, save the current node position to ensure latest coordinates are used
+          console.log(`Saving node position: ${d.id} at x:${d.x} y:${d.y}`);
+          
+          // Get the current node data from the simulation
+          const node = d3.select(this.parentNode).datum();
+          
+          // Toggle popover when clicking the same node
+          const isSameNode = popoverOpen && popoverNode && 
+            ((popoverNodeType === 'actor' && node.type === 'actor' && (popoverNode as Actor).card_id === node.id) || 
+             (popoverNodeType === 'agreement' && node.type === 'agreement' && (popoverNode as Agreement).agreement_id === node.id));
+          
+          if (isSameNode) {
+            // Close popover when clicking the same node
+            popoverOpen = false;
+            console.log("Closing popover - same node clicked again");
+          } else {
+            // Open the popover to show node details for a different node
+            popoverNode = node.data;
+            popoverNodeType = node.type;
+            
+            // Calculate position for the popover using CURRENT coordinates
+            // This ensures popover is positioned relative to the node's CURRENT position
+            popoverPosition = { 
+              x: node.x, 
+              y: node.y 
+            };
+            popoverOpen = true;
+            
+            // Debug log
+            console.log("Node clicked:", node.type, node.id);
+            console.log("Popover position:", popoverPosition);
+          }
+        });
         
       // Create an agreement ID (AG1, AG2, etc.)
       const agreementId = `AG${agreementCounter++}`;
