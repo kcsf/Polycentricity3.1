@@ -370,8 +370,9 @@
       (card as any)._capabilityNames = capabilityNames;
       
       // After loading values and capabilities,
-      // update the visualization if needed by triggering redraw
-      // (no need to do this for now since we're just logging values)
+      // update the visualization by triggering a redraw
+      // This is important to make sure the donut rings show the real values
+      updateVisualization();
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
@@ -407,6 +408,22 @@
     "#237FB5", // Deep blue
   ]);
 
+  // Function to update the visualization after data changes
+  function updateVisualization() {
+    // If the graph is already initialized, we need to redraw it with the latest data
+    if (svgRef) {
+      // Clear any existing visualization
+      const svg = d3.select(svgRef);
+      svg.selectAll("*").remove();
+      
+      // Reinitialize the graph with latest data
+      initializeGraph();
+      
+      // Log that we're updating the visualization
+      console.log("Updating D3 visualization with latest value and capability data");
+    }
+  }
+  
   // Function to initialize D3 visualization
   function initializeGraph() {
     if (!svgRef) return;
