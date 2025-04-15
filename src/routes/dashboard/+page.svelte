@@ -157,32 +157,26 @@
                 const enhancedActors = [...actors];
                 let actorsProcessed = 0;
                 
-                // For each actor, focus on actor properties (not card details)
+                // For each actor, ensure we have all actor properties properly formatted
                 actors.forEach((actor, index) => {
-                    // Check if actor has a role (card) assigned
-                    if (actor.card_id) {
-                        // Keep the actor properties, but don't emphasize card details
-                        enhancedActors[index] = {
-                            ...actor,
-                            // Store basic actor data
-                            created_at: actor.created_at || Date.now(),
-                            last_active: actor.last_active || Date.now(),
-                            status: actor.status || 'Active',
-                            game_name: actor.game_name || 'Unknown Game',
-                            // Add any missing fields with defaults
-                            name: actor.name || 'Unnamed Actor'
-                        };
-                        
-                        actorsProcessed++;
-                        if (actorsProcessed === actors.length) {
-                            console.log(`Enhanced ${enhancedActors.length} actors with actor properties`);
-                            resolve(enhancedActors);
-                        }
-                    } else {
-                        actorsProcessed++;
-                        if (actorsProcessed === actors.length) {
-                            resolve(enhancedActors);
-                        }
+                    // Always enhance with actor properties regardless of card assignment
+                    enhancedActors[index] = {
+                        ...actor,
+                        // Use proper properties based on reference data
+                        actor_id: actor.actor_id,
+                        actor_type: actor.actor_type || 'Actor', 
+                        custom_name: actor.custom_name || actor.name || 'Unnamed Actor',
+                        created_at: actor.created_at || Date.now(),
+                        status: actor.status || 'active',
+                        game_id: actor.game_id,
+                        // Add any game metadata if available
+                        game_name: actor.game_name || 'Unknown Game'
+                    };
+                    
+                    actorsProcessed++;
+                    if (actorsProcessed === actors.length) {
+                        console.log(`Enhanced ${enhancedActors.length} actors with actor properties`);
+                        resolve(enhancedActors);
                     }
                 });
                 
@@ -347,84 +341,6 @@
                                                 </div>
                                         </div>
                                 </div>
-                                
-                                <!-- Actors Card -->
-                                {#if actorStats.length > 0}
-                                        <div class="card variant-filled-surface p-0 shadow-xl overflow-hidden">
-                                                <header class="bg-tertiary-500/10 dark:bg-tertiary-500/20 p-5">
-                                                        <h2 class="h2 text-tertiary-700 dark:text-tertiary-300">Actors</h2>
-                                                </header>
-                                                
-                                                <div class="p-5">
-                                                        <div class="space-y-3">
-                                                                {#each actorStats as actor}
-                                                                        <div class="card variant-soft p-4 border border-surface-300-600-token">
-                                                                                <!-- Actor Header -->
-                                                                                <div class="flex justify-between items-start">
-                                                                                        <div>
-                                                                                                <p class="font-semibold text-primary-600 dark:text-primary-400 text-lg">
-                                                                                                        Actor: {actor.name || 'Unnamed Actor'}
-                                                                                                </p>
-                                                                                        </div>
-                                                                                        <div class="badge variant-filled-tertiary">
-                                                                                                Active
-                                                                                        </div>
-                                                                                </div>
-                                                                                
-                                                                                <!-- Actor Properties -->
-                                                                                <div class="grid grid-cols-2 gap-2 my-2">
-                                                                                        {#if actor.actor_id}
-                                                                                                <div class="flex items-center text-xs">
-                                                                                                        <icons.Tag size={12} class="mr-1 text-tertiary-500" />
-                                                                                                        <span class="opacity-75 overflow-hidden overflow-ellipsis whitespace-nowrap" 
-                                                                                                              title={actor.actor_id}>{actor.actor_id.substring(0, 10)}...</span>
-                                                                                                </div>
-                                                                                        {/if}
-                                                                                        
-                                                                                        {#if actor.user_id}
-                                                                                                <div class="flex items-center text-xs">
-                                                                                                        <icons.User size={12} class="mr-1 text-tertiary-500" />
-                                                                                                        <span>Owner ID: {actor.user_id.substring(0, 5)}...</span>
-                                                                                                </div>
-                                                                                        {/if}
-                                                                                </div>
-                                                                                
-                                                                                <!-- Actor Status Information -->
-                                                                                <div class="mt-2 grid grid-cols-2 gap-2">
-                                                                                        {#if actor.created_at}
-                                                                                                <div class="flex items-center text-xs">
-                                                                                                        <icons.Clock size={12} class="mr-1 text-tertiary-500" />
-                                                                                                        <span>{new Date(actor.created_at).toLocaleDateString()}</span>
-                                                                                                </div>
-                                                                                        {/if}
-                                                                                        
-                                                                                        {#if actor.role_title}
-                                                                                                <div class="flex items-center text-xs">
-                                                                                                        <icons.PersonStanding size={12} class="mr-1 text-tertiary-500" />
-                                                                                                        <span>{actor.role_title}</span>
-                                                                                                </div>
-                                                                                        {/if}
-                                                                                </div>
-                                                                                
-                                                                                <!-- Game Link -->
-                                                                                {#if actor.game_id}
-                                                                                        <div class="mt-3 text-xs flex justify-end">
-                                                                                                <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary">
-                                                                                                        <icons.LogIn size={14} class="mr-1"/>
-                                                                                                        View Game
-                                                                                                </a>
-                                                                                        </div>
-                                                                                {:else}
-                                                                                        <div class="mt-3 text-xs text-surface-600-300-token italic">
-                                                                                                Not currently in a game
-                                                                                        </div>
-                                                                                {/if}
-                                                                        </div>
-                                                                {/each}
-                                                        </div>
-                                                </div>
-                                        </div>
-                                {/if}
                         </div>
                         
                         <!-- Right side content: Games section -->
@@ -535,6 +451,79 @@
                                                         </a>
                                                 </div>
                                         {/if}
+                                {/if}
+                                
+                                <!-- Your Actors Section -->
+                                {#if actorStats.length > 0}
+                                <div class="mt-8">
+                                        <!-- Your Actors Header -->
+                                        <div class="card variant-filled-tertiary p-5 shadow-xl mb-6">
+                                                <div class="flex flex-col md:flex-row justify-between items-center">
+                                                        <h2 class="h2 text-white mb-4 md:mb-0">Your Actors</h2>
+                                                </div>
+                                        </div>
+                                        
+                                        <!-- Actor Cards Grid -->
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {#each actorStats as actor}
+                                                        <div class="card variant-soft p-4 border border-surface-300-600-token">
+                                                                <!-- Actor Header -->
+                                                                <div class="flex justify-between items-start">
+                                                                        <div>
+                                                                                <p class="font-semibold text-primary-600 dark:text-primary-400 text-lg">
+                                                                                        {actor.custom_name || actor.name || 'Unnamed Actor'}
+                                                                                </p>
+                                                                        </div>
+                                                                        <div class="badge variant-filled-tertiary">
+                                                                                {actor.status || 'Active'}
+                                                                        </div>
+                                                                </div>
+                                                                
+                                                                <!-- Actor Properties -->
+                                                                <div class="grid grid-cols-2 gap-2 my-2">
+                                                                        {#if actor.actor_type}
+                                                                                <div class="flex items-center text-xs">
+                                                                                        <icons.PersonStanding size={12} class="mr-1 text-tertiary-500" />
+                                                                                        <span>{actor.actor_type}</span>
+                                                                                </div>
+                                                                        {/if}
+                                                                        
+                                                                        {#if actor.actor_id}
+                                                                                <div class="flex items-center text-xs">
+                                                                                        <icons.Tag size={12} class="mr-1 text-tertiary-500" />
+                                                                                        <span class="opacity-75 overflow-hidden overflow-ellipsis whitespace-nowrap" 
+                                                                                              title={actor.actor_id}>{actor.actor_id.substring(0, 10)}...</span>
+                                                                                </div>
+                                                                        {/if}
+                                                                </div>
+                                                                
+                                                                <!-- Additional Actor Information -->
+                                                                <div class="mt-2 grid grid-cols-2 gap-2">
+                                                                        {#if actor.created_at}
+                                                                                <div class="flex items-center text-xs">
+                                                                                        <icons.Clock size={12} class="mr-1 text-tertiary-500" />
+                                                                                        <span>{new Date(actor.created_at).toLocaleDateString()}</span>
+                                                                                </div>
+                                                                        {/if}
+                                                                </div>
+                                                                
+                                                                <!-- Game Link -->
+                                                                {#if actor.game_id}
+                                                                        <div class="mt-3 text-xs flex justify-end">
+                                                                                <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary">
+                                                                                        <icons.LogIn size={14} class="mr-1"/>
+                                                                                        View Game
+                                                                                </a>
+                                                                        </div>
+                                                                {:else}
+                                                                        <div class="mt-3 text-xs text-surface-600-300-token italic">
+                                                                                Not currently in a game
+                                                                        </div>
+                                                                {/if}
+                                                        </div>
+                                                {/each}
+                                        </div>
+                                </div>
                                 {/if}
                         </div>
                 </div>
