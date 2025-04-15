@@ -110,9 +110,10 @@
     onkeydown={(e) => e.key === 'Escape' && (open = false)}
     role="dialog"
     aria-modal="true"
+    tabindex="0"
 >
     <!-- Modal Content -->
-    <div 
+    <button 
         class="bg-surface-50 dark:bg-surface-900 rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
@@ -200,6 +201,6 @@
                 </div>
             </form>
         </div>
-    </div>
+    </button>
 </div>
 {/if}

@@ -99,6 +99,7 @@
     onkeydown={(e) => e.key === 'Escape' && (open = false)}
     role="dialog"
     aria-modal="true"
+    tabindex="0"
 >
     <!-- Modal Content -->
     <div 
@@ -106,6 +107,7 @@
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
         role="document"
+        tabindex="-1"
     >
         <!-- Modal Header -->
         <div class="bg-tertiary-500/10 dark:bg-tertiary-500/20 p-4">
