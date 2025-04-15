@@ -21,6 +21,7 @@
     positioning: {
       placement: 'right',
       gutter: 5,
+      strategy: 'fixed', // Use fixed positioning to avoid issues with relative positioning
     },
     forceVisible: true,
     closeOnEscape: true,
@@ -28,6 +29,18 @@
     openFocus: 'content',
     closeFocus: 'trigger',
   });
+  
+  // Set the position of the popover manually based on the positionData
+  $: if ($isOpen && content) {
+    // Need to wait for the next tick to ensure the element is rendered
+    setTimeout(() => {
+      const contentElement = document.querySelector('[data-popover-content]');
+      if (contentElement) {
+        contentElement.style.left = `${positionData.x + 20}px`;
+        contentElement.style.top = `${positionData.y - 20}px`;
+      }
+    }, 0);
+  }
 
   // Sync the open prop with the isOpen state
   $: {
@@ -125,6 +138,7 @@
     transition:fly={{ duration: 150, y: 5 }}
     class="bg-surface-50-900-token rounded-lg shadow-lg p-4 max-w-md max-h-[80vh] overflow-y-auto"
     style="z-index: 1000;"
+    data-popover-content
   >
     <div use:arrow class="h-2 w-2 rotate-45 bg-surface-50-900-token"></div>
     

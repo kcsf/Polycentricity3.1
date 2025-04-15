@@ -40,13 +40,12 @@
   let popoverOpen = false;
   let popoverNode: any = null;
   let popoverNodeType: 'actor' | 'agreement' = 'actor';
-  let popoverTriggerElement: HTMLElement | null = null;
+  let popoverPosition = { x: 0, y: 0 };
   
   // Function to handle popover close
   function handlePopoverClose() {
     popoverOpen = false;
     popoverNode = null;
-    popoverTriggerElement = null;
   }
   
   // Interfaces for D3 visualization
@@ -1054,12 +1053,18 @@
         // Open the popover to show node details
         popoverNode = d.data;
         popoverNodeType = d.type;
-        popoverTriggerElement = event.currentTarget;
+        
+        // Calculate position for the popover
+        const mouseEvent = event as MouseEvent;
+        popoverPosition = { 
+          x: mouseEvent.clientX, 
+          y: mouseEvent.clientY 
+        };
         popoverOpen = true;
         
         // Debug log
         console.log("Node clicked:", d.type, d.id, "Popover should open now");
-        console.log("Popover trigger element:", popoverTriggerElement);
+        console.log("Popover position:", popoverPosition);
         
         // Prevent event bubbling to avoid issues with other click handlers
         event.stopPropagation();
