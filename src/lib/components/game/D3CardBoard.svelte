@@ -2255,11 +2255,22 @@
   .count-text, .options-text {
     pointer-events: none;
     user-select: none;
+    fill: var(--node-text-light);
   }
   
   .card-title, .card-type, .name-text {
     pointer-events: none;
     user-select: none;
+    fill: var(--node-text-light);
+  }
+  
+  /* Apply dark theme text colors when in dark mode */
+  :global(html.dark) .count-text,
+  :global(html.dark) .options-text,
+  :global(html.dark) .card-title,
+  :global(html.dark) .card-type,
+  :global(html.dark) .name-text {
+    fill: var(--node-text-dark);
   }
   
   /* Legacy radial menu styling */
@@ -2273,6 +2284,11 @@
     font-weight: 500;
     text-anchor: middle;
     dominant-baseline: middle;
+    fill: var(--node-text-light);
+  }
+  
+  :global(html.dark) .radial-item-text {
+    fill: var(--node-text-dark);
   }
   
   .radial-item-bg {
@@ -2287,6 +2303,11 @@
     font-size: 11px;
     pointer-events: none;
     user-select: none;
+    fill: var(--node-text-light);
+  }
+  
+  :global(html.dark) .category-labels text {
+    fill: var(--node-text-dark);
   }
 </style>
 
@@ -2312,7 +2333,7 @@
   <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card bg-surface-100-900/80 text-white rounded-lg shadow-md p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      class="card bg-surface-100-900/80 rounded-lg shadow-md p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
@@ -2330,9 +2351,9 @@
           <h3 class="h3 text-primary-700-200">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
         </header>
         
-        <section class="p-2 text-white">
+        <section class="p-2">
           {#if popoverNode.backstory}
-            <p class="mb-2 text-sm text-white">{popoverNode.backstory}</p>
+            <p class="mb-2 text-sm">{popoverNode.backstory}</p>
           {/if}
           
           <!-- Values section -->
@@ -2412,7 +2433,7 @@
           <h3 class="h3 text-tertiary-700-200">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
         </header>
         
-        <section class="p-2 text-white">
+        <section class="p-2">
           {#if popoverNode.description}
             <div class="mb-2">
               <h4 class="h4 mb-1 text-tertiary-500-300">Description:</h4>
