@@ -2312,7 +2312,7 @@
   <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card bg-surface-100-900/80 text-surface-900-50-token rounded-lg shadow-md p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      class="card bg-surface-100-900/80 text-white rounded-lg shadow-md p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
@@ -2330,9 +2330,9 @@
           <h3 class="h3 text-primary-700-200-token">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
         </header>
         
-        <section class="p-2 text-surface-900-50-token">
+        <section class="p-2 text-white">
           {#if popoverNode.backstory}
-            <p class="mb-2 text-sm text-surface-900-50-token">{popoverNode.backstory}</p>
+            <p class="mb-2 text-sm text-white">{popoverNode.backstory}</p>
           {/if}
           
           <!-- Values section -->
@@ -2412,7 +2412,7 @@
           <h3 class="h3 text-tertiary-700-200-token">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
         </header>
         
-        <section class="p-2 text-surface-900-50-token">
+        <section class="p-2 text-white">
           {#if popoverNode.description}
             <div class="mb-2">
               <h4 class="h4 mb-1 text-tertiary-500-300-token">Description:</h4>
