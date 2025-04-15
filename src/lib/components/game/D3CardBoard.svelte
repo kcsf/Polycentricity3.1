@@ -2291,7 +2291,7 @@
   <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card bg-surface-100-900/80 rounded-lg shadow-xl p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      class="card bg-surface-100-800-token/90 text-surface-900-50-token rounded-lg shadow-xl p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
@@ -2306,18 +2306,18 @@
       {#if popoverNodeType === 'actor'}
         <!-- Actor Card styled like RoleCard -->
         <header class="card-header mb-2">
-          <h3 class="h3">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
+          <h3 class="h3 text-primary-700-200-token">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
         </header>
         
-        <section class="p-2">
+        <section class="p-2 text-surface-900-50-token">
           {#if popoverNode.backstory}
-            <p class="mb-2 text-sm">{popoverNode.backstory}</p>
+            <p class="mb-2 text-sm text-surface-900-50-token">{popoverNode.backstory}</p>
           {/if}
           
           <!-- Values section -->
           {#if popoverNode.values}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Values:</h4>
+              <h4 class="h4 mb-1 text-primary-500-300-token">Values:</h4>
               <ul class="list-disc list-inside">
                 {#if Array.isArray(popoverNode.values)}
                   {#each popoverNode.values as value}
@@ -2336,7 +2336,7 @@
           <!-- Goals section -->
           {#if popoverNode.goals}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Goals:</h4>
+              <h4 class="h4 mb-1 text-primary-500-300-token">Goals:</h4>
               <p class="text-sm">{popoverNode.goals}</p>
             </div>
           {/if}
@@ -2344,7 +2344,7 @@
           <!-- Capabilities section -->
           {#if popoverNode.capabilities}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Capabilities:</h4>
+              <h4 class="h4 mb-1 text-primary-500-300-token">Capabilities:</h4>
               <div class="flex flex-wrap gap-1">
                 {#if Array.isArray(popoverNode.capabilities)}
                   {#each popoverNode.capabilities as capability}
@@ -2363,7 +2363,7 @@
           <!-- Resources section -->
           {#if popoverNode.resources || popoverNode.rivalrous_resources}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Resources:</h4>
+              <h4 class="h4 mb-1 text-primary-500-300-token">Resources:</h4>
               <div class="flex flex-wrap gap-1">
                 {#if popoverNode.resources}
                   {#if Array.isArray(popoverNode.resources)}
@@ -2388,13 +2388,13 @@
       {:else if popoverNodeType === 'agreement'}
         <!-- Agreement Card -->
         <header class="card-header mb-2">
-          <h3 class="h3">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
+          <h3 class="h3 text-tertiary-700-200-token">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
         </header>
         
-        <section class="p-2">
+        <section class="p-2 text-surface-900-50-token">
           {#if popoverNode.description}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Description:</h4>
+              <h4 class="h4 mb-1 text-tertiary-500-300-token">Description:</h4>
               <p class="text-sm">{popoverNode.description}</p>
             </div>
           {/if}
@@ -2402,7 +2402,7 @@
           <!-- Obligations section -->
           {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Obligations:</h4>
+              <h4 class="h4 mb-1 text-tertiary-500-300-token">Obligations:</h4>
               <ul class="list-disc list-inside">
                 {#each popoverNode.obligations as obligation}
                   <li class="text-sm">
@@ -2417,7 +2417,7 @@
           <!-- Benefits section -->
           {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
             <div class="mb-2">
-              <h4 class="h4 mb-1">Benefits:</h4>
+              <h4 class="h4 mb-1 text-tertiary-500-300-token">Benefits:</h4>
               <ul class="list-disc list-inside">
                 {#each popoverNode.benefits as benefit}
                   <li class="text-sm">
