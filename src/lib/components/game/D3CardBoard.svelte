@@ -2382,7 +2382,7 @@
   <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card bg-surface-100-900/80 rounded-lg shadow-md p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      class="card p-4 shadow-lg h-full flex flex-col max-w-md max-h-[80vh] overflow-y-auto absolute bg-surface-100-900/80 rounded-lg border border-surface-200 dark:border-surface-700"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
@@ -2395,20 +2395,32 @@
       </button>
       
       {#if popoverNodeType === 'actor'}
-        <!-- Actor Card styled like RoleCard -->
-        <header class="card-header mb-2">
-          <h3 class="h3 text-primary-700 dark:text-primary-200">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
+        <!-- Actor Card styled exactly like RoleCard -->
+        <header class="card-header flex justify-between items-center">
+          <h3 class="h3 text-primary-500 dark:text-primary-400">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
+          
+          <!-- Add badge for card category -->
+          {#if popoverNode.card_category}
+            <span class="badge variant-filled-secondary text-sm p-1 px-2 rounded-full">{popoverNode.card_category}</span>
+          {/if}
+          
+          {#if popoverNode.type}
+            <span class="badge variant-soft-surface text-xs p-1 px-2 rounded-full">{popoverNode.type}</span>
+          {/if}
         </header>
         
-        <section class="p-2">
+        <section class="p-4 flex-grow space-y-3">
           {#if popoverNode.backstory}
-            <p class="mb-2 text-sm">{popoverNode.backstory}</p>
+            <div>
+              <h4 class="font-semibold mb-1">Backstory</h4>
+              <p class="text-sm">{popoverNode.backstory}</p>
+            </div>
           {/if}
           
           <!-- Values section -->
           {#if popoverNode.values}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Values:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Values</h4>
               <ul class="list-disc list-inside">
                 {#if Array.isArray(popoverNode.values)}
                   {#each popoverNode.values as value}
@@ -2426,16 +2438,16 @@
           
           <!-- Goals section -->
           {#if popoverNode.goals}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Goals:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Goals</h4>
               <p class="text-sm">{popoverNode.goals}</p>
             </div>
           {/if}
           
           <!-- Capabilities section -->
           {#if popoverNode.capabilities}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Capabilities:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Capabilities</h4>
               <div class="flex flex-wrap gap-1">
                 {#if Array.isArray(popoverNode.capabilities)}
                   {#each popoverNode.capabilities as capability}
@@ -2453,8 +2465,11 @@
           
           <!-- Resources section -->
           {#if popoverNode.resources || popoverNode.rivalrous_resources}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-primary-500 dark:text-primary-300">Resources:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Resources</h4>
+              {#if typeof popoverNode.rivalrous_resources === 'string'}
+                <p class="text-sm mb-2">{popoverNode.rivalrous_resources}</p>
+              {/if}
               <div class="flex flex-wrap gap-1">
                 {#if popoverNode.resources}
                   {#if Array.isArray(popoverNode.resources)}
@@ -2465,35 +2480,41 @@
                     <span class="badge variant-soft-tertiary text-xs">{popoverNode.resources}</span>
                   {/if}
                 {/if}
-                
-                {#if popoverNode.rivalrous_resources}
-                  {#if typeof popoverNode.rivalrous_resources === 'string'}
-                    <span class="badge variant-soft-tertiary text-xs">{popoverNode.rivalrous_resources}</span>
-                  {/if}
-                {/if}
               </div>
+            </div>
+          {/if}
+          
+          <!-- IP section -->
+          {#if popoverNode.intellectual_property}
+            <div>
+              <h4 class="font-semibold mb-1">IP</h4>
+              <p class="text-sm">{popoverNode.intellectual_property}</p>
             </div>
           {/if}
         </section>
         
       {:else if popoverNodeType === 'agreement'}
-        <!-- Agreement Card -->
-        <header class="card-header mb-2">
-          <h3 class="h3 text-tertiary-700 dark:text-tertiary-200">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
+        <!-- Agreement Card with role card styling -->
+        <header class="card-header flex justify-between items-center">
+          <h3 class="h3 text-tertiary-500 dark:text-tertiary-400">{popoverNode.title || 'Agreement'}</h3>
+          
+          {#if popoverNode.status}
+            <span class="badge variant-filled-primary text-sm p-1 px-2 rounded-full">{popoverNode.status}</span>
+          {/if}
         </header>
         
-        <section class="p-2">
+        <section class="p-4 flex-grow space-y-3">
           {#if popoverNode.description}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-tertiary-500 dark:text-tertiary-300">Description:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Description</h4>
               <p class="text-sm">{popoverNode.description}</p>
             </div>
           {/if}
           
           <!-- Obligations section -->
           {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-tertiary-500 dark:text-tertiary-300">Obligations:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Obligations</h4>
               <ul class="list-disc list-inside">
                 {#each popoverNode.obligations as obligation}
                   <li class="text-sm">
@@ -2507,8 +2528,8 @@
           
           <!-- Benefits section -->
           {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
-            <div class="mb-2">
-              <h4 class="h4 mb-1 text-tertiary-500 dark:text-tertiary-300">Benefits:</h4>
+            <div>
+              <h4 class="font-semibold mb-1">Benefits</h4>
               <ul class="list-disc list-inside">
                 {#each popoverNode.benefits as benefit}
                   <li class="text-sm">
@@ -2520,13 +2541,10 @@
             </div>
           {/if}
           
-          <!-- Status and other metadata -->
-          <div class="flex gap-2 flex-wrap mt-4">
-            {#if popoverNode.status}
-              <span class="badge variant-filled-primary">{popoverNode.status}</span>
-            {/if}
+          <!-- Metadata footer -->
+          <div class="mt-4 pt-2 border-t border-surface-200 dark:border-surface-700">
             {#if popoverNode.created_at}
-              <span class="badge variant-soft">Created: {new Date(popoverNode.created_at).toLocaleDateString()}</span>
+              <span class="text-xs text-surface-500 dark:text-surface-400">Created: {new Date(popoverNode.created_at).toLocaleDateString()}</span>
             {/if}
           </div>
         </section>
