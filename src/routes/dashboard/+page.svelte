@@ -157,26 +157,27 @@
                 const enhancedActors = [...actors];
                 let actorsProcessed = 0;
                 
-                // For each actor, get their associated card details if they have a card_id
+                // For each actor, focus on actor properties (not card details)
                 actors.forEach((actor, index) => {
+                    // Check if actor has a role (card) assigned
                     if (actor.card_id) {
-                        gun.get(nodes.cards).get(actor.card_id).once((cardData) => {
-                            if (cardData) {
-                                // Merge card details into actor data
-                                enhancedActors[index] = {
-                                    ...actor,
-                                    card_details: cardData,
-                                    // If actor has no name but card has role_title, use that
-                                    name: actor.name || cardData.role_title || 'Unnamed Actor'
-                                };
-                            }
-                            
-                            actorsProcessed++;
-                            if (actorsProcessed === actors.length) {
-                                console.log(`Enhanced ${enhancedActors.length} actors with card details`);
-                                resolve(enhancedActors);
-                            }
-                        });
+                        // Keep the actor properties, but don't emphasize card details
+                        enhancedActors[index] = {
+                            ...actor,
+                            // Store basic actor data
+                            created_at: actor.created_at || Date.now(),
+                            last_active: actor.last_active || Date.now(),
+                            status: actor.status || 'Active',
+                            game_name: actor.game_name || 'Unknown Game',
+                            // Add any missing fields with defaults
+                            name: actor.name || 'Unnamed Actor'
+                        };
+                        
+                        actorsProcessed++;
+                        if (actorsProcessed === actors.length) {
+                            console.log(`Enhanced ${enhancedActors.length} actors with actor properties`);
+                            resolve(enhancedActors);
+                        }
                     } else {
                         actorsProcessed++;
                         if (actorsProcessed === actors.length) {
@@ -362,20 +363,11 @@
                                                                                 <div class="flex justify-between items-start">
                                                                                         <div>
                                                                                                 <p class="font-semibold text-primary-600 dark:text-primary-400 text-lg">
-                                                                                                        {actor.name || actor.role_title || 'Unnamed Actor'}
+                                                                                                        Actor: {actor.name || 'Unnamed Actor'}
                                                                                                 </p>
-                                                                                                {#if actor.card_details?.role_title && actor.card_details?.role_title !== actor.name}
-                                                                                                        <p class="text-sm text-secondary-500 -mt-1">
-                                                                                                                {actor.card_details.role_title}
-                                                                                                        </p>
-                                                                                                {/if}
                                                                                         </div>
-                                                                                        <div class="badge variant-filled-secondary">
-                                                                                                {#if actor.card_details?.card_category}
-                                                                                                        {actor.card_details.card_category}
-                                                                                                {:else}
-                                                                                                        Actor
-                                                                                                {/if}
+                                                                                        <div class="badge variant-filled-tertiary">
+                                                                                                Active
                                                                                         </div>
                                                                                 </div>
                                                                                 
@@ -389,20 +381,30 @@
                                                                                                 </div>
                                                                                         {/if}
                                                                                         
-                                                                                        {#if actor.card_details?.card_number}
+                                                                                        {#if actor.user_id}
                                                                                                 <div class="flex items-center text-xs">
-                                                                                                        <icons.CreditCard size={12} class="mr-1 text-tertiary-500" />
-                                                                                                        <span>Card #{actor.card_details.card_number}</span>
+                                                                                                        <icons.User size={12} class="mr-1 text-tertiary-500" />
+                                                                                                        <span>Owner ID: {actor.user_id.substring(0, 5)}...</span>
                                                                                                 </div>
                                                                                         {/if}
                                                                                 </div>
                                                                                 
-                                                                                <!-- Actor Description (if available) -->
-                                                                                {#if actor.card_details?.backstory}
-                                                                                        <div class="mt-2 text-xs text-surface-700-300-token">
-                                                                                                <p class="line-clamp-2">{actor.card_details.backstory}</p>
-                                                                                        </div>
-                                                                                {/if}
+                                                                                <!-- Actor Status Information -->
+                                                                                <div class="mt-2 grid grid-cols-2 gap-2">
+                                                                                        {#if actor.created_at}
+                                                                                                <div class="flex items-center text-xs">
+                                                                                                        <icons.Clock size={12} class="mr-1 text-tertiary-500" />
+                                                                                                        <span>{new Date(actor.created_at).toLocaleDateString()}</span>
+                                                                                                </div>
+                                                                                        {/if}
+                                                                                        
+                                                                                        {#if actor.role_title}
+                                                                                                <div class="flex items-center text-xs">
+                                                                                                        <icons.PersonStanding size={12} class="mr-1 text-tertiary-500" />
+                                                                                                        <span>{actor.role_title}</span>
+                                                                                                </div>
+                                                                                        {/if}
+                                                                                </div>
                                                                                 
                                                                                 <!-- Game Link -->
                                                                                 {#if actor.game_id}
@@ -469,7 +471,59 @@
                                 {:else}
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 {#each $userGamesStore as game (game.game_id)}
-                                                        <GameCard {game} />
+                                                        <div class="relative">
+                                                            <!-- Force "View Game" by setting isUserInGame prop directly -->
+                                                            <a href={`/games/${game.game_id}`} class="block">
+                                                                <div class="card p-0 shadow-xl hover:shadow-2xl transition-all duration-200 bg-surface-50 dark:bg-surface-900 border border-surface-200-700-token overflow-hidden flex flex-col h-full">
+                                                                    <!-- Game Banner & Header -->
+                                                                    <div class="relative bg-primary-500/10 dark:bg-primary-500/20 p-5 border-b border-surface-200-700-token">
+                                                                        <!-- Status Badge -->
+                                                                        <div class="absolute top-3 right-3">
+                                                                            <div class="badge variant-filled-success font-medium">
+                                                                                <icons.Play size={14} class="mr-1" />
+                                                                                {game.status}
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        <!-- Game Title -->
+                                                                        <h3 class="h3 text-primary-700 dark:text-primary-300 pr-16">{game.name}</h3>
+                                                                        
+                                                                        <!-- Date & Players Info -->
+                                                                        <div class="flex flex-wrap justify-between items-center mt-3 text-xs text-surface-700 dark:text-surface-300">
+                                                                            <div class="flex items-center">
+                                                                                <icons.Calendar size={14} class="mr-1" />
+                                                                                <span>{new Date(game.created_at).toLocaleDateString()}</span>
+                                                                            </div>
+                                                                            
+                                                                            <div class="flex items-center mt-1 sm:mt-0">
+                                                                                <icons.Users size={14} class="mr-1" />
+                                                                                <span>
+                                                                                    {Object.keys(game.players || {}).length} 
+                                                                                    {game.max_players ? `/ ${game.max_players}` : 'players'}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <!-- Game Details Section -->
+                                                                    <div class="p-5 flex-grow flex flex-col">
+                                                                        <div class="flex-grow">
+                                                                            {#if game.description}
+                                                                                <p class="text-sm text-surface-700-300-token line-clamp-2">{game.description}</p>
+                                                                            {/if}
+                                                                        </div>
+                                                                        
+                                                                        <!-- Action Button -->
+                                                                        <div class="mt-3">
+                                                                            <div class="btn variant-filled-primary w-full">
+                                                                                <icons.LogIn size={18} class="mr-2" />
+                                                                                View Game
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </a>
+                                                        </div>
                                                 {/each}
                                         </div>
                                         
