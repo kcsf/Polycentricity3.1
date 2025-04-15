@@ -63,20 +63,25 @@ html[class~="dark"] h3 {
   color: var(--heading-font-color-dark) !important;
 }
 
-/* Reset any prefers-color-scheme media queries */
-@media (prefers-color-scheme: dark) {
-  html:not([class~="dark"]) .h3,
-  html:not([class~="dark"]) h3 {
-    color: var(--heading-font-color) !important;
-  }
+/* Override any prefers-color-scheme media queries using Tailwind 4 scheme classes */
+html.scheme-only-light h3,
+html.scheme-only-light .h3 {
+  color: var(--heading-font-color) !important;
 }
 
-/* Force Skeleton UI token backgrounds to respect dark class */
-html:not([class~="dark"]) .bg-surface-50-900-token {
+html.scheme-only-dark h3,
+html.scheme-only-dark .h3 {
+  color: var(--heading-font-color-dark) !important;
+}
+
+/* Force Skeleton UI token backgrounds to respect scheme classes */
+html.scheme-light .bg-surface-50-900-token,
+html.scheme-only-light .bg-surface-50-900-token {
   background-color: var(--theme-color-surface-50) !important;
 }
 
-html[class~="dark"] .bg-surface-50-900-token {
+html.scheme-dark .bg-surface-50-900-token,
+html.scheme-only-dark .bg-surface-50-900-token {
   background-color: var(--theme-color-surface-900) !important;
 }
 

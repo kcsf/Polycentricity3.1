@@ -42,18 +42,36 @@ function applyTheme(theme: Theme): void {
 
   const htmlElement = document.documentElement;
 
+  // First, remove all scheme-related classes to start fresh
+  htmlElement.classList.remove("dark", "light", "scheme-dark", "scheme-light", "scheme-only-dark", "scheme-only-light");
+  
+  // Now add the appropriate classes for Tailwind 4
   if (theme === "dark") {
+    // Add both the legacy 'dark' class and new Tailwind 4 scheme classes
     htmlElement.classList.add("dark");
+    htmlElement.classList.add("scheme-dark");
+    // Force dark mode regardless of media queries (prevents auto-switching)
+    htmlElement.classList.add("scheme-only-dark");
+    
+    // Also set the color-scheme CSS property for browser controls
     htmlElement.style.colorScheme = "dark";
+    
     console.log(
-      "themeStore: Applied dark mode: added dark class, color-scheme: dark",
+      "themeStore: Applied dark mode with Tailwind 4 scheme classes",
     );
     console.log(`themeStore: HTML classList: ${htmlElement.classList}`);
   } else {
-    htmlElement.classList.remove("dark");
+    // Add light theme classes for Tailwind 4
+    htmlElement.classList.add("light");
+    htmlElement.classList.add("scheme-light");
+    // Force light mode regardless of media queries
+    htmlElement.classList.add("scheme-only-light");
+    
+    // Also set the color-scheme CSS property for browser controls
     htmlElement.style.colorScheme = "light";
+    
     console.log(
-      "themeStore: Applied light mode: removed dark class, color-scheme: light",
+      "themeStore: Applied light mode with Tailwind 4 scheme classes",
     );
     console.log(`themeStore: HTML classList: ${htmlElement.classList}`);
   }
