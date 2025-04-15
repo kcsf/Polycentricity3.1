@@ -18,6 +18,7 @@ import 'gun/sea';
 const gunOptions = {
   localStorage: false,  // Disable local storage (we'll use IndexedDB via radisk)
   radisk: true,         // Enable radisk for IndexedDB storage
+  silent: true,         // Disable Gun's default welcome message and logs
 };
 
 // Create the Gun instance
