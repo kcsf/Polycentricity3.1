@@ -131,20 +131,15 @@
 
   // Load data on mount
   onMount(async () => {
-    console.log(`D3CardBoard: Initializing for game ${gameId}`);
-    
     try {
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
-        console.log(`D3CardBoard: Using ${cards.length} cards passed from parent component`);
-        
         // Create a new array instead of modifying the original cards array
         const newCardsWithPosition: CardWithPosition[] = [];
         
         // Process each card to add position data
         for (const card of cards) {
           if (!card || !card.card_id) {
-            console.warn(`D3CardBoard: Invalid card data found, skipping`, card);
             continue;
           }
           
@@ -164,38 +159,27 @@
         
         // Update the cardsWithPosition array with all processed cards at once
         cardsWithPosition = newCardsWithPosition;
-        console.log(`D3CardBoard: Processed ${cardsWithPosition.length} cards with positions`);
       } else {
         // If no cards were passed directly, fetch from database
-        console.log(`D3CardBoard: No cards passed from parent, loading from database`);
         await loadGameData();
       }
       
       // If activeActorId is provided, find its card
       if (activeActorId) {
-        console.log(`D3CardBoard: Finding card for actor ${activeActorId}`);
         const actor = actors.find(a => a.actor_id === activeActorId);
         if (actor && actor.card_id) {
           activeCardId = actor.card_id;
-          console.log(`D3CardBoard: Set active card to ${activeCardId}`);
-        } else {
-          console.log(`D3CardBoard: Could not find card for actor ${activeActorId}`);
         }
       }
       
       // Initialize the graph visualization
-      console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
       if (cardsWithPosition.length > 0) {
         // Add demo agreements for testing if no real agreements yet
         if (agreements.length === 0 && cardsWithPosition.length >= 3) {
-          console.log("D3CardBoard: Adding demo agreements for visualization");
           createDemoAgreements();
         }
         
-        console.log("D3CardBoard: Initializing graph visualization");
         initializeGraph();
-      } else {
-        console.warn("D3CardBoard: No cards to display");
       }
       
       // Set up real-time listeners
@@ -225,16 +209,12 @@
         return;
       }
       
-      console.log(`D3CardBoard: Loading game data for ${gameId}`);
-      
       // Load the game to get deck_id
       const game = await getGame(gameId);
       if (!game) {
         console.error(`D3CardBoard: Game not found: ${gameId}`);
         return;
       }
-      
-      console.log(`D3CardBoard: Game loaded:`, game);
       
       let deckId = game.deck_id;
       if (!deckId) {
@@ -376,24 +356,18 @@
         return;
       }
       
-      console.log(`D3CardBoard: Loading details for card ${card.card_id} (${card.role_title || 'Untitled Role'})`);
-      
       // Load Values with improved Gun.js reference handling
       if (card.values && typeof card.values === 'object') {
         // Filter out metadata key and handle the special Gun.js reference key properly
         const valueIds = Object.keys(card.values)
           .filter(id => id !== '_')
           .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
-          
-        console.log(`D3CardBoard: Card has ${valueIds.length} values to load`);
         
         // Handle Gun.js references properly
         if (valueIds.length === 1 && valueIds[0] === '#') {
           // Handle reference case
           const reference = card.values['#'];
           if (typeof reference === 'string' && reference.includes('/values/')) {
-            console.log(`D3CardBoard: Processing values reference: ${reference}`);
-            
             await new Promise<void>((resolve) => {
               try {
                 // Use a Set to track processed keys and avoid duplicates
@@ -407,17 +381,13 @@
                   
                   gun.get(nodes.values).get(key).once((valueData: Value) => {
                     if (valueData && valueData.value_id) {
-                      console.log(`D3CardBoard: Loaded value ${key}: ${valueData.name}`);
                       valueCache.set(key, valueData);
-                    } else {
-                      console.warn(`D3CardBoard: Value ${key} data not found`, valueData);
                     }
                   });
                 });
                 
                 setTimeout(resolve, 500);
               } catch (error) {
-                console.error(`D3CardBoard: Error processing values reference:`, error);
                 resolve();
               }
             });
@@ -428,15 +398,11 @@
             if (!valueId || valueId === '_' || valueId === '#') continue; // Skip metadata and reference keys
             
             if (!valueCache.has(valueId)) {
-              console.log(`D3CardBoard: Loading value ${valueId}`);
               await new Promise<void>((resolve) => {
                 try {
                   gun.get(nodes.values).get(valueId).once((valueData: Value) => {
                     if (valueData && valueData.value_id) {
-                      console.log(`D3CardBoard: Loaded value ${valueId}: ${valueData.name}`);
                       valueCache.set(valueId, valueData);
-                    } else {
-                      console.warn(`D3CardBoard: Value ${valueId} data not found or incomplete`);
                     }
                     resolve();
                   });
@@ -444,12 +410,9 @@
                   // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
                   setTimeout(resolve, 500);
                 } catch (error) {
-                  console.error(`D3CardBoard: Error loading value ${valueId}:`, error);
                   resolve();
                 }
               });
-            } else {
-              console.log(`D3CardBoard: Value ${valueId} already in cache: ${valueCache.get(valueId)?.name}`);
             }
           }
         }
@@ -464,15 +427,11 @@
           .filter(id => id !== '_')
           .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
         
-        console.log(`D3CardBoard: Card has ${capIds.length} capabilities to load`);
-        
         // Handle Gun.js references properly
         if (capIds.length === 1 && capIds[0] === '#') {
           // Handle reference case
           const reference = card.capabilities['#'];
           if (typeof reference === 'string' && reference.includes('/capabilities/')) {
-            console.log(`D3CardBoard: Processing capabilities reference: ${reference}`);
-            
             await new Promise<void>((resolve) => {
               try {
                 // Use a Set to track processed keys and avoid duplicates
@@ -486,17 +445,13 @@
                   
                   gun.get(nodes.capabilities).get(key).once((capData: Capability) => {
                     if (capData && capData.capability_id) {
-                      console.log(`D3CardBoard: Loaded capability ${key}: ${capData.name}`);
                       capabilityCache.set(key, capData);
-                    } else {
-                      console.warn(`D3CardBoard: Capability ${key} data not found`, capData);
                     }
                   });
                 });
                 
                 setTimeout(resolve, 500);
               } catch (error) {
-                console.error(`D3CardBoard: Error processing capabilities reference:`, error);
                 resolve();
               }
             });
@@ -507,15 +462,11 @@
             if (!capId || capId === '_' || capId === '#') continue; // Skip metadata and reference keys
             
             if (!capabilityCache.has(capId)) {
-              console.log(`D3CardBoard: Loading capability ${capId}`);
               await new Promise<void>((resolve) => {
                 try {
                   gun.get(nodes.capabilities).get(capId).once((capData: Capability) => {
                     if (capData && capData.capability_id) {
-                      console.log(`D3CardBoard: Loaded capability ${capId}: ${capData.name}`);
                       capabilityCache.set(capId, capData);
-                    } else {
-                      console.warn(`D3CardBoard: Capability ${capId} data not found or incomplete`);
                     }
                     resolve();
                   });
@@ -523,12 +474,9 @@
                   // Add a timeout to ensure we don't get stuck if Gun.js doesn't respond
                   setTimeout(resolve, 500);
                 } catch (error) {
-                  console.error(`D3CardBoard: Error loading capability ${capId}:`, error);
                   resolve();
                 }
               });
-            } else {
-              console.log(`D3CardBoard: Capability ${capId} already in cache: ${capabilityCache.get(capId)?.name}`);
             }
           }
         }
