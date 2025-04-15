@@ -17,6 +17,18 @@
       const headerHeight = headerElement.offsetHeight;
       document.documentElement.style.setProperty('--app-bar-height', `${headerHeight}px`);
     }
+    
+    // Override Gun's console.log with a no-op function to prevent welcome message
+    // This is a bit of a hack, but Gun.js has hardcoded console.log calls we need to silence
+    const originalConsoleLog = console.log;
+    console.log = function(...args) {
+      // Filter out Gun.js welcome message
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('Hello wonderful person')) {
+        return; // don't log the welcome message
+      }
+      // Otherwise, pass through to the original console.log
+      originalConsoleLog.apply(console, args);
+    };
   });
 </script>
 

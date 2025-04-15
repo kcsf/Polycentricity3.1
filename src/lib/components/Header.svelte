@@ -19,7 +19,6 @@
     if (browser) {
       return themeStore.subscribe(theme => {
         isDarkMode = theme === 'dark';
-        console.log(`Header: Theme updated to ${theme}, isDarkMode: ${isDarkMode}`);
       });
     }
   });
