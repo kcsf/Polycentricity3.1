@@ -895,7 +895,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         const filteredNames = capNames.filter(Boolean);
         return filteredNames;
     } catch (error) {
-        console.error("[getCardCapabilityNames] Error:", error);
+        // Silent error handling for performance
         return [];
     }
 }

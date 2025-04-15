@@ -655,17 +655,17 @@ export async function getCard(cardId: string): Promise<Card | null> {
         return new Promise((resolve) => {
             gun.get(nodes.cards).get(cardId).once((cardData: Card) => {
                 if (!cardData) {
-                    console.log(`Card not found: ${cardId}`);
+                    // Card not found
                     resolve(null);
                     return;
                 }
                 
-                console.log(`Card retrieved: ${cardId}`);
+                // Card retrieved successfully
                 resolve(cardData);
             });
         });
     } catch (error) {
-        console.error('Get card error:', error);
+        // Silent error handling for performance
         return null;
     }
 }
