@@ -8,8 +8,6 @@
         import UserCard from '$lib/components/UserCard.svelte';
         import GameCard from '$lib/components/GameCard.svelte';
         import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
-        import ActorEditModal from '$lib/components/ActorEditModal.svelte';
-        import ActorCreateModal from '$lib/components/ActorCreateModal.svelte';
         import * as icons from 'svelte-lucide';
         // Dashboard specific imports
         
@@ -262,26 +260,12 @@
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
         
-        // Modal states
+        // Modal state for profile update
         let profileModalOpen = false;
-        let actorEditModalOpen = false;
-        let actorCreateModalOpen = false;
-        let selectedActor = null;
         
         // Modal handling for profile update
         function openProfileUpdateModal() {
             profileModalOpen = true;
-        }
-        
-        // Modal handling for actor edit
-        function openActorEditModal(actor) {
-            selectedActor = actor;
-            actorEditModalOpen = true;
-        }
-        
-        // Modal handling for actor create
-        function openActorCreateModal() {
-            actorCreateModalOpen = true;
         }
 </script>
 
@@ -307,7 +291,7 @@
                         <div class="mt-5 flex justify-center sm:mt-0">
                             <button 
                                 class="btn variant-soft-primary"
-                                onclick={openProfileUpdateModal}
+                                on:click={openProfileUpdateModal}
                             >
                                 <icons.UserCog size={16} class="mr-2" /> 
                                 Update Profile
@@ -369,16 +353,7 @@
                                 <!-- Your Actors Card -->
                                 <div class="card variant-filled-surface p-0 shadow-xl overflow-hidden">
                                         <header class="bg-tertiary-500/10 dark:bg-tertiary-500/20 p-5">
-                                                <div class="flex flex-col md:flex-row justify-between items-center">
-                                                        <h2 class="h2 text-tertiary-700 dark:text-tertiary-300 mb-3 md:mb-0">Your Actors</h2>
-                                                        <button 
-                                                                class="btn variant-soft-tertiary"
-                                                                onclick={openActorCreateModal}
-                                                        >
-                                                                <icons.Plus size={16} class="mr-2" />
-                                                                Create Actor
-                                                        </button>
-                                                </div>
+                                                <h2 class="h2 text-tertiary-700 dark:text-tertiary-300">Your Actors</h2>
                                         </header>
                                         
                                         <div class="p-5">
@@ -409,17 +384,6 @@
                                                                                                         <p class="text-xs text-surface-600-400-token">
                                                                                                                 Type: {actor.actor_type || 'Standard Actor'}
                                                                                                         </p>
-                                                                                                </div>
-                                                                                                
-                                                                                                <!-- Edit button -->
-                                                                                                <div class="shrink-0 mr-2">
-                                                                                                        <button 
-                                                                                                                class="btn-icon btn-icon-sm variant-soft"
-                                                                                                                title="Edit Actor"
-                                                                                                                onclick={() => openActorEditModal(actor)}
-                                                                                                        >
-                                                                                                                <icons.Edit size={14} />
-                                                                                                        </button>
                                                                                                 </div>
                                                                                                 
                                                                                                 <!-- Status indicator -->
@@ -577,9 +541,3 @@
 
 <!-- Profile Update Modal -->
 <ProfileUpdateModal bind:open={profileModalOpen} />
-
-<!-- Actor Edit Modal -->
-<ActorEditModal bind:open={actorEditModalOpen} actor={selectedActor} />
-
-<!-- Actor Create Modal -->
-<ActorCreateModal bind:open={actorCreateModalOpen} />

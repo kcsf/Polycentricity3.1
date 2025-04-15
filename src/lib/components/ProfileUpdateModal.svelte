@@ -60,11 +60,10 @@
         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
             <!-- Name -->
             <div class="space-y-1">
-                <label for="profile-name" class="text-sm font-medium">
+                <label class="text-sm font-medium">
                     Name
                 </label>
                 <input
-                    id="profile-name"
                     type="text"
                     class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded"
                     placeholder="Your name"
@@ -75,11 +74,10 @@
             
             <!-- Email Address -->
             <div class="space-y-1">
-                <label for="profile-email" class="text-sm font-medium">
+                <label class="text-sm font-medium">
                     Email Address
                 </label>
                 <input
-                    id="profile-email"
                     type="email"
                     class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded"
                     placeholder="your.email@example.com"
@@ -90,11 +88,10 @@
             
             <!-- Role -->
             <div class="space-y-1">
-                <label for="profile-role" class="text-sm font-medium">
+                <label class="text-sm font-medium">
                     Role
                 </label>
                 <select 
-                    id="profile-role"
                     bind:value={role} 
                     class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded"
                 >
@@ -106,11 +103,10 @@
             
             <!-- Bio -->
             <div class="space-y-1">
-                <label for="profile-bio" class="text-sm font-medium">
+                <label class="text-sm font-medium">
                     Bio
                 </label>
                 <textarea
-                    id="profile-bio"
                     class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded"
                     placeholder="Tell us about yourself..."
                     bind:value={bio}
