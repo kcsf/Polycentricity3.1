@@ -367,32 +367,49 @@
       const capabilityNames = await getCardCapabilityNames(card);
       console.log(`Capabilities for ${card.role_title}:`, capabilityNames);
       
-      // Check if values/capabilities were found
-      if ((valueNames.length > 0 || capabilityNames.length > 0)) {
-        console.log(`Found ${valueNames.length} values and ${capabilityNames.length} capabilities for ${card.role_title}`);
-        
-        // Store these values in the card's metadata for visualization
-        (card as any)._valueNames = valueNames;
-        (card as any)._capabilityNames = capabilityNames;
-        
-        // Update the cardsWithPosition array to ensure the card has the new data
-        cardsWithPosition = cardsWithPosition.map(c => {
-          if (c.card_id === card.card_id) {
-            return {
-              ...c,
-              _valueNames: valueNames,
-              _capabilityNames: capabilityNames
-            };
-          }
-          return c;
+      // IMPORTANT: Update the card with the values and capabilities
+      if (valueNames && valueNames.length > 0) {
+        // Create a new values object based on the names we got
+        const valuesObj: Record<string, boolean> = {};
+        valueNames.forEach(valueName => {
+          const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+          valuesObj[valueId] = true;
         });
         
-        // After loading values and capabilities,
-        // update the visualization by triggering a redraw
-        // This is important to make sure the donut rings show the real values
-        updateVisualization();
-      } else {
-        console.warn(`No values or capabilities found for ${card.role_title}`);
+        // Replace the card's values with our new object
+        card.values = valuesObj;
+      }
+      
+      // Do the same for capabilities
+      if (capabilityNames && capabilityNames.length > 0) {
+        // Create a new capabilities object based on the names we got
+        const capabilitiesObj: Record<string, boolean> = {};
+        capabilityNames.forEach(capName => {
+          const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+          capabilitiesObj[capabilityId] = true;
+        });
+        
+        // Replace the card's capabilities with our new object
+        card.capabilities = capabilitiesObj;
+      }
+      
+      // Update the cardsWithPosition array
+      cardsWithPosition = cardsWithPosition.map(c => {
+        if (c.card_id === card.card_id) {
+          return {
+            ...c,
+            values: card.values,
+            capabilities: card.capabilities
+          };
+        }
+        return c;
+      });
+      
+      // Now reinitialize the graph
+      if (svgRef) {
+        const svg = d3.select(svgRef);
+        svg.selectAll("*").remove();
+        initializeGraph();
       }
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
