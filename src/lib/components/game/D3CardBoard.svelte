@@ -42,6 +42,13 @@
   let popoverNodeType: 'actor' | 'agreement' = 'actor';
   let popoverTriggerElement: HTMLElement | null = null;
   
+  // Function to handle popover close
+  function handlePopoverClose() {
+    popoverOpen = false;
+    popoverNode = null;
+    popoverTriggerElement = null;
+  }
+  
   // Interfaces for D3 visualization
   interface D3Node {
     id: string;
@@ -2270,6 +2277,15 @@
     
     <!-- All visualization elements are now created directly with D3 -->
   </svg>
+  
+  <!-- Node Popover component -->
+  <NodePopover
+    node={popoverNode}
+    nodeType={popoverNodeType}
+    trigger={popoverTriggerElement}
+    open={popoverOpen}
+    on:close={handlePopoverClose}
+  />
   
   <!-- Controls will be connected to page header -->
   <!-- Removed redundant search and zoom controls that will be handled by GamePageLayout header -->

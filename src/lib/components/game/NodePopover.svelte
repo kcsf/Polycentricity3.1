@@ -1,6 +1,10 @@
 <script lang="ts">
   import { createPopover } from '@melt-ui/svelte';
   import { fly } from 'svelte/transition';
+  import { createEventDispatcher } from 'svelte';
+  
+  // Create a dispatcher for events
+  const dispatch = createEventDispatcher();
   
   // Define the props
   export let node: any = null; // Will be a Card or Agreement
@@ -30,10 +34,17 @@
       isOpen.set(open);
     }
   }
+  
+  // Watch for changes in the isOpen state and dispatch close event when closed
+  $: if (!$isOpen && open) {
+    open = false;
+    dispatch('close');
+  }
 
   // Dispatch a close event when the popover is closed
   function handleClose() {
     open = false;
+    dispatch('close');
   }
 
   // Format the property names for better display
