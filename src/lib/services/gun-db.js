@@ -14,9 +14,7 @@ import 'gun/lib/store';
 import 'gun/lib/rindexed';
 import 'gun/sea';
 
-// Create and export a single Gun instance
-console.log('[GUN-DB] Creating Gun instance for Vite/SvelteKit...');
-
+// Create and export a single Gun instance without logging for performance
 const gunOptions = {
   localStorage: false,  // Disable local storage (we'll use IndexedDB via radisk)
   radisk: true,         // Enable radisk for IndexedDB storage
@@ -30,7 +28,5 @@ db.get('debug').put({
   status: 'Initialized at ' + new Date().toISOString(),
   viteCompatible: true,
 });
-
-console.log('[GUN-DB] Gun instance created successfully');
 
 export default db;

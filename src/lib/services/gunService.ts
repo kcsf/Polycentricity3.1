@@ -16,8 +16,7 @@ import type { IGunInstance, IGunUserInstance } from "gun";
 
 // Check if the db instance is a valid Gun instance
 const isPersistentStorage = db && (db as any).opt?.radisk === true;
-console.log("[gunService] Gun db instance loaded:", !!db);
-console.log("[gunService] Using persistent storage:", isPersistentStorage);
+// Removed logging statements for performance
 
 /* ───────────────────────────── basics ───────────────────────────── */
 
@@ -40,8 +39,7 @@ export interface GunAck {
  * This is now just a reference method that returns the pre-initialized Gun instance.
  */
 export function initializeGun(): IGunInstance | undefined {
-  // Just return the pre-initialized Gun instance from gun-db.js
-  console.log("[initializeGun] Using pre-initialized Gun instance from gun-db.js");
+  // Just return the pre-initialized Gun instance from gun-db.js without logging
   return gun;
 }
 
@@ -50,7 +48,7 @@ export function initializeGun(): IGunInstance | undefined {
  * This is the only way to access Gun throughout the application.
  */
 export function getGun(): IGunInstance | undefined {
-  console.log("[getGun] ✓ Gun instance available from gun-db.js");
+  // Return the gun instance without logging for performance
   return gun;
 }
 
