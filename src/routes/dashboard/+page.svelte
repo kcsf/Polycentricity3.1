@@ -533,78 +533,7 @@
                                         {/if}
                                 {/if}
                                 
-                                <!-- Your Actors Section -->
-                                {#if actorStats.length > 0}
-                                <div class="mt-8">
-                                        <!-- Your Actors Header -->
-                                        <div class="card variant-filled-tertiary p-5 shadow-xl mb-6">
-                                                <div class="flex flex-col md:flex-row justify-between items-center">
-                                                        <h2 class="h2 text-white mb-4 md:mb-0">Your Actors</h2>
-                                                </div>
-                                        </div>
-                                        
-                                        <!-- Actor Cards Grid -->
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                {#each actorStats as actor}
-                                                        <div class="card variant-soft p-4 border border-surface-300-600-token">
-                                                                <!-- Actor Header -->
-                                                                <div class="flex justify-between items-start">
-                                                                        <div>
-                                                                                <p class="font-semibold text-primary-600 dark:text-primary-400 text-lg">
-                                                                                        {actor.custom_name || actor.name || 'Unnamed Actor'}
-                                                                                </p>
-                                                                        </div>
-                                                                        <div class="badge variant-filled-tertiary">
-                                                                                {actor.status || 'Active'}
-                                                                        </div>
-                                                                </div>
-                                                                
-                                                                <!-- Actor Properties -->
-                                                                <div class="grid grid-cols-2 gap-2 my-2">
-                                                                        {#if actor.actor_type}
-                                                                                <div class="flex items-center text-xs">
-                                                                                        <icons.PersonStanding size={12} class="mr-1 text-tertiary-500" />
-                                                                                        <span>{actor.actor_type}</span>
-                                                                                </div>
-                                                                        {/if}
-                                                                        
-                                                                        {#if actor.actor_id}
-                                                                                <div class="flex items-center text-xs">
-                                                                                        <icons.Tag size={12} class="mr-1 text-tertiary-500" />
-                                                                                        <span class="opacity-75 overflow-hidden overflow-ellipsis whitespace-nowrap" 
-                                                                                              title={actor.actor_id}>{actor.actor_id.substring(0, 10)}...</span>
-                                                                                </div>
-                                                                        {/if}
-                                                                </div>
-                                                                
-                                                                <!-- Additional Actor Information -->
-                                                                <div class="mt-2 grid grid-cols-2 gap-2">
-                                                                        {#if actor.created_at}
-                                                                                <div class="flex items-center text-xs">
-                                                                                        <icons.Clock size={12} class="mr-1 text-tertiary-500" />
-                                                                                        <span>{new Date(actor.created_at).toLocaleDateString()}</span>
-                                                                                </div>
-                                                                        {/if}
-                                                                </div>
-                                                                
-                                                                <!-- Game Link -->
-                                                                {#if actor.game_id}
-                                                                        <div class="mt-3 text-xs flex justify-end">
-                                                                                <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary">
-                                                                                        <icons.LogIn size={14} class="mr-1"/>
-                                                                                        View Game
-                                                                                </a>
-                                                                        </div>
-                                                                {:else}
-                                                                        <div class="mt-3 text-xs text-surface-600-300-token italic">
-                                                                                Not currently in a game
-                                                                        </div>
-                                                                {/if}
-                                                        </div>
-                                                {/each}
-                                        </div>
-                                </div>
-                                {/if}
+                                <!-- Actors section removed from here - now only in left sidebar -->
                         </div>
                 </div>
         {/if}
