@@ -75,6 +75,8 @@
     fx?: number | null;
     fy?: number | null;
     active?: boolean;
+    _valueNames?: string[];     // Store value names for card nodes
+    _capabilityNames?: string[]; // Store capability names for card nodes
   }
 
   interface D3Link {
@@ -365,14 +367,33 @@
       const capabilityNames = await getCardCapabilityNames(card);
       console.log(`Capabilities for ${card.role_title}:`, capabilityNames);
       
-      // Store these values in the card's metadata for visualization
-      (card as any)._valueNames = valueNames;
-      (card as any)._capabilityNames = capabilityNames;
-      
-      // After loading values and capabilities,
-      // update the visualization by triggering a redraw
-      // This is important to make sure the donut rings show the real values
-      updateVisualization();
+      // Check if values/capabilities were found
+      if ((valueNames.length > 0 || capabilityNames.length > 0)) {
+        console.log(`Found ${valueNames.length} values and ${capabilityNames.length} capabilities for ${card.role_title}`);
+        
+        // Store these values in the card's metadata for visualization
+        (card as any)._valueNames = valueNames;
+        (card as any)._capabilityNames = capabilityNames;
+        
+        // Update the cardsWithPosition array to ensure the card has the new data
+        cardsWithPosition = cardsWithPosition.map(c => {
+          if (c.card_id === card.card_id) {
+            return {
+              ...c,
+              _valueNames: valueNames,
+              _capabilityNames: capabilityNames
+            };
+          }
+          return c;
+        });
+        
+        // After loading values and capabilities,
+        // update the visualization by triggering a redraw
+        // This is important to make sure the donut rings show the real values
+        updateVisualization();
+      } else {
+        console.warn(`No values or capabilities found for ${card.role_title}`);
+      }
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
@@ -446,19 +467,34 @@
     root.style.setProperty('--agreement-node-radius', `${agreementNodeRadius}px`);
     root.style.setProperty('--donut-thickness', `${donutThickness}px`);
     
+    // Debug the cards before mapping
+    console.log("Cards before visualization:", cardsWithPosition);
+    cardsWithPosition.forEach(card => {
+      // Add debug logs for each card's values
+      console.log(`Card ${card.role_title} values:`, 
+        (card as any)._valueNames || "none", 
+        (card as any)._capabilityNames || "none");
+    });
+    
     // Prepare nodes and links data
     let nodes: D3Node[] = [
-      ...cardsWithPosition.map((card) => ({
-        id: card.card_id,
-        name: card.role_title || "Unnamed Card",
-        type: "actor" as const,  // Using "actor" to match React reference
-        data: card,
-        x: card.position?.x || Math.random() * width,
-        y: card.position?.y || Math.random() * height,
-        fx: card.position?.x || null,
-        fy: card.position?.y || null,
-        active: card.card_id === activeCardId,
-      })),
+      ...cardsWithPosition.map((card) => {
+        // Create normal node data
+        return {
+          id: card.card_id,
+          name: card.role_title || "Unnamed Card",
+          type: "actor" as const,  // Using "actor" to match React reference
+          data: card,
+          x: card.position?.x || Math.random() * width,
+          y: card.position?.y || Math.random() * height,
+          fx: card.position?.x || null,
+          fy: card.position?.y || null,
+          active: card.card_id === activeCardId,
+          // Explicitly transfer value and capability names to the node
+          _valueNames: (card as any)._valueNames,
+          _capabilityNames: (card as any)._capabilityNames
+        };
+      }),
       ...agreements.map((agreement) => ({
         id: agreement.agreement_id,
         name: agreement.title || "Unnamed Agreement",
@@ -1481,6 +1517,19 @@
       
       // Process card data for visualization
       const cardDataForViz = { ...(card as any) };
+      
+      // Debug: Print data from the D3 node
+      console.log(`DEBUG: Node data for ${nodeData.name}:`, nodeData);
+      console.log(`DEBUG: Card data for ${card.role_title}:`, card);
+      console.log(`DEBUG: Looking for _valueNames in nodeData:`, nodeData._valueNames);
+      console.log(`DEBUG: Looking for _valueNames in card:`, (card as any)._valueNames);
+      
+      // IMPORTANT: Get the values directly from the d3 node object, not the card
+      // This ensures we use the data that was explicitly passed from the card to the node
+      if (nodeData._valueNames && nodeData._valueNames.length > 0) {
+        // Update cardDataForViz with values from D3 node
+        cardDataForViz._valueNames = nodeData._valueNames;
+      }
       
       // Use our real value/capability data that was loaded with loadCardDetails
       if (cardDataForViz._valueNames && cardDataForViz._valueNames.length > 0) {
