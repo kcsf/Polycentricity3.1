@@ -3,7 +3,7 @@
         import { goto } from '$app/navigation';
         import { userStore } from '$lib/stores/userStore';
         import { userGamesStore } from '$lib/stores/gameStore';
-        import { getUserGames, getAllGames, getUserActors } from '$lib/services/gameService';
+        import { getUserGames, getAllGames, getUserActors, getGame } from '$lib/services/gameService';
         import { getGun, nodes } from '$lib/services/gunService';
         import UserCard from '$lib/components/UserCard.svelte';
         import GameCard from '$lib/components/GameCard.svelte';
@@ -12,6 +12,7 @@
         // Dashboard state
         let isLoading = true;
         let actorStats = [];
+        let actorGames = []; // Games found through actors
         let dashboardStats = {
             gamesCreated: 0,
             gamesJoined: 0,
@@ -20,6 +21,58 @@
             decksCreated: 0,
             cardsOwned: 0
         };
+
+        // Get all games that a user's actors are part of (deeper traversal)
+        async function getGamesFromActors(actors) {
+            const gun = getGun();
+            if (!gun || !actors.length) return [];
+            
+            return new Promise((resolve) => {
+                const games = [];
+                const gameIds = new Set();
+                
+                // Extract game_ids from actors
+                const actorGameIds = actors
+                    .filter(actor => actor.game_id)
+                    .map(actor => actor.game_id);
+                    
+                // Deduplicate game IDs
+                const uniqueGameIds = [...new Set(actorGameIds)];
+                
+                console.log(`Found ${uniqueGameIds.length} unique games from actors`);
+                
+                // For each game ID, get the full game data
+                if (uniqueGameIds.length === 0) {
+                    resolve([]);
+                    return;
+                }
+                
+                let gamesLoaded = 0;
+                
+                uniqueGameIds.forEach(gameId => {
+                    gun.get(nodes.games).get(gameId).once((gameData) => {
+                        if (gameData && gameData.game_id) {
+                            games.push(gameData);
+                            gameIds.add(gameData.game_id);
+                        }
+                        
+                        gamesLoaded++;
+                        if (gamesLoaded === uniqueGameIds.length) {
+                            console.log(`Loaded ${games.length} games through actor traversal`);
+                            resolve(games);
+                        }
+                    });
+                });
+                
+                // Failsafe timeout in case not all games are found
+                setTimeout(() => {
+                    if (games.length < uniqueGameIds.length) {
+                        console.log(`Timeout reached, returning ${games.length} games`);
+                        resolve(games);
+                    }
+                }, 1000);
+            });
+        }
 
         // Function to count agreements by type for a user
         async function countUserAgreements() {
@@ -33,12 +86,17 @@
                 gun.get(nodes.agreements).map().once((agreement, id) => {
                     if (!agreement) return;
                     
-                    // Check if the user is in any of the parties
-                    if (agreement.parties && Object.keys(agreement.parties).some(actorId => {
-                        const actorMatch = actorStats.find(actor => actor.actor_id === actorId);
-                        return actorMatch && actorMatch.user_id === $userStore.user?.user_id;
-                    })) {
-                        participating++;
+                    // Check if the user is in any of the parties via their actors
+                    if (agreement.parties) {
+                        const partyActorIds = Object.keys(agreement.parties);
+                        const userInParty = partyActorIds.some(actorId => {
+                            const actorMatch = actorStats.find(actor => actor.actor_id === actorId);
+                            return actorMatch && actorMatch.user_id === $userStore.user?.user_id;
+                        });
+                        
+                        if (userInParty) {
+                            participating++;
+                        }
                     }
                     
                     // Check if the user created the agreement
@@ -88,20 +146,88 @@
             return cardCount;
         }
         
+        // Load actor details including card and game information
+        async function loadFullActorDetails(actors) {
+            if (!actors.length) return actors;
+            
+            const gun = getGun();
+            if (!gun) return actors;
+            
+            return new Promise((resolve) => {
+                const enhancedActors = [...actors];
+                let actorsProcessed = 0;
+                
+                // For each actor, get their associated card details if they have a card_id
+                actors.forEach((actor, index) => {
+                    if (actor.card_id) {
+                        gun.get(nodes.cards).get(actor.card_id).once((cardData) => {
+                            if (cardData) {
+                                // Merge card details into actor data
+                                enhancedActors[index] = {
+                                    ...actor,
+                                    card_details: cardData,
+                                    // If actor has no name but card has role_title, use that
+                                    name: actor.name || cardData.role_title || 'Unnamed Actor'
+                                };
+                            }
+                            
+                            actorsProcessed++;
+                            if (actorsProcessed === actors.length) {
+                                console.log(`Enhanced ${enhancedActors.length} actors with card details`);
+                                resolve(enhancedActors);
+                            }
+                        });
+                    } else {
+                        actorsProcessed++;
+                        if (actorsProcessed === actors.length) {
+                            resolve(enhancedActors);
+                        }
+                    }
+                });
+                
+                // Failsafe timeout
+                setTimeout(() => {
+                    if (actorsProcessed < actors.length) {
+                        console.log('Timeout reached while loading actor details');
+                        resolve(enhancedActors);
+                    }
+                }, 1000);
+            });
+        }
+        
         onMount(async () => {
-                // Fetch user's games
+                // Fetch user's games and actors
                 try {
-                        // Get all games
-                        const allGames = await getAllGames();
-                        
-                        // Get user's games
-                        const userGames = await getUserGames();
-                        userGamesStore.set(userGames || []);
-                        console.log(`Dashboard loaded ${userGames.length} games`);
-                        
-                        // Get user's actors
+                        // Get all user's actors first
                         const userActors = await getUserActors();
-                        actorStats = userActors || [];
+                        console.log(`Found ${userActors.length} actors for user`);
+                        
+                        // Load detailed actor information
+                        actorStats = await loadFullActorDetails(userActors || []);
+                        
+                        // Get games directly through user relationship
+                        const directUserGames = await getUserGames();
+                        
+                        // Also get games through actors (deeper traversal)
+                        const actorLinkedGames = await getGamesFromActors(actorStats);
+                        
+                        // Combine both game lists, removing duplicates
+                        const allUserGames = [...directUserGames];
+                        
+                        // Add actor-linked games if they're not already in the user games
+                        actorLinkedGames.forEach(game => {
+                            if (!allUserGames.some(g => g.game_id === game.game_id)) {
+                                allUserGames.push(game);
+                            }
+                        });
+                        
+                        console.log(`Combined ${directUserGames.length} direct games with ${actorLinkedGames.length} actor games for total of ${allUserGames.length} games`);
+                        
+                        // Store in the games store
+                        userGamesStore.set(allUserGames);
+                        
+                        // Get all games (for additional stats)
+                        const allGames = await getAllGames();
                         
                         // Calculate dashboard stats
                         if ($userStore.user) {
@@ -110,8 +236,8 @@
                                 game.creator === $userStore.user?.user_id
                             ).length;
                             
-                            // Count games joined
-                            dashboardStats.gamesJoined = userGames.length;
+                            // Count games joined (from combined list)
+                            dashboardStats.gamesJoined = allUserGames.length;
                             
                             // Count agreements
                             const agreementCounts = await countUserAgreements();
