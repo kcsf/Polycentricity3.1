@@ -1055,9 +1055,11 @@
         
         // Calculate position for the popover
         const mouseEvent = event as MouseEvent;
+        // Use the node's actual coordinates instead of mouse position
+        // This ensures popover is positioned relative to the node center
         popoverPosition = { 
-          x: mouseEvent.clientX, 
-          y: mouseEvent.clientY 
+          x: d.x, 
+          y: d.y 
         };
         popoverOpen = true;
         
@@ -2289,8 +2291,8 @@
   <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card bg-surface-100-900-token/80 rounded-lg shadow-lg p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
-      style="z-index: 1000; left: {popoverPosition.x + 70}px; top: {popoverPosition.y - 150}px; transform: translateY(50%);"
+      class="card variant-filled-surface bg-surface-100-800-token rounded-lg shadow-xl p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
       <button 
