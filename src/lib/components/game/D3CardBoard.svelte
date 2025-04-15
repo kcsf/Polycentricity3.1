@@ -2380,15 +2380,15 @@
     <!-- All visualization elements are now created directly with D3 -->
   </svg>
   
-  <!-- Custom popover styled like RoleCard -->
+  <!-- Popover Container -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="card p-4 shadow-lg h-full flex flex-col max-w-md max-h-[80vh] overflow-y-auto absolute bg-surface-100-900/80 rounded-lg border border-surface-200 dark:border-surface-700"
+      class="absolute max-w-md max-h-[80vh] overflow-y-auto"
       style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
       <button 
-        class="btn btn-sm variant-ghost-surface absolute top-2 right-2" 
+        class="btn btn-sm variant-ghost-surface absolute top-2 right-2 z-10" 
         on:click={handlePopoverClose}
         aria-label="Close popover"
       >
@@ -2396,159 +2396,84 @@
       </button>
       
       {#if popoverNodeType === 'actor'}
-        <!-- Actor Card styled exactly like RoleCard -->
-        <header class="card-header flex justify-between items-center">
-          <h3 class="h3 text-primary-500 dark:text-primary-400">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
-          
-          <!-- Add badge for card category -->
-          {#if popoverNode.card_category}
-            <span class="badge variant-filled-secondary text-sm p-1 px-2 rounded-full">{popoverNode.card_category}</span>
-          {/if}
-          
-          {#if popoverNode.type}
-            <span class="badge variant-soft-surface text-xs p-1 px-2 rounded-full">{popoverNode.type}</span>
-          {/if}
-        </header>
-        
-        <section class="p-4 flex-grow space-y-3">
-          {#if popoverNode.backstory}
-            <div>
-              <h4 class="font-semibold mb-1">Backstory</h4>
-              <p class="text-sm">{popoverNode.backstory}</p>
-            </div>
-          {/if}
-          
-          <!-- Values section -->
-          {#if popoverNode.values}
-            <div>
-              <h4 class="font-semibold mb-1">Values</h4>
-              <ul class="list-disc list-inside">
-                {#if Array.isArray(popoverNode.values)}
-                  {#each popoverNode.values as value}
-                    <li class="text-sm">{value}</li>
-                  {/each}
-                {:else if typeof popoverNode.values === 'object' && popoverNode.values['#']}
-                  <!-- Gun.js reference case - display values from our cache -->
-                  {#each getCardValueNames(popoverNode) as value}
-                    <li class="text-sm">{value}</li>
-                  {/each}
-                {/if}
-              </ul>
-            </div>
-          {/if}
-          
-          <!-- Goals section -->
-          {#if popoverNode.goals}
-            <div>
-              <h4 class="font-semibold mb-1">Goals</h4>
-              <p class="text-sm">{popoverNode.goals}</p>
-            </div>
-          {/if}
-          
-          <!-- Capabilities section -->
-          {#if popoverNode.capabilities}
-            <div>
-              <h4 class="font-semibold mb-1">Capabilities</h4>
-              <div class="flex flex-wrap gap-1">
-                {#if Array.isArray(popoverNode.capabilities)}
-                  {#each popoverNode.capabilities as capability}
-                    <span class="badge variant-soft-secondary text-xs">{capability}</span>
-                  {/each}
-                {:else if typeof popoverNode.capabilities === 'object' && popoverNode.capabilities['#']}
-                  <!-- Gun.js reference case - display capabilities from our cache -->
-                  {#each getCardCapabilityNames(popoverNode) as capability}
-                    <span class="badge variant-soft-secondary text-xs">{capability}</span>
-                  {/each}
-                {/if}
-              </div>
-            </div>
-          {/if}
-          
-          <!-- Resources section -->
-          {#if popoverNode.resources || popoverNode.rivalrous_resources}
-            <div>
-              <h4 class="font-semibold mb-1">Resources</h4>
-              {#if typeof popoverNode.rivalrous_resources === 'string'}
-                <p class="text-sm mb-2">{popoverNode.rivalrous_resources}</p>
-              {/if}
-              <div class="flex flex-wrap gap-1">
-                {#if popoverNode.resources}
-                  {#if Array.isArray(popoverNode.resources)}
-                    {#each popoverNode.resources as resource}
-                      <span class="badge variant-soft-tertiary text-xs">{resource}</span>
-                    {/each}
-                  {:else if typeof popoverNode.resources === 'string'}
-                    <span class="badge variant-soft-tertiary text-xs">{popoverNode.resources}</span>
-                  {/if}
-                {/if}
-              </div>
-            </div>
-          {/if}
-          
-          <!-- IP section -->
-          {#if popoverNode.intellectual_property}
-            <div>
-              <h4 class="font-semibold mb-1">IP</h4>
-              <p class="text-sm">{popoverNode.intellectual_property}</p>
-            </div>
-          {/if}
-        </section>
-        
-      {:else if popoverNodeType === 'agreement'}
-        <!-- Agreement Card with role card styling -->
-        <header class="card-header flex justify-between items-center">
-          <h3 class="h3 text-tertiary-500 dark:text-tertiary-400">{popoverNode.title || 'Agreement'}</h3>
-          
-          {#if popoverNode.status}
-            <span class="badge variant-filled-primary text-sm p-1 px-2 rounded-full">{popoverNode.status}</span>
-          {/if}
-        </header>
-        
-        <section class="p-4 flex-grow space-y-3">
-          {#if popoverNode.description}
-            <div>
-              <h4 class="font-semibold mb-1">Description</h4>
-              <p class="text-sm">{popoverNode.description}</p>
-            </div>
-          {/if}
-          
-          <!-- Obligations section -->
-          {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
-            <div>
-              <h4 class="font-semibold mb-1">Obligations</h4>
-              <ul class="list-disc list-inside">
-                {#each popoverNode.obligations as obligation}
-                  <li class="text-sm">
-                    <span class="font-medium">{obligation.fromActorId}:</span> 
-                    {obligation.description || obligation.text}
-                  </li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          
-          <!-- Benefits section -->
-          {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
-            <div>
-              <h4 class="font-semibold mb-1">Benefits</h4>
-              <ul class="list-disc list-inside">
-                {#each popoverNode.benefits as benefit}
-                  <li class="text-sm">
-                    <span class="font-medium">To {benefit.toActorId}:</span> 
-                    {benefit.description || benefit.text}
-                  </li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          
-          <!-- Metadata footer -->
-          <div class="mt-4 pt-2 border-t border-surface-200 dark:border-surface-700">
-            {#if popoverNode.created_at}
-              <span class="text-xs text-surface-500 dark:text-surface-400">Created: {new Date(popoverNode.created_at).toLocaleDateString()}</span>
-            {/if}
+        <!-- Directly use the RoleCard component -->
+        <!-- Create an actor object from the card data -->
+        {#if popoverNode}
+          <!-- Create actor object to pass to RoleCard -->
+          {@const actorData = {
+            actor_id: `temporary_${popoverNode.card_id}`,
+            game_id: gameId,
+            user_id: "",
+            card_id: popoverNode.card_id,
+            created_at: popoverNode.created_at,
+            role_title: popoverNode.role_title,
+            backstory: popoverNode.backstory,
+            values: getCardValueNames(popoverNode),
+            goals: popoverNode.goals,
+            skills: getCardCapabilityNames(popoverNode),
+            resources: popoverNode.rivalrous_resources ? [popoverNode.rivalrous_resources] : []
+          }}
+          <div class="relative">
+            <RoleCard actor={actorData} />
           </div>
-        </section>
+        {/if}
+      {:else if popoverNodeType === 'agreement'}
+        <!-- Agreement Card -->
+        <div class="card p-4 shadow-lg h-full flex flex-col bg-surface-100-900/80 rounded-lg border border-surface-200 dark:border-surface-700">
+          <header class="card-header flex justify-between items-center">
+            <h3 class="h3 text-tertiary-500 dark:text-tertiary-400">{popoverNode.title || 'Agreement'}</h3>
+            
+            {#if popoverNode.status}
+              <span class="badge variant-filled-primary text-sm p-1 px-2 rounded-full">{popoverNode.status}</span>
+            {/if}
+          </header>
+          
+          <section class="p-4 flex-grow space-y-3">
+            {#if popoverNode.description}
+              <div>
+                <h4 class="font-semibold mb-1">Description</h4>
+                <p class="text-sm">{popoverNode.description}</p>
+              </div>
+            {/if}
+            
+            <!-- Obligations section -->
+            {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
+              <div>
+                <h4 class="font-semibold mb-1">Obligations</h4>
+                <ul class="list-disc list-inside">
+                  {#each popoverNode.obligations as obligation}
+                    <li class="text-sm">
+                      <span class="font-medium">{obligation.fromActorId}:</span> 
+                      {obligation.description || obligation.text}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+            
+            <!-- Benefits section -->
+            {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
+              <div>
+                <h4 class="font-semibold mb-1">Benefits</h4>
+                <ul class="list-disc list-inside">
+                  {#each popoverNode.benefits as benefit}
+                    <li class="text-sm">
+                      <span class="font-medium">To {benefit.toActorId}:</span> 
+                      {benefit.description || benefit.text}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+            
+            <!-- Metadata footer -->
+            <div class="mt-4 pt-2 border-t border-surface-200 dark:border-surface-700">
+              {#if popoverNode.created_at}
+                <span class="text-xs text-surface-500 dark:text-surface-400">Created: {new Date(popoverNode.created_at).toLocaleDateString()}</span>
+              {/if}
+            </div>
+          </section>
+        </div>
       {/if}
     </div>
   {/if}
