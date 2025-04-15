@@ -269,7 +269,7 @@
           {/if}
         </div>
         
-        <!-- Your Role Section -->
+        <!-- Your Role Card Section -->
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
@@ -277,7 +277,7 @@
           >
             <h3 class="h4 flex items-center">
               <User size={16} class="mr-2" />
-              Your Role
+              Your Role Card
             </h3>
             <div class="text-xl">
               {#if yourRoleExpanded}
@@ -388,8 +388,8 @@
               {:else}
                 <div class="card p-4 bg-surface-100-800 border border-surface-300-600 text-center">
                   <svelte:component this={User} class="w-12 h-12 mx-auto mb-3 text-surface-500-400" />
-                  <h3 class="text-base font-bold text-surface-900-50 mb-2">No Role Assigned</h3>
-                  <p class="text-xs text-surface-700-300 mb-4">Join this game to select a role and start playing</p>
+                  <h3 class="text-base font-bold text-surface-900-50 mb-2">No Role Card Assigned</h3>
+                  <p class="text-xs text-surface-700-300 mb-4">Join this game to select a role card and start playing</p>
                   <a href="/games/{gameId}/join" class="btn btn-sm variant-filled-primary w-full">
                     <svelte:component this={UserPlus} class="w-4 h-4 mr-2" />
                     Join Game
