@@ -2286,71 +2286,158 @@
     <!-- All visualization elements are now created directly with D3 -->
   </svg>
   
-  <!-- Simple custom popover - much more direct approach -->
+  <!-- Custom popover styled like RoleCard -->
   {#if popoverOpen && popoverNode}
     <div 
-      class="bg-surface-50-900-token rounded-lg shadow-lg p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
-      style="z-index: 1000; left: {popoverPosition.x + 20}px; top: {popoverPosition.y - 20}px;"
+      class="card bg-surface-100-900-token/80 rounded-lg shadow-lg p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      style="z-index: 1000; left: {popoverPosition.x + 70}px; top: {popoverPosition.y - 150}px; transform: translateY(50%);"
     >
-      <!-- Header with title and close button -->
-      <div class="flex justify-between items-center mb-3 border-b pb-2">
-        <h3 class="font-bold text-lg">
-          {#if popoverNodeType === 'actor'}
-            {popoverNode.role_title || popoverNode.card_id || 'Card Details'}
-          {:else}
-            {popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}
-          {/if}
-        </h3>
-        <button 
-          class="btn btn-sm variant-ghost-surface" 
-          on:click={handlePopoverClose}
-          aria-label="Close popover"
-        >
-          ×
-        </button>
-      </div>
+      <!-- Close button in top right -->
+      <button 
+        class="btn btn-sm variant-ghost-surface absolute top-2 right-2" 
+        on:click={handlePopoverClose}
+        aria-label="Close popover"
+      >
+        ×
+      </button>
       
-      <!-- Simple content display -->
-      <div class="space-y-2">
-        {#if popoverNodeType === 'actor' && popoverNode.backstory}
-          <div class="p-2 bg-surface-100-800-token rounded">
-            <h4 class="font-semibold">Backstory</h4>
-            <p class="text-sm">{popoverNode.backstory}</p>
-          </div>
-        {/if}
+      {#if popoverNodeType === 'actor'}
+        <!-- Actor Card styled like RoleCard -->
+        <header class="card-header mb-2">
+          <h3 class="h3">{popoverNode.role_title || popoverNode.card_id || 'Card Details'}</h3>
+        </header>
         
-        {#if popoverNodeType === 'actor'}
-          <div class="grid grid-cols-1 gap-2">
-            {#each Object.entries(popoverNode).filter(([key]) => !['_', '#', 'position', 'active', 'x', 'y', 'fx', 'fy'].includes(key)) as [key, value]}
-              {#if value !== null && value !== undefined && (typeof value !== 'object' || Array.isArray(value))}
-                <div class="p-2 bg-surface-200-700-token/50 rounded">
-                  <h4 class="text-xs font-semibold">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, (str) => str.toUpperCase()).trim()}</h4>
-                  <p class="text-sm break-words">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>
-                </div>
-              {/if}
-            {/each}
-          </div>
-        {:else if popoverNodeType === 'agreement'}
+        <section class="p-2">
+          {#if popoverNode.backstory}
+            <p class="mb-2 text-sm">{popoverNode.backstory}</p>
+          {/if}
+          
+          <!-- Values section -->
+          {#if popoverNode.values}
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Values:</h4>
+              <ul class="list-disc list-inside">
+                {#if Array.isArray(popoverNode.values)}
+                  {#each popoverNode.values as value}
+                    <li class="text-sm">{value}</li>
+                  {/each}
+                {:else if typeof popoverNode.values === 'object' && popoverNode.values['#']}
+                  <!-- Gun.js reference case - display values from our cache -->
+                  {#each getCardValueNames(popoverNode) as value}
+                    <li class="text-sm">{value}</li>
+                  {/each}
+                {/if}
+              </ul>
+            </div>
+          {/if}
+          
+          <!-- Goals section -->
+          {#if popoverNode.goals}
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Goals:</h4>
+              <p class="text-sm">{popoverNode.goals}</p>
+            </div>
+          {/if}
+          
+          <!-- Capabilities section -->
+          {#if popoverNode.capabilities}
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Capabilities:</h4>
+              <div class="flex flex-wrap gap-1">
+                {#if Array.isArray(popoverNode.capabilities)}
+                  {#each popoverNode.capabilities as capability}
+                    <span class="badge variant-soft-secondary text-xs">{capability}</span>
+                  {/each}
+                {:else if typeof popoverNode.capabilities === 'object' && popoverNode.capabilities['#']}
+                  <!-- Gun.js reference case - display capabilities from our cache -->
+                  {#each getCardCapabilityNames(popoverNode) as capability}
+                    <span class="badge variant-soft-secondary text-xs">{capability}</span>
+                  {/each}
+                {/if}
+              </div>
+            </div>
+          {/if}
+          
+          <!-- Resources section -->
+          {#if popoverNode.resources || popoverNode.rivalrous_resources}
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Resources:</h4>
+              <div class="flex flex-wrap gap-1">
+                {#if popoverNode.resources}
+                  {#if Array.isArray(popoverNode.resources)}
+                    {#each popoverNode.resources as resource}
+                      <span class="badge variant-soft-tertiary text-xs">{resource}</span>
+                    {/each}
+                  {:else if typeof popoverNode.resources === 'string'}
+                    <span class="badge variant-soft-tertiary text-xs">{popoverNode.resources}</span>
+                  {/if}
+                {/if}
+                
+                {#if popoverNode.rivalrous_resources}
+                  {#if typeof popoverNode.rivalrous_resources === 'string'}
+                    <span class="badge variant-soft-tertiary text-xs">{popoverNode.rivalrous_resources}</span>
+                  {/if}
+                {/if}
+              </div>
+            </div>
+          {/if}
+        </section>
+        
+      {:else if popoverNodeType === 'agreement'}
+        <!-- Agreement Card -->
+        <header class="card-header mb-2">
+          <h3 class="h3">{popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}</h3>
+        </header>
+        
+        <section class="p-2">
           {#if popoverNode.description}
-            <div class="p-2 bg-surface-100-800-token rounded">
-              <h4 class="font-semibold">Description</h4>
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Description:</h4>
               <p class="text-sm">{popoverNode.description}</p>
             </div>
           {/if}
           
-          <!-- Simple display of key agreement properties -->
-          <div class="grid grid-cols-1 gap-2">
-            {#each Object.entries(popoverNode).filter(([key]) => !['_', '#', 'position', 'active', 'x', 'y', 'fx', 'fy', 'description'].includes(key)) as [key, value]}
-              {#if value !== null && value !== undefined && (typeof value !== 'object' || Array.isArray(value))}
-                <div class="p-2 bg-surface-200-700-token/50 rounded">
-                  <h4 class="text-xs font-semibold">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, (str) => str.toUpperCase()).trim()}</h4>
-                  <p class="text-sm break-words">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>
-                </div>
-              {/if}
-            {/each}
+          <!-- Obligations section -->
+          {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Obligations:</h4>
+              <ul class="list-disc list-inside">
+                {#each popoverNode.obligations as obligation}
+                  <li class="text-sm">
+                    <span class="font-medium">{obligation.fromActorId}:</span> 
+                    {obligation.description || obligation.text}
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+          
+          <!-- Benefits section -->
+          {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
+            <div class="mb-2">
+              <h4 class="h4 mb-1">Benefits:</h4>
+              <ul class="list-disc list-inside">
+                {#each popoverNode.benefits as benefit}
+                  <li class="text-sm">
+                    <span class="font-medium">To {benefit.toActorId}:</span> 
+                    {benefit.description || benefit.text}
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+          
+          <!-- Status and other metadata -->
+          <div class="flex gap-2 flex-wrap mt-4">
+            {#if popoverNode.status}
+              <span class="badge variant-filled-primary">{popoverNode.status}</span>
+            {/if}
+            {#if popoverNode.created_at}
+              <span class="badge variant-soft">Created: {new Date(popoverNode.created_at).toLocaleDateString()}</span>
+            {/if}
           </div>
-        {/if}
-      </div>
+        </section>
+      {/if}
     </div>
   {/if}
   
