@@ -416,8 +416,6 @@
             }
           }
         }
-      } else {
-        console.log(`D3CardBoard: Card ${card.card_id} has no valid values property:`, card.values);
       }
       
       // Load Capabilities with improved Gun.js reference handling
@@ -480,11 +478,7 @@
             }
           }
         }
-      } else {
-        console.log(`D3CardBoard: Card ${card.card_id} has no valid capabilities property:`, card.capabilities);
       }
-      
-      console.log(`D3CardBoard: Finished loading details for card ${card.card_id}`);
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
@@ -495,21 +489,13 @@
     if (!gun) return;
     
     // Listen for changes to cards
-    cardUnsubscribe = () => {
-      console.log("D3CardBoard: Set up card listener cleanup");
-    };
+    cardUnsubscribe = () => {};
     
     // Listen for changes to agreements
-    agreementUnsubscribe = () => {
-      console.log("D3CardBoard: Set up agreement listener cleanup");
-    };
+    agreementUnsubscribe = () => {};
     
     // Listen for changes to actors
-    actorUnsubscribe = () => {
-      console.log("D3CardBoard: Set up actor listener cleanup");
-    };
-    
-    console.log("D3CardBoard: Real-time listeners initialized");
+    actorUnsubscribe = () => {};
   }
 
   // Define color scale for categories
@@ -577,13 +563,9 @@
 
     let links: D3Link[] = [];
     
-    // Debug to see what we've got
-    console.log(`Creating links from ${agreements.length} agreements with actor-card map of ${actorCardMap.size} entries`);
-    
     agreements.forEach((agreement) => {
       // Get all party ids for this agreement
       const partyActorIds = agreement.parties ? Object.keys(agreement.parties) : [];
-      console.log(`Agreement ${agreement.agreement_id} has ${partyActorIds.length} parties: ${partyActorIds.join(', ')}`);
       
       // IMPROVED APPROACH: First ensure we have a complete list of participating card IDs to create proper connections
       const participatingCardIds: string[] = [];
@@ -593,8 +575,7 @@
           participatingCardIds.push(cardId);
         }
       });
-      
-      console.log(`Agreement ${agreement.agreement_id} involves cards: ${participatingCardIds.join(', ')}`);
+
       
       // If we have multiple cards, we need to connect them through the agreement
       if (participatingCardIds.length >= 2) {
@@ -628,7 +609,7 @@
                 id: `to_${obligation.id}`,        // Unique ID
               });
               
-              console.log(`Created path: ${creatorCardId} → ${agreement.agreement_id} → ${recipientCardId}`);
+
             }
             // Fallback if we only have one endpoint
             else if (creatorCardId) {
@@ -677,7 +658,7 @@
                   id: `to_${benefit.id}`,
                 });
                 
-                console.log(`Created benefit path: ${creatorCardId} → ${agreement.agreement_id} → ${recipientCardId}`);
+
               }
             }
             // If we only have one of the cards, add single link
@@ -713,8 +694,6 @@
         } 
         // If no specific obligations/benefits, create basic links between all parties
         else if (participatingCardIds.length > 0) {
-          console.log(`No specific obligations/benefits for agreement ${agreement.agreement_id}, creating one-way visualization links`);
-          
           // For visualization purposes, implement the Card → Agreement → Card pattern
           if (participatingCardIds.length >= 2) {
             // Get the first card to act as creator (source) and the second as recipient (target)
@@ -737,7 +716,7 @@
               id: `vis_from_${agreement.agreement_id}_to_${recipientCardId}`,
             });
             
-            console.log(`Added Card→Agreement→Card pattern: ${creatorCardId} → ${agreement.agreement_id} → ${recipientCardId}`);
+
           } 
           // Fallback if only one card is connected to the agreement
           else if (participatingCardIds.length === 1) {
@@ -748,7 +727,7 @@
               type: "obligation",
               id: `single_${cardId}_to_${agreement.agreement_id}`,
             });
-            console.log(`Added single link: ${cardId} → ${agreement.agreement_id}`);
+
           }
         }
       }
