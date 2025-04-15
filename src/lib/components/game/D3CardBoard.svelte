@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
+  import * as icons from 'svelte-lucide';
   import gameStore from '$lib/stores/enhancedGameStore';
   import { getGun, nodes } from '$lib/services/gunService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
@@ -46,6 +47,21 @@
   function handlePopoverClose() {
     popoverOpen = false;
     popoverNode = null;
+  }
+  
+  // Transform icon name to PascalCase for svelte-lucide
+  function toPascalCase(str: string): string {
+    return str
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join('');
+  }
+  
+  // Get icon component based on card icon name
+  function getCardIcon(iconName: string | undefined): any {
+    if (!iconName) return icons.User;
+    const pascalIconName = toPascalCase(iconName); // e.g., 'sun' -> 'Sun', 'circle-dollar-sign' -> 'CircleDollarSign'
+    return icons[pascalIconName as keyof typeof icons] || icons.User;
   }
   
   // Interfaces for D3 visualization
@@ -2367,7 +2383,7 @@
     bind:this={svgRef} 
     width="100%" 
     height="100%" 
-    on:click={(event) => {
+    onclick={(event) => {
       // Check if click is directly on SVG background (not on a node)
       if (event.target === svgRef) {
         popoverOpen = false;
@@ -2390,7 +2406,7 @@
       <div class="absolute top-2 right-2 z-10">
         <button 
           class="btn btn-sm variant-ghost-surface" 
-          on:click={handlePopoverClose}
+          onclick={handlePopoverClose}
           aria-label="Close popover"
         >
           ×
@@ -2398,40 +2414,108 @@
       </div>
       
       {#if popoverNodeType === 'actor'}
-        <!-- Directly use the RoleCard component -->
+        <!-- Card styled to match DeckBrowser format exactly -->
         {#if popoverNode}
           <!-- Get values and capabilities as arrays -->
           {@const valueNames = getCardValueNames(popoverNode)}
           {@const capabilityNames = getCardCapabilityNames(popoverNode)}
           
-          <!-- Convert goals to array if it's a string -->
-          {@const goalsList = popoverNode.goals ? 
-            (typeof popoverNode.goals === 'string' ? [popoverNode.goals] : []) : 
-            []
+          <!-- Get category color -->
+          {@const cardCategory = popoverNode.card_category || 'Supporters'}
+          {@const categoryColor = 
+            cardCategory === 'Funders' ? 'primary' : 
+            cardCategory === 'Providers' ? 'success' : 
+            cardCategory === 'Supporters' ? 'secondary' : 'tertiary'
           }
           
-          <!-- Create resources array from rivalrous_resources -->
-          {@const resourcesList = []}
-          {#if popoverNode.rivalrous_resources && typeof popoverNode.rivalrous_resources === 'string'}
-            {@const _ = resourcesList.push(popoverNode.rivalrous_resources)}
-          {/if}
-          
-          <!-- Create actor object to pass to RoleCard -->
-          {@const actorData = {
-            actor_id: `temp_${popoverNode.card_id || Math.random().toString(36).substring(2, 15)}`,
-            game_id: gameId,
-            user_id: "",
-            card_id: popoverNode.card_id,
-            created_at: popoverNode.created_at,
-            role_title: popoverNode.role_title,
-            backstory: popoverNode.backstory,
-            values: valueNames,
-            goals: goalsList,
-            skills: capabilityNames,
-            resources: resourcesList
-          }}
-          <div class="relative">
-            <RoleCard actor={actorData} />
+          <!-- Card styled to exactly match the example image -->
+          <div class="card bg-surface-50-900 rounded-lg shadow-lg border border-surface-300-600 w-80">
+            <!-- Header with gradient -->
+            <header class="p-3 text-white bg-{categoryColor}-500 rounded-t-lg">
+              <div class="flex items-center gap-2">
+                <!-- Icon circle -->
+                <div class="bg-surface-900-50/30 rounded-full p-1.5 flex items-center justify-center">
+                  <svelte:component this={getCardIcon(popoverNode.icon)} class="w-5 h-5" />
+                </div>
+                
+                <!-- Title and type -->
+                <div class="flex-1">
+                  <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-lg">{popoverNode.role_title}</h3>
+                    <span class="text-white text-sm">{popoverNode.card_number}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-sm">
+                    <span>{popoverNode.type || 'Individual'}</span>
+                    <span class="bg-white/20 rounded-full px-2 py-0.5 text-xs">{cardCategory}</span>
+                  </div>
+                </div>
+              </div>
+            </header>
+            
+            <!-- Card body with sections -->
+            <div class="p-4 space-y-3">
+              <!-- Backstory -->
+              <div>
+                <h4 class="font-medium text-surface-700-300">Backstory</h4>
+                <p class="text-surface-900-50">{popoverNode.backstory}</p>
+              </div>
+              
+              <!-- Values -->
+              {#if valueNames && valueNames.length > 0}
+                <div>
+                  <h4 class="font-medium text-surface-700-300">Values</h4>
+                  <ul class="list-disc list-inside">
+                    {#each valueNames as value}
+                      <li>{value}</li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              
+              <!-- Capabilities -->
+              {#if capabilityNames && capabilityNames.length > 0}
+                <div>
+                  <h4 class="font-medium text-surface-700-300">Capabilities</h4>
+                  <ul class="list-disc list-inside">
+                    {#each capabilityNames as capability}
+                      <li>{capability}</li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              
+              <!-- Goals -->
+              {#if popoverNode.goals}
+                <div>
+                  <h4 class="font-medium text-surface-700-300">Goals</h4>
+                  <p class="text-surface-900-50">{popoverNode.goals}</p>
+                </div>
+              {/if}
+              
+              <!-- Obligations -->
+              {#if popoverNode.obligations}
+                <div>
+                  <h4 class="font-medium text-surface-700-300">Obligations</h4>
+                  <p class="text-surface-900-50">{popoverNode.obligations}</p>
+                </div>
+              {/if}
+              
+              <!-- Intellectual Property -->
+              {#if popoverNode.intellectual_property}
+                <div>
+                  <h4 class="font-medium text-surface-700-300">IP</h4>
+                  <p class="text-surface-900-50">{popoverNode.intellectual_property}</p>
+                </div>
+              {/if}
+              
+              <!-- Resources -->
+              {#if popoverNode.rivalrous_resources}
+                <div>
+                  <h4 class="font-medium text-surface-700-300">Resources</h4>
+                  <p class="text-surface-900-50">{popoverNode.rivalrous_resources}</p>
+                </div>
+              {/if}
+            </div>
           </div>
         {/if}
       {:else if popoverNodeType === 'agreement'}
