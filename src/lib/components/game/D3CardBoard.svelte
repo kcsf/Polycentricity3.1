@@ -7,6 +7,7 @@
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
+  import RoleCard from '$lib/components/RoleCard.svelte';
   
   // Props
   export let gameId: string;
