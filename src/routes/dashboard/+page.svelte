@@ -348,74 +348,77 @@
                 </div>
         {:else}
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <!-- Left sidebar: User profile and quick stats section -->
+                        <!-- Left sidebar: Your Actors section -->
                         <div class="lg:col-span-4 xl:col-span-3 space-y-6">
-                                <!-- User profile card -->
+                                <!-- Your Actors Card -->
                                 <div class="card variant-filled-surface p-0 shadow-xl overflow-hidden">
-                                        <header class="bg-primary-500/10 dark:bg-primary-500/20 p-5">
-                                                <h2 class="h2 text-primary-700 dark:text-primary-300">Profile</h2>
+                                        <header class="bg-tertiary-500/10 dark:bg-tertiary-500/20 p-5">
+                                                <h2 class="h2 text-tertiary-700 dark:text-tertiary-300">Your Actors</h2>
                                         </header>
                                         
                                         <div class="p-5">
-                                                {#if $userStore.user}
-                                                        <UserCard user={$userStore.user} showDetails={true} />
+                                                {#if actorStats.length === 0}
+                                                        <div class="rounded-lg bg-surface-50-900-token p-6 text-center">
+                                                                <icons.User size={48} class="mx-auto text-surface-400-500-token mb-3" />
+                                                                <h3 class="h3 text-tertiary-500 mb-2">No Actors Yet</h3>
+                                                                <p class="text-sm text-surface-700-300-token mb-4">
+                                                                        You haven't been assigned any actor roles yet.
+                                                                        Join a game to get started.
+                                                                </p>
+                                                                <a href="/games" class="btn variant-soft-tertiary">
+                                                                        <icons.Search size={18} class="mr-2" />
+                                                                        Browse Games
+                                                                </a>
+                                                        </div>
                                                 {:else}
-                                                        <!-- For development only -->
-                                                        <div class="rounded-lg bg-surface-50-900-token p-4 border border-surface-300-600-token">
-                                                                <h3 class="h3 text-primary-500">Development User</h3>
-                                                                <div class="flex items-center mt-2 text-sm">
-                                                                        <icons.User size={16} class="mr-2 text-tertiary-500" />
-                                                                        <span>Guest Developer</span>
-                                                                </div>
-                                                                <div class="flex items-center mt-1 text-sm">
-                                                                        <icons.Mail size={16} class="mr-2 text-tertiary-500" />
-                                                                        <span>dev@example.com</span>
-                                                                </div>
+                                                        <div class="space-y-4">
+                                                                {#each actorStats as actor}
+                                                                        <div class="card variant-soft p-4 rounded-lg">
+                                                                                <div class="flex flex-col">
+                                                                                        <div class="flex items-center mb-2">
+                                                                                                <!-- Actor name & type -->
+                                                                                                <div class="grow">
+                                                                                                        <h3 class="text-lg font-bold text-tertiary-600 dark:text-tertiary-400">
+                                                                                                                {actor.custom_name || 'Unnamed Actor'}
+                                                                                                        </h3>
+                                                                                                        <p class="text-xs text-surface-600-400-token">
+                                                                                                                Type: {actor.actor_type || 'Standard Actor'}
+                                                                                                        </p>
+                                                                                                </div>
+                                                                                                
+                                                                                                <!-- Status indicator -->
+                                                                                                <div class="shrink-0">
+                                                                                                        <span class="badge {actor.status === 'active' ? 'variant-filled-success' : 'variant-filled-warning'}">
+                                                                                                                {actor.status || 'Unknown'}
+                                                                                                        </span>
+                                                                                                </div>
+                                                                                        </div>
+                                                                                        
+                                                                                        {#if actor.game_id}
+                                                                                                <div class="flex items-center mt-2 text-sm">
+                                                                                                        <icons.Gamepad2 size={16} class="mr-2 text-primary-500" />
+                                                                                                        <span>Game: {actor.game_name || 'Unknown Game'}</span>
+                                                                                                </div>
+                                                                                        {/if}
+                                                                                        
+                                                                                        <div class="flex items-center mt-2 text-sm">
+                                                                                                <icons.Calendar size={16} class="mr-2 text-tertiary-500" />
+                                                                                                <span>Created: {new Date(actor.created_at).toLocaleDateString()}</span>
+                                                                                        </div>
+                                                                                        
+                                                                                        {#if actor.game_id}
+                                                                                                <div class="mt-4">
+                                                                                                        <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary w-full">
+                                                                                                                <icons.ExternalLink size={14} class="mr-2" />
+                                                                                                                View Game
+                                                                                                        </a>
+                                                                                                </div>
+                                                                                        {/if}
+                                                                                </div>
+                                                                        </div>
+                                                                {/each}
                                                         </div>
                                                 {/if}
-                                        </div>
-                                </div>
-                                
-                                <!-- Quick Stats Card -->
-                                <div class="card variant-filled-surface p-0 shadow-xl overflow-hidden">
-                                        <header class="bg-secondary-500/10 dark:bg-secondary-500/20 p-5">
-                                                <h2 class="h2 text-secondary-700 dark:text-secondary-300">Quick Stats</h2>
-                                        </header>
-                                        
-                                        <div class="p-5">
-                                                <div class="grid grid-cols-2 gap-4">
-                                                        <div class="card variant-soft-primary p-4 text-center flex flex-col items-center justify-center">
-                                                                <icons.Gamepad2 size={24} class="mb-2" />
-                                                                <p class="h3 text-primary-600 dark:text-primary-400 font-bold">
-                                                                        {formatNumber(dashboardStats.gamesJoined)}
-                                                                </p>
-                                                                <p class="text-xs font-medium">Games Joined</p>
-                                                        </div>
-                                                        
-                                                        <div class="card variant-soft-secondary p-4 text-center flex flex-col items-center justify-center">
-                                                                <icons.FileCode size={24} class="mb-2" />
-                                                                <p class="h3 text-secondary-600 dark:text-secondary-400 font-bold">
-                                                                        {formatNumber(dashboardStats.decksCreated)}
-                                                                </p>
-                                                                <p class="text-xs font-medium">Decks Created</p>
-                                                        </div>
-                                                        
-                                                        <div class="card variant-soft-tertiary p-4 text-center flex flex-col items-center justify-center">
-                                                                <icons.Handshake size={24} class="mb-2" />
-                                                                <p class="h3 text-tertiary-600 dark:text-tertiary-400 font-bold">
-                                                                        {formatNumber(dashboardStats.agreementsParticipating)}
-                                                                </p>
-                                                                <p class="text-xs font-medium">Agreements</p>
-                                                        </div>
-                                                        
-                                                        <div class="card variant-soft-warning p-4 text-center flex flex-col items-center justify-center">
-                                                                <icons.CreditCard size={24} class="mb-2" />
-                                                                <p class="h3 text-warning-600 dark:text-warning-400 font-bold">
-                                                                        {formatNumber(dashboardStats.cardsOwned)}
-                                                                </p>
-                                                                <p class="text-xs font-medium">Cards Owned</p>
-                                                        </div>
-                                                </div>
                                         </div>
                                 </div>
                         </div>
