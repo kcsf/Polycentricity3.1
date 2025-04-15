@@ -736,7 +736,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                                 return `Value: ${cardData.role_title}`;
                             }
                         } catch (e) {
-                            console.warn(`[getCardValueNames] Error fetching card ${id} for value name: ${e}`);
+                            // Silent error handling for performance reasons
                         }
                         
                         // If card data not available, format the ID nicely
@@ -754,7 +754,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                     // Last resort, return the ID with a prefix to indicate it's a value
                     return `Value: ${id}`;
                 } catch (e) {
-                    console.warn(`[getCardValueNames] Error fetching value ${id}: ${e}`);
+                    // Silent error handling for performance
                     return "";
                 }
             }),
@@ -763,7 +763,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         const filteredNames = valueNames.filter(Boolean);
         return filteredNames;
     } catch (error) {
-        console.error("[getCardValueNames] Error:", error);
+        // Silent error handling for performance
         return [];
     }
 }
@@ -886,7 +886,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                     
                     return ""; 
                 } catch (e) {
-                    console.warn(`[getCardCapabilityNames] Error fetching capability ${id}: ${e}`);
+                    // Silent error handling for performance
                     return "";
                 }
             }),
