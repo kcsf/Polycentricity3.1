@@ -644,7 +644,7 @@ export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> 
 // Get a specific card by ID
 export async function getCard(cardId: string): Promise<Card | null> {
     try {
-        console.log(`Getting card: ${cardId}`);
+        // Getting card by ID
         const gun = getGun();
         
         if (!gun) {

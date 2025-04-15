@@ -111,19 +111,16 @@
   $: {
     async function fetchCardData() {
       if (playerRole && playerRole.card_id) {
-        console.log(`Fetching card data for card_id: ${playerRole.card_id}`);
+        // Fetching card data for player role
         // Get the card data
         playerCard = await getCard(playerRole.card_id);
         
         if (playerCard) {
-          console.log('Card data retrieved:', playerCard);
+          // Card data retrieved successfully
           
           // Get the value and capability names
           playerCardValues = await getCardValueNames(playerCard);
           playerCardCapabilities = await getCardCapabilityNames(playerCard);
-          
-          console.log('Card values:', playerCardValues);
-          console.log('Card capabilities:', playerCardCapabilities);
         } else {
           console.error(`Failed to load card data for card_id: ${playerRole.card_id}`);
           playerCard = null;
