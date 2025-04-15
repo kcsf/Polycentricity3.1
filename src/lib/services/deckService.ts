@@ -662,22 +662,47 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                 .filter(Boolean);
                 
         } else if (card.values && typeof card.values === 'object') {
-            // REFERENCE DETECTION: If values is a Gun.js reference, return default values
+            // REFERENCE DETECTION: If values is a Gun.js reference, actively traverse it
             if ('#' in card.values) {
                 const valuesRef = (card.values as any)['#'];
                 
-                // Extract the card ID from the reference and pretend it's regular values
-                if (valuesRef.includes('cards/')) {
-                    const cardIdFromRef = valuesRef.replace('cards/', '').replace('/values', '');
+                try {
+                    // Actually traverse the reference and get the values
+                    console.log(`Traversing values reference: ${valuesRef}`);
+                    const refValues = await get(valuesRef);
                     
-                    // If it's a self-reference, just use the default values as this is likely metadata
-                    if (cardIdFromRef === card.card_id) {
-                        return [...defaultValues, 'Self-Referential Value'];
+                    if (refValues && typeof refValues === 'object') {
+                        // Extract actual value IDs from the reference
+                        valueIds = Object.keys(refValues)
+                            .filter(key => key !== '_' && key !== '#' && (refValues as Record<string, any>)[key] === true);
+                            
+                        console.log(`Found ${valueIds.length} values from reference:`, valueIds);
+                        
+                        // If we have values from the reference, use them
+                        if (valueIds.length > 0) {
+                            // Continue with normal processing to get the names
+                        } else {
+                            // Extract the card ID from the reference as fallback
+                            if (valuesRef.includes('cards/')) {
+                                const cardIdFromRef = valuesRef.replace('cards/', '').replace('/values', '');
+                                
+                                // If it's a self-reference, use default values with something extra
+                                if (cardIdFromRef === card.card_id) {
+                                    return [...defaultValues, 'Self-Referential Value'];
+                                }
+                            }
+                            // Default fallback for empty references
+                            return defaultValues;
+                        }
+                    } else {
+                        // If reference is empty or invalid, return defaults
+                        console.log(`Reference values not found, using defaults`);
+                        return defaultValues;
                     }
+                } catch (err) {
+                    console.error(`Error following value reference at ${valuesRef}:`, err);
+                    return defaultValues;
                 }
-                
-                // Default fallback for other references
-                return defaultValues;
             } else {
                 // Handle Record/object format (Gun.js format with direct values)
                 valueIds = Object.keys(card.values as Record<string, boolean>)
@@ -812,31 +837,67 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                 // Get the actual capabilities from the reference
                 try {
                     // Extract values directly from the reference 
+                    console.log(`Traversing capabilities reference: ${capsRef}`);
                     const refs = await get(capsRef);
                     if (refs && typeof refs === 'object') {
                         const refsObj: Record<string, any> = refs as Record<string, any>;
                         
-                        // Get capability IDs from the reference
+                        // Get capability IDs from the reference, filtering Gun metadata
                         const capabilityIds = Object.keys(refsObj)
-                            .filter(key => refsObj[key] === true);
+                            .filter(key => key !== '_' && key !== '#' && refsObj[key] === true);
                             
+                        console.log(`Found ${capabilityIds.length} capabilities from reference:`, capabilityIds);
+                        
                         if (capabilityIds.length > 0) {
-                            // Process capability IDs to get readable names
-                            return capabilityIds.map(id => {
-                                if (id.startsWith('capability_')) {
-                                    // Convert capability_something-like-this to Something Like This
-                                    return id.replace('capability_', '')
-                                        .split('-')
-                                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                                        .join(' ');
-                                }
-                                return id;
-                            });
+                            // Store in capIds for proper capability lookup later
+                            capIds = capabilityIds;
+                            
+                            // Now proceed to look up the actual capability names from the database
+                            const capabilityNames = await Promise.all(
+                                capabilityIds.map(async (id: string) => {
+                                    try {
+                                        // Try to get the capability data from the database
+                                        const capabilityPath = `${nodes.capabilities}/${id}`;
+                                        console.log(`Looking up capability: ${capabilityPath}`);
+                                        const capabilityData = await get(capabilityPath);
+                                        
+                                        // If we found capability data with a name, use it
+                                        if (capabilityData && typeof capabilityData === 'object' && 'name' in capabilityData) {
+                                            console.log(`Found capability name: ${capabilityData.name}`);
+                                            return capabilityData.name as string;
+                                        }
+                                        
+                                        // Otherwise format the ID
+                                        if (id.startsWith('capability_')) {
+                                            // Convert capability_something-like-this to Something Like This
+                                            return id.replace('capability_', '')
+                                                .split('-')
+                                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                                .join(' ');
+                                        }
+                                        return id;
+                                    } catch (error) {
+                                        console.error(`Error looking up capability ${id}:`, error);
+                                        
+                                        // Format the ID as fallback
+                                        if (id.startsWith('capability_')) {
+                                            return id.replace('capability_', '')
+                                                .split('-')
+                                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                                .join(' ');
+                                        }
+                                        return id;
+                                    }
+                                })
+                            );
+                            
+                            return capabilityNames.filter(Boolean);
                         }
                     }
                     
-                    // If we couldn't extract capabilities from the reference, return an empty list
-                    return [];
+                    // If we couldn't extract capabilities from the reference, return defaults with logging
+                    console.log(`No capabilities found in reference ${capsRef}, using defaults`);
+                    return defaultCapabilities;
                     
                 } catch (e) {
                     return [];
