@@ -7,7 +7,6 @@
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
-  import NodePopover from './NodePopover.svelte';
   
   // Props
   export let gameId: string;
@@ -2287,14 +2286,73 @@
     <!-- All visualization elements are now created directly with D3 -->
   </svg>
   
-  <!-- Node Popover component -->
-  <NodePopover
-    node={popoverNode}
-    nodeType={popoverNodeType}
-    open={popoverOpen}
-    positionData={{ x: 0, y: 0 }}
-    on:close={handlePopoverClose}
-  />
+  <!-- Simple custom popover - much more direct approach -->
+  {#if popoverOpen && popoverNode}
+    <div 
+      class="bg-surface-50-900-token rounded-lg shadow-lg p-4 max-w-md max-h-[80vh] overflow-y-auto absolute"
+      style="z-index: 1000; left: {popoverPosition.x + 20}px; top: {popoverPosition.y - 20}px;"
+    >
+      <!-- Header with title and close button -->
+      <div class="flex justify-between items-center mb-3 border-b pb-2">
+        <h3 class="font-bold text-lg">
+          {#if popoverNodeType === 'actor'}
+            {popoverNode.role_title || popoverNode.card_id || 'Card Details'}
+          {:else}
+            {popoverNode.title || popoverNode.agreement_id || 'Agreement Details'}
+          {/if}
+        </h3>
+        <button 
+          class="btn btn-sm variant-ghost-surface" 
+          on:click={handlePopoverClose}
+          aria-label="Close popover"
+        >
+          ×
+        </button>
+      </div>
+      
+      <!-- Simple content display -->
+      <div class="space-y-2">
+        {#if popoverNodeType === 'actor' && popoverNode.backstory}
+          <div class="p-2 bg-surface-100-800-token rounded">
+            <h4 class="font-semibold">Backstory</h4>
+            <p class="text-sm">{popoverNode.backstory}</p>
+          </div>
+        {/if}
+        
+        {#if popoverNodeType === 'actor'}
+          <div class="grid grid-cols-1 gap-2">
+            {#each Object.entries(popoverNode).filter(([key]) => !['_', '#', 'position', 'active', 'x', 'y', 'fx', 'fy'].includes(key)) as [key, value]}
+              {#if value !== null && value !== undefined && (typeof value !== 'object' || Array.isArray(value))}
+                <div class="p-2 bg-surface-200-700-token/50 rounded">
+                  <h4 class="text-xs font-semibold">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, (str) => str.toUpperCase()).trim()}</h4>
+                  <p class="text-sm break-words">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>
+                </div>
+              {/if}
+            {/each}
+          </div>
+        {:else if popoverNodeType === 'agreement'}
+          {#if popoverNode.description}
+            <div class="p-2 bg-surface-100-800-token rounded">
+              <h4 class="font-semibold">Description</h4>
+              <p class="text-sm">{popoverNode.description}</p>
+            </div>
+          {/if}
+          
+          <!-- Simple display of key agreement properties -->
+          <div class="grid grid-cols-1 gap-2">
+            {#each Object.entries(popoverNode).filter(([key]) => !['_', '#', 'position', 'active', 'x', 'y', 'fx', 'fy', 'description'].includes(key)) as [key, value]}
+              {#if value !== null && value !== undefined && (typeof value !== 'object' || Array.isArray(value))}
+                <div class="p-2 bg-surface-200-700-token/50 rounded">
+                  <h4 class="text-xs font-semibold">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, (str) => str.toUpperCase()).trim()}</h4>
+                  <p class="text-sm break-words">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>
+                </div>
+              {/if}
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
   
   <!-- Controls will be connected to page header -->
   <!-- Removed redundant search and zoom controls that will be handled by GamePageLayout header -->
