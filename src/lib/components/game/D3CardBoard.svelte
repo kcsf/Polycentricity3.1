@@ -1049,23 +1049,33 @@
           }
         }
         
-        // Open the popover to show node details
-        popoverNode = d.data;
-        popoverNodeType = d.type;
+        // Toggle popover when clicking the same node
+        const isSameNode = popoverOpen && popoverNode && 
+          ((popoverNodeType === 'actor' && d.type === 'actor' && (popoverNode as Actor).card_id === d.id) || 
+           (popoverNodeType === 'agreement' && d.type === 'agreement' && (popoverNode as Agreement).agreement_id === d.id));
         
-        // Calculate position for the popover
-        const mouseEvent = event as MouseEvent;
-        // Use the node's actual coordinates instead of mouse position
-        // This ensures popover is positioned relative to the node center
-        popoverPosition = { 
-          x: d.x, 
-          y: d.y 
-        };
-        popoverOpen = true;
-        
-        // Debug log
-        console.log("Node clicked:", d.type, d.id, "Popover should open now");
-        console.log("Popover position:", popoverPosition);
+        if (isSameNode) {
+          // Close popover when clicking the same node
+          popoverOpen = false;
+          console.log("Closing popover - same node clicked again");
+        } else {
+          // Open the popover to show node details for a different node
+          popoverNode = d.data;
+          popoverNodeType = d.type;
+          
+          // Calculate position for the popover
+          // Use the node's actual coordinates instead of mouse position
+          // This ensures popover is positioned relative to the node center
+          popoverPosition = { 
+            x: d.x, 
+            y: d.y 
+          };
+          popoverOpen = true;
+          
+          // Debug log
+          console.log("Node clicked:", d.type, d.id);
+          console.log("Popover position:", popoverPosition);
+        }
         
         // Prevent event bubbling to avoid issues with other click handlers
         event.stopPropagation();
@@ -2282,7 +2292,18 @@
 
 <div class="game-board-container">
   <!-- D3 SVG container -->
-  <svg bind:this={svgRef} width="100%" height="100%">
+  <svg 
+    bind:this={svgRef} 
+    width="100%" 
+    height="100%" 
+    on:click={(event) => {
+      // Check if click is directly on SVG background (not on a node)
+      if (event.target === svgRef) {
+        popoverOpen = false;
+        console.log("Closing popover - background clicked");
+      }
+    }}
+  >
     <!-- D3 visualization will be rendered here -->
     
     <!-- All visualization elements are now created directly with D3 -->
