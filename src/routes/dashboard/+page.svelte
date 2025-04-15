@@ -8,6 +8,8 @@
         import UserCard from '$lib/components/UserCard.svelte';
         import GameCard from '$lib/components/GameCard.svelte';
         import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
+        import ActorEditModal from '$lib/components/ActorEditModal.svelte';
+        import ActorCreateModal from '$lib/components/ActorCreateModal.svelte';
         import * as icons from 'svelte-lucide';
         // Dashboard specific imports
         
@@ -260,12 +262,26 @@
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
         
-        // Modal state for profile update
+        // Modal states
         let profileModalOpen = false;
+        let actorEditModalOpen = false;
+        let actorCreateModalOpen = false;
+        let selectedActor = null;
         
         // Modal handling for profile update
         function openProfileUpdateModal() {
             profileModalOpen = true;
+        }
+        
+        // Modal handling for actor edit
+        function openActorEditModal(actor) {
+            selectedActor = actor;
+            actorEditModalOpen = true;
+        }
+        
+        // Modal handling for actor create
+        function openActorCreateModal() {
+            actorCreateModalOpen = true;
         }
 </script>
 
@@ -353,7 +369,16 @@
                                 <!-- Your Actors Card -->
                                 <div class="card variant-filled-surface p-0 shadow-xl overflow-hidden">
                                         <header class="bg-tertiary-500/10 dark:bg-tertiary-500/20 p-5">
-                                                <h2 class="h2 text-tertiary-700 dark:text-tertiary-300">Your Actors</h2>
+                                                <div class="flex flex-col md:flex-row justify-between items-center">
+                                                        <h2 class="h2 text-tertiary-700 dark:text-tertiary-300 mb-3 md:mb-0">Your Actors</h2>
+                                                        <button 
+                                                                class="btn variant-soft-tertiary"
+                                                                onclick={openActorCreateModal}
+                                                        >
+                                                                <icons.Plus size={16} class="mr-2" />
+                                                                Create Actor
+                                                        </button>
+                                                </div>
                                         </header>
                                         
                                         <div class="p-5">
