@@ -835,6 +835,7 @@
     // Function to update link positions and agreement node positions
     function updateLinks() {
       // First, position bilateral agreement nodes at the midpoint between their cards
+      // with more sophisticated positioning to avoid overlaps
       nodes.forEach(node => {
         if (node.type === 'agreement') {
           const agreement = node.data as AgreementWithPosition;
@@ -850,17 +851,36 @@
               const card2 = nodes.find(n => n.id === partyCardIds[1]);
               
               if (card1 && card2) {
-                // Calculate midpoint
-                const midX = (card1.x + card2.x) / 2;
-                const midY = (card1.y + card2.y) / 2;
+                // Calculate distance between cards for path drawing
+                const dx = card2.x - card1.x;
+                const dy = card2.y - card1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Calculate exact midpoint
+                const midX = card1.x + (dx * 0.5);
+                const midY = card1.y + (dy * 0.5);
+                
+                // Calculate perpendicular offset vector (for curved paths)
+                // This helps prevent agreements from overlapping with direct card-to-card lines
+                const offsetDistance = 0; // No curve for now, but could be adjusted
+                const perpX = -dy * offsetDistance / distance;
+                const perpY = dx * offsetDistance / distance;
+                
+                // Final position with potential offset
+                const finalX = midX + perpX;
+                const finalY = midY + perpY;
+                
+                // Store original cards for this agreement to help with link drawing
+                (node as any).sourceCard = card1;
+                (node as any).targetCard = card2;
                 
                 // Update agreement node position
-                node.x = midX;
-                node.y = midY;
+                node.x = finalX;
+                node.y = finalY;
                 
-                // Update visual position
+                // Update visual position with precise coordinates
                 d3.select(`#node-${node.id}`)
-                  .attr("transform", `translate(${midX},${midY})`);
+                  .attr("transform", `translate(${finalX},${finalY})`);
               }
             }
           }
@@ -884,13 +904,23 @@
         // IMPROVED: More precise distance calculations for different node types
         // For Card (Actor) nodes, consider the full donut ring
         // For Agreement nodes, consider just the circle
-        const sourceRadius = sourceType === "actor" 
+        let sourceRadius = sourceType === "actor" 
           ? (cardNodeRadius + donutThickness) * 1.05  // Slightly tighter to card edge
           : agreementNodeRadius * 1.05;
           
-        const targetRadius = targetType === "actor" 
+        let targetRadius = targetType === "actor" 
           ? (cardNodeRadius + donutThickness) * 1.05  // Slightly tighter to card edge
           : agreementNodeRadius * 1.05;
+          
+        // For agreement nodes, we may want to adjust the radius even more
+        // to account for their styling 
+        if (sourceType === "agreement") {
+          sourceRadius = agreementNodeRadius * 1.2; // Slightly larger to account for styling
+        }
+        
+        if (targetType === "agreement") {
+          targetRadius = agreementNodeRadius * 1.2; // Slightly larger to account for styling
+        }
         
         // Calculate the angle between source and target
         const dx = targetNode.x - sourceNode.x;
@@ -901,10 +931,10 @@
         const sourceX = sourceNode.x + Math.cos(angle) * sourceRadius;
         const sourceY = sourceNode.y + Math.sin(angle) * sourceRadius;
         
-        // Adjust the target position accounting for the arrow marker
-        // The refX (15) value in the marker definition is important here
+        // Different arrow padding depending on target type for cleaner appearance
+        // The refX value in the marker definition is important here
         // Ensure the line doesn't extend past the arrowhead
-        const arrowPadding = 15; // CRITICAL: Must match the refX value exactly
+        const arrowPadding = targetType === "agreement" ? 10 : 5;
         const targetX = targetNode.x - Math.cos(angle) * (targetRadius + arrowPadding);
         const targetY = targetNode.y - Math.sin(angle) * (targetRadius + arrowPadding);
         
@@ -914,8 +944,8 @@
           .attr("y1", sourceY)
           .attr("x2", targetX)
           .attr("y2", targetY)
-          .attr("stroke", "#CCCCCC") // Lighter gray to match reference
-          .attr("stroke-width", 1.25); // Slightly thicker for visibility
+          .attr("stroke", d.type === "benefit" ? "#4C9AFF" : "#FF5630") // Blue for benefits, red for obligations
+          .attr("stroke-width", 1.5); // Slightly thicker for visibility
       });
     }
 
