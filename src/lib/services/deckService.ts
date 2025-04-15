@@ -628,12 +628,10 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
 
 // Get value names for a card
 export async function getCardValueNames(card: Card): Promise<string[]> {
-    console.log(`[getCardValueNames] Fetching values for ${card.card_id}`);
     if (!card.values) return [];
 
     const gun = getGun();
     if (!gun) {
-        console.error("[getCardValueNames] Gun not initialized");
         return [];
     }
 
@@ -776,14 +774,10 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
 
 // Get capability names for a card
 export async function getCardCapabilityNames(card: Card): Promise<string[]> {
-    console.log(
-        `[getCardCapabilityNames] Fetching capabilities for ${card.card_id}`,
-    );
     if (!card.capabilities) return [];
 
     const gun = getGun();
     if (!gun) {
-        console.error("[getCardCapabilityNames] Gun not initialized");
         return [];
     }
 
