@@ -126,7 +126,7 @@
                 <button
                     type="button"
                     class="px-4 py-2 border border-surface-300 dark:border-surface-600 rounded hover:bg-surface-100 dark:hover:bg-surface-800"
-                    onclick={handleCancel}
+                    on:click={() => handleCancel()}
                     disabled={isSubmitting}
                 >
                     Cancel

@@ -9,10 +9,7 @@
         import GameCard from '$lib/components/GameCard.svelte';
         import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
         import * as icons from 'svelte-lucide';
-        import { getModalStore, type ModalSettings, type ModalComponent } from '@skeletonlabs/skeleton';
-        
-        // Set up modal store for profile updates
-        const modalStore = getModalStore();
+        // Dashboard specific imports
         
         // Dashboard state
         let isLoading = true;
@@ -609,3 +606,6 @@
                 </div>
         {/if}
 </div>
+
+<!-- Profile Update Modal -->
+<ProfileUpdateModal bind:open={profileModalOpen} />
