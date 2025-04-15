@@ -1216,8 +1216,7 @@
     // Generate sequential IDs for our agreements (e.g., AG1, AG2)
     let agreementCounter = 1;
     
-    // Log for debugging
-    console.log(`D3CardBoard: Creating ${agreementNodes.size()} agreement nodes`);
+
     
     agreementNodes.each(function(d) {
       // Add a small circle for agreement nodes - IMPROVED styling to match the reference image exactly
@@ -1478,7 +1477,6 @@
     
     // Add agreements to the array
     agreements = [agreement1, agreement2, agreement3];
-    console.log(`D3CardBoard: Created ${agreements.length} demo agreements for visualization`);
   }
   
   // Complete remake of donut rings to EXACTLY match React implementation
@@ -1543,9 +1541,6 @@
       
       // Process card data for visualization
       const cardDataForViz = { ...(card as any) };
-      
-      // Console logs for debug
-      console.log(`Card ${card.card_id} raw data:`, JSON.stringify(cardDataForViz).substring(0, 200) + "...");
       
       // Add test data if needed
       // Start with some default values for immediate visualization
