@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
-  import * as icons from 'svelte-lucide';
+  import { User } from 'svelte-lucide';
+  import { iconStore } from '$lib/stores/iconStore';
   import gameStore from '$lib/stores/enhancedGameStore';
   import { getGun, nodes } from '$lib/services/gunService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
