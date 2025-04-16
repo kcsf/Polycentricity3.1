@@ -65,6 +65,9 @@ export async function initializeCaches(gameId: string): Promise<void> {
       return;
     }
     
+    // Start by clearing all caches to avoid stale data
+    clearAllCaches();
+    
     const startTime = Date.now();
     console.log(`Cache Utils: Starting cache initialization for game ${gameId}`);
     
@@ -72,6 +75,8 @@ export async function initializeCaches(gameId: string): Promise<void> {
     const game = await getGame(gameId);
     if (!game) {
       console.error(`Cache Utils: Game not found: ${gameId}`);
+      // Add default values and capabilities even if game not found
+      addDefaultValuesAndCapabilities();
       return;
     }
     
@@ -79,13 +84,17 @@ export async function initializeCaches(gameId: string): Promise<void> {
     const deckId = game.deck_id;
     if (!deckId) {
       console.error(`Cache Utils: Game has no deck_id: ${gameId}`);
+      // Add default values and capabilities even if deck not found
+      addDefaultValuesAndCapabilities();
       return;
     }
+    
+    console.log(`Cache Utils: Cache sizes before initialization - Values: ${valueCache.size}, Capabilities: ${capabilityCache.size}`);
     
     // Placeholder for agreements
     const agreements: Agreement[] = [];
     
-    // Actually load all cards in the deck for real this time
+    // Array for all cards in the deck
     const cards: Card[] = [];
     
     // Fetch cards from GunDB
@@ -99,6 +108,8 @@ export async function initializeCaches(gameId: string): Promise<void> {
             // Follow the card reference to get the actual card data
             gun.get(cardRef).once((actualCardData: any) => {
               if (actualCardData && actualCardData.card_id) {
+                console.log(`Cache Utils: Processing card ${actualCardData.role_title || actualCardData.card_id}`);
+                
                 // Push card to our array
                 cards.push(actualCardData);
                 
@@ -106,7 +117,7 @@ export async function initializeCaches(gameId: string): Promise<void> {
                 cardDetailsCache.set(actualCardData.card_id, {
                   ...actualCardData,
                   position: {
-                    x: Math.random() * 500, // Add some default position
+                    x: Math.random() * 500,
                     y: Math.random() * 500
                   }
                 });
@@ -129,6 +140,8 @@ export async function initializeCaches(gameId: string): Promise<void> {
                           description: `Value: ${valueName}`,
                           created_at: Date.now()
                         });
+                        
+                        console.log(`Cache Utils: Added value to cache: ${valueName} (${valueId})`);
                       }
                     });
                   }
@@ -152,6 +165,8 @@ export async function initializeCaches(gameId: string): Promise<void> {
                           description: `Capability: ${capabilityName}`,
                           created_at: Date.now()
                         });
+                        
+                        console.log(`Cache Utils: Added capability to cache: ${capabilityName} (${capabilityId})`);
                       }
                     });
                   }
@@ -162,10 +177,20 @@ export async function initializeCaches(gameId: string): Promise<void> {
         });
         
         // Resolve after reasonable timeout to allow Gun.js to process
-        setTimeout(() => resolve(), 500);
+        setTimeout(() => {
+          // If no values or capabilities were found, add default ones
+          if (valueCache.size === 0 || capabilityCache.size === 0) {
+            console.log(`Cache Utils: No values or capabilities found in database, adding defaults`);
+            addDefaultValuesAndCapabilities();
+          }
+          
+          resolve();
+        }, 1000); // Increased timeout for more reliable loading
       });
     } catch (error) {
       console.log("Error loading cards:", error);
+      // If an error occurs, ensure we still have default values
+      addDefaultValuesAndCapabilities();
     }
     
     // Log what we have
@@ -177,7 +202,7 @@ export async function initializeCaches(gameId: string): Promise<void> {
     let cardsWithPosition: CardWithPosition[] = cards.map(card => ({
       ...card,
       position: {
-        x: Math.random() * 500, // Use random starting positions
+        x: Math.random() * 500,
         y: Math.random() * 500
       }
     }));
@@ -186,6 +211,7 @@ export async function initializeCaches(gameId: string): Promise<void> {
     cardsWithPosition.forEach(card => {
       if (card.actor_id && card.card_id) {
         actorCardMap.set(card.actor_id, card.card_id);
+        console.log(`Cache Utils: Mapped actor ${card.actor_id} to card ${card.card_id}`);
       }
     });
     
@@ -206,8 +232,73 @@ export async function initializeCaches(gameId: string): Promise<void> {
     console.log(`Cache Utils: Capability cache: ${capabilityCache.size} entries`);
     console.log(`Cache Utils: Actor-to-card map: ${actorCardMap.size} entries`);
     
+    // Print sample values and capabilities for debugging
+    if (valueCache.size > 0) {
+      console.log("Cache Utils: Sample values:");
+      Array.from(valueCache.entries()).slice(0, 3).forEach(([id, value]) => {
+        console.log(`  - ${value.name} (${id})`);
+      });
+    }
+    
+    if (capabilityCache.size > 0) {
+      console.log("Cache Utils: Sample capabilities:");
+      Array.from(capabilityCache.entries()).slice(0, 3).forEach(([id, capability]) => {
+        console.log(`  - ${capability.name} (${id})`);
+      });
+    }
+    
   } catch (error) {
     console.error("Cache Utils: Error initializing caches:", error);
+    // Ensure we have default values even in case of error
+    addDefaultValuesAndCapabilities();
+  }
+}
+
+/**
+ * Helper function to add default values and capabilities to the cache
+ * This ensures we always have some data for the donut rings visualization
+ */
+function addDefaultValuesAndCapabilities(): void {
+  // Add default values if cache is empty
+  if (valueCache.size === 0) {
+    const defaultValues = [
+      { id: 'value_sustainability', name: 'Sustainability' },
+      { id: 'value_community_resilience', name: 'Community Resilience' },
+      { id: 'value_ecological_balance', name: 'Ecological Balance' },
+      { id: 'value_social_equity', name: 'Social Equity' }
+    ];
+    
+    defaultValues.forEach(item => {
+      valueCache.set(item.id, {
+        value_id: item.id,
+        name: item.name,
+        description: `Default value: ${item.name}`,
+        created_at: Date.now()
+      });
+    });
+    
+    console.log(`Cache Utils: Added ${defaultValues.length} default values to cache`);
+  }
+  
+  // Add default capabilities if cache is empty
+  if (capabilityCache.size === 0) {
+    const defaultCapabilities = [
+      { id: 'capability_communication', name: 'Communication' },
+      { id: 'capability_impact_assessment', name: 'Impact Assessment' },
+      { id: 'capability_resource_management', name: 'Resource Management' },
+      { id: 'capability_knowledge_sharing', name: 'Knowledge Sharing' }
+    ];
+    
+    defaultCapabilities.forEach(item => {
+      capabilityCache.set(item.id, {
+        capability_id: item.id,
+        name: item.name,
+        description: `Default capability: ${item.name}`,
+        created_at: Date.now()
+      });
+    });
+    
+    console.log(`Cache Utils: Added ${defaultCapabilities.length} default capabilities to cache`);
   }
 }
 
