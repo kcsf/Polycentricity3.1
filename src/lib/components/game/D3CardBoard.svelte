@@ -2173,40 +2173,117 @@
               }
               
               if (IconComponent && typeof IconComponent === 'function') {
-                // Use more direct approach to create the icon component's SVG
-                // First, create a temporary div to render the icon
-                const tempDiv = document.createElement('div');
-                document.body.appendChild(tempDiv);
+                // Instead of instantiating the component directly, we'll use the SVG path data
+                // from the Lucide icons to create SVG elements manually
                 
-                // Create the icon in the temporary div (outside the DOM)
-                const svelte5Component = new IconComponent({
-                  target: tempDiv,
-                  props: {
-                    size: iconSize,
-                    color: '#555555',
-                    strokeWidth: 2,
-                    class: 'lucide-icon'
+                // Create SVG element with proper attributes
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svg.setAttribute("width", iconSize.toString());
+                svg.setAttribute("height", iconSize.toString());
+                svg.setAttribute("viewBox", "0 0 24 24");
+                svg.setAttribute("stroke", "#555555");
+                svg.setAttribute("stroke-width", "2");
+                svg.setAttribute("stroke-linecap", "round");
+                svg.setAttribute("stroke-linejoin", "round");
+                svg.setAttribute("fill", "none");
+                svg.setAttribute("class", "lucide-icon");
+                
+                // Determine which icon to render
+                let iconPathData: string | null = null;
+                
+                // Set icon path data based on iconName
+                if (iconName === 'sun') {
+                  // Sun icon path data
+                  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                  circle.setAttribute("cx", "12");
+                  circle.setAttribute("cy", "12");
+                  circle.setAttribute("r", "4");
+                  svg.appendChild(circle);
+                  
+                  // Sun rays
+                  for (let i = 0; i < 8; i++) {
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    const angle = (i * Math.PI) / 4;
+                    const innerRadius = 4; // Radius of the central circle
+                    const outerRadius = 8; // Length of rays
+                    
+                    const x1 = 12 + innerRadius * Math.cos(angle);
+                    const y1 = 12 + innerRadius * Math.sin(angle);
+                    const x2 = 12 + outerRadius * Math.cos(angle);
+                    const y2 = 12 + outerRadius * Math.sin(angle);
+                    
+                    line.setAttribute("x1", x1.toString());
+                    line.setAttribute("y1", y1.toString());
+                    line.setAttribute("x2", x2.toString());
+                    line.setAttribute("y2", y2.toString());
+                    
+                    svg.appendChild(line);
                   }
-                });
-                
-                // Get the SVG element from the temporary div
-                const renderedSvg = tempDiv.querySelector('svg');
-                if (renderedSvg) {
-                  // Clone the SVG to use in our D3 container
-                  const svgClone = renderedSvg.cloneNode(true);
-                  container.appendChild(svgClone);
+                } else if (iconName === 'link') {
+                  // Link icon
+                  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path.setAttribute("d", "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71");
+                  svg.appendChild(path);
                   
-                  // Destroy component and remove temp div
-                  svelte5Component.$destroy();
-                  document.body.removeChild(tempDiv);
+                  const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path2.setAttribute("d", "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71");
+                  svg.appendChild(path2);
+                } else if (iconName === 'lock') {
+                  // Lock icon
+                  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                  rect.setAttribute("width", "16");
+                  rect.setAttribute("height", "10");
+                  rect.setAttribute("x", "4");
+                  rect.setAttribute("y", "9");
+                  rect.setAttribute("rx", "2");
+                  rect.setAttribute("ry", "2");
+                  svg.appendChild(rect);
                   
-                  console.log(`Successfully created icon component for ${card.role_title}`);
+                  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path.setAttribute("d", "M8 9V7a4 4 0 0 1 8 0v2");
+                  svg.appendChild(path);
+                } else if (iconName === 'users') {
+                  // Users icon
+                  const circle1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                  circle1.setAttribute("cx", "16");
+                  circle1.setAttribute("cy", "7");
+                  circle1.setAttribute("r", "3");
+                  svg.appendChild(circle1);
+                  
+                  const circle2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                  circle2.setAttribute("cx", "8");
+                  circle2.setAttribute("cy", "7");
+                  circle2.setAttribute("r", "3");
+                  svg.appendChild(circle2);
+                  
+                  const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path1.setAttribute("d", "M3 21v-2a4 4 0 0 1 4-4h2");
+                  svg.appendChild(path1);
+                  
+                  const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path2.setAttribute("d", "M15 13h2a4 4 0 0 1 4 4v2");
+                  svg.appendChild(path2);
+                  
+                  const path3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path3.setAttribute("d", "M16 21h-8a4 4 0 0 1-4-4v-2");
+                  svg.appendChild(path3);
                 } else {
-                  // If the component didn't render an SVG, clean up and fall back
-                  svelte5Component.$destroy();
-                  document.body.removeChild(tempDiv);
-                  throw new Error('Icon component did not render an SVG element');
+                  // Default user icon as fallback
+                  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                  circle.setAttribute("cx", "12");
+                  circle.setAttribute("cy", "8");
+                  circle.setAttribute("r", "4");
+                  svg.appendChild(circle);
+                  
+                  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                  path.setAttribute("d", "M20 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
+                  svg.appendChild(path);
                 }
+                
+                // Add the SVG to the container
+                container.appendChild(svg);
+                
+                console.log(`Successfully created icon component for ${card.role_title}`);
               } else {
                 // Fallback: Create a simple SVG if the component isn't available
                 const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

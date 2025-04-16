@@ -1,0 +1,86 @@
+DEBUG: Looking for _valueNames in card: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real values for card Luminos Funder: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real capabilities for card Luminos Funder: 
+(2) ["Problem Solving", "Communication"]
+DEBUG: Node data for DAO of the Green Veil: 
+Object {id: "card_m9ejfo9k5pf33gtz", name: "DAO of the Green Veil", type: "actor", data: {…}, x: 517.0358635942985, …}
+DEBUG: Card data for DAO of the Green Veil: 
+Object {_: {…}, backstory: "A blockchain-based collective pooling crypto for eco-village experiments.", capabilities: {…}, card_category: "Funders", card_id: "card_m9ejfo9k5pf33gtz", …}
+DEBUG: Looking for _valueNames in nodeData: 
+(2) ["Sustainability", "Community Resilience"]
+DEBUG: Looking for _valueNames in card: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real values for card DAO of the Green Veil: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real capabilities for card DAO of the Green Veil: 
+(2) ["Problem Solving", "Communication"]
+DEBUG: Node data for PMA Seedkeeper: 
+Object {id: "card_m9epil53g0rtedwh", name: "PMA Seedkeeper", type: "actor", data: {…}, x: 314.6292297043047, …}
+DEBUG: Card data for PMA Seedkeeper: 
+Object {_: {…}, backstory: "A private group funding land trusts for eco-villages.", capabilities: {…}, card_category: "Funders", card_id: "card_m9epil53g0rtedwh", …}
+DEBUG: Looking for _valueNames in nodeData: 
+(2) ["Sustainability", "Community Resilience"]
+DEBUG: Looking for _valueNames in card: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real values for card PMA Seedkeeper: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real capabilities for card PMA Seedkeeper: 
+(2) ["Problem Solving", "Communication"]
+DEBUG: Node data for Eco-Patron Collective: 
+Object {id: "card_m9epimjtsgubbspn", name: "Eco-Patron Collective", type: "actor", data: {…}, x: 538.1526891875542, …}
+DEBUG: Card data for Eco-Patron Collective: 
+Object {_: {…}, backstory: "A grassroots group pooling micro-donations for eco-projects.", capabilities: {…}, card_category: "Funders", card_id: "card_m9epimjtsgubbspn", …}
+DEBUG: Looking for _valueNames in nodeData: 
+(2) ["Sustainability", "Community Resilience"]
+DEBUG: Looking for _valueNames in card: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real values for card Eco-Patron Collective: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real capabilities for card Eco-Patron Collective: 
+(2) ["Problem Solving", "Communication"]
+Preloading icons: 
+(4) ["sun", "link", "lock", "users"]
+Loaded icon sun as Sun from lucide-svelte
+Loaded icon link as Link from lucide-svelte
+Loaded icon lock as Lock from lucide-svelte
+Loaded icon users as Users from lucide-svelte
+Icon store updated with: 
+(4) ["sun", "link", "lock", "users"]
+Icons loaded, continuing with visualization
+Getting icon for card card_m9ej0qxdf0zko4f8 (Luminos Funder): sun
+Getting icon for: "sun"
+Normalized icon name: Sun
+Found icon in store: sun
+Getting icon for card card_m9ejfo9k5pf33gtz (DAO of the Green Veil): link
+Getting icon for: "link"
+Normalized icon name: Link
+Found icon in store: link
+Getting icon for card card_m9epil53g0rtedwh (PMA Seedkeeper): lock
+Getting icon for: "lock"
+Normalized icon name: Lock
+Found icon in store: lock
+Getting icon for card card_m9epimjtsgubbspn (Eco-Patron Collective): users
+Getting icon for: "users"
+Normalized icon name: Users
+Found icon in store: users
+Error creating icon component: Svelte error: component_api_invalid_new
+Attempted to instantiate node_modules/lucide-svelte/dist/icons/sun.svelte with `new Sun`, which is no longer valid in Svelte 5. If this component is not under your control, set the `compatibility.componentApi` compiler option to `4` to keep it working.
+https://svelte.dev/e/component_api_invalid_new
+Successfully rendered icon for Luminos Funder
+Error creating icon component: Svelte error: component_api_invalid_new
+Attempted to instantiate node_modules/lucide-svelte/dist/icons/link.svelte with `new Link`, which is no longer valid in Svelte 5. If this component is not under your control, set the `compatibility.componentApi` compiler option to `4` to keep it working.
+https://svelte.dev/e/component_api_invalid_new
+Successfully rendered icon for DAO of the Green Veil
+Error creating icon component: Svelte error: component_api_invalid_new
+Attempted to instantiate node_modules/lucide-svelte/dist/icons/lock.svelte with `new Lock`, which is no longer valid in Svelte 5. If this component is not under your control, set the `compatibility.componentApi` compiler option to `4` to keep it working.
+https://svelte.dev/e/component_api_invalid_new
+Successfully rendered icon for PMA Seedkeeper
+Error creating icon component: Svelte error: component_api_invalid_new
+Attempted to instantiate node_modules/lucide-svelte/dist/icons/users.svelte with `new Users`, which is no longer valid in Svelte 5. If this component is not under your control, set the `compatibility.componentApi` compiler option to `4` to keep it working.
+https://svelte.dev/e/component_api_invalid_new
+Successfully rendered icon for Eco-Patron Collective
+Saving node position: card_m9ejfo9k5pf33gtz at x:517.0358635942985 y:203.1260984815804
+Using fully optimized card data for popover with no Gun queries
+Node clicked: actor card_m9ejfo9k5pf33gtz
