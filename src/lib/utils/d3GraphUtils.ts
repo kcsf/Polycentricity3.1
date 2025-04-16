@@ -894,6 +894,9 @@ export function addDonutRings(
         items: categoryItems,
         hasData: categoryItems.length > 0
       });
+      
+      // Debug log specifically for rendering wedges
+      console.log("Rendering wedges for category:", category, "with items:", categoryItems);
         
       // Skip rendering if the category has no items
       if (categoryItems.length === 0) {
@@ -942,7 +945,7 @@ export function addDonutRings(
           .attr("stroke-width", 1.5) // Thicker stroke for visibility
           .attr("class", `wedge ${category}`)
           // CRITICAL: Move nodes forward in the z-index
-          .style("z-index", "100")
+          .style("z-index", "10") // Set explicit z-index
           // Make sure it's visible
           .style("visibility", "visible")
           .style("display", "block")
@@ -984,6 +987,9 @@ export function addDonutRings(
         categoryGroup.append("title")
           .text(`${formatCategoryName(category)}: ${itemName}`);
       });
+      
+      // Log confirmation that wedges were added
+      console.log("Wedges added for node:", nodeData.id, "count:", categoryItems.length);
       
       // Update offset for next category
       totalOffset += totalAngle;
