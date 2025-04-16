@@ -748,83 +748,81 @@ export function addDonutRings(
       }
       
       // Now proceed with creating wedges
-        // Calculate angles for wedges based on number of items
-        const isActive = nodeData.id === activeCardId;
-        const scaleFactor = isActive ? 1.5 : 1;
-        const scaledNodeRadius = baseActorRadius * scaleFactor;
-        const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
+      const isActive = nodeData.id === activeCardId;
+      const scaleFactor = isActive ? 1.5 : 1;
+      const scaledNodeRadius = baseActorRadius * scaleFactor;
+      const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
+      
+      // Calculate angles and create wedge paths
+      const itemCount = categoryItems.length;
+      const categoryColor = colorScale(category);
+      const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
+      const startAngle = totalOffset;
+      const anglePerItem = totalAngle / itemCount;
+      
+      // Create a group for this category
+      const categoryGroup = node.append("g")
+        .attr("class", `category-group ${category}`);
+      
+      // Add each wedge for this category
+      categoryItems.forEach((itemId, i) => {
+        const itemAngle = startAngle + (i * anglePerItem);
+        const wedgeStartAngle = (itemAngle * Math.PI) / 180;
+        const wedgeEndAngle = ((itemAngle + anglePerItem) * Math.PI) / 180;
         
-        // Calculate angles and create wedge paths
-        const itemCount = categoryItems.length;
-        const categoryColor = colorScale(category);
-        const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
-        const startAngle = totalOffset;
-        const anglePerItem = totalAngle / itemCount;
+        // Create SVG arc path
+        const arc = d3.arc<any>()
+          .innerRadius(scaledNodeRadius)
+          .outerRadius(donutRadius)
+          .startAngle(wedgeStartAngle)
+          .endAngle(wedgeEndAngle)
+          .padAngle(0.01);
         
-        // Create a group for this category
-        const categoryGroup = node.append("g")
-          .attr("class", `category-group ${category}`);
+        // Add wedge path
+        categoryGroup.append("path")
+          .attr("d", arc({} as any))
+          .attr("fill", categoryColor)
+          .attr("opacity", 0.8)
+          .attr("stroke", "white")
+          .attr("stroke-width", 0.5)
+          .attr("class", `wedge ${category}`)
+          .on("mouseover", function() {
+            // Highlight this wedge
+            d3.select(this)
+              .attr("opacity", 1)
+              .attr("stroke-width", 1);
+          })
+          .on("mouseout", function() {
+            // Reset appearance
+            d3.select(this)
+              .attr("opacity", 0.8)
+              .attr("stroke-width", 0.5);
+          });
+          
+        // Add tooltip or label if needed
+        let itemName = itemId;
         
-        // Add each wedge for this category
-        categoryItems.forEach((itemId, i) => {
-          const itemAngle = startAngle + (i * anglePerItem);
-          const wedgeStartAngle = (itemAngle * Math.PI) / 180;
-          const wedgeEndAngle = ((itemAngle + anglePerItem) * Math.PI) / 180;
-          
-          // Create SVG arc path
-          const arc = d3.arc<any>()
-            .innerRadius(scaledNodeRadius)
-            .outerRadius(donutRadius)
-            .startAngle(wedgeStartAngle)
-            .endAngle(wedgeEndAngle)
-            .padAngle(0.01);
-          
-          // Add wedge path
-          categoryGroup.append("path")
-            .attr("d", arc({} as any))
-            .attr("fill", categoryColor)
-            .attr("opacity", 0.8)
-            .attr("stroke", "white")
-            .attr("stroke-width", 0.5)
-            .attr("class", `wedge ${category}`)
-            .on("mouseover", function() {
-              // Highlight this wedge
-              d3.select(this)
-                .attr("opacity", 1)
-                .attr("stroke-width", 1);
-            })
-            .on("mouseout", function() {
-              // Reset appearance
-              d3.select(this)
-                .attr("opacity", 0.8)
-                .attr("stroke-width", 0.5);
-            });
-            
-          // Add tooltip or label if needed
-          let itemName = itemId;
-          
-          // Try to get a friendly name from cache
-          if (category === "values" && valueCache && valueCache.has(itemId)) {
-            itemName = valueCache.get(itemId).name;
-          } else if (category === "capabilities" && capabilityCache && capabilityCache.has(itemId)) {
-            itemName = capabilityCache.get(itemId).name;
-          } else {
-            // Extract name from the ID if no cache is available
-            itemName = itemId.replace(/^(value_|capability_|resource_|goal_)/, '')
-              .split(/[-_]/)
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(" ");
-          }
-          
-          // Add title for tooltip
-          categoryGroup.append("title")
-            .text(`${formatCategoryName(category)}: ${itemName}`);
-        });
+        // Try to get a friendly name from cache
+        if (category === "values" && valueCache && valueCache.has(itemId)) {
+          itemName = valueCache.get(itemId).name;
+        } else if (category === "capabilities" && capabilityCache && capabilityCache.has(itemId)) {
+          itemName = capabilityCache.get(itemId).name;
+        } else {
+          // Extract name from the ID if no cache is available
+          itemName = itemId.replace(/^(value_|capability_|resource_|goal_)/, '')
+            .split(/[-_]/)
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+        }
         
-        // Update offset for next category
-        totalOffset += totalAngle;
-        categoryIndex++;
-      }
+        // Add title for tooltip
+        categoryGroup.append("title")
+          .text(`${formatCategoryName(category)}: ${itemName}`);
+      });
+      
+      // Update offset for next category
+      totalOffset += totalAngle;
+      categoryIndex++;
     });
   });
 }
@@ -851,8 +849,8 @@ export function initializeD3Graph(
   handleNodeClick: (node: D3Node) => void
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
-  nodeElements: d3.Selection<any, any, any, any>,
-  linkElements: d3.Selection<any, any, any, any>,
+  nodeElements: any,
+  linkElements: any,
   nodes: D3Node[],
   links: D3Link[]
 } {
@@ -968,8 +966,8 @@ export function initializeD3Graph(
     .attr("marker-end", d => `url(#arrow-${d.type})`);
   
   // Create node elements with defensive coding
-  // Use a more flexible type to avoid TypeScript errors with D3's selections
-  let nodeElements: d3.Selection<any, any, any, any>;
+  // Use a type assertion for now to satisfy the type checker
+  let nodeElements: any;
   try {
     nodeElements = nodeGroup
       .selectAll("g")
