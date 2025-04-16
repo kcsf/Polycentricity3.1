@@ -543,6 +543,17 @@ export function addDonutRings(
     return;
   }
   
+  // CRITICAL FIX: Ensure we have valid caches
+  if (!valueCache) {
+    console.error("ValueCache is missing - donut rings cannot be created!");
+    return;
+  }
+  
+  if (!capabilityCache) {
+    console.error("CapabilityCache is missing - donut rings cannot be created!");
+    return;
+  }
+  
   // Log the cache inputs to help with debugging
   console.log("addDonutRings received these cache values:", {
     valueCacheProvided: !!valueCache,
@@ -551,6 +562,15 @@ export function addDonutRings(
     capabilityCacheSize: capabilityCache?.size || 0,
     sampleValueKeys: Array.from(valueCache?.keys() || []).slice(0, 3),
     sampleCapabilityKeys: Array.from(capabilityCache?.keys() || []).slice(0, 3)
+  });
+  
+  // DIRECT DEBUG: Check what nodes we have
+  console.log("CRITICAL NODE CHECK:", { 
+    selectionValid: !!nodeElements,
+    selectionEmpty: nodeElements.empty(),
+    nodeCount: nodeElements.size(),
+    selection: nodeElements.nodes().length,
+    firstFewNodes: nodeElements.data().slice(0, 2)
   });
   
   // Also check if the selection is empty
@@ -571,8 +591,16 @@ export function addDonutRings(
     return;
   }
   
-  // Get all card nodes
-  const cardNodes = nodeElements.filter((d) => d.type === "actor");
+  // CRITICAL DEBUG: Check if node classes are correctly set
+  console.log("NODE CLASS DEBUG:", {
+    nodeElementsClasses: nodeElements.nodes().map((n: any) => n.className.baseVal).join(', '),
+    actorNodeCount: d3.selectAll('.node-actor').size(),
+    agreementNodeCount: d3.selectAll('.node-agreement').size()
+  });
+  
+  // Get all card nodes - CRITICAL CHANGE: Use .node-actor class selector
+  // const cardNodes = nodeElements.filter((d) => d.type === "actor");
+  const cardNodes = d3.selectAll('.node-actor');
   
   // Debug the filtered card nodes
   console.log("Filtered card nodes debug:", {
@@ -580,8 +608,24 @@ export function addDonutRings(
     data: cardNodes.data()
   });
   
+  // DIRECT FIX: If we still don't have any card nodes, try another selector
+  if (cardNodes.empty() || cardNodes.size() === 0) {
+    console.log("No card nodes found with .node-actor selector. Trying alternative approach.");
+    // Fall back to using all nodes and checking type
+    const allNodes = nodeElements;
+    console.log("All nodes:", {
+      count: allNodes.size(),
+      data: allNodes.data()
+    });
+  }
+  
   // Process each card node to check data
-  cardNodes.each(function(d) {
+  cardNodes.each(function(d: any) {
+    if (!d || !d.id) {
+      console.warn("Invalid node data in cardNodes.each:", d);
+      return;
+    }
+    
     console.log("Preparing to add real donut segments to node:", d.id);
     
     // Extract values and capabilities from node data
@@ -672,7 +716,12 @@ export function addDonutRings(
   };
   
   // Step 1: Add outer donut rings to all card nodes first
-  cardNodes.each(function(d) {
+  cardNodes.each(function(d: any) {
+    if (!d || !d.id) {
+      console.warn("Invalid node data in outer donut rings:", d);
+      return;
+    }
+    
     const isActive = d.id === activeCardId;
     const scaleFactor = isActive ? 1.5 : 1;
     const scaledNodeRadius = baseActorRadius * scaleFactor;
@@ -711,7 +760,12 @@ export function addDonutRings(
     ]);
   
   // Process each card node to add wedges
-  cardNodes.each(function(nodeData) {
+  cardNodes.each(function(nodeData: any) {
+    if (!nodeData || !nodeData.id) {
+      console.warn("Invalid node data in wedge creation:", nodeData);
+      return;
+    }
+    
     // Basic setup for this node
     const node = d3.select(this);
     const card = nodeData.data as Card;
