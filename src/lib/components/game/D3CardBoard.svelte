@@ -82,6 +82,9 @@
   let cardsWithPosition: CardWithPosition[] = [];
   let agreements: AgreementWithPosition[] = [];
   let actors: Actor[] = [];
+  // Using centralized cache management from cacheUtils.ts
+  // These local caches are mainly for backward compatibility and will be replaced
+  // with direct calls to the utility functions in future refactorings
   let valueCache: Map<string, Value> = new Map();
   let capabilityCache: Map<string, Capability> = new Map();
   let actorCardMap: Map<string, string> = new Map(); // Maps actor_id to card_id
