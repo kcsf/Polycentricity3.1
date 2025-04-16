@@ -2363,15 +2363,15 @@
               <!-- Backstory -->
               <div>
                 <h4 class="font-medium text-surface-700-300">Backstory</h4>
-                <p class="text-surface-900-50">{popoverNode.backstory}</p>
+                <p class="text-surface-900-50">{cardNode.backstory}</p>
               </div>
               
               <!-- Values - Get from values object directly -->
-              {#if popoverNode.values && Object.keys(popoverNode.values).length > 0}
+              {#if cardNode.values && Object.keys(cardNode.values).length > 0}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Values</h4>
                   <ul class="list-disc list-inside">
-                    {#each Object.keys(popoverNode.values) as valueId}
+                    {#each Object.keys(cardNode.values) as valueId}
                       <li>{valueId.replace('value_', '').replaceAll('-', ' ')}</li>
                     {/each}
                   </ul>
@@ -2379,11 +2379,11 @@
               {/if}
               
               <!-- Capabilities - Get from capabilities object directly -->
-              {#if popoverNode.capabilities && Object.keys(popoverNode.capabilities).length > 0}
+              {#if cardNode.capabilities && Object.keys(cardNode.capabilities).length > 0}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Capabilities</h4>
                   <ul class="list-disc list-inside">
-                    {#each Object.keys(popoverNode.capabilities) as capabilityId}
+                    {#each Object.keys(cardNode.capabilities) as capabilityId}
                       <li>{capabilityId.replace('capability_', '').replaceAll('-', ' ')}</li>
                     {/each}
                   </ul>
@@ -2391,67 +2391,68 @@
               {/if}
               
               <!-- Goals -->
-              {#if popoverNode.goals}
+              {#if cardNode.goals}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Goals</h4>
-                  <p class="text-surface-900-50">{popoverNode.goals}</p>
+                  <p class="text-surface-900-50">{cardNode.goals}</p>
                 </div>
               {/if}
               
               <!-- Obligations -->
-              {#if popoverNode.obligations}
+              {#if cardNode.obligations}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Obligations</h4>
-                  <p class="text-surface-900-50">{popoverNode.obligations}</p>
+                  <p class="text-surface-900-50">{cardNode.obligations}</p>
                 </div>
               {/if}
               
               <!-- Intellectual Property -->
-              {#if popoverNode.intellectual_property}
+              {#if cardNode.intellectual_property}
                 <div>
                   <h4 class="font-medium text-surface-700-300">IP</h4>
-                  <p class="text-surface-900-50">{popoverNode.intellectual_property}</p>
+                  <p class="text-surface-900-50">{cardNode.intellectual_property}</p>
                 </div>
               {/if}
               
               <!-- Resources -->
-              {#if popoverNode.rivalrous_resources}
+              {#if cardNode.rivalrous_resources}
                 <div>
                   <h4 class="font-medium text-surface-700-300">Resources</h4>
-                  <p class="text-surface-900-50">{popoverNode.rivalrous_resources}</p>
+                  <p class="text-surface-900-50">{cardNode.rivalrous_resources}</p>
                 </div>
               {/if}
             </div>
           </div>
-        {/if}
-      {:else if popoverNodeType === 'agreement'}
+      {:else if popoverNodeType === 'agreement' && popoverNode}
+        <!-- Using type casting for TypeScript safety -->
+        {@const agreementNode = popoverNode as Agreement}
         <!-- Agreement Card -->
         <div class="card p-4 shadow-lg h-full flex flex-col bg-surface-100-900/80 rounded-lg border border-surface-200 dark:border-surface-700">
           <header class="card-header flex justify-between items-center">
-            <h3 class="h3 text-tertiary-500 dark:text-tertiary-400">{popoverNode.title || 'Agreement'}</h3>
+            <h3 class="h3 text-tertiary-500 dark:text-tertiary-400">{agreementNode.title || 'Agreement'}</h3>
             
-            {#if popoverNode.status}
-              <span class="badge variant-filled-primary text-sm p-1 px-2 rounded-full">{popoverNode.status}</span>
+            {#if agreementNode.status}
+              <span class="badge variant-filled-primary text-sm p-1 px-2 rounded-full">{agreementNode.status}</span>
             {/if}
           </header>
           
           <section class="p-4 flex-grow space-y-3">
-            {#if popoverNode.description}
+            {#if agreementNode.description}
               <div>
                 <h4 class="font-semibold mb-1">Description</h4>
-                <p class="text-sm">{popoverNode.description}</p>
+                <p class="text-sm">{agreementNode.description}</p>
               </div>
             {/if}
             
             <!-- Obligations section -->
-            {#if popoverNode.obligations && Array.isArray(popoverNode.obligations) && popoverNode.obligations.length > 0}
+            {#if agreementNode.obligations && Array.isArray(agreementNode.obligations) && agreementNode.obligations.length > 0}
               <div>
                 <h4 class="font-semibold mb-1">Obligations</h4>
                 <ul class="list-disc list-inside">
-                  {#each popoverNode.obligations as obligation}
+                  {#each agreementNode.obligations as obligation}
                     <li class="text-sm">
                       <span class="font-medium">{obligation.fromActorId}:</span> 
-                      {obligation.description || obligation.text}
+                      {obligation.description || (obligation as any).text || ''}
                     </li>
                   {/each}
                 </ul>
@@ -2459,14 +2460,14 @@
             {/if}
             
             <!-- Benefits section -->
-            {#if popoverNode.benefits && Array.isArray(popoverNode.benefits) && popoverNode.benefits.length > 0}
+            {#if agreementNode.benefits && Array.isArray(agreementNode.benefits) && agreementNode.benefits.length > 0}
               <div>
                 <h4 class="font-semibold mb-1">Benefits</h4>
                 <ul class="list-disc list-inside">
-                  {#each popoverNode.benefits as benefit}
+                  {#each agreementNode.benefits as benefit}
                     <li class="text-sm">
                       <span class="font-medium">To {benefit.toActorId}:</span> 
-                      {benefit.description || benefit.text}
+                      {benefit.description || (benefit as any).text || ''}
                     </li>
                   {/each}
                 </ul>
@@ -2475,8 +2476,8 @@
             
             <!-- Metadata footer -->
             <div class="mt-4 pt-2 border-t border-surface-200 dark:border-surface-700">
-              {#if popoverNode.created_at}
-                <span class="text-xs text-surface-500 dark:text-surface-400">Created: {new Date(popoverNode.created_at).toLocaleDateString()}</span>
+              {#if agreementNode.created_at}
+                <span class="text-xs text-surface-500 dark:text-surface-400">Created: {new Date(agreementNode.created_at).toLocaleDateString()}</span>
               {/if}
             </div>
           </section>
