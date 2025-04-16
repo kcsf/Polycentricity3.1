@@ -1425,6 +1425,19 @@
       simulation = graphState.simulation;
       nodeElements = graphState.nodeElements;
       
+      // Set up simulation tick handler for guaranteed rings
+      if (simulation) {
+        // Make the rings update with the simulation ticks
+        simulation.on("tick", () => {
+          // This directly updates the guaranteed rings in real-time
+          if (graphState && graphState.nodes) {
+            updateGuaranteedRings();
+          }
+        });
+      }
+      
+      // We've already set up a simulation tick handler above
+      
       // IMPORTANT: This is a critical section that causes errors
       // We need to be extremely cautious about how we handle nodeElements
       // Remove the donut rings logic from this function completely
@@ -1521,7 +1534,7 @@
         console.error('Error stack:', err.stack);
       }
       
-      // Add an update function for our guaranteed rings
+      // Add an update function for our guaranteed rings that syncs with D3 node positions
       function updateGuaranteedRings() {
         if (!graphState || !graphState.nodes) return;
         
@@ -1535,8 +1548,6 @@
               y: node.y
             }
           }));
-          
-        console.log('Updated cardsWithPosition for guaranteed rings:', cardsWithPosition.length);
       }
       
       // Add center icons to the nodes
