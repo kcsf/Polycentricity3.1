@@ -3443,6 +3443,49 @@
   opacity: 0.9;
   filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.1));
 }
+
+/* Donut rings and wedges */
+.donut-ring {
+  fill: transparent;
+  stroke: #e5e5e5;
+  stroke-width: 1px;
+  opacity: 0.8;
+}
+
+.donut-ring.active {
+  stroke: #4299e1;
+  stroke-width: 1.5px;
+}
+
+.wedge {
+  transition: opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+/* Ensure the category groups are visible */
+.category-group {
+  opacity: 1;
+}
+
+/* Node backgrounds */
+.node-background {
+  fill: white;
+  stroke: #e5e5e5;
+  stroke-width: 1;
+}
+
+.actor-background {
+  fill: white;
+  filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.agreement-background {
+  fill: #f7fafc;
+}
+
+/* Make sure actor nodes are prominent */
+.node-actor {
+  z-index: 10;
+}
 </style>
 
 <div class="h-full relative overflow-hidden">  

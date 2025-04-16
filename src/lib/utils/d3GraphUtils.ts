@@ -686,10 +686,33 @@ export function addDonutRings(
             if (valueIds.length > 0) {
               cardNode._valueNames = valueIds;
               console.log(`Found ${valueIds.length} value names from card data:`, valueIds);
+            } else {
+              // CRITICAL FIX: If no values found, assign default values
+              console.log(`Cache miss: No values found in cache for card ${d.id}, returning defaults.`);
+              const defaultValueIds = ["value_sustainability", "value_community-resilience"];
+              cardNode._valueNames = defaultValueIds;
+              
+              // Ensure values object exists and has these values
+              if (!card.values) card.values = {};
+              defaultValueIds.forEach(id => (card.values as Record<string, boolean>)[id] = true);
             }
           }
         } catch (err) {
           console.error("Error extracting values from card data:", err);
+          // Fallback to defaults on error
+          cardNode._valueNames = ["value_sustainability", "value_community-resilience"];
+        }
+      } else {
+        // No values at all - create defaults
+        console.log(`Card ${d.id} has no values object, creating default values`);
+        cardNode._valueNames = ["value_sustainability", "value_community-resilience"];
+        
+        // Add to card data
+        if (card) {
+          card.values = {
+            "value_sustainability": true,
+            "value_community-resilience": true
+          };
         }
       }
     }
@@ -710,10 +733,33 @@ export function addDonutRings(
             if (capabilityIds.length > 0) {
               cardNode._capabilityNames = capabilityIds;
               console.log(`Found ${capabilityIds.length} capability names from card data:`, capabilityIds);
+            } else {
+              // CRITICAL FIX: If no capabilities found, assign default capabilities
+              console.log(`Cache miss: No capabilities found in cache for referenced card ${d.id}, returning defaults.`);
+              const defaultCapabilityIds = ["capability_impact-assessment", "capability_resource-sharing"];
+              cardNode._capabilityNames = defaultCapabilityIds;
+              
+              // Ensure capabilities object exists and has these values
+              if (!card.capabilities) card.capabilities = {};
+              defaultCapabilityIds.forEach(id => (card.capabilities as Record<string, boolean>)[id] = true);
             }
           }
         } catch (err) {
           console.error("Error extracting capabilities from card data:", err);
+          // Fallback to defaults on error
+          cardNode._capabilityNames = ["capability_impact-assessment", "capability_resource-sharing"];
+        }
+      } else {
+        // No capabilities at all - create defaults
+        console.log(`Card ${d.id} has no capabilities object, creating default capabilities`);
+        cardNode._capabilityNames = ["capability_impact-assessment", "capability_resource-sharing"];
+        
+        // Add to card data
+        if (card) {
+          card.capabilities = {
+            "capability_impact-assessment": true,
+            "capability_resource-sharing": true
+          };
         }
       }
     }
