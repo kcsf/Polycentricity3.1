@@ -1210,12 +1210,11 @@
   async function initializeGraph() {
     if (!svgRef) return;
     
-    // Initialize caches at the beginning to avoid "Cannot access before initialization" errors
-    const valueCache = getAllCachedValues();
-    const capabilityCache = getAllCachedCapabilities();
+    // IMPORTANT: Only use the centralized caches from cacheUtils.ts, not local variables
+    // This is critical for the donut rings visualization to work correctly
     console.log('Using centralized caches at initialization:', {
-      valueCount: valueCache.size,
-      capabilityCount: capabilityCache.size
+      valueCount: getAllCachedValues().size,
+      capabilityCount: getAllCachedCapabilities().size
     });
     
     // Set up dimensions based on container size
@@ -1374,19 +1373,19 @@
           nodeElementsIsDefined: !!nodeElements,
           nodeElementsType: typeof nodeElements,
           nodeElementsConstructor: nodeElements?.constructor?.name,
-          valueCount: valueCache?.size,
-          capabilityCount: capabilityCache?.size
+          valueCount: getAllCachedValues().size,
+          capabilityCount: getAllCachedCapabilities().size
         });
         
-        // We already have valueCache and capabilityCache from the start of the function
-        // No need to re-declare them here
+        // IMPORTANT: Always use getAllCachedValues() and getAllCachedCapabilities() 
+        // directly to ensure we're using the latest centralized cache data
         
         console.log('Using centralized caches (already initialized):', {
-          valueCount: valueCache.size,
-          capabilityCount: capabilityCache.size,
+          valueCount: getAllCachedValues().size,
+          capabilityCount: getAllCachedCapabilities().size,
           keys: {
-            valueKeys: Array.from(valueCache.keys()).slice(0, 5),
-            capabilityKeys: Array.from(capabilityCache.keys()).slice(0, 5)
+            valueKeys: Array.from(getAllCachedValues().keys()).slice(0, 5),
+            capabilityKeys: Array.from(getAllCachedCapabilities().keys()).slice(0, 5)
           }
         });
         
@@ -2774,9 +2773,12 @@
           'value_community-resilience': true
         };
           
-        // Initialize our cache with these known values
-        if (!valueCache.has('value_sustainability')) {
-          valueCache.set('value_sustainability', { 
+        // IMPORTANT: Use addValueToCache from cacheUtils.ts to update centralized caches
+        // This ensures consistency across all components
+        const centralizedValues = getAllCachedValues();
+        
+        if (!centralizedValues.has('value_sustainability')) {
+          addValueToCache('value_sustainability', { 
             value_id: 'value_sustainability', 
             name: 'Sustainability',
             description: 'Practices that can be maintained indefinitely',
@@ -2784,8 +2786,8 @@
           });
         }
         
-        if (!valueCache.has('value_community-resilience')) {
-          valueCache.set('value_community-resilience', { 
+        if (!centralizedValues.has('value_community-resilience')) {
+          addValueToCache('value_community-resilience', { 
             value_id: 'value_community-resilience', 
             name: 'Community Resilience',
             description: 'Ability to adapt and recover from adversity',
@@ -2793,15 +2795,16 @@
           });
         }
       } else {
-        // For existing values, ensure we have them in our cache
+        // For existing values, ensure we have them in our centralized cache
+        const centralizedValues = getAllCachedValues();
         Object.keys(cardDataForViz.values).forEach(key => {
-          if (key !== '_' && key !== '#' && !valueCache.has(key)) {
+          if (key !== '_' && key !== '#' && !centralizedValues.has(key)) {
             const valueName = key.replace('value_', '')
-              .split('-')
+              .split(/[-_]/) // Handle both hyphen and underscore delimiters
               .map(word => word.charAt(0).toUpperCase() + word.slice(1))
               .join(' ');
               
-            valueCache.set(key, { 
+            addValueToCache(key, { 
               value_id: key, 
               name: valueName,
               description: `Value for ${card.role_title}`,
@@ -3082,12 +3085,15 @@
           const textAnchor = isLeftSide ? "end" : "start";
           const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
           
-          // Get item name
+          // Get item name using centralized caches
           let itemName = item;
-          if (category === "values" && valueCache.has(item)) {
-            itemName = valueCache.get(item).name;
-          } else if (category === "capabilities" && capabilityCache.has(item)) {
-            itemName = capabilityCache.get(item).name;
+          const centralizedValues = getAllCachedValues();
+          const centralizedCapabilities = getAllCachedCapabilities();
+          
+          if (category === "values" && centralizedValues.has(item)) {
+            itemName = centralizedValues.get(item).name;
+          } else if (category === "capabilities" && centralizedCapabilities.has(item)) {
+            itemName = centralizedCapabilities.get(item).name;
           }
           
           // Add the label text
