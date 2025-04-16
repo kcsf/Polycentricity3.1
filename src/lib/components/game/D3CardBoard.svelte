@@ -85,8 +85,7 @@
   let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
   let simulation: d3.Simulation<D3Node, d3.SimulationLinkDatum<D3Node>>; // Store simulation for access in multiple functions
   
-  // Dataset
-  let cardsWithPosition: CardWithPosition[] = [];
+  // Dataset (agreements and actors)
   let agreements: AgreementWithPosition[] = [];
   let actors: Actor[] = [];
   // Using centralized cache management from cacheUtils.ts
