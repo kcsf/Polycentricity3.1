@@ -22,6 +22,13 @@ export interface D3Node {
   fy?: number | null;
   active?: boolean;
   _valueNames?: string[];  // Store value names for card nodes
+  _capabilityNames?: string[];  // Store capability names for card nodes
+  // Allow any additional category data
+  values?: any;
+  capabilities?: any;
+  intellectualProperty?: any;
+  resources?: any;
+  goals?: any;
 }
 
 /**
@@ -586,38 +593,69 @@ export function addDonutRings(
     data: cardNodes.data()
   });
   
-  // EMERGENCY OVERRIDE: Add simple colored rings to FORCE visualization
+  // Process each card node to check data
   cardNodes.each(function(d) {
-    console.log("Adding FORCED rings to node:", d.id);
+    console.log("Preparing to add real donut segments to node:", d.id);
     
-    // Add a simple colored ring around each node - color indicates we're in the override mode
-    d3.select(this)
-      .append("circle")
-      .attr("r", 45)
-      .attr("fill", "none")
-      .attr("stroke", "#ff0000")
-      .attr("stroke-width", 3)
-      .attr("stroke-opacity", 0.8);
-      
-    // Add a second ring - blue
-    d3.select(this)
-      .append("circle")
-      .attr("r", 55)
-      .attr("fill", "none")
-      .attr("stroke", "#0000ff")
-      .attr("stroke-width", 3)
-      .attr("stroke-opacity", 0.8);
-      
-    // Add a third ring - green
-    d3.select(this)
-      .append("circle")
-      .attr("r", 65)
-      .attr("fill", "none")
-      .attr("stroke", "#00ff00")
-      .attr("stroke-width", 3)
-      .attr("stroke-opacity", 0.8);
+    // Extract values and capabilities from node data
+    const cardNode = d as D3Node;
     
-    console.log("Forced rings added to node:", d.id);
+    // If _valueNames and _capabilityNames aren't set, try to extract from cached values
+    if (!cardNode._valueNames || cardNode._valueNames.length === 0) {
+      // We'll add some default values for testing but will be overridden by actual data
+      console.log(`Node ${d.id} has no _valueNames property, attempting to find from card data`);
+      
+      // Extract from card data if available
+      const card = cardNode.data as Card;
+      if (card && card.values) {
+        try {
+          // Try to extract values from card data
+          if (typeof card.values === 'object' && !Array.isArray(card.values)) {
+            const valueIds = Object.keys(card.values)
+              .filter(key => key !== '_' && key !== '#' && (card.values as Record<string, any>)[key] === true);
+            
+            if (valueIds.length > 0) {
+              cardNode._valueNames = valueIds;
+              console.log(`Found ${valueIds.length} value names from card data:`, valueIds);
+            }
+          }
+        } catch (err) {
+          console.error("Error extracting values from card data:", err);
+        }
+      }
+    }
+    
+    // Same for capabilities
+    if (!cardNode._capabilityNames || cardNode._capabilityNames.length === 0) {
+      console.log(`Node ${d.id} has no _capabilityNames property, attempting to find from card data`);
+      
+      // Extract from card data if available
+      const card = cardNode.data as Card;
+      if (card && card.capabilities) {
+        try {
+          // Try to extract capabilities from card data
+          if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
+            const capabilityIds = Object.keys(card.capabilities)
+              .filter(key => key !== '_' && key !== '#' && (card.capabilities as Record<string, any>)[key] === true);
+            
+            if (capabilityIds.length > 0) {
+              cardNode._capabilityNames = capabilityIds;
+              console.log(`Found ${capabilityIds.length} capability names from card data:`, capabilityIds);
+            }
+          }
+        } catch (err) {
+          console.error("Error extracting capabilities from card data:", err);
+        }
+      }
+    }
+    
+    // Log data for debugging
+    console.log(`Node ${d.id} ready for donut rings with:`, {
+      hasValueNames: !!cardNode._valueNames,
+      hasCapabilityNames: !!cardNode._capabilityNames,
+      valueNames: cardNode._valueNames || [],
+      capabilityNames: cardNode._capabilityNames || []
+    });
   });
   
   // Fixed values for radii
@@ -698,14 +736,36 @@ export function addDonutRings(
     
     // Process each category
     categories.forEach(category => {
-      // Get category data, ensuring we're only passing compatible types to ensureArray
-      let categoryData: any = nodeData[category as keyof D3Node] || card[category as keyof Card];
-      // Safely convert numerical values if they exist
-      if (typeof categoryData === 'number') {
-        categoryData = categoryData.toString();
-      }
-      const categoryItems = ensureArray(categoryData);
+      // Handle special cases for values and capabilities, using the _valueNames and _capabilityNames
+      // properties that were set earlier
+      let categoryItems: string[] = [];
       
+      if (category === 'values' && nodeData._valueNames && nodeData._valueNames.length > 0) {
+        // Use cached value names that were already processed
+        categoryItems = nodeData._valueNames;
+        console.log(`Using _valueNames for node ${nodeData.id}:`, categoryItems);
+      } else if (category === 'capabilities' && nodeData._capabilityNames && nodeData._capabilityNames.length > 0) {
+        // Use cached capability names that were already processed
+        categoryItems = nodeData._capabilityNames;
+        console.log(`Using _capabilityNames for node ${nodeData.id}:`, categoryItems);
+      } else {
+        // For other categories, use standard approach
+        let categoryData: any = nodeData[category as keyof D3Node] || card[category as keyof Card];
+        // Safely convert numerical values if they exist
+        if (typeof categoryData === 'number') {
+          categoryData = categoryData.toString();
+        }
+        categoryItems = ensureArray(categoryData);
+        
+        // Log the items found (or not found)
+        if (categoryItems.length > 0) {
+          console.log(`Found ${categoryItems.length} items for category ${category} in node ${nodeData.id}:`, categoryItems);
+        } else {
+          console.log(`No items found for category ${category} in node ${nodeData.id}`);
+        }
+      }
+      
+      // Now proceed with creating wedges if we have items
       if (categoryItems.length > 0) {
         // Calculate angles for wedges based on number of items
         const isActive = nodeData.id === activeCardId;
