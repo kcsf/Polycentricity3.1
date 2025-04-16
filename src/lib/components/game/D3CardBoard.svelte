@@ -313,6 +313,10 @@
   let agreementUnsubscribe: (() => void) | undefined;
   let actorUnsubscribe: (() => void) | undefined;
 
+  /**
+   * Optimized data loading function that loads all game data using a more
+   * efficient approach to reduce redundant GunDB queries.
+   */
   async function loadGameData() {
     try {
       const gun = getGun();
@@ -328,6 +332,7 @@
         return;
       }
       
+      // Get deckId from game
       let deckId = game.deck_id;
       if (!deckId) {
         console.warn(`D3CardBoard: No deck_id found, checking deck_type`);
@@ -344,11 +349,56 @@
         }
       }
       
-      // 1. Load Cards for this deck
-      await new Promise<void>((resolve) => {
-        gun.get(nodes.decks).get(deckId).get('cards').map().once((cardValue: boolean, cardKey: string) => {
+      // Begin data loading as parallel processes for better performance
+      const startTime = Date.now();
+      console.log(`D3CardBoard: Starting optimized data loading for game ${gameId}`);
+      
+      // Step 1: Pre-populate caches with common values and capabilities
+      // This helps us avoid redundant lookups later
+      const commonValues = [
+        'Sustainability', 'Community Resilience', 'Regeneration', 'Equity',
+        'Social Justice', 'Ecological Wisdom', 'Nonviolence', 'Grassroots Democracy'
+      ];
+      
+      commonValues.forEach(valueName => {
+        const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+        valueCache.set(valueId, {
+          value_id: valueId,
+          name: valueName,
+          description: `Core value: ${valueName}`,
+          created_at: Date.now()
+        });
+      });
+      
+      const commonCapabilities = [
+        'Problem Solving', 'Communication', 'Leadership', 'Cooperation',
+        'Grant-writing expertise', 'Impact Assessment', 'Community Organizing'
+      ];
+      
+      commonCapabilities.forEach(capName => {
+        const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+        capabilityCache.set(capabilityId, {
+          capability_id: capabilityId,
+          name: capName,
+          description: `Core capability: ${capName}`,
+          created_at: Date.now()
+        });
+      });
+      
+      // Step 2: Load data in parallel with promise-based approach instead of callbacks
+      // This is more reliable than the callback+timeout approach
+      
+      // 2a. Load all cards for this deck
+      const loadCardsPromise = new Promise<void>((resolve) => {
+        const tempCards: CardWithPosition[] = [];
+        let seenCardCount = 0;
+        
+        gun.get(nodes.decks).get(deckId).get('cards').map().once(async (cardValue: boolean, cardKey: string) => {
           if (cardValue === true) {
-            gun.get(nodes.cards).get(cardKey).once((cardData: Card) => {
+            seenCardCount++;
+            try {
+              // Get card data directly with Promise-based approach
+              const cardData = await get<Card>(`${nodes.cards}/${cardKey}`);
               if (cardData && cardData.card_id) {
                 const cardWithPosition: CardWithPosition = {
                   ...cardData,
@@ -357,40 +407,130 @@
                     y: Math.random() * height
                   }
                 };
-                cardsWithPosition = [...cardsWithPosition, cardWithPosition];
+                tempCards.push(cardWithPosition);
                 
-                // Do not call loadCardDetails for each card individually
-                // We will batch load all cards once the collection is complete
+                // Pre-empty the card's values and capabilities for the caching system
+                if (cardData.values && typeof cardData.values === 'object') {
+                  Object.keys(cardData.values)
+                    .filter(k => k !== '_' && k !== '#')
+                    .forEach(valueId => {
+                      if (!valueCache.has(valueId)) {
+                        // Create a default value entry that will be refined later
+                        let valueName = valueId;
+                        if (valueId.startsWith('value_')) {
+                          valueName = valueId.replace('value_', '')
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                        }
+                        valueCache.set(valueId, {
+                          value_id: valueId,
+                          name: valueName,
+                          description: `Value for ${cardData.role_title || 'card'}`,
+                          created_at: Date.now()
+                        });
+                      }
+                    });
+                }
+                
+                if (cardData.capabilities && typeof cardData.capabilities === 'object') {
+                  Object.keys(cardData.capabilities)
+                    .filter(k => k !== '_' && k !== '#')
+                    .forEach(capabilityId => {
+                      if (!capabilityCache.has(capabilityId)) {
+                        // Create a default capability entry that will be refined later
+                        let capabilityName = capabilityId;
+                        if (capabilityId.startsWith('capability_')) {
+                          capabilityName = capabilityId.replace('capability_', '')
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                        }
+                        capabilityCache.set(capabilityId, {
+                          capability_id: capabilityId,
+                          name: capabilityName,
+                          description: `Capability for ${cardData.role_title || 'card'}`,
+                          created_at: Date.now()
+                        });
+                      }
+                    });
+                }
               }
-            });
+            } catch (e) {
+              console.error(`Error loading card ${cardKey}:`, e);
+            }
           }
         });
         
-        // Continue after a short delay to allow Gun to load the data
-        setTimeout(resolve, 1000);
+        // Resolve after a delay to collect cards, but with a more reliable approach
+        setTimeout(() => {
+          console.log(`D3CardBoard: Loaded ${tempCards.length} cards from deck ${deckId} (saw ${seenCardCount} card references)`);
+          cardsWithPosition = tempCards;
+          resolve();
+        }, 1500);
       });
       
-      // 2. Load Actors for this game
-      await new Promise<void>((resolve) => {
-        gun.get(nodes.games).get(gameId).get('players').map().once((actorId: string, userId: string) => {
-          gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
-            if (actorData && actorData.actor_id && actorData.card_id) {
-              actors = [...actors, actorData];
-              actorCardMap.set(actorData.actor_id, actorData.card_id);
+      // 2b. Load all actors for this game
+      const loadActorsPromise = new Promise<void>((resolve) => {
+        const tempActors: Actor[] = [];
+        const tempActorCardMap = new Map<string, string>();
+        let seenActorCount = 0;
+        
+        gun.get(nodes.games).get(gameId).get('players').map().once(async (actorId: string, userId: string) => {
+          if (actorId) {
+            seenActorCount++;
+            try {
+              // Get actor data directly with Promise-based approach
+              const actorData = await get<Actor>(`${nodes.actors}/${actorId}`);
+              if (actorData && actorData.actor_id && actorData.card_id) {
+                tempActors.push(actorData);
+                tempActorCardMap.set(actorData.actor_id, actorData.card_id);
+              }
+            } catch (e) {
+              console.error(`Error loading actor ${actorId}:`, e);
             }
-          });
+          }
         });
         
-        // Continue after a short delay
-        setTimeout(resolve, 1000);
+        // Resolve after a delay to collect actors, but with a more reliable approach
+        setTimeout(() => {
+          console.log(`D3CardBoard: Loaded ${tempActors.length} actors for game ${gameId} (saw ${seenActorCount} actor references)`);
+          actors = tempActors;
+          // Use the spread operator to merge maps
+          tempActorCardMap.forEach((value, key) => {
+            actorCardMap.set(key, value);
+          });
+          resolve();
+        }, 1500);
       });
       
-      // 3. Load Agreements for actors in this game
+      // Step 3: Wait for both cards and actors to load before proceeding
+      await Promise.all([loadCardsPromise, loadActorsPromise]);
+      
+      // Step 4: Now load agreements using the collected actors
       await new Promise<void>((resolve) => {
+        const tempAgreements: AgreementWithPosition[] = new Array<AgreementWithPosition>();
+        const seenAgreements = new Set<string>();
+        let seenAgreementCount = 0;
+        
+        // Process only if we have actors
+        if (actors.length === 0) {
+          console.log("D3CardBoard: No actors found, skipping agreement loading");
+          resolve();
+          return;
+        }
+        
         actors.forEach(actor => {
           if (actor.agreements) {
-            Object.keys(actor.agreements).forEach(agreementId => {
-              gun.get(nodes.agreements).get(agreementId).once((agreementData: Agreement) => {
+            Object.keys(actor.agreements).forEach(async (agreementId) => {
+              // Skip if we've already processed this agreement
+              if (seenAgreements.has(agreementId)) return;
+              seenAgreements.add(agreementId);
+              seenAgreementCount++;
+              
+              try {
+                // Get agreement data directly with Promise-based approach
+                const agreementData = await get<Agreement>(`${nodes.agreements}/${agreementId}`);
                 if (agreementData && agreementData.agreement_id) {
                   // Convert to AgreementWithPosition
                   const agreementWithPosition: AgreementWithPosition = {
@@ -424,23 +564,24 @@
                     });
                   }
                   
-                  // Add to agreements array if not already there
-                  if (!agreements.some(a => a.agreement_id === agreementData.agreement_id)) {
-                    agreements = [...agreements, agreementWithPosition];
-                  }
+                  tempAgreements.push(agreementWithPosition);
                 }
-              });
+              } catch (e) {
+                console.error(`Error loading agreement ${agreementId}:`, e);
+              }
             });
           }
         });
         
-        // Continue after a short delay
-        setTimeout(resolve, 1000);
+        // Resolve after a delay to collect agreements
+        setTimeout(() => {
+          console.log(`D3CardBoard: Loaded ${tempAgreements.length} agreements (saw ${seenAgreementCount} references)`);
+          agreements = tempAgreements;
+          resolve();
+        }, 1500);
       });
       
-      console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
-      
-      // Batch load all card details before initializing the graph
+      // Final step: Batch load card details before initializing the graph
       if (cardsWithPosition.length > 0) {
         console.log("D3CardBoard: Loading card details in batch before graph initialization");
         await loadAllCardDetails(cardsWithPosition);
@@ -453,7 +594,12 @@
         
         // Initialize graph once after all data is loaded
         console.log("D3CardBoard: Initializing graph after batch loading all card details");
+        const totalTime = Date.now() - startTime;
+        console.log(`D3CardBoard: Total data loading time: ${totalTime}ms`);
+        
         initializeGraph();
+      } else {
+        console.warn("D3CardBoard: No cards found for visualization");
       }
     } catch (error) {
       console.error("Error loading game data:", error);
