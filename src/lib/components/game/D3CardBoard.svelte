@@ -1459,12 +1459,10 @@
       
       // Add donut rings to the nodes with detailed debug information
       try {
-        console.log('Adding donut rings to the nodes...', {
-          nodeElementsIsDefined: !!nodeElements,
-          nodeElementsType: typeof nodeElements,
-          nodeElementsConstructor: nodeElements?.constructor?.name,
-          valueCount: getAllCachedValues().size,
-          capabilityCount: getAllCachedCapabilities().size
+        console.log('Adding rings with:', { 
+          nodes: nodeElements?.size() || 0, 
+          values: getAllCachedValues().size, 
+          capabilities: getAllCachedCapabilities().size 
         });
         
         // IMPORTANT: Always use getAllCachedValues() and getAllCachedCapabilities() 
@@ -1623,8 +1621,8 @@
           fy: card.position?.y || null,
           active: card.card_id === activeCardId,
           // Use properly typed properties
-          _valueNames: cardWithNames._valueNames,
-          _capabilityNames: cardWithNames._capabilityNames
+          _valueNames: cardWithNames._valueNames || [],
+          _capabilityNames: cardWithNames._capabilityNames || []
         };
       }),
       ...agreements.map((agreement) => ({

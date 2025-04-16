@@ -917,9 +917,10 @@ export function addDonutRings(
       const startAngle = totalOffset;
       const anglePerItem = totalAngle / itemCount;
       
-      // Create a group for this category
+      // Create a group for this category - ensure it's on top with .raise()
       const categoryGroup = node.append("g")
-        .attr("class", `category-group ${category}`);
+        .attr("class", `category-group ${category}`)
+        .raise();
       
       // Add each wedge for this category
       categoryItems.forEach((itemId, i) => {
@@ -937,18 +938,19 @@ export function addDonutRings(
         
         // Add wedge path with more prominent styling
         // CRITICAL FIX: Using more vibrant colors and higher opacity
-        categoryGroup.append("path")
+        const wedgePath = categoryGroup.append("path")
           .attr("d", arc({} as any))
           .attr("fill", categoryColor)
-          .attr("opacity", 0.9) // Higher opacity for better visibility
+          .attr("opacity", 1) // Full opacity for maximum visibility
           .attr("stroke", "white")
-          .attr("stroke-width", 1.5) // Thicker stroke for visibility
-          .attr("class", `wedge ${category}`)
+          .attr("stroke-width", 2) // Thicker stroke for visibility
+          .attr("class", `wedge ${category} category-wedge`)
           // CRITICAL: Move nodes forward in the z-index
           .style("z-index", "10") // Set explicit z-index
           // Make sure it's visible
           .style("visibility", "visible")
           .style("display", "block")
+          .style("pointer-events", "all") // Ensure clickable
           .on("mouseover", function() {
             // Highlight this wedge more obviously
             d3.select(this)
@@ -966,6 +968,10 @@ export function addDonutRings(
               .attr("stroke-width", 1.5)
               .attr("fill", categoryColor);
           });
+          
+        // Log the SVG path for verification
+        console.log("Wedges added for node:", nodeData.id, "count:", categoryItems.length, 
+                    "SVG path:", wedgePath.attr("d"));
           
         // Add tooltip or label if needed
         let itemName = itemId;
@@ -987,9 +993,6 @@ export function addDonutRings(
         categoryGroup.append("title")
           .text(`${formatCategoryName(category)}: ${itemName}`);
       });
-      
-      // Log confirmation that wedges were added
-      console.log("Wedges added for node:", nodeData.id, "count:", categoryItems.length);
       
       // Update offset for next category
       totalOffset += totalAngle;
