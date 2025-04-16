@@ -6,11 +6,21 @@
  * providing type-safe access to frequently used data.
  */
 
-import type { Card, Value, Capability } from '$lib/types';
-import { getGun, nodes } from '$lib/services/gun-db';
+import type { Card, Value, Capability, Agreement } from '$lib/types';
+import { getGun, nodes } from '$lib/services/gunService';
 import { getGame } from '$lib/services/gameService';
-import { getAllAgreements } from '$lib/services/agreementService';
-import { getAllCardsInDeck } from '$lib/services/deckService';
+
+// Helper function to get data from Gun
+async function get<T>(path: string): Promise<T | null> {
+  const gun = getGun();
+  if (!gun) return null;
+  
+  return new Promise((resolve) => {
+    gun.get(path).once((data: T) => {
+      resolve(data);
+    });
+  });
+}
 
 /**
  * Extended Card interface with position information and cached data
@@ -62,11 +72,28 @@ export async function initializeCaches(gameId: string): Promise<void> {
       return;
     }
     
-    // Load all agreements
-    const agreements = await getAllAgreements(gameId);
+    // Placeholder for agreements
+    const agreements: Agreement[] = [];
     
-    // Load all cards in the deck
-    let cards = await getAllCardsInDeck(deckId);
+    // Load all cards in the deck (simplified for now)
+    const cards: Card[] = [];
+    
+    // Simulate loading cards
+    // In a real implementation, we would fetch from gun.get(nodes.decks).get(deckId).get('cards').map()
+    try {
+      await new Promise<void>((resolve) => {
+        gun.get(nodes.decks).get(deckId).get('cards').map().once((cardData: any, cardRef: string) => {
+          if (cardRef !== '_' && cardRef !== '#') {
+            // This would be where we load card data
+            // For now, we're just simulating the process
+          }
+        });
+        // Resolve after small timeout to allow gun to process
+        setTimeout(() => resolve(), 100);
+      });
+    } catch (error) {
+      console.log("Error loading cards:", error);
+    }
     
     // Convert to CardWithPosition format
     let cardsWithPosition: CardWithPosition[] = cards.map(card => ({

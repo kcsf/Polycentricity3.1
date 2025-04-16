@@ -26,8 +26,18 @@
     type D3NodeWithRelationships
   } from '$lib/utils/d3GraphUtils';
   // Removed import of getCardValueNames, getCardCapabilityNames to eliminate Gun.js queries
-  // Using internal cache-only implementations instead
+  // Using centralized cache utilities instead
   import RoleCard from '$lib/components/RoleCard.svelte';
+  import {
+    initializeCaches,
+    getCachedValue,
+    getCachedCapability,
+    getCachedActorCardMap,
+    loadCardDetails, 
+    processCardDetailsFromCache,
+    getCardValueNamesFromCacheOnly,
+    getCardCapabilityNamesFromCacheOnly
+  } from '$lib/utils/cacheUtils';
   
   // Helper for rendering Svelte components into the DOM with Svelte 5 compatibility
   function getCardIcon(iconName = 'default') {
