@@ -503,16 +503,25 @@ export function addDonutRings(
   const baseDonutThickness = 15;
 
   // Helper function to ensure array format for properties
-  const ensureArray = (field: Record<string, boolean | any> | string[] | string | undefined | null): string[] => {
+  const ensureArray = (field: any): string[] => {
     if (!field) return [];
     if (Array.isArray(field)) return field;
     if (typeof field === 'object') {
       // Handle Gun.js objects and references
-      return Object.keys(field).filter(id => id !== '_' && id !== '#');
+      try {
+        return Object.keys(field).filter(id => id !== '_' && id !== '#');
+      } catch (err) {
+        console.error('Error processing object keys:', err);
+        return [];
+      }
     }
     if (typeof field === 'string') {
       return field.split(',').map(item => item.trim());
     }
+    if (typeof field === 'number') {
+      return [field.toString()];
+    }
+    console.warn('Unexpected field type:', typeof field, field);
     return [];
   };
   
@@ -567,7 +576,12 @@ export function addDonutRings(
     
     // Process each category
     categories.forEach(category => {
-      const categoryData = nodeData[category as keyof D3Node] || card[category as keyof Card];
+      // Get category data, ensuring we're only passing compatible types to ensureArray
+      let categoryData: any = nodeData[category as keyof D3Node] || card[category as keyof Card];
+      // Safely convert numerical values if they exist
+      if (typeof categoryData === 'number') {
+        categoryData = categoryData.toString();
+      }
       const categoryItems = ensureArray(categoryData);
       
       if (categoryItems.length > 0) {
@@ -674,8 +688,8 @@ export function initializeD3Graph(
   handleNodeClick: (node: D3Node) => void
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
-  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
-  linkElements: d3.Selection<SVGGElement, D3Link, null, undefined>,
+  nodeElements: d3.Selection<SVGGElement, D3Node, any, any>,
+  linkElements: d3.Selection<SVGGElement, D3Link, any, any>,
   nodes: D3Node[],
   links: D3Link[]
 } {
@@ -741,9 +755,9 @@ export function initializeD3Graph(
   
   // Setup visualization update on tick
   simulation.on("tick", () => {
-    // Update link positions
+    // Update link positions with type assertions to handle D3 typing issues
     linkElements.selectAll(".link-path")
-      .attr("d", (d) => {
+      .attr("d", (d: any) => {
         // Handle string sources that haven't been replaced with objects yet
         const source = typeof d.source === 'string' 
           ? nodes.find(n => n.id === d.source) 
@@ -759,7 +773,9 @@ export function initializeD3Graph(
       });
     
     // Update node positions
-    nodeElements.attr("transform", d => `translate(${d.x}, ${d.y})`);
+    nodeElements.attr("transform", (d: any) => {
+      return `translate(${d.x}, ${d.y})`;
+    });
   });
   
   return {

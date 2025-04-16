@@ -8,6 +8,7 @@
 
 import type { Card, Value, Capability, Agreement } from '$lib/types';
 import { getGun, nodes } from '$lib/services/gunService';
+import type { GunDataNode } from '$lib/types/gun-types';
 import { getGame } from '$lib/services/gameService';
 
 // Helper function to get data from Gun
@@ -16,8 +17,9 @@ async function get<T>(path: string): Promise<T | null> {
   if (!gun) return null;
   
   return new Promise((resolve) => {
-    gun.get(path).once((data: T) => {
-      resolve(data);
+    gun.get(path).once((data: any) => {
+      // Cast Gun data to expected type
+      resolve(data as T);
     });
   });
 }
