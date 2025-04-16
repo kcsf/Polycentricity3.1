@@ -935,9 +935,20 @@ export function initializeD3Graph(
       .data(nodes)
       .enter()
       .append("g")
-      .attr("class", (d: D3Node) => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+      .attr("class", (d: D3Node) => {
+        // IMPORTANT: We need to use BOTH node-card AND node-actor classes
+        // This ensures compatibility with both React and Svelte implementations
+        if (d.type === 'actor') {
+          return `node node-card node-actor ${d.id === activeCardId ? 'active' : ''}`;
+        } else {
+          return `node node-agreement ${d.id === activeCardId ? 'active' : ''}`;
+        }
+      })
       .on("click", (_: any, d: D3Node) => handleNodeClick(d))
       .call(dragBehavior as any);
+    
+    // Call fixNodeSelectors to ensure classes are set correctly
+    fixNodeSelectors();
     
     // Verify that nodeElements is created correctly
     if (!nodeElements || nodeElements.empty()) {

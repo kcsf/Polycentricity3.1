@@ -301,6 +301,16 @@
   // Load data on mount
   onMount(async () => {
     try {
+      console.log("D3CardBoard: Initializing with gameId:", gameId);
+      
+      // CRITICAL FIX: Initialize caches before anything else
+      // This ensures all values and capabilities are loaded first
+      await initializeCaches(gameId);
+      
+      console.log("D3CardBoard: Caches initialized before loading cards:");
+      console.log("Values cache size:", getAllCachedValues().size);
+      console.log("Capabilities cache size:", getAllCachedCapabilities().size);
+      
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
         // Create a new array with position data
@@ -332,6 +342,23 @@
         }
       }
       
+      // Verify that the cards have values and capabilities before visualization
+      console.log("D3CardBoard: Cards with value and capability names before visualization:");
+      cardsWithPosition.forEach(card => {
+        const cardWithExtras = card as CardWithPosition & {
+          _valueNames?: string[];
+          _capabilityNames?: string[];
+        };
+        
+        // Log the actual values and capabilities counts
+        console.log(`Card ${card.role_title} has:`, {
+          valueNames: cardWithExtras._valueNames || [],
+          valueCount: cardWithExtras._valueNames?.length || 0,
+          capabilityNames: cardWithExtras._capabilityNames || [],
+          capabilityCount: cardWithExtras._capabilityNames?.length || 0
+        });
+      });
+      
       // Initialize the graph visualization
       if (cardsWithPosition.length > 0) {
         // Add demo agreements for testing if no real agreements yet
@@ -340,6 +367,7 @@
         }
         
         // Initialize the graph once, after all data is loaded
+        console.log("D3CardBoard: Initializing graph with fully processed cards");
         initializeGraph();
       }
       
