@@ -86,10 +86,11 @@
   let agreements: AgreementWithPosition[] = [];
   let actors: Actor[] = [];
   // Using centralized cache management from cacheUtils.ts
-  // These local caches are mainly for backward compatibility and will be replaced
-  // with direct calls to the utility functions in future refactorings
-  let valueCache: Map<string, Value> = new Map();
-  let capabilityCache: Map<string, Capability> = new Map();
+  // Import getAllCachedValues and getAllCachedCapabilities
+  import { 
+    getAllCachedValues,
+    getAllCachedCapabilities
+  } from '$lib/utils/cacheUtils';
   let actorCardMap: Map<string, string> = new Map(); // Maps actor_id to card_id
   
   // Active actor/card IDs
@@ -903,11 +904,19 @@
       // Use the centralized cache utilities instead of manually processing cards
       console.log(`Using centralized cache utility: loadCardDetails`);
       
-      // This single function call replaces all the manual processing above
-      await loadCardDetails(cards);
+      // This single function call processes the cards and returns them with updated details
+      const processedCards = await loadCardDetails(cards);
       
-      // Update cardsWithPosition with the processed cards
-      cardsWithPosition = [...cards];
+      // Update cardsWithPosition with the processed cards - crucial for getting _valueNames & _capabilityNames
+      cardsWithPosition = [...processedCards];
+      
+      // Log the cards to verify they have the required properties
+      console.log("Processed cards:", cardsWithPosition.map(card => ({
+        card_id: card.card_id,
+        role_title: card.role_title,
+        valueNames: card._valueNames,
+        capabilityNames: card._capabilityNames
+      })));
       
       console.log("Finished loading all card details using centralized cache utilities");
       console.log("Cache status updated through centralized cache management");
@@ -1323,92 +1332,32 @@
           capabilityCount: capabilityCache?.size
         });
         
-        // Create some dummy values for testing if caches are empty
-        if (!valueCache || valueCache.size === 0) {
-          console.log('Creating dummy values for testing');
-          valueCache = new Map();
-          // Add some common values
-          valueCache.set('value_sustainability', { 
-            value_id: 'value_sustainability',
-            name: 'Sustainability',
-            description: 'Core value: Sustainability',
-            created_at: Date.now()
-          });
-          valueCache.set('value_community_resilience', { 
-            value_id: 'value_community_resilience',
-            name: 'Community Resilience',
-            description: 'Core value: Community Resilience',
-            created_at: Date.now()
-          });
-          valueCache.set('value_regeneration', { 
-            value_id: 'value_regeneration',
-            name: 'Regeneration',
-            description: 'Core value: Regeneration',
-            created_at: Date.now()
-          });
-        }
+        // Use the centralized cache utilities to get values and capabilities
+        const valueCache = getAllCachedValues();
+        const capabilityCache = getAllCachedCapabilities();
         
-        if (!capabilityCache || capabilityCache.size === 0) {
-          console.log('Creating dummy capabilities for testing');
-          capabilityCache = new Map();
-          // Add some common capabilities
-          capabilityCache.set('capability_problem_solving', { 
-            capability_id: 'capability_problem_solving',
-            name: 'Problem Solving',
-            description: 'Core capability: Problem Solving',
-            created_at: Date.now()
-          });
-          capabilityCache.set('capability_communication', { 
-            capability_id: 'capability_communication',
-            name: 'Communication',
-            description: 'Core capability: Communication',
-            created_at: Date.now()
-          });
-          capabilityCache.set('capability_leadership', { 
-            capability_id: 'capability_leadership',
-            name: 'Leadership',
-            description: 'Core capability: Leadership',
-            created_at: Date.now()
-          });
-        }
+        console.log('Using centralized caches:', {
+          valueCount: valueCache.size,
+          capabilityCount: capabilityCache.size,
+          keys: {
+            valueKeys: Array.from(valueCache.keys()).slice(0, 5),
+            capabilityKeys: Array.from(capabilityCache.keys()).slice(0, 5)
+          }
+        });
         
-        // Also add some dummy values to each node for testing
+        // Verify that the nodes already have values and capabilities from loadCardDetails
         if (nodeElements) {
+          console.log("Verifying node data has _valueNames and _capabilityNames:");
           nodeElements.each(function(d) {
             if (d && d.type === 'actor') {
-              // Add dummy values and capabilities to nodes
-              d.values = ['value_sustainability', 'value_community_resilience', 'value_regeneration'];
-              d.capabilities = ['capability_problem_solving', 'capability_communication', 'capability_leadership'];
-              d.goals = 'Create a sustainable community garden';
-              d.resources = 'Time, Energy, Funding';
+              console.log(`Node ${d.id} data:`, {
+                hasValueNames: !!d._valueNames,
+                hasCapabilityNames: !!d._capabilityNames,
+                valueNamesLength: d._valueNames?.length || 0,
+                capabilityNamesLength: d._capabilityNames?.length || 0
+              });
             }
           });
-        }
-        
-        // MANUAL EMERGENCY OVERRIDE: Force add some distinctive circles for easier debugging
-        if (nodeElements) {
-          console.log("EMERGENCY: Trying manual direct circle on nodes");
-          try {
-            // Loop through each node in nodeElements
-            nodeElements.each(function(d) {
-              if (d && d.type === 'actor') {
-                // Try a more direct approach
-                const node = d3.select(this);
-                
-                // Add a bright MAGENTA colored circle (this should be unmistakable if it works)
-                node.append("circle")
-                   .attr("r", 75)
-                   .attr("fill", "none")
-                   .attr("stroke", "#FF00FF")
-                   .attr("stroke-width", 5)
-                   .attr("stroke-opacity", 1);
-                   
-                console.log("EMERGENCY: Added magenta circle to node", d.id);
-              }
-            });
-          } catch (e) {
-            console.error("EMERGENCY OVERRIDE FAILED:", e);
-          }
         }
         
         // Manually check what node selection gets
@@ -1423,7 +1372,8 @@
         }
         
         // Call the function with explicit debugging information
-        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+        // Use getAllCachedValues and getAllCachedCapabilities to get the most up-to-date caches
+        addDonutRings(nodeElements, activeCardId, getAllCachedValues(), getAllCachedCapabilities());
         console.log('Successfully added donut rings');
       } catch (err) {
         console.error('Error adding donut rings:', err);

@@ -482,6 +482,38 @@ export function updateForces(
 }
 
 /**
+ * Utility function to help debug and fix node selectors
+ * between React and Svelte implementations
+ */
+export function fixNodeSelectors() {
+  // Check if we need to modify the node class
+  const allNodes = document.querySelectorAll('.node-card');
+  const allActorNodes = document.querySelectorAll('.node-actor');
+  
+  console.log('Node selector debug:', {
+    nodeCardCount: allNodes.length,
+    nodeActorCount: allActorNodes.length
+  });
+  
+  // If we have node-card elements but no node-actor elements,
+  // we need to add the node-actor class to them
+  if (allNodes.length > 0 && allActorNodes.length === 0) {
+    console.log('Fixing node selectors: Adding node-actor class to node-card elements');
+    allNodes.forEach(node => {
+      node.classList.add('node-actor');
+    });
+  }
+  
+  // Also check the reverse
+  if (allActorNodes.length > 0 && allNodes.length === 0) {
+    console.log('Fixing node selectors: Adding node-card class to node-actor elements');
+    allActorNodes.forEach(node => {
+      node.classList.add('node-card');
+    });
+  }
+}
+
+/**
  * Add donut ring segments to card nodes based on their values, capabilities, etc.
  * 
  * @param nodeElements - D3 Selection of node elements
@@ -495,17 +527,43 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
+  // Run the node selector fixer first to ensure we have the right selectors
+  fixNodeSelectors();
+  
   // Guard against undefined nodeElements
   if (!nodeElements) {
     console.error("Cannot add donut rings: nodeElements is undefined");
-    return;
+    
+    // Try a direct DOM query as a fallback
+    try {
+      const cardNodes = d3.selectAll('.node-actor');
+      if (!cardNodes.empty()) {
+        console.log(`Found ${cardNodes.size()} nodes directly with .node-actor selector, using them instead`);
+        nodeElements = cardNodes;
+      } else {
+        console.warn('No nodes found even with direct selection, cannot add donut rings');
+        return;
+      }
+    } catch (err) {
+      console.error("Error with direct DOM query:", err);
+      return;
+    }
   }
   
   // Also check if the selection is empty
   try {
     if (nodeElements.empty()) {
       console.warn("Cannot add donut rings: nodeElements selection is empty");
-      return;
+      
+      // Try a direct DOM query as a fallback
+      const cardNodes = d3.selectAll('.node-actor');
+      if (!cardNodes.empty()) {
+        console.log(`Found ${cardNodes.size()} nodes directly with .node-actor selector, using them instead`);
+        nodeElements = cardNodes;
+      } else {
+        console.warn('No nodes found even with direct selection, cannot add donut rings');
+        return;
+      }
     }
     
     // Debug the node elements data
