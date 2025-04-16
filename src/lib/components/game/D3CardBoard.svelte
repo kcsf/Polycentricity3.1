@@ -495,7 +495,8 @@
                 const capabilityData = await get<any>(`${nodes.capabilities}/${capabilityId}`);
                 if (capabilityData) {
                   // Store in cache to avoid future lookups
-                  capabilityCache.set(capabilityId, {
+                  // Use addCapabilityToCache from centralized cacheUtils.ts
+                  addCapabilityToCache(capabilityId, {
                     capability_id: capabilityId,
                     name: capabilityData.name || (capabilityId.startsWith('capability_') 
                       ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -506,8 +507,8 @@
                 }
               } catch (e) {
                 console.log(`Failed to resolve capability reference: ${capabilityId}`, e);
-                // Create fallback cache entry regardless
-                capabilityCache.set(capabilityId, {
+                // Create fallback cache entry regardless using centralized cache
+                addCapabilityToCache(capabilityId, {
                   capability_id: capabilityId,
                   name: capabilityId.startsWith('capability_')
                     ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -525,10 +526,12 @@
             'Social Justice', 'Ecological Wisdom', 'Nonviolence', 'Grassroots Democracy'
           ];
           
+          // Use centralized caches for common values
+          const centralizedValues = getAllCachedValues();
           commonValues.forEach(valueName => {
             const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
-            if (!valueCache.has(valueId)) {
-              valueCache.set(valueId, {
+            if (!centralizedValues.has(valueId)) {
+              addValueToCache(valueId, {
                 value_id: valueId,
                 name: valueName,
                 description: `Core value: ${valueName}`,
@@ -542,10 +545,12 @@
             'Grant-writing expertise', 'Impact Assessment', 'Community Organizing'
           ];
           
+          // Use centralized caches for common capabilities
+          const centralizedCapabilities = getAllCachedCapabilities();
           commonCapabilities.forEach(capName => {
             const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
-            if (!capabilityCache.has(capabilityId)) {
-              capabilityCache.set(capabilityId, {
+            if (!centralizedCapabilities.has(capabilityId)) {
+              addCapabilityToCache(capabilityId, {
                 capability_id: capabilityId,
                 name: capName,
                 description: `Core capability: ${capName}`,
@@ -554,7 +559,7 @@
             }
           });
           
-          console.log(`D3CardBoard: Preloaded ${valueCache.size} values and ${capabilityCache.size} capabilities`);
+          console.log(`D3CardBoard: Preloaded ${getAllCachedValues().size} values and ${getAllCachedCapabilities().size} capabilities (using centralized caches)`);
         } catch (e) {
           console.error("Error loading deck metadata:", e);
         }
@@ -669,7 +674,7 @@
                     try {
                       const valueData = await get<any>(`${nodes.values}/${valueId}`);
                       if (valueData) {
-                        valueCache.set(valueId, {
+                        addValueToCache(valueId, {
                           value_id: valueId,
                           name: valueData.name || (valueId.startsWith('value_')
                             ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -679,8 +684,8 @@
                         });
                       }
                     } catch (e) {
-                      // Create fallback entry for cache
-                      valueCache.set(valueId, {
+                      // Create fallback entry for centralized cache
+                      addValueToCache(valueId, {
                         value_id: valueId,
                         name: valueId.startsWith('value_')
                           ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -744,7 +749,7 @@
           await Promise.all([...valueResolvePromises, ...capabilityResolvePromises]);
           
           console.log(`D3CardBoard: Card loading complete with ${tempCards.length} cards`);
-          console.log(`D3CardBoard: Value cache has ${valueCache.size} entries, capability cache has ${capabilityCache.size} entries`);
+          console.log(`D3CardBoard: Centralized caches have ${getAllCachedValues().size} values and ${getAllCachedCapabilities().size} capabilities`);
           
           // Update our global cards array using loadCardDetails (as requested)
           cardsWithPosition = await loadCardDetails(tempCards);
@@ -1008,9 +1013,10 @@
           const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
           valuesObj[valueId] = true;
           
-          // Add to value cache if not already there
-          if (!valueCache.has(valueId)) {
-            valueCache.set(valueId, {
+          // Add to centralized value cache if not already there
+          const centralizedValues = getAllCachedValues();
+          if (!centralizedValues.has(valueId)) {
+            addValueToCache(valueId, {
               value_id: valueId,
               name: valueName,
               description: `${valueName} for ${card.role_title || 'Unnamed Card'}`,
@@ -1031,9 +1037,10 @@
           const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
           capabilitiesObj[capabilityId] = true;
           
-          // Add to capability cache if not already there
-          if (!capabilityCache.has(capabilityId)) {
-            capabilityCache.set(capabilityId, {
+          // Add to centralized capability cache if not already there
+          const centralizedCapabilities = getAllCachedCapabilities();
+          if (!centralizedCapabilities.has(capabilityId)) {
+            addCapabilityToCache(capabilityId, {
               capability_id: capabilityId,
               name: capName,
               description: `${capName} for ${card.role_title || 'Unnamed Card'}`,
