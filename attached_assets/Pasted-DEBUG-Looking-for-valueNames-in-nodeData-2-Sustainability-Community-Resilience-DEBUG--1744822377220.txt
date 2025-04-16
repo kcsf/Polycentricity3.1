@@ -1,0 +1,43 @@
+DEBUG: Looking for _valueNames in nodeData: 
+(2) ["Sustainability", "Community Resilience"]
+DEBUG: Looking for _valueNames in card: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real values for card Eco-Patron Collective: 
+(2) ["Sustainability", "Community Resilience"]
+Using 2 real capabilities for card Eco-Patron Collective: 
+(2) ["Problem Solving", "Communication"]
+Preloading icons: 
+(4) ["sun", "link", "lock", "users"]
+Icon sun already loaded, skipping
+Icon link already loaded, skipping
+Icon lock already loaded, skipping
+Icon users already loaded, skipping
+Icons loaded, continuing with visualization
+Getting icon for card card_m9ej0qxdf0zko4f8 (Luminos Funder): sun
+Getting icon for: "sun"
+Normalized icon name: Sun
+Found icon in store: sun
+Getting icon for card card_m9ejfo9k5pf33gtz (DAO of the Green Veil): link
+Getting icon for: "link"
+Normalized icon name: Link
+Found icon in store: link
+Getting icon for card card_m9epil53g0rtedwh (PMA Seedkeeper): lock
+Getting icon for: "lock"
+Normalized icon name: Lock
+Found icon in store: lock
+Getting icon for card card_m9epimjtsgubbspn (Eco-Patron Collective): users
+Getting icon for: "users"
+Normalized icon name: Users
+Found icon in store: users
+Error creating icon component: Error: Your application, or one of its dependencies, imported from 'svelte/internal', which was a private module used by Svelte 4 components that no longer exists in Svelte 5. It is not intended to be public API. If you're a library author and you used 'svelte/internal' deliberately, please raise an issue on https://github.com/sveltejs/svelte/issues detailing your use case.
+Successfully rendered icon for Luminos Funder
+Error creating icon component: Error: Your application, or one of its dependencies, imported from 'svelte/internal', which was a private module used by Svelte 4 components that no longer exists in Svelte 5. It is not intended to be public API. If you're a library author and you used 'svelte/internal' deliberately, please raise an issue on https://github.com/sveltejs/svelte/issues detailing your use case.
+at t.value (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Successfully rendered icon for DAO of the Green Veil
+Error creating icon component: Error: Your application, or one of its dependencies, imported from 'svelte/internal', which was a private module used by Svelte 4 components that no longer exists in Svelte 5. It is not intended to be public API. If you're a library author and you used 'svelte/internal' deliberately, please raise an issue on https://github.com/sveltejs/svelte/issues detailing your use case.
+Successfully rendered icon for PMA Seedkeeper
+Error creating icon component: Error: Your application, or one of its dependencies, imported from 'svelte/internal', which was a private module used by Svelte 4 components that no longer exists in Svelte 5. It is not intended to be public API. If you're a library author and you used 'svelte/internal' deliberately, please raise an issue on https://github.com/sveltejs/svelte/issues detailing your use case.
+Successfully rendered icon for Eco-Patron Collective

@@ -2167,18 +2167,20 @@
           const container = div.node();
           if (container) {
             try {
-              // Import SvelteComponent to instantiate the icon properly
-              const { SvelteComponent } = await import('svelte/internal');
-              
               // Clear the container first
               while (container.firstChild) {
                 container.removeChild(container.firstChild);
               }
               
               if (IconComponent && typeof IconComponent === 'function') {
-                // Create new instance of the Lucide icon component
-                new IconComponent({
-                  target: container,
+                // Use more direct approach to create the icon component's SVG
+                // First, create a temporary div to render the icon
+                const tempDiv = document.createElement('div');
+                document.body.appendChild(tempDiv);
+                
+                // Create the icon in the temporary div (outside the DOM)
+                const svelte5Component = new IconComponent({
+                  target: tempDiv,
                   props: {
                     size: iconSize,
                     color: '#555555',
@@ -2187,7 +2189,24 @@
                   }
                 });
                 
-                console.log(`Successfully created icon component for ${card.role_title}`);
+                // Get the SVG element from the temporary div
+                const renderedSvg = tempDiv.querySelector('svg');
+                if (renderedSvg) {
+                  // Clone the SVG to use in our D3 container
+                  const svgClone = renderedSvg.cloneNode(true);
+                  container.appendChild(svgClone);
+                  
+                  // Destroy component and remove temp div
+                  svelte5Component.$destroy();
+                  document.body.removeChild(tempDiv);
+                  
+                  console.log(`Successfully created icon component for ${card.role_title}`);
+                } else {
+                  // If the component didn't render an SVG, clean up and fall back
+                  svelte5Component.$destroy();
+                  document.body.removeChild(tempDiv);
+                  throw new Error('Icon component did not render an SVG element');
+                }
               } else {
                 // Fallback: Create a simple SVG if the component isn't available
                 const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
