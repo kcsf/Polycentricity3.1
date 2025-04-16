@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import type { SvelteComponent } from 'svelte';
   import { get } from 'svelte/store';
   import * as d3 from 'd3';
   import { User } from 'svelte-lucide';
@@ -1681,7 +1682,7 @@
     const baseDonutThickness = 15;
 
     // Helper function to ensure array format for properties
-    const ensureArray = (field: any): string[] => {
+    const ensureArray = (field: Record<string, boolean | any> | string[] | string | undefined | null): string[] => {
       if (!field) return [];
       if (Array.isArray(field)) return field;
       if (typeof field === 'object') {
@@ -1730,13 +1731,13 @@
       const nodeId = nodeData.id;
       
       // Process card data for visualization
-      const cardDataForViz = { ...(card as any) };
+      const cardDataForViz = { ...card } as CardWithPosition & Record<string, any>;
       
       // Debug: Print data from the D3 node
       console.log(`DEBUG: Node data for ${nodeData.name}:`, nodeData);
       console.log(`DEBUG: Card data for ${card.role_title}:`, card);
       console.log(`DEBUG: Looking for _valueNames in nodeData:`, nodeData._valueNames);
-      console.log(`DEBUG: Looking for _valueNames in card:`, (card as any)._valueNames);
+      console.log(`DEBUG: Looking for _valueNames in card:`, (card as Record<string, unknown>)._valueNames);
       
       // IMPORTANT: Get the values directly from the d3 node object, not the card
       // This ensures we use the data that was explicitly passed from the card to the node
