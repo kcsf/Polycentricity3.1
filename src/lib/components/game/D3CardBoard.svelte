@@ -1200,6 +1200,14 @@
   async function initializeGraph() {
     if (!svgRef) return;
     
+    // Initialize caches at the beginning to avoid "Cannot access before initialization" errors
+    const valueCache = getAllCachedValues();
+    const capabilityCache = getAllCachedCapabilities();
+    console.log('Using centralized caches at initialization:', {
+      valueCount: valueCache.size,
+      capabilityCount: capabilityCache.size
+    });
+    
     // Set up dimensions based on container size
     const boundingRect = svgRef.parentElement?.getBoundingClientRect();
     if (boundingRect) {
@@ -1360,11 +1368,10 @@
           capabilityCount: capabilityCache?.size
         });
         
-        // Use the centralized cache utilities to get values and capabilities
-        const valueCache = getAllCachedValues();
-        const capabilityCache = getAllCachedCapabilities();
+        // We already have valueCache and capabilityCache from the start of the function
+        // No need to re-declare them here
         
-        console.log('Using centralized caches:', {
+        console.log('Using centralized caches (already initialized):', {
           valueCount: valueCache.size,
           capabilityCount: capabilityCache.size,
           keys: {
