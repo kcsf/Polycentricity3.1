@@ -78,6 +78,10 @@
   let hoveredCategory: string | null = null;
   // All UI elements are now handled directly with D3
   let categoryCount = 0;
+  
+  // Track card positions for both D3 and fallback SVG rings
+  let cardsWithPosition: CardWithPosition[] = [];
+  let fallbackCardPositions: CardWithPosition[] = [];
   let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
   let simulation: d3.Simulation<D3Node, d3.SimulationLinkDatum<D3Node>>; // Store simulation for access in multiple functions
   
@@ -1509,9 +1513,30 @@
         // Pass the Maps directly to the function
         addDonutRings(nodeElements, activeCardId, valueMapForDonut, capabilityMapForDonut);
         console.log('Successfully added donut rings');
+        
+        // Update the guaranteed rings
+        updateGuaranteedRings();
       } catch (err) {
         console.error('Error adding donut rings:', err);
         console.error('Error stack:', err.stack);
+      }
+      
+      // Add an update function for our guaranteed rings
+      function updateGuaranteedRings() {
+        if (!graphState || !graphState.nodes) return;
+        
+        // Update cardsWithPosition for the Svelte template to render guaranteed rings
+        cardsWithPosition = graphState.nodes
+          .filter(node => node.type === 'actor')
+          .map(node => ({
+            ...node.data,
+            position: {
+              x: node.x,
+              y: node.y
+            }
+          }));
+          
+        console.log('Updated cardsWithPosition for guaranteed rings:', cardsWithPosition.length);
       }
       
       // Add center icons to the nodes
@@ -3486,6 +3511,42 @@
 .node-actor {
   z-index: 10;
 }
+
+/* Guaranteed visible rings styling */
+#guaranteed-rings {
+  pointer-events: none; /* Allow clicks to pass through to the nodes */
+}
+
+.card-rings {
+  pointer-events: none; /* Allow clicks to pass through to the nodes below */
+}
+
+.guaranteed-ring,
+.guaranteed-values-wedge,
+.guaranteed-capabilities-wedge,
+.guaranteed-goals-wedge, 
+.guaranteed-resources-wedge,
+.guaranteed-ip-wedge,
+.guaranteed-relationships-wedge,
+.guaranteed-center {
+  pointer-events: none; /* Allow clicks to pass through to the nodes below */
+  filter: drop-shadow(0px 0px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Make ring wedges slightly translucent */
+.guaranteed-values-wedge,
+.guaranteed-capabilities-wedge,
+.guaranteed-goals-wedge,
+.guaranteed-resources-wedge,
+.guaranteed-ip-wedge,
+.guaranteed-relationships-wedge {
+  opacity: 0.85;
+}
+
+/* Ensure the center of card stays on top of wedges */
+.guaranteed-center {
+  opacity: 1;
+}
 </style>
 
 <div class="h-full relative overflow-hidden">  
@@ -3504,6 +3565,111 @@
     <!-- D3 visualization will be rendered here -->
     
     <!-- All visualization elements are now created directly with D3 -->
+    
+    <!-- GUARANTEED VISIBLE RINGS: Direct SVG elements using node positions -->
+    <g id="guaranteed-rings">
+      {#each cardsWithPosition as card, i}
+        <!-- Only add rings if we have position data -->
+        {#if card.position && card.position.x !== undefined && card.position.y !== undefined}
+          <!-- Outer container for this card's rings -->
+          <g class="card-rings" data-card-id={card.card_id}>
+            <!-- Base ring -->
+            <circle 
+              cx={card.position.x} 
+              cy={card.position.y} 
+              r="50" 
+              fill="rgba(255, 255, 255, 0.2)" 
+              stroke="#3B82F6" 
+              stroke-width="2"
+              class="guaranteed-ring"
+            />
+            
+            <!-- Value wedge - always show blue segment (4 o'clock position) -->
+            <path 
+              d={`M ${card.position.x} ${card.position.y} 
+                  L ${card.position.x + 25} ${card.position.y - 25} 
+                  A 35 35 0 0 1 ${card.position.x + 35} ${card.position.y} 
+                  Z`} 
+              fill="#3B82F6" 
+              stroke="white"
+              stroke-width="1"
+              class="guaranteed-values-wedge"
+            />
+            
+            <!-- Capability wedge - always show green segment (5 o'clock position) -->
+            <path 
+              d={`M ${card.position.x} ${card.position.y} 
+                  L ${card.position.x + 35} ${card.position.y} 
+                  A 35 35 0 0 1 ${card.position.x + 25} ${card.position.y + 25} 
+                  Z`} 
+              fill="#10B981" 
+              stroke="white"
+              stroke-width="1"
+              class="guaranteed-capabilities-wedge"
+            />
+            
+            <!-- Goals wedge - always show pink segment (7 o'clock position) -->
+            <path 
+              d={`M ${card.position.x} ${card.position.y} 
+                  L ${card.position.x + 25} ${card.position.y + 25} 
+                  A 35 35 0 0 1 ${card.position.x} ${card.position.y + 35} 
+                  Z`} 
+              fill="#EC4899" 
+              stroke="white"
+              stroke-width="1"
+              class="guaranteed-goals-wedge"
+            />
+            
+            <!-- Resources wedge - always show indigo segment (8 o'clock position) -->
+            <path 
+              d={`M ${card.position.x} ${card.position.y} 
+                  L ${card.position.x} ${card.position.y + 35} 
+                  A 35 35 0 0 1 ${card.position.x - 25} ${card.position.y + 25} 
+                  Z`} 
+              fill="#6366F1" 
+              stroke="white" 
+              stroke-width="1"
+              class="guaranteed-resources-wedge"
+            />
+            
+            <!-- IP wedge - always show amber segment (10 o'clock position) -->
+            <path 
+              d={`M ${card.position.x} ${card.position.y} 
+                  L ${card.position.x - 25} ${card.position.y + 25} 
+                  A 35 35 0 0 1 ${card.position.x - 35} ${card.position.y} 
+                  Z`} 
+              fill="#F59E0B" 
+              stroke="white"
+              stroke-width="1"
+              class="guaranteed-ip-wedge"
+            />
+            
+            <!-- Relationships wedge - always show purple segment (1 o'clock position) -->
+            <path 
+              d={`M ${card.position.x} ${card.position.y} 
+                  L ${card.position.x - 35} ${card.position.y} 
+                  A 35 35 0 0 1 ${card.position.x - 25} ${card.position.y - 25} 
+                  Z`} 
+              fill="#8B5CF6" 
+              stroke="white"
+              stroke-width="1"
+              class="guaranteed-relationships-wedge"
+            />
+            
+            <!-- Center card circle (to cover up the wedge centers and create clean donut) -->
+            <circle 
+              cx={card.position.x} 
+              cy={card.position.y} 
+              r="25" 
+              fill="var(--color-surface-100)" 
+              stroke="var(--color-surface-400)"
+              stroke-width="1"
+              class="guaranteed-center"
+            />
+          </g>
+        {/if}
+      {/each}
+    </g>
   </svg>
   
   <!-- Popover Container -->
