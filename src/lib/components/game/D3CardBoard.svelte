@@ -51,8 +51,8 @@
     popoverNode = null;
   }
   
-  // Get Lucide icon component using the iconStore
-  function getLucideIcon(iconName: string | undefined): any {
+  // Get Lucide icon component using direct import
+  async function getLucideIcon(iconName: string | undefined): Promise<any> {
     console.log(`Getting icon for: "${iconName}"`);
     
     if (!iconName) {
@@ -60,38 +60,84 @@
       return User;
     }
     
-    // Get the icon from the iconStore if available
-    const iconMap = get(iconStore);
-    console.log(`Current icons in store:`, Array.from(iconMap.keys()));
+    // Try to normalize the icon name to match Lucide naming conventions
+    let normalizedName = iconName;
     
-    // First try with the exact name
-    let iconData = iconMap.get(iconName);
-    
-    // If not found, try lowercase
-    if (!iconData && typeof iconName === 'string') {
-      const lowercaseName = iconName.toLowerCase();
-      console.log(`Trying lowercase: "${lowercaseName}"`);
-      iconData = iconMap.get(lowercaseName);
+    // Try to convert kebab-case or snake_case to PascalCase
+    if (iconName.includes('-') || iconName.includes('_')) {
+      normalizedName = iconName
+        .split(/[-_]/)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join('');
+    } 
+    // If it's already camelCase, convert to PascalCase
+    else if (iconName.charAt(0).toLowerCase() === iconName.charAt(0)) {
+      normalizedName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
     }
     
-    if (iconData) {
-      console.log(`Found icon: ${iconName}`);
-      return iconData.component;
+    console.log(`Normalized icon name: ${normalizedName}`);
+    
+    // Handle specific icon mappings
+    const iconMappings: Record<string, string> = {
+      'CircleDollarSign': 'DollarSign',
+      'Circledollarsign': 'DollarSign',
+      'Tree': 'PalmTree',
+      'Garden': 'Flower2',
+      'Plant': 'Sprout',
+      'Money': 'Coins',
+      'Default': 'Box',
+      'Farmer': 'Tractor',
+      'Funder': 'PiggyBank',
+      'Steward': 'Shield',
+      'Investor': 'TrendingUp',
+    };
+    
+    // Check if we have a specific mapping for this icon
+    if (iconMappings[normalizedName]) {
+      normalizedName = iconMappings[normalizedName];
+      console.log(`Mapped to: ${normalizedName}`);
     }
     
-    // Otherwise load the icon and fall back to User
-    console.log(`Icon not found in store, attempting to load: "${iconName}"`);
-    const iconNames = [iconName];
-    loadIcons(iconNames);
+    try {
+      // First check the iconStore (this is faster if the icon is already loaded)
+      const iconMap = get(iconStore);
+      const iconData = iconMap.get(iconName) || iconMap.get(normalizedName);
+      
+      if (iconData) {
+        console.log(`Found icon in store: ${iconName}`);
+        return iconData.component;
+      }
+      
+      // If not in store, try to import directly
+      console.log(`Attempting direct import: ${normalizedName}`);
+      const icons = await import('svelte-lucide');
+      
+      if (icons[normalizedName]) {
+        console.log(`Successfully imported ${normalizedName}`);
+        // Also add to the iconStore for future use
+        const newIcons = new Map(iconMap);
+        newIcons.set(iconName, { name: iconName, component: icons[normalizedName] });
+        iconStore.set(newIcons);
+        return icons[normalizedName];
+      }
+      
+      // Try one more fallback for common icons
+      const fallbackName = iconName.charAt(0).toUpperCase() + iconName.slice(1).toLowerCase();
+      if (icons[fallbackName]) {
+        console.log(`Fallback found: ${fallbackName}`);
+        // Also add to the iconStore for future use
+        const newIcons = new Map(iconMap);
+        newIcons.set(iconName, { name: iconName, component: icons[fallbackName] });
+        iconStore.set(newIcons);
+        return icons[fallbackName];
+      }
+      
+      console.log(`Icon not found: ${iconName}, using User as fallback`);
+    } catch (error) {
+      console.error(`Error loading icon: ${error}`);
+    }
     
-    // Wait for next tick and check again
-    setTimeout(() => {
-      const updatedIconMap = get(iconStore);
-      console.log(`After loading, icons in store:`, Array.from(updatedIconMap.keys()));
-    }, 100);
-    
-    console.log(`Returning User as fallback for: "${iconName}"`);
-    return User;
+    return User; // Default fallback
   }
   
   // Interfaces for D3 visualization
@@ -1161,33 +1207,43 @@
         .style('align-items', 'center')
         .style('justify-content', 'center');
       
-      // Get the icon component from our helper function
-      const IconComponent = getLucideIcon(card.icon || card.type);
-      
-      // Create the Svelte icon component
-      try {
-        new IconComponent({
-          target: div.node(),
-          props: {
-            size: iconSize,
-            color: '#555555',
-            strokeWidth: 2,
-            class: 'lucide-icon',
-          },
-        });
-      } catch (e) {
-        console.error(`Error rendering icon for ${card.role_title}:`, e);
-        
-        // Fallback to User icon if something goes wrong
-        new User({
-          target: div.node(),
-          props: {
-            size: iconSize,
-            color: '#555555',
-            strokeWidth: 2,
-            class: 'lucide-icon',
-          },
-        });
+      // Get and render the icon component from our helper function
+      // Need to use an immediately-invoked async function to handle the async icon loading
+      (async () => {
+        try {
+          const iconName = card.icon || card.type || 'default';
+          console.log(`Getting icon for card ${card.card_id} (${card.role_title}): ${iconName}`);
+          
+          // Get the icon component asynchronously
+          const IconComponent = await getLucideIcon(iconName);
+          
+          // Create the Svelte icon component
+          new IconComponent({
+            target: div.node(),
+            props: {
+              size: iconSize,
+              color: '#555555',
+              strokeWidth: 2,
+              class: 'lucide-icon',
+            },
+          });
+          
+          console.log(`Successfully rendered icon for ${card.role_title}`);
+        } catch (e) {
+          console.error(`Error rendering icon for ${card.role_title}:`, e);
+          
+          // Fallback to User icon if something goes wrong
+          new User({
+            target: div.node(),
+            props: {
+              size: iconSize,
+              color: '#555555',
+              strokeWidth: 2,
+              class: 'lucide-icon',
+            },
+          });
+        }
+      })();
       }
     });
 
