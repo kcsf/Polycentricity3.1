@@ -10,10 +10,6 @@
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   import RoleCard from '$lib/components/RoleCard.svelte';
   
-  // Import our separated CSS files
-  import '$lib/styles/d3visualization.css';
-  import '$lib/styles/popovers.css';
-  
   // Props
   export let gameId: string;
   export let activeActorId: string | undefined = undefined;
@@ -2078,221 +2074,80 @@
 </script>
 
 <style>
-  /* Main container */
-  .game-board-container {
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-  }
-  
-  /* Control panel styling */
-  .controls {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    display: flex;
-    gap: 0.5rem;
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(4px);
-    border-radius: 0.5rem;
-    padding: 0.5rem;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  }
-  
-  .control-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.25rem;
-    background-color: rgba(255, 255, 255, 0.9);
-    border: 1px solid #e5e5e5;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .control-button:hover {
-    background-color: #f3f4f6;
-  }
-  
-  /* Search container styling */
-  .search-container {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    display: flex;
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(4px);
-    border-radius: 0.5rem;
-    padding: 0.5rem;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  }
-  
-  .search-input {
-    border: 1px solid #e5e5e5;
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    width: 12rem;
-    font-size: 0.875rem;
-  }
-  
-  .search-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.25rem;
-    background-color: rgba(255, 255, 255, 0.9);
-    border: 1px solid #e5e5e5;
-    cursor: pointer;
-    margin-left: 0.5rem;
-  }
-  
-  /* D3 Node Styling */
-  .node {
-    cursor: pointer;
-  }
-  
-  /* Card nodes */
-  .node-card .center-circle {
-    fill: white;
-    stroke: #e5e5e5;
-    stroke-width: 1;
-    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.08));
-  }
-  
-  .node-card.active .center-circle {
-    stroke: #4299e1;
-    stroke-width: 2;
-  }
-  
-  .node-card .card-name-container {
-    pointer-events: none;
-  }
-  
-  /* Agreement nodes */
-  .node-agreement .agreement-circle {
-    fill: white;
-    stroke: #e5e5e5;
-    stroke-width: 1.5;
-    cursor: pointer;
-    filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.15));
-  }
-  
-  .node-agreement .agreement-title {
-    fill: #555555;
-    font-weight: bold;
-    font-size: 12px;
-    pointer-events: none;
-  }
-  
-  .node-agreement.active .agreement-circle {
-    stroke: #4299e1;
-    stroke-width: 2;
-  }
-  
-  /* Category wedges */
-  .category-wedge {
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .category-wedge:hover {
-    filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.3));
-  }
-  
-  /* Sub-wedges */
-  .sub-wedge {
-    opacity: 0.9;
-    filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.1));
-  }
-  
-  /* Connection links */
-  .link-line {
-    stroke: #e5e5e5;
-    stroke-width: 1.5;
-    opacity: 0.8;
-  }
-  
-  /* Text styling */
-  .count-text, .options-text {
-    pointer-events: none;
-    user-select: none;
-    fill: var(--node-text-light);
-  }
-  
-  .card-title, .card-type, .name-text {
-    pointer-events: none;
-    user-select: none;
-    fill: var(--node-text-light);
-  }
-  
-  /* Apply dark theme text colors when in dark mode */
-  :global(html.dark) .count-text,
-  :global(html.dark) .options-text,
-  :global(html.dark) .card-title,
-  :global(html.dark) .card-type,
-  :global(html.dark) .name-text,
-  :global(html.scheme-dark) .count-text,
-  :global(html.scheme-dark) .options-text,
-  :global(html.scheme-dark) .card-title,
-  :global(html.scheme-dark) .card-type,
-  :global(html.scheme-dark) .name-text,
-  :global(html.scheme-only-dark) .count-text,
-  :global(html.scheme-only-dark) .options-text,
-  :global(html.scheme-only-dark) .card-title,
-  :global(html.scheme-only-dark) .card-type,
-  :global(html.scheme-only-dark) .name-text {
-    fill: var(--node-text-dark);
-  }
-  
-  /* Legacy radial menu styling */
-  .radial-item {
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-  
-  .radial-item-text {
-    font-size: 10px;
-    font-weight: 500;
-    text-anchor: middle;
-    dominant-baseline: middle;
-    fill: var(--node-text-light);
-  }
-  
-  :global(html.dark) .radial-item-text,
-  :global(html.scheme-dark) .radial-item-text,
-  :global(html.scheme-only-dark) .radial-item-text {
-    fill: var(--node-text-dark);
-  }
-  
-  .radial-item-bg {
-    fill: #ffffff;
-    stroke-width: 1;
-    filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.1));
-  }
-  
-  /* Label styling for the sub-wedge items */
-  .category-labels text {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: 11px;
-    pointer-events: none;
-    user-select: none;
-    fill: var(--node-text-light);
-  }
-  
-  :global(html.dark) .category-labels text,
-  :global(html.scheme-dark) .category-labels text,
-  :global(html.scheme-only-dark) .category-labels text {
-    fill: var(--node-text-dark);
-  }
+/* 
+ * Only keeping D3/SVG-specific styles that can't be done with Tailwind
+ * These are things like SVG-specific attributes (fill, stroke)
+ */
+
+/* D3 Node Core Styles - Only SVG-specific styles that can't be represented with Tailwind */
+.node { cursor: pointer; }
+
+/* Card and Agreement nodes */
+.node-card .center-circle {
+  fill: white; 
+  stroke: #e5e5e5;
+  stroke-width: 1;
+  filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.08));
+}
+
+.node-card.active .center-circle {
+  stroke: #4299e1;
+  stroke-width: 2;
+}
+
+.node-agreement .agreement-circle {
+  fill: white;
+  stroke: #e5e5e5;
+  stroke-width: 1.5;
+  filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.15));
+}
+
+.node-agreement.active .agreement-circle {
+  stroke: #4299e1;
+  stroke-width: 2;
+}
+
+/* SVG Text elements */
+.count-text, .options-text, .card-title, .card-type, .name-text {
+  pointer-events: none;
+  user-select: none;
+  fill: #333333;
+}
+
+/* Dark mode text colors */
+:global(html.dark) .count-text,
+:global(html.dark) .options-text,
+:global(html.dark) .card-title,
+:global(html.dark) .card-type,
+:global(html.dark) .name-text {
+  fill: #e5e5e5;
+}
+
+/* Link styling */
+.link-line {
+  stroke: #e5e5e5;
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+
+/* Category wedges */
+.category-wedge {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-wedge:hover {
+  filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.3));
+}
+
+/* Sub-wedges */
+.sub-wedge {
+  opacity: 0.9;
+  filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.1));
+}
 </style>
 
-<div class="game-board-container">  
+<div class="h-full relative overflow-hidden">  
   <!-- D3 SVG container -->
   <svg 
     bind:this={svgRef} 
@@ -2320,8 +2175,8 @@
     }
     
     <div 
-      class="absolute max-w-md max-h-[80vh] overflow-y-auto"
-      style="z-index: 1000; left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
+      class="absolute max-w-md max-h-[80vh] overflow-y-auto z-[1000]"
+      style="left: {popoverPosition.x + 30}px; top: {popoverPosition.y}px; transform: translateY(-50%);"
     >
       <!-- Close button in top right -->
       <div class="absolute top-2 right-2 z-10">
