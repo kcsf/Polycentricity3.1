@@ -10,6 +10,10 @@
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   import RoleCard from '$lib/components/RoleCard.svelte';
   
+  // Import our separated CSS files
+  import '$lib/styles/d3visualization.css';
+  import '$lib/styles/popovers.css';
+  
   // Props
   export let gameId: string;
   export let activeActorId: string | undefined = undefined;
