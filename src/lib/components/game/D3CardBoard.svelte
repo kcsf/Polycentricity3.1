@@ -1313,7 +1313,14 @@
         console.warn('No node elements available from graph state');
       }
       
-      // Skip donut rings entirely for now to eliminate that source of errors
+      // Add donut rings to the nodes
+      try {
+        console.log('Adding donut rings to the nodes...');
+        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+        console.log('Successfully added donut rings');
+      } catch (err) {
+        console.error('Error adding donut rings:', err);
+      }
       
       // Add center icons to the nodes
       if (nodeElements) {
