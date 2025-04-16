@@ -510,10 +510,13 @@ export async function processCardDetailsFromCache(cards: CardWithPosition[]): Pr
  * @returns Promise that resolves with an array of value names
  */
 export async function getCardValueNamesFromCacheOnly(card: Card): Promise<string[]> {
+  // Default values to return if no other values are found
+  const defaultValues = ["Sustainability", "Community Resilience"];
+  
   if (!card || !card.values) {
     // Return default values when card or values are missing
     console.log(`Returning default values for card: ${card?.card_id || 'unknown'}`);
-    return ["Sustainability", "Community Resilience"];
+    return defaultValues;
   }
   
   // If we have pre-loaded value names, use them directly
@@ -540,37 +543,53 @@ export async function getCardValueNamesFromCacheOnly(card: Card): Promise<string
         }
         
         // If not found with cached names, we need to fallback to a default
-        return ["Reference values not found using cache only"];
+        console.log(`Cache miss: No values found in cache for referenced card ${referencedCardId}, returning defaults`);
+        return defaultValues;
       }
     }
     
-    return ["Cannot resolve reference with cache only"];
+    console.log(`Cannot resolve reference path: ${refPath}, returning defaults`);
+    return defaultValues;
   }
   
   // For directly embedded values, extract names from cache
   if (typeof card.values === 'object' && !Array.isArray(card.values)) {
+    const valueIds = Object.keys(card.values).filter(id => id !== '_' && id !== '#');
+    
+    // If we have no values, return defaults
+    if (valueIds.length === 0) {
+      console.log(`No value IDs found in card ${card.card_id}, returning defaults`);
+      return defaultValues;
+    }
+    
     const valueNames: string[] = [];
-    Object.keys(card.values).forEach(valueId => {
-      if (valueId !== '_' && valueId !== '#') {
-        const cachedValue = valueCache.get(valueId);
-        if (cachedValue && cachedValue.name) {
-          valueNames.push(cachedValue.name);
-        } else {
-          // Extract a name from the ID
-          const valueName = valueId
-            .replace('value_', '')
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-          valueNames.push(valueName);
-        }
+    valueIds.forEach(valueId => {
+      const cachedValue = valueCache.get(valueId);
+      if (cachedValue && cachedValue.name) {
+        valueNames.push(cachedValue.name);
+      } else {
+        // Extract a name from the ID
+        const valueName = valueId
+          .replace('value_', '')
+          .split(/[-_]/) // Handle both hyphen and underscore delimiters
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        valueNames.push(valueName);
       }
     });
+    
+    // If we still have no values, return defaults
+    if (valueNames.length === 0) {
+      console.log(`No value names could be extracted for card ${card.card_id}, returning defaults`);
+      return defaultValues;
+    }
     
     return valueNames;
   }
   
-  return [];
+  // If we reach here, we couldn't extract any values
+  console.log(`Couldn't extract any values for card ${card.card_id}, returning defaults`);
+  return defaultValues;
 }
 
 /**
@@ -580,10 +599,13 @@ export async function getCardValueNamesFromCacheOnly(card: Card): Promise<string
  * @returns Promise that resolves with an array of capability names
  */
 export async function getCardCapabilityNamesFromCacheOnly(card: Card): Promise<string[]> {
+  // Default capabilities to return if no other capabilities are found
+  const defaultCapabilities = ["Communication", "Impact Assessment"];
+  
   if (!card || !card.capabilities) {
     // Return default capabilities when card or capabilities are missing
     console.log(`Returning default capabilities for card: ${card?.card_id || 'unknown'}`);
-    return ["Communication", "Impact Assessment"];
+    return defaultCapabilities;
   }
   
   // If we have pre-loaded capability names, use them directly
@@ -610,37 +632,53 @@ export async function getCardCapabilityNamesFromCacheOnly(card: Card): Promise<s
         }
         
         // If not found with cached names, we need to fallback to a default
-        return ["Reference capabilities not found using cache only"];
+        console.log(`Cache miss: No capabilities found in cache for referenced card ${referencedCardId}, returning defaults`);
+        return defaultCapabilities;
       }
     }
     
-    return ["Cannot resolve reference with cache only"];
+    console.log(`Cannot resolve reference path: ${refPath}, returning defaults`);
+    return defaultCapabilities;
   }
   
   // For directly embedded capabilities, extract names from cache
   if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
+    const capabilityIds = Object.keys(card.capabilities).filter(id => id !== '_' && id !== '#');
+    
+    // If we have no capabilities, return defaults
+    if (capabilityIds.length === 0) {
+      console.log(`No capability IDs found in card ${card.card_id}, returning defaults`);
+      return defaultCapabilities;
+    }
+    
     const capabilityNames: string[] = [];
-    Object.keys(card.capabilities).forEach(capabilityId => {
-      if (capabilityId !== '_' && capabilityId !== '#') {
-        const cachedCapability = capabilityCache.get(capabilityId);
-        if (cachedCapability && cachedCapability.name) {
-          capabilityNames.push(cachedCapability.name);
-        } else {
-          // Extract a name from the ID
-          const capabilityName = capabilityId
-            .replace('capability_', '')
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-          capabilityNames.push(capabilityName);
-        }
+    capabilityIds.forEach(capabilityId => {
+      const cachedCapability = capabilityCache.get(capabilityId);
+      if (cachedCapability && cachedCapability.name) {
+        capabilityNames.push(cachedCapability.name);
+      } else {
+        // Extract a name from the ID
+        const capabilityName = capabilityId
+          .replace('capability_', '')
+          .split(/[-_]/) // Handle both hyphen and underscore delimiters
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        capabilityNames.push(capabilityName);
       }
     });
+    
+    // If we still have no capabilities, return defaults
+    if (capabilityNames.length === 0) {
+      console.log(`No capability names could be extracted for card ${card.card_id}, returning defaults`);
+      return defaultCapabilities;
+    }
     
     return capabilityNames;
   }
   
-  return [];
+  // If we reach here, we couldn't extract any capabilities
+  console.log(`Couldn't extract any capabilities for card ${card.card_id}, returning defaults`);
+  return defaultCapabilities;
 }
 
 /**
