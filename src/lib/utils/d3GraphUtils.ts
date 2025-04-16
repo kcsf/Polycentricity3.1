@@ -324,6 +324,7 @@ export function createCardIcon(
 ): void {
   // If iconName is undefined, use 'default' as fallback
   const icon = iconName || 'default';
+  
   try {
     // Clear the container first
     while (container.firstChild) {
@@ -342,8 +343,8 @@ export function createCardIcon(
     svg.setAttribute("fill", "none");
     svg.setAttribute("class", "lucide-icon");
     
-    // Set icon path data based on iconName
-    if (iconName === 'sun') {
+    // Set icon path data based on icon variable instead of iconName
+    if (icon === 'sun') {
       // Sun icon path data
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute("cx", "12");
@@ -370,7 +371,7 @@ export function createCardIcon(
         
         svg.appendChild(line);
       }
-    } else if (iconName === 'link') {
+    } else if (icon === 'link') {
       // Link icon
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71");
@@ -379,7 +380,7 @@ export function createCardIcon(
       const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path2.setAttribute("d", "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71");
       svg.appendChild(path2);
-    } else if (iconName === 'lock') {
+    } else if (icon === 'lock') {
       // Lock icon
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       rect.setAttribute("width", "16");
@@ -393,7 +394,7 @@ export function createCardIcon(
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", "M8 9V7a4 4 0 0 1 8 0v2");
       svg.appendChild(path);
-    } else if (iconName === 'users') {
+    } else if (icon === 'users') {
       // Users icon
       const circle1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle1.setAttribute("cx", "16");
