@@ -670,7 +670,8 @@
                 .filter(key => key !== '_' && key !== '#' && valuesData[key] === true)
                 .forEach(async (valueId) => {
                   // Resolve actual value data if not in cache
-                  if (!valueCache.has(valueId)) {
+                  const centralizedValuesChecked = getAllCachedValues();
+                  if (!centralizedValuesChecked.has(valueId)) {
                     try {
                       const valueData = await get<any>(`${nodes.values}/${valueId}`);
                       if (valueData) {
@@ -714,11 +715,12 @@
                 .filter(key => key !== '_' && key !== '#' && capabilitiesData[key] === true)
                 .forEach(async (capabilityId) => {
                   // Resolve actual capability data if not in cache
-                  if (!capabilityCache.has(capabilityId)) {
+                  const centralizedCapabilitiesChecked = getAllCachedCapabilities();
+                  if (!centralizedCapabilitiesChecked.has(capabilityId)) {
                     try {
                       const capabilityData = await get<any>(`${nodes.capabilities}/${capabilityId}`);
                       if (capabilityData) {
-                        capabilityCache.set(capabilityId, {
+                        addCapabilityToCache(capabilityId, {
                           capability_id: capabilityId,
                           name: capabilityData.name || (capabilityId.startsWith('capability_')
                             ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -728,8 +730,8 @@
                         });
                       }
                     } catch (e) {
-                      // Create fallback entry for cache
-                      capabilityCache.set(capabilityId, {
+                      // Create fallback entry for centralized cache
+                      addCapabilityToCache(capabilityId, {
                         capability_id: capabilityId,
                         name: capabilityId.startsWith('capability_')
                           ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')

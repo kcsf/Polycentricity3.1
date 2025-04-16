@@ -543,6 +543,16 @@ export function addDonutRings(
     return;
   }
   
+  // Log the cache inputs to help with debugging
+  console.log("addDonutRings received these cache values:", {
+    valueCacheProvided: !!valueCache,
+    valueCacheSize: valueCache?.size || 0,
+    capabilityCacheProvided: !!capabilityCache,
+    capabilityCacheSize: capabilityCache?.size || 0,
+    sampleValueKeys: Array.from(valueCache?.keys() || []).slice(0, 3),
+    sampleCapabilityKeys: Array.from(capabilityCache?.keys() || []).slice(0, 3)
+  });
+  
   // Also check if the selection is empty
   try {
     if (nodeElements.empty()) {
