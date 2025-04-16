@@ -812,14 +812,19 @@ export function addDonutRings(
     const scaledNodeRadius = baseActorRadius * scaleFactor;
     const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
     
-    // Add a donut ring
+    // Add a more visible donut ring
     d3.select(this)
       .append("circle")
       .attr("r", donutRadius)
       .attr("class", `donut-ring${isActive ? " active" : ""}`)
-      .attr("fill", "transparent")
-      .attr("stroke", "var(--border)")
-      .attr("stroke-width", 1);
+      .attr("fill", "var(--color-surface-100)")
+      .attr("stroke", "var(--color-primary-500)")
+      .attr("stroke-width", 2)
+      .attr("opacity", 0.4)  // Make it translucent
+      .style("visibility", "visible")
+      .style("display", "block")
+      // Make sure it's on the right layer but below other elements
+      .style("z-index", "50");
   });
 
   // Available categories for visualization
@@ -927,25 +932,36 @@ export function addDonutRings(
           .endAngle(wedgeEndAngle)
           .padAngle(0.01);
         
-        // Add wedge path
+        // Add wedge path with more prominent styling
+        // CRITICAL FIX: Using more vibrant colors and higher opacity
         categoryGroup.append("path")
           .attr("d", arc({} as any))
           .attr("fill", categoryColor)
-          .attr("opacity", 0.8)
+          .attr("opacity", 0.9) // Higher opacity for better visibility
           .attr("stroke", "white")
-          .attr("stroke-width", 0.5)
+          .attr("stroke-width", 1.5) // Thicker stroke for visibility
           .attr("class", `wedge ${category}`)
+          // CRITICAL: Move nodes forward in the z-index
+          .style("z-index", "100")
+          // Make sure it's visible
+          .style("visibility", "visible")
+          .style("display", "block")
           .on("mouseover", function() {
-            // Highlight this wedge
+            // Highlight this wedge more obviously
             d3.select(this)
               .attr("opacity", 1)
-              .attr("stroke-width", 1);
+              .attr("stroke-width", 2)
+              .attr("fill", function() {
+                const color = d3.color(categoryColor);
+                return color ? (color.brighter(0.3).toString()) : categoryColor;
+              });
           })
           .on("mouseout", function() {
-            // Reset appearance
+            // Reset appearance but keep visible
             d3.select(this)
-              .attr("opacity", 0.8)
-              .attr("stroke-width", 0.5);
+              .attr("opacity", 0.9)
+              .attr("stroke-width", 1.5)
+              .attr("fill", categoryColor);
           });
           
         // Add tooltip or label if needed
