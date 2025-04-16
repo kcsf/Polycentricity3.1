@@ -440,14 +440,19 @@
       
       console.log(`D3CardBoard: Loaded ${cardsWithPosition.length} cards, ${agreements.length} agreements, ${actors.length} actors`);
       
-      // Initialize the graph after loading all data
-      if (cardsWithPosition.length > 0 || cards.length > 0) {
+      // Batch load all card details before initializing the graph
+      if (cardsWithPosition.length > 0) {
+        console.log("D3CardBoard: Loading card details in batch before graph initialization");
+        await loadAllCardDetails(cardsWithPosition);
+        
         // Add demo agreements for testing if no real agreements yet
         if (agreements.length === 0 && cardsWithPosition.length >= 3) {
           console.log("D3CardBoard: Adding demo agreements for visualization");
           createDemoAgreements();
         }
         
+        // Initialize graph once after all data is loaded
+        console.log("D3CardBoard: Initializing graph after batch loading all card details");
         initializeGraph();
       }
     } catch (error) {
