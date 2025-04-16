@@ -1237,28 +1237,58 @@
           const iconName = card.icon || card.type || 'default';
           console.log(`Getting icon for card ${card.card_id} (${card.role_title}): ${iconName}`);
           
-          // Get the icon component asynchronously
-          const IconComponent = await getLucideIcon(iconName);
-          
-          // Create the Svelte component directly 
-          const container = div.node();
-          if (container) {
-            try {
-              // Use the User component directly as a safer approach
-              // This ensures the component API is used correctly
-              const icon = User({
-                target: container,
-                props: {
-                  size: iconSize,
-                  color: '#555555',
-                  strokeWidth: 2,
-                  class: 'lucide-icon',
-                }
-              });
-              console.log(`Successfully created icon component for ${card.role_title}`);
-            } catch (err) {
-              console.error(`Error creating icon component: ${err}`);
+          // Use D3 to draw an icon directly instead of using Svelte components
+          try {
+            // Create a simple colored SVG icon that represents the card type
+            // This approach doesn't depend on Svelte component rendering
+            const container = div.node();
+            if (container) {
+              // Create SVG symbol based on card type/role
+              const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              svg.setAttribute("width", iconSize.toString());
+              svg.setAttribute("height", iconSize.toString());
+              svg.setAttribute("viewBox", "0 0 24 24");
+              svg.setAttribute("stroke", "#555555");
+              svg.setAttribute("fill", "none");
+              svg.setAttribute("stroke-width", "2");
+              svg.setAttribute("stroke-linecap", "round");
+              svg.setAttribute("stroke-linejoin", "round");
+              
+              // Add path elements based on the icon type
+              if (iconName === 'Hammer' || card.type === 'farmer') {
+                // Simple hammer-like icon
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", "M14 6l7 7-4 4-7-7 4-4z M4 16l6 6 M8 12l-4 4 M12 8l-4 4");
+                svg.appendChild(path);
+              } else if (iconName === 'CircleDollarSign' || iconName === 'DollarSign' || card.type === 'funder') {
+                // Dollar sign
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", "M12 2v20 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6");
+                svg.appendChild(path);
+              } else if (iconName === 'Leaf' || card.type === 'steward') {
+                // Leaf-like icon
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", "M11 20A7 7 0 0 1 4 13A7 7 0 0 1 15 5.5A7 7 0 0 1 20 12 7 7 0 0 1 11 20z M12 8v12");
+                svg.appendChild(path);
+              } else {
+                // Default: Person/user icon
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", "12");
+                circle.setAttribute("cy", "8");
+                circle.setAttribute("r", "5");
+                
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", "M20 21v-2a5 5 0 0 0-10 0v2");
+                
+                svg.appendChild(circle);
+                svg.appendChild(path);
+              }
+              
+              container.appendChild(svg);
+              console.log(`Created SVG icon for ${card.role_title}`);
             }
+          } catch (err) {
+            console.error(`Error creating icon for ${card.role_title}:`, err);
           }
           
           console.log(`Successfully rendered icon for ${card.role_title}`);
