@@ -465,6 +465,10 @@
    * Loads values and capabilities for all cards in one go,
    * then updates the cards once at the end, avoiding multiple graph redraws
    */
+  /**
+   * Optimized batch loading function that efficiently loads all card details at once
+   * and populates the caches to prevent redundant GunDB queries
+   */
   async function loadAllCardDetails(cards: CardWithPosition[]): Promise<void> {
     try {
       const gun = getGun();
@@ -480,16 +484,72 @@
       
       console.log(`Loading details for ${cards.length} cards in batch mode`);
       
-      // Create promises for loading values and capabilities for all cards
+      // Step 1: Pre-populate value and capability caches with values from cards
+      // This ensures we have local representations of all values/capabilities
+      // before making any Gun queries
+      cards.forEach(card => {
+        // Pre-cache values
+        if (card.values && typeof card.values === 'object' && !Array.isArray(card.values)) {
+          Object.keys(card.values).forEach(valueId => {
+            if (!valueCache.has(valueId) && valueId !== '_' && valueId !== '#') {
+              // Convert ID to readable name
+              let valueName = valueId;
+              if (valueId.startsWith('value_')) {
+                valueName = valueId.replace('value_', '')
+                  .split('-')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+              }
+              
+              // Add to cache
+              valueCache.set(valueId, {
+                value_id: valueId,
+                name: valueName,
+                description: `${valueName} for ${card.role_title || 'card'}`,
+                created_at: Date.now()
+              });
+            }
+          });
+        }
+        
+        // Pre-cache capabilities
+        if (card.capabilities && typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
+          Object.keys(card.capabilities).forEach(capabilityId => {
+            if (!capabilityCache.has(capabilityId) && capabilityId !== '_' && capabilityId !== '#') {
+              // Convert ID to readable name
+              let capabilityName = capabilityId;
+              if (capabilityId.startsWith('capability_')) {
+                capabilityName = capabilityId.replace('capability_', '')
+                  .split('-')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+              }
+              
+              // Add to cache
+              capabilityCache.set(capabilityId, {
+                capability_id: capabilityId,
+                name: capabilityName,
+                description: `${capabilityName} for ${card.role_title || 'card'}`,
+                created_at: Date.now()
+              });
+            }
+          });
+        }
+      });
+      
+      // Step 2: Create promises for loading values and capabilities for all cards
+      // But use our cached versions if possible to avoid redundant Gun queries
       const loadPromises = cards.map(async (card) => {
         if (!card || !card.card_id) {
           console.error("D3CardBoard: Invalid card object or missing card_id", card);
           return null;
         }
         
-        // Use our optimized functions to get values and capabilities
-        const valueNames = await getCardValueNames(card);
-        const capabilityNames = await getCardCapabilityNames(card);
+        // Use our cache-first functions to get values and capabilities
+        const valueNames = await getCachedCardValueNames(card);
+        const capabilityNames = await getCachedCardCapabilityNames(card);
+        
+        console.log(`Loaded for card ${card.card_id}: Values: ${valueNames.length}, Capabilities: ${capabilityNames.length}`);
         
         // Add the value names and capability names to the card for visualization
         const cardWithDetails = card as CardWithPosition & {
@@ -512,7 +572,7 @@
               valueCache.set(valueId, {
                 value_id: valueId,
                 name: valueName,
-                description: `${valueName} for ${card.role_title}`,
+                description: `${valueName} for ${card.role_title || 'card'}`,
                 created_at: Date.now()
               });
             }
@@ -534,7 +594,7 @@
               capabilityCache.set(capabilityId, {
                 capability_id: capabilityId,
                 name: capName,
-                description: `${capName} for ${card.role_title}`,
+                description: `${capName} for ${card.role_title || 'card'}`,
                 created_at: Date.now()
               });
             }
@@ -572,6 +632,7 @@
       });
       
       console.log("Finished loading all card details in batch mode");
+      console.log("Cache status - Values:", valueCache.size, "Capabilities:", capabilityCache.size);
       // No need to call initializeGraph() here - that will happen after this function returns
       
     } catch (error) {
@@ -581,7 +642,7 @@
   
   /**
    * Legacy function for single card detail loading
-   * Now refactored to avoid reinitializing the graph
+   * Updated to use cache-first functions and avoid redundant Gun queries
    */
   async function loadCardDetails(card: Card): Promise<void> {
     try {
@@ -596,14 +657,14 @@
         return;
       }
       
-      console.log(`Loading details for card: ${card.card_id} - ${card.role_title}`);
+      console.log(`Loading details for card: ${card.card_id} - ${card.role_title || 'Unnamed Card'}`);
 
-      // Use our optimized functions to get values and capabilities
-      const valueNames = await getCardValueNames(card);
-      console.log(`Values for ${card.role_title}:`, valueNames);
+      // Use our cache-first functions to get values and capabilities
+      const valueNames = await getCachedCardValueNames(card);
+      console.log(`Values for ${card.role_title || 'Unnamed Card'}:`, valueNames);
       
-      const capabilityNames = await getCardCapabilityNames(card);
-      console.log(`Capabilities for ${card.role_title}:`, capabilityNames);
+      const capabilityNames = await getCachedCardCapabilityNames(card);
+      console.log(`Capabilities for ${card.role_title || 'Unnamed Card'}:`, capabilityNames);
       
       // Add the value names and capability names to the card for visualization
       const cardWithDetails = card as Card & {
@@ -627,7 +688,7 @@
             valueCache.set(valueId, {
               value_id: valueId,
               name: valueName,
-              description: `${valueName} for ${card.role_title}`,
+              description: `${valueName} for ${card.role_title || 'Unnamed Card'}`,
               created_at: Date.now()
             });
           }
@@ -650,7 +711,7 @@
             capabilityCache.set(capabilityId, {
               capability_id: capabilityId,
               name: capName,
-              description: `${capName} for ${card.role_title}`,
+              description: `${capName} for ${card.role_title || 'Unnamed Card'}`,
               created_at: Date.now()
             });
           }
@@ -676,9 +737,119 @@
       
       // DO NOT reinitialize the graph here anymore - this would cause multiple redraws
       // Now we just update the data and let the caller decide when to redraw
+      
+      console.log(`Finished loading details for card ${card.card_id} using cache-first approach`);
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
+  }
+
+  /**
+   * Cache-first implementation of getCardValueNames that avoids Gun queries
+   * when the values have already been loaded into the cache.
+   */
+  async function getCachedCardValueNames(card: Card): Promise<string[]> {
+    if (!card || !card.values) return [];
+    
+    // Default values that should always be available
+    const defaultValues = ["Sustainability", "Community Resilience"];
+    
+    // If we have pre-loaded value names, use them directly
+    const cardWithExtras = card as Card & { _valueNames?: string[] };
+    if (cardWithExtras._valueNames && cardWithExtras._valueNames.length > 0) {
+      console.log(`Using cached value names for card ${card.card_id}:`, cardWithExtras._valueNames);
+      return cardWithExtras._valueNames;
+    }
+    
+    // Extract value IDs depending on the format of card.values
+    let valueIds: string[] = [];
+    
+    if (typeof card.values === 'object' && !Array.isArray(card.values) && !('_' in card.values) && !('#' in card.values)) {
+      // It's a direct object mapping with value IDs -> true
+      valueIds = Object.keys(card.values)
+        .filter(key => (card.values as Record<string, boolean>)[key] === true);
+    } else {
+      // For other cases (references, arrays, strings), use the original function
+      return await getCardValueNames(card);
+    }
+    
+    // Check each valueId in our cache first
+    const results = await Promise.all(valueIds.map(async (valueId) => {
+      // Check if we have this value in our cache
+      if (valueCache.has(valueId)) {
+        const cachedValue = valueCache.get(valueId);
+        return cachedValue?.name || "";
+      }
+      
+      // Otherwise, convert the ID to a readable name
+      if (valueId.startsWith('value_')) {
+        return valueId.replace('value_', '')
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
+      
+      // Fallback for static values
+      if (valueId === 'c1') return 'Sustainability';
+      if (valueId === 'c2') return 'Community Resilience';
+      if (valueId === 'c3') return 'Regeneration';
+      if (valueId === 'c4') return 'Equity';
+      
+      return valueId; // Last resort
+    }));
+    
+    return results.filter(Boolean);
+  }
+  
+  /**
+   * Cache-first implementation of getCardCapabilityNames that avoids Gun queries
+   * when the capabilities have already been loaded into the cache.
+   */
+  async function getCachedCardCapabilityNames(card: Card): Promise<string[]> {
+    if (!card || !card.capabilities) return [];
+    
+    // Default capabilities
+    const defaultCapabilities = ["Problem Solving", "Communication"];
+    
+    // If we have pre-loaded capability names, use them directly
+    const cardWithExtras = card as Card & { _capabilityNames?: string[] };
+    if (cardWithExtras._capabilityNames && cardWithExtras._capabilityNames.length > 0) {
+      console.log(`Using cached capability names for card ${card.card_id}:`, cardWithExtras._capabilityNames);
+      return cardWithExtras._capabilityNames;
+    }
+    
+    // Extract capability IDs depending on the format of card.capabilities
+    let capabilityIds: string[] = [];
+    
+    if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities) && !('_' in card.capabilities) && !('#' in card.capabilities)) {
+      // It's a direct object mapping with capability IDs -> true
+      capabilityIds = Object.keys(card.capabilities)
+        .filter(key => (card.capabilities as Record<string, boolean>)[key] === true);
+    } else {
+      // For other cases (references, arrays, strings), use the original function
+      return await getCardCapabilityNames(card);
+    }
+    
+    // Check each capabilityId in our cache first
+    const results = await Promise.all(capabilityIds.map(async (capabilityId) => {
+      // Check if we have this capability in our cache
+      if (capabilityCache.has(capabilityId)) {
+        const cachedCapability = capabilityCache.get(capabilityId);
+        return cachedCapability?.name || "";
+      }
+      
+      // Otherwise, convert the ID to a readable name
+      if (capabilityId.startsWith('capability_')) {
+        return capabilityId.replace('capability_', '')
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
+      
+      return capabilityId; // Last resort
+    }));
+    
+    return results.filter(Boolean);
   }
 
   /**
