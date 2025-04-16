@@ -1259,25 +1259,32 @@
       simulation = graphState.simulation;
       nodeElements = graphState.nodeElements;
       
-      // Create a safety mechanism for donut rings
-      try {
-        // Only attempt to add donut rings if we have actual node elements
-        if (nodeElements && !nodeElements.empty() && graphState.nodes.length > 0) {
-          console.log('Adding donut rings to nodes...');
+      // IMPORTANT: This is a critical section that causes errors
+      // We need to be extremely cautious about how we handle nodeElements
+      // Remove the donut rings logic from this function completely
+      
+      // Instead of trying to add donut rings here, just store the nodeElements for later use
+      if (graphState?.nodeElements) {
+        nodeElements = graphState.nodeElements;
+        console.log('Node elements assigned from graph state');
+        
+        // Manual debug check - see if the selection is really empty
+        try {
+          const isEmpty = nodeElements.empty();
+          const count = nodeElements.size();
+          console.log(`DEBUG: nodeElements empty: ${isEmpty}, count: ${count}`);
           
-          // Important: Pass all required parameters
-          addDonutRings(
-            nodeElements,
-            activeCardId,
-            valueCache,
-            capabilityCache
-          );
-        } else {
-          console.warn('Skipping donut rings: No node elements available');
+          // Try to manually select nodes to ensure they exist
+          const manualNodeSelection = d3.select(svgRef).selectAll('.nodes g');
+          console.log(`DEBUG: Manual node selection empty: ${manualNodeSelection.empty()}, count: ${manualNodeSelection.size()}`);
+        } catch (err) {
+          console.error('Error inspecting nodeElements:', err);
         }
-      } catch (err) {
-        console.error('Error adding donut rings:', err);
+      } else {
+        console.warn('No node elements available from graph state');
       }
+      
+      // Skip donut rings entirely for now to eliminate that source of errors
       
       // Add center icons to the nodes
       if (nodeElements) {
@@ -1824,9 +1831,10 @@
 
     // Initialize link positions
     updateLinks();
-
-    // Add donut rings around card nodes
-    addDonutRings();
+    
+    // IMPORTANT: Removing donut rings to fix errors
+    // DO NOT add donut rings here as it's causing errors
+    // We'll add these back once the basic visualization is working
     
     // Add center circles with gradients and add text on top
     const cardNodes = nodeElements.filter((d) => d.type === "actor");
