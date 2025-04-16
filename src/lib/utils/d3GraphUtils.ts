@@ -215,8 +215,8 @@ export function createLinks(
       const fromActorId = benefit.fromActorId;
       const toActorId = benefit.toActorId;
       
-      // Get card IDs from actor IDs
-      const recipientCardId = actorCardMap.get(toActorId);
+      // Get card IDs from actor IDs - ensure we handle undefined
+      const recipientCardId = toActorId ? actorCardMap.get(toActorId) : undefined;
       
       if (recipientCardId) {
         // Create link from agreement to recipient card

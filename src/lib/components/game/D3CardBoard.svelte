@@ -1213,9 +1213,16 @@
       nodeElements = graphState.nodeElements;
       
       // After the graph is initialized, we can add donut segments to the nodes
-      // Use the utility function but with access to the centralized caches
-      // through getAllCachedValues() and getAllCachedCapabilities()
-      addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+      // Store references to the node elements first since they're needed for donut rings
+      nodeElements = graphState.nodeElements;
+      
+      // Now we can safely use nodeElements in addDonutRings
+      console.log('Adding donut rings to nodes...');
+      if (nodeElements) {
+        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+      } else {
+        console.error('Cannot add donut rings: nodeElements is undefined');
+      }
       
       // Add center icons to the nodes
       nodeElements.each(function(node) {
