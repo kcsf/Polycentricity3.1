@@ -316,12 +316,6 @@
       console.log("Values cache size:", getAllCachedValues().size);
       console.log("Capabilities cache size:", getAllCachedCapabilities().size);
       
-      await initializeCaches(gameId); // Added second call per instructions
-      
-      console.log("D3CardBoard: Caches re-initialized:");
-      console.log("Values cache size after re-init:", getAllCachedValues().size);
-      console.log("Capabilities cache size after re-init:", getAllCachedCapabilities().size);
-      
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
         // Create a new array with position data
