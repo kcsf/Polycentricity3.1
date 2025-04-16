@@ -314,8 +314,8 @@
   let actorUnsubscribe: (() => void) | undefined;
 
   /**
-   * Optimized data loading function that loads all game data using a more
-   * efficient approach to reduce redundant GunDB queries.
+   * Fully optimized data loading function that completely eliminates redundant GunDB queries
+   * by loading all necessary data upfront and using caches exclusively for resolved values.
    */
   async function loadGameData() {
     try {
@@ -324,6 +324,9 @@
         console.error("D3CardBoard: Gun not initialized");
         return;
       }
+      
+      const startTime = Date.now();
+      console.log(`D3CardBoard: Starting fully optimized data loading for game ${gameId}`);
       
       // Load the game to get deck_id
       const game = await getGame(gameId);
@@ -348,243 +351,458 @@
           return;
         }
       }
+
+      // CRITICAL OPTIMIZATION:
+      // First load all possible values and capabilities at the deck level
+      // This eliminates the need for individual card-level GunDB queries later
       
-      // Begin data loading as parallel processes for better performance
-      const startTime = Date.now();
-      console.log(`D3CardBoard: Starting optimized data loading for game ${gameId}`);
-      
-      // Step 1: Pre-populate caches with common values and capabilities
-      // This helps us avoid redundant lookups later
-      const commonValues = [
-        'Sustainability', 'Community Resilience', 'Regeneration', 'Equity',
-        'Social Justice', 'Ecological Wisdom', 'Nonviolence', 'Grassroots Democracy'
-      ];
-      
-      commonValues.forEach(valueName => {
-        const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
-        valueCache.set(valueId, {
-          value_id: valueId,
-          name: valueName,
-          description: `Core value: ${valueName}`,
-          created_at: Date.now()
-        });
-      });
-      
-      const commonCapabilities = [
-        'Problem Solving', 'Communication', 'Leadership', 'Cooperation',
-        'Grant-writing expertise', 'Impact Assessment', 'Community Organizing'
-      ];
-      
-      commonCapabilities.forEach(capName => {
-        const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
-        capabilityCache.set(capabilityId, {
-          capability_id: capabilityId,
-          name: capName,
-          description: `Core capability: ${capName}`,
-          created_at: Date.now()
-        });
-      });
-      
-      // Step 2: Load data in parallel with promise-based approach instead of callbacks
-      // This is more reliable than the callback+timeout approach
-      
-      // 2a. Load all cards for this deck
-      const loadCardsPromise = new Promise<void>((resolve) => {
-        const tempCards: CardWithPosition[] = [];
-        let seenCardCount = 0;
-        
-        gun.get(nodes.decks).get(deckId).get('cards').map().once(async (cardValue: boolean, cardKey: string) => {
-          if (cardValue === true) {
-            seenCardCount++;
-            try {
-              // Get card data directly with Promise-based approach
-              const cardData = await get<Card>(`${nodes.cards}/${cardKey}`);
-              if (cardData && cardData.card_id) {
-                const cardWithPosition: CardWithPosition = {
-                  ...cardData,
-                  position: {
-                    x: Math.random() * width,
-                    y: Math.random() * height
-                  }
-                };
-                tempCards.push(cardWithPosition);
-                
-                // Pre-empty the card's values and capabilities for the caching system
-                if (cardData.values && typeof cardData.values === 'object') {
-                  Object.keys(cardData.values)
-                    .filter(k => k !== '_' && k !== '#')
-                    .forEach(valueId => {
-                      if (!valueCache.has(valueId)) {
-                        // Create a default value entry that will be refined later
-                        let valueName = valueId;
-                        if (valueId.startsWith('value_')) {
-                          valueName = valueId.replace('value_', '')
-                            .split('-')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                        }
-                        valueCache.set(valueId, {
-                          value_id: valueId,
-                          name: valueName,
-                          description: `Value for ${cardData.role_title || 'card'}`,
-                          created_at: Date.now()
-                        });
-                      }
-                    });
+      // Step 1: Load all known values and capabilities for this deck first
+      // This resolves all GunDB references upfront
+      const loadDeckMetadataPromise = (async () => {
+        try {
+          // 1.1 Load all deck-level values
+          const deckValueRefs = await get<Record<string, any>>(`${nodes.decks}/${deckId}/values`);
+          if (deckValueRefs) {
+            console.log(`D3CardBoard: Preloading deck-level values for deck ${deckId}`);
+            
+            // Process and resolve any references
+            for (const valueId of Object.keys(deckValueRefs)) {
+              if (valueId === '_' || valueId === '#') continue;
+              
+              try {
+                // Get the full value object
+                const valueData = await get<any>(`${nodes.values}/${valueId}`);
+                if (valueData) {
+                  // Store in cache to avoid future lookups
+                  valueCache.set(valueId, {
+                    value_id: valueId,
+                    name: valueData.name || (valueId.startsWith('value_') 
+                      ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                      : valueId),
+                    description: valueData.description || `Deck value: ${valueId}`,
+                    created_at: valueData.created_at || Date.now()
+                  });
                 }
-                
-                if (cardData.capabilities && typeof cardData.capabilities === 'object') {
-                  Object.keys(cardData.capabilities)
-                    .filter(k => k !== '_' && k !== '#')
-                    .forEach(capabilityId => {
-                      if (!capabilityCache.has(capabilityId)) {
-                        // Create a default capability entry that will be refined later
-                        let capabilityName = capabilityId;
-                        if (capabilityId.startsWith('capability_')) {
-                          capabilityName = capabilityId.replace('capability_', '')
-                            .split('-')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                        }
-                        capabilityCache.set(capabilityId, {
-                          capability_id: capabilityId,
-                          name: capabilityName,
-                          description: `Capability for ${cardData.role_title || 'card'}`,
-                          created_at: Date.now()
-                        });
+              } catch (e) {
+                console.log(`Failed to resolve value reference: ${valueId}`, e);
+                // Create fallback cache entry regardless
+                valueCache.set(valueId, {
+                  value_id: valueId,
+                  name: valueId.startsWith('value_')
+                    ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                    : valueId,
+                  description: `Value: ${valueId}`,
+                  created_at: Date.now()
+                });
+              }
+            }
+          }
+          
+          // 1.2 Load all deck-level capabilities
+          const deckCapabilityRefs = await get<Record<string, any>>(`${nodes.decks}/${deckId}/capabilities`);
+          if (deckCapabilityRefs) {
+            console.log(`D3CardBoard: Preloading deck-level capabilities for deck ${deckId}`);
+            
+            // Process and resolve any references
+            for (const capabilityId of Object.keys(deckCapabilityRefs)) {
+              if (capabilityId === '_' || capabilityId === '#') continue;
+              
+              try {
+                // Get the full capability object
+                const capabilityData = await get<any>(`${nodes.capabilities}/${capabilityId}`);
+                if (capabilityData) {
+                  // Store in cache to avoid future lookups
+                  capabilityCache.set(capabilityId, {
+                    capability_id: capabilityId,
+                    name: capabilityData.name || (capabilityId.startsWith('capability_') 
+                      ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                      : capabilityId),
+                    description: capabilityData.description || `Deck capability: ${capabilityId}`,
+                    created_at: capabilityData.created_at || Date.now()
+                  });
+                }
+              } catch (e) {
+                console.log(`Failed to resolve capability reference: ${capabilityId}`, e);
+                // Create fallback cache entry regardless
+                capabilityCache.set(capabilityId, {
+                  capability_id: capabilityId,
+                  name: capabilityId.startsWith('capability_')
+                    ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                    : capabilityId,
+                  description: `Capability: ${capabilityId}`,
+                  created_at: Date.now()
+                });
+              }
+            }
+          }
+          
+          // 1.3 Add common values and capabilities to ensure we have defaults
+          const commonValues = [
+            'Sustainability', 'Community Resilience', 'Regeneration', 'Equity',
+            'Social Justice', 'Ecological Wisdom', 'Nonviolence', 'Grassroots Democracy'
+          ];
+          
+          commonValues.forEach(valueName => {
+            const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+            if (!valueCache.has(valueId)) {
+              valueCache.set(valueId, {
+                value_id: valueId,
+                name: valueName,
+                description: `Core value: ${valueName}`,
+                created_at: Date.now()
+              });
+            }
+          });
+          
+          const commonCapabilities = [
+            'Problem Solving', 'Communication', 'Leadership', 'Cooperation',
+            'Grant-writing expertise', 'Impact Assessment', 'Community Organizing'
+          ];
+          
+          commonCapabilities.forEach(capName => {
+            const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+            if (!capabilityCache.has(capabilityId)) {
+              capabilityCache.set(capabilityId, {
+                capability_id: capabilityId,
+                name: capName,
+                description: `Core capability: ${capName}`,
+                created_at: Date.now()
+              });
+            }
+          });
+          
+          console.log(`D3CardBoard: Preloaded ${valueCache.size} values and ${capabilityCache.size} capabilities`);
+        } catch (e) {
+          console.error("Error loading deck metadata:", e);
+        }
+      })();
+      
+      // Step 2: Load all cards and resolve all their referenced values/capabilities
+      const loadCardsAndReferencesPromise = (async () => {
+        // Prepare a collector array for all card data
+        const tempCards: CardWithPosition[] = [];
+        const cardIdSet = new Set<string>();
+        const valuesToResolve = new Set<string>();
+        const capabilitiesToResolve = new Set<string>();
+        
+        try {
+          // 2.1 First, collect all card IDs for this deck
+          const cardRefs = await get<Record<string, any>>(`${nodes.decks}/${deckId}/cards`);
+          if (!cardRefs) {
+            console.warn(`D3CardBoard: No cards found for deck ${deckId}`);
+            return;
+          }
+          
+          // Extract all card IDs that are part of this deck
+          Object.keys(cardRefs)
+            .filter(key => key !== '_' && key !== '#' && cardRefs[key] === true)
+            .forEach(cardId => cardIdSet.add(cardId));
+          
+          console.log(`D3CardBoard: Found ${cardIdSet.size} cards in deck ${deckId}`);
+          
+          // 2.2 Load all card data in parallel using Promise.all
+          const cardLoadPromises = Array.from(cardIdSet).map(async (cardId) => {
+            try {
+              // Get the full card data
+              const cardData = await get<Card>(`${nodes.cards}/${cardId}`);
+              if (!cardData || !cardData.card_id) return null;
+              
+              // Create CardWithPosition
+              const cardWithPosition: CardWithPosition = {
+                ...cardData,
+                position: {
+                  x: Math.random() * width,
+                  y: Math.random() * height
+                }
+              };
+              
+              // Collect value and capability references for this card
+              // for later resolution
+              
+              // Handle values
+              if (cardData.values) {
+                // If it's a GunDB reference, queue it for resolution
+                if (typeof cardData.values === 'object' && '#' in cardData.values) {
+                  const valuesRef = (cardData.values as any)['#'];
+                  valuesToResolve.add(valuesRef);
+                } 
+                // If it's direct object, collect IDs
+                else if (typeof cardData.values === 'object' && !Array.isArray(cardData.values)) {
+                  Object.keys(cardData.values)
+                    .filter(key => key !== '_' && key !== '#')
+                    .forEach(valueId => {
+                      if ((cardData.values as Record<string, any>)[valueId] === true) {
+                        valuesToResolve.add(`${nodes.values}/${valueId}`);
                       }
                     });
                 }
               }
+              
+              // Handle capabilities
+              if (cardData.capabilities) {
+                // If it's a GunDB reference, queue it for resolution
+                if (typeof cardData.capabilities === 'object' && '#' in cardData.capabilities) {
+                  const capabilitiesRef = (cardData.capabilities as any)['#'];
+                  capabilitiesToResolve.add(capabilitiesRef);
+                } 
+                // If it's direct object, collect IDs
+                else if (typeof cardData.capabilities === 'object' && !Array.isArray(cardData.capabilities)) {
+                  Object.keys(cardData.capabilities)
+                    .filter(key => key !== '_' && key !== '#')
+                    .forEach(capabilityId => {
+                      if ((cardData.capabilities as Record<string, any>)[capabilityId] === true) {
+                        capabilitiesToResolve.add(`${nodes.capabilities}/${capabilityId}`);
+                      }
+                    });
+                }
+              }
+              
+              return cardWithPosition;
             } catch (e) {
-              console.error(`Error loading card ${cardKey}:`, e);
+              console.error(`Error loading card ${cardId}:`, e);
+              return null;
             }
-          }
-        });
-        
-        // Resolve after a delay to collect cards, but with a more reliable approach
-        setTimeout(() => {
-          console.log(`D3CardBoard: Loaded ${tempCards.length} cards from deck ${deckId} (saw ${seenCardCount} card references)`);
+          });
+          
+          // Wait for all card loads to complete
+          const loadedCards = await Promise.all(cardLoadPromises);
+          // Filter out nulls and add to tempCards
+          loadedCards.filter(Boolean).forEach(card => card && tempCards.push(card));
+          
+          // 2.3 Resolve all value references we collected
+          console.log(`D3CardBoard: Resolving ${valuesToResolve.size} value references`);
+          const valueResolvePromises = Array.from(valuesToResolve).map(async (valueRef) => {
+            try {
+              // Using a proper retrieval pattern for values
+              const valuesData = await get<Record<string, any>>(valueRef);
+              if (!valuesData) return;
+              
+              // Extract value IDs from reference
+              Object.keys(valuesData)
+                .filter(key => key !== '_' && key !== '#' && valuesData[key] === true)
+                .forEach(async (valueId) => {
+                  // Resolve actual value data if not in cache
+                  if (!valueCache.has(valueId)) {
+                    try {
+                      const valueData = await get<any>(`${nodes.values}/${valueId}`);
+                      if (valueData) {
+                        valueCache.set(valueId, {
+                          value_id: valueId,
+                          name: valueData.name || (valueId.startsWith('value_')
+                            ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                            : valueId),
+                          description: valueData.description || `Value: ${valueId}`,
+                          created_at: valueData.created_at || Date.now()
+                        });
+                      }
+                    } catch (e) {
+                      // Create fallback entry for cache
+                      valueCache.set(valueId, {
+                        value_id: valueId,
+                        name: valueId.startsWith('value_')
+                          ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                          : valueId,
+                        description: `Value: ${valueId}`,
+                        created_at: Date.now()
+                      });
+                    }
+                  }
+                });
+            } catch (e) {
+              console.error(`Error resolving value reference ${valueRef}:`, e);
+            }
+          });
+          
+          // 2.4 Resolve all capability references we collected
+          console.log(`D3CardBoard: Resolving ${capabilitiesToResolve.size} capability references`);
+          const capabilityResolvePromises = Array.from(capabilitiesToResolve).map(async (capabilityRef) => {
+            try {
+              // Using a proper retrieval pattern for capabilities
+              const capabilitiesData = await get<Record<string, any>>(capabilityRef);
+              if (!capabilitiesData) return;
+              
+              // Extract capability IDs from reference
+              Object.keys(capabilitiesData)
+                .filter(key => key !== '_' && key !== '#' && capabilitiesData[key] === true)
+                .forEach(async (capabilityId) => {
+                  // Resolve actual capability data if not in cache
+                  if (!capabilityCache.has(capabilityId)) {
+                    try {
+                      const capabilityData = await get<any>(`${nodes.capabilities}/${capabilityId}`);
+                      if (capabilityData) {
+                        capabilityCache.set(capabilityId, {
+                          capability_id: capabilityId,
+                          name: capabilityData.name || (capabilityId.startsWith('capability_')
+                            ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                            : capabilityId),
+                          description: capabilityData.description || `Capability: ${capabilityId}`,
+                          created_at: capabilityData.created_at || Date.now()
+                        });
+                      }
+                    } catch (e) {
+                      // Create fallback entry for cache
+                      capabilityCache.set(capabilityId, {
+                        capability_id: capabilityId,
+                        name: capabilityId.startsWith('capability_')
+                          ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                          : capabilityId,
+                        description: `Capability: ${capabilityId}`,
+                        created_at: Date.now()
+                      });
+                    }
+                  }
+                });
+            } catch (e) {
+              console.error(`Error resolving capability reference ${capabilityRef}:`, e);
+            }
+          });
+          
+          // 2.5 Wait for all value and capability resolutions
+          await Promise.all([...valueResolvePromises, ...capabilityResolvePromises]);
+          
+          console.log(`D3CardBoard: Card loading complete with ${tempCards.length} cards`);
+          console.log(`D3CardBoard: Value cache has ${valueCache.size} entries, capability cache has ${capabilityCache.size} entries`);
+          
+          // Update our global cards array
           cardsWithPosition = tempCards;
-          resolve();
-        }, 1500);
-      });
+        } catch (e) {
+          console.error("Error in card and reference loading:", e);
+        }
+      })();
       
-      // 2b. Load all actors for this game
-      const loadActorsPromise = new Promise<void>((resolve) => {
+      // Step 3: Load actors in parallel
+      const loadActorsPromise = (async () => {
         const tempActors: Actor[] = [];
         const tempActorCardMap = new Map<string, string>();
-        let seenActorCount = 0;
         
-        gun.get(nodes.games).get(gameId).get('players').map().once(async (actorId: string, userId: string) => {
-          if (actorId) {
-            seenActorCount++;
+        try {
+          // Get all player->actor mappings for this game
+          const playerActorRefs = await get<Record<string, string>>(`${nodes.games}/${gameId}/players`);
+          if (!playerActorRefs) {
+            console.warn(`D3CardBoard: No actors found for game ${gameId}`);
+            return;
+          }
+          
+          // Get all actor IDs
+          const actorIds = Object.values(playerActorRefs).filter(id => id && id !== '_' && id !== '#');
+          console.log(`D3CardBoard: Loading ${actorIds.length} actors for game ${gameId}`);
+          
+          // Load all actors in parallel
+          const actorPromises = actorIds.map(async (actorId) => {
             try {
-              // Get actor data directly with Promise-based approach
               const actorData = await get<Actor>(`${nodes.actors}/${actorId}`);
               if (actorData && actorData.actor_id && actorData.card_id) {
                 tempActors.push(actorData);
                 tempActorCardMap.set(actorData.actor_id, actorData.card_id);
+                return actorData;
               }
             } catch (e) {
               console.error(`Error loading actor ${actorId}:`, e);
             }
-          }
-        });
-        
-        // Resolve after a delay to collect actors, but with a more reliable approach
-        setTimeout(() => {
-          console.log(`D3CardBoard: Loaded ${tempActors.length} actors for game ${gameId} (saw ${seenActorCount} actor references)`);
+            return null;
+          });
+          
+          // Wait for all actor loads to complete
+          await Promise.all(actorPromises);
+          
+          console.log(`D3CardBoard: Loaded ${tempActors.length} actors successfully`);
+          
+          // Update global data
           actors = tempActors;
-          // Use the spread operator to merge maps
+          // Update the actor->card mapping
           tempActorCardMap.forEach((value, key) => {
             actorCardMap.set(key, value);
           });
-          resolve();
-        }, 1500);
-      });
-      
-      // Step 3: Wait for both cards and actors to load before proceeding
-      await Promise.all([loadCardsPromise, loadActorsPromise]);
-      
-      // Step 4: Now load agreements using the collected actors
-      await new Promise<void>((resolve) => {
-        const tempAgreements: AgreementWithPosition[] = new Array<AgreementWithPosition>();
-        const seenAgreements = new Set<string>();
-        let seenAgreementCount = 0;
-        
-        // Process only if we have actors
-        if (actors.length === 0) {
-          console.log("D3CardBoard: No actors found, skipping agreement loading");
-          resolve();
-          return;
+        } catch (e) {
+          console.error("Error loading actors:", e);
         }
-        
-        actors.forEach(actor => {
-          if (actor.agreements) {
-            Object.keys(actor.agreements).forEach(async (agreementId) => {
-              // Skip if we've already processed this agreement
-              if (seenAgreements.has(agreementId)) return;
-              seenAgreements.add(agreementId);
-              seenAgreementCount++;
-              
-              try {
-                // Get agreement data directly with Promise-based approach
-                const agreementData = await get<Agreement>(`${nodes.agreements}/${agreementId}`);
-                if (agreementData && agreementData.agreement_id) {
-                  // Convert to AgreementWithPosition
-                  const agreementWithPosition: AgreementWithPosition = {
-                    ...agreementData,
-                    position: {
-                      x: Math.random() * width,
-                      y: Math.random() * height
-                    },
-                    obligations: [],
-                    benefits: []
-                  };
-                  
-                  // Extract obligations and benefits from the agreement
-                  if (agreementData.obligations) {
-                    Object.entries(agreementData.obligations).forEach(([actorId, description]) => {
-                      agreementWithPosition.obligations.push({
-                        id: `obligation_${agreementData.agreement_id}_${actorId}`,
-                        fromActorId: actorId,
-                        description
-                      });
-                    });
-                  }
-                  
-                  if (agreementData.benefits) {
-                    Object.entries(agreementData.benefits).forEach(([actorId, description]) => {
-                      agreementWithPosition.benefits.push({
-                        id: `benefit_${agreementData.agreement_id}_${actorId}`,
-                        toActorId: actorId,
-                        description
-                      });
-                    });
-                  }
-                  
-                  tempAgreements.push(agreementWithPosition);
-                }
-              } catch (e) {
-                console.error(`Error loading agreement ${agreementId}:`, e);
-              }
-            });
-          }
-        });
-        
-        // Resolve after a delay to collect agreements
-        setTimeout(() => {
-          console.log(`D3CardBoard: Loaded ${tempAgreements.length} agreements (saw ${seenAgreementCount} references)`);
-          agreements = tempAgreements;
-          resolve();
-        }, 1500);
-      });
+      })();
       
-      // Final step: Batch load card details before initializing the graph
+      // Step 4: Wait for all the key data loading to complete
+      await Promise.all([loadDeckMetadataPromise, loadCardsAndReferencesPromise, loadActorsPromise]);
+      
+      // Step 5: Now load agreements based on the actors we loaded
+      const loadAgreementsPromise = (async () => {
+        const tempAgreements: AgreementWithPosition[] = [];
+        const agrIds = new Set<string>();
+        
+        try {
+          // Collect all agreement IDs from actors
+          actors.forEach(actor => {
+            if (actor.agreements) {
+              Object.keys(actor.agreements)
+                .filter(id => id && id !== '_' && id !== '#')
+                .forEach(id => agrIds.add(id));
+            }
+          });
+          
+          console.log(`D3CardBoard: Loading ${agrIds.size} agreements`);
+          
+          // Load all agreements in parallel
+          const agrmtPromises = Array.from(agrIds).map(async (agreementId) => {
+            try {
+              const agreementData = await get<Agreement>(`${nodes.agreements}/${agreementId}`);
+              if (agreementData && agreementData.agreement_id) {
+                // Convert to AgreementWithPosition
+                const agreementWithPosition: AgreementWithPosition = {
+                  ...agreementData,
+                  position: {
+                    x: Math.random() * width,
+                    y: Math.random() * height
+                  },
+                  obligations: [],
+                  benefits: []
+                };
+                
+                // Extract obligations and benefits from the agreement
+                if (agreementData.obligations) {
+                  Object.entries(agreementData.obligations).forEach(([actorId, description]) => {
+                    agreementWithPosition.obligations.push({
+                      id: `obligation_${agreementData.agreement_id}_${actorId}`,
+                      fromActorId: actorId,
+                      description
+                    });
+                  });
+                }
+                
+                if (agreementData.benefits) {
+                  Object.entries(agreementData.benefits).forEach(([actorId, description]) => {
+                    agreementWithPosition.benefits.push({
+                      id: `benefit_${agreementData.agreement_id}_${actorId}`,
+                      toActorId: actorId,
+                      description
+                    });
+                  });
+                }
+                
+                tempAgreements.push(agreementWithPosition);
+                return agreementWithPosition;
+              }
+            } catch (e) {
+              console.error(`Error loading agreement ${agreementId}:`, e);
+            }
+            return null;
+          });
+          
+          // Wait for all agreement loads to complete
+          await Promise.all(agrmtPromises);
+          
+          console.log(`D3CardBoard: Loaded ${tempAgreements.length} agreements successfully`);
+          agreements = tempAgreements;
+        } catch (e) {
+          console.error("Error loading agreements:", e);
+        }
+      })();
+      
+      // Wait for agreement loading to complete
+      await loadAgreementsPromise;
+      
+      // Final step: Process card values and capabilities using only cached data
       if (cardsWithPosition.length > 0) {
-        console.log("D3CardBoard: Loading card details in batch before graph initialization");
-        await loadAllCardDetails(cardsWithPosition);
+        console.log("D3CardBoard: Processing card details using cached values only");
+        
+        // Use the fully cache-based function that avoids Gun queries
+        await processCardDetailsFromCache(cardsWithPosition);
         
         // Add demo agreements for testing if no real agreements yet
         if (agreements.length === 0 && cardsWithPosition.length >= 3) {
@@ -593,7 +811,7 @@
         }
         
         // Initialize graph once after all data is loaded
-        console.log("D3CardBoard: Initializing graph after batch loading all card details");
+        console.log("D3CardBoard: Initializing graph after loading all details");
         const totalTime = Date.now() - startTime;
         console.log(`D3CardBoard: Total data loading time: ${totalTime}ms`);
         
@@ -891,116 +1109,234 @@
   }
 
   /**
-   * Cache-first implementation of getCardValueNames that avoids Gun queries
-   * when the values have already been loaded into the cache.
+   * Process card details using ONLY cached values and capabilities
+   * This completely eliminates redundant GunDB queries
    */
-  async function getCachedCardValueNames(card: Card): Promise<string[]> {
-    if (!card || !card.values) return [];
+  async function processCardDetailsFromCache(cards: CardWithPosition[]): Promise<void> {
+    if (!cards || cards.length === 0) {
+      console.log("No cards to process details for");
+      return;
+    }
     
-    // Default values that should always be available
-    const defaultValues = ["Sustainability", "Community Resilience"];
+    console.log(`Processing details for ${cards.length} cards using cached values only (no Gun queries)`);
+    
+    // Process all cards in parallel with zero Gun queries
+    await Promise.all(cards.map(async (card) => {
+      if (!card || !card.card_id) return;
+      
+      // Process values
+      const valueNames: string[] = await getCardValueNamesFromCacheOnly(card);
+      
+      // Process capabilities
+      const capabilityNames: string[] = await getCardCapabilityNamesFromCacheOnly(card);
+      
+      // Store the resolved names directly on the card
+      const cardWithExtras = card as CardWithPosition & {
+        _valueNames?: string[];
+        _capabilityNames?: string[];
+      };
+      
+      cardWithExtras._valueNames = valueNames;
+      cardWithExtras._capabilityNames = capabilityNames;
+      
+      // Reconstruct the values object with direct references to ensure 
+      // we don't trigger Gun.js reference traversal
+      if (valueNames && valueNames.length > 0) {
+        const valuesObj: Record<string, boolean> = {};
+        valueNames.forEach(valueName => {
+          // Normalize the value name to an ID format
+          const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+          valuesObj[valueId] = true;
+        });
+        card.values = valuesObj;
+      }
+      
+      // Do the same for capabilities
+      if (capabilityNames && capabilityNames.length > 0) {
+        const capabilitiesObj: Record<string, boolean> = {};
+        capabilityNames.forEach(capName => {
+          // Normalize the capability name to an ID format
+          const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+          capabilitiesObj[capabilityId] = true;
+        });
+        card.capabilities = capabilitiesObj;
+      }
+    }));
+    
+    console.log("Completed processing card details from cache only");
+  }
+  
+  /**
+   * Get value names using ONLY cache - never falling back to Gun
+   */
+  async function getCardValueNamesFromCacheOnly(card: Card): Promise<string[]> {
+    if (!card || !card.values) return [];
     
     // If we have pre-loaded value names, use them directly
     const cardWithExtras = card as Card & { _valueNames?: string[] };
     if (cardWithExtras._valueNames && cardWithExtras._valueNames.length > 0) {
-      console.log(`Using cached value names for card ${card.card_id}:`, cardWithExtras._valueNames);
       return cardWithExtras._valueNames;
     }
     
-    // Extract value IDs depending on the format of card.values
-    let valueIds: string[] = [];
-    
-    if (typeof card.values === 'object' && !Array.isArray(card.values) && !('_' in card.values) && !('#' in card.values)) {
-      // It's a direct object mapping with value IDs -> true
-      valueIds = Object.keys(card.values)
-        .filter(key => (card.values as Record<string, boolean>)[key] === true);
-    } else {
-      // For other cases (references, arrays, strings), use the original function
-      return await getCardValueNames(card);
+    // For GunDB references, extract the referenced values and look them up in our cache
+    if (typeof card.values === 'object' && '#' in card.values) {
+      const refPath = (card.values as any)['#'];
+      // The refPath will be something like "cards/card_123/values"
+      // Extract just the card_id from this path to find the card in our cardsWithPosition array
+      
+      // For efficiency, instead of querying Gun, we'll try to find a matching card that already
+      // has processed values in our cardsWithPosition array
+      if (refPath.includes('/values')) {
+        const cardIdMatch = refPath.match(/cards\/([^\/]+)\/values/);
+        if (cardIdMatch && cardIdMatch[1]) {
+          const referencedCardId = cardIdMatch[1];
+          // Look for this card in our cardsWithPosition array
+          const referencedCard = cardsWithPosition.find(c => c.card_id === referencedCardId);
+          if (referencedCard) {
+            const referencedCardWithExtras = referencedCard as Card & { _valueNames?: string[] };
+            if (referencedCardWithExtras._valueNames && referencedCardWithExtras._valueNames.length > 0) {
+              // Use the already resolved value names from the referenced card
+              return referencedCardWithExtras._valueNames;
+            }
+          }
+        }
+      }
+      
+      // If we got here, we couldn't find a match in our cardsWithPosition array
+      // Fall back to default values instead of making a Gun query
+      return ["Sustainability", "Community Resilience"];
     }
     
-    // Check each valueId in our cache first
-    const results = await Promise.all(valueIds.map(async (valueId) => {
-      // Check if we have this value in our cache
-      if (valueCache.has(valueId)) {
-        const cachedValue = valueCache.get(valueId);
-        return cachedValue?.name || "";
-      }
+    // For direct object mapping (most common case)
+    if (typeof card.values === 'object' && !Array.isArray(card.values)) {
+      // Get all value IDs from the object
+      const valueIds = Object.keys(card.values)
+        .filter(key => key !== '_' && key !== '#' && (card.values as Record<string, any>)[key] === true);
       
-      // Otherwise, convert the ID to a readable name
-      if (valueId.startsWith('value_')) {
-        return valueId.replace('value_', '')
-          .split('-')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-      }
-      
-      // Fallback for static values
-      if (valueId === 'c1') return 'Sustainability';
-      if (valueId === 'c2') return 'Community Resilience';
-      if (valueId === 'c3') return 'Regeneration';
-      if (valueId === 'c4') return 'Equity';
-      
-      return valueId; // Last resort
-    }));
+      // Map each ID to a name using ONLY our cache
+      return valueIds.map(valueId => {
+        // Check cache first
+        if (valueCache.has(valueId)) {
+          const cachedValue = valueCache.get(valueId);
+          return cachedValue?.name || "";
+        }
+        
+        // If not in cache, derive from ID
+        if (valueId.startsWith('value_')) {
+          return valueId.replace('value_', '')
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+        
+        // Fallback for hardcoded IDs
+        if (valueId === 'c1') return 'Sustainability';
+        if (valueId === 'c2') return 'Community Resilience';
+        if (valueId === 'c3') return 'Regeneration';
+        if (valueId === 'c4') return 'Equity';
+        
+        return valueId; // Last resort
+      }).filter(Boolean);
+    }
     
-    return results.filter(Boolean);
+    // For array format
+    if (Array.isArray(card.values)) {
+      return card.values.map(v => typeof v === 'string' ? v : "").filter(Boolean);
+    }
+    
+    // For string format (comma-separated)
+    if (typeof card.values === 'string') {
+      return card.values.split(',').map(v => v.trim()).filter(Boolean);
+    }
+    
+    // Default fallback values
+    return ["Sustainability", "Community Resilience"];
   }
   
   /**
-   * Cache-first implementation of getCardCapabilityNames that avoids Gun queries
-   * when the capabilities have already been loaded into the cache.
+   * Get capability names using ONLY cache - never falling back to Gun
    */
-  async function getCachedCardCapabilityNames(card: Card): Promise<string[]> {
+  async function getCardCapabilityNamesFromCacheOnly(card: Card): Promise<string[]> {
     if (!card || !card.capabilities) return [];
-    
-    // Default capabilities
-    const defaultCapabilities = ["Problem Solving", "Communication"];
     
     // If we have pre-loaded capability names, use them directly
     const cardWithExtras = card as Card & { _capabilityNames?: string[] };
     if (cardWithExtras._capabilityNames && cardWithExtras._capabilityNames.length > 0) {
-      console.log(`Using cached capability names for card ${card.card_id}:`, cardWithExtras._capabilityNames);
       return cardWithExtras._capabilityNames;
     }
     
-    // Extract capability IDs depending on the format of card.capabilities
-    let capabilityIds: string[] = [];
-    
-    if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities) && !('_' in card.capabilities) && !('#' in card.capabilities)) {
-      // It's a direct object mapping with capability IDs -> true
-      capabilityIds = Object.keys(card.capabilities)
-        .filter(key => (card.capabilities as Record<string, boolean>)[key] === true);
-    } else {
-      // For other cases (references, arrays, strings), use the original function
-      return await getCardCapabilityNames(card);
+    // For GunDB references, extract the referenced capabilities and look them up in our cache
+    if (typeof card.capabilities === 'object' && '#' in card.capabilities) {
+      const refPath = (card.capabilities as any)['#'];
+      // The refPath will be something like "cards/card_123/capabilities"
+      
+      // For efficiency, instead of querying Gun, we'll try to find a matching card that already
+      // has processed capabilities in our cardsWithPosition array
+      if (refPath.includes('/capabilities')) {
+        const cardIdMatch = refPath.match(/cards\/([^\/]+)\/capabilities/);
+        if (cardIdMatch && cardIdMatch[1]) {
+          const referencedCardId = cardIdMatch[1];
+          // Look for this card in our cardsWithPosition array
+          const referencedCard = cardsWithPosition.find(c => c.card_id === referencedCardId);
+          if (referencedCard) {
+            const referencedCardWithExtras = referencedCard as Card & { _capabilityNames?: string[] };
+            if (referencedCardWithExtras._capabilityNames && referencedCardWithExtras._capabilityNames.length > 0) {
+              // Use the already resolved capability names from the referenced card
+              return referencedCardWithExtras._capabilityNames;
+            }
+          }
+        }
+      }
+      
+      // If we got here, we couldn't find a match in our cardsWithPosition array
+      // Fall back to default capabilities instead of making a Gun query
+      return ["Problem Solving", "Communication"];
     }
     
-    // Check each capabilityId in our cache first
-    const results = await Promise.all(capabilityIds.map(async (capabilityId) => {
-      // Check if we have this capability in our cache
-      if (capabilityCache.has(capabilityId)) {
-        const cachedCapability = capabilityCache.get(capabilityId);
-        return cachedCapability?.name || "";
-      }
+    // For direct object mapping (most common case)
+    if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
+      // Get all capability IDs from the object
+      const capabilityIds = Object.keys(card.capabilities)
+        .filter(key => key !== '_' && key !== '#' && (card.capabilities as Record<string, any>)[key] === true);
       
-      // Otherwise, convert the ID to a readable name
-      if (capabilityId.startsWith('capability_')) {
-        return capabilityId.replace('capability_', '')
-          .split('-')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-      }
-      
-      return capabilityId; // Last resort
-    }));
+      // Map each ID to a name using ONLY our cache
+      return capabilityIds.map(capabilityId => {
+        // Check cache first
+        if (capabilityCache.has(capabilityId)) {
+          const cachedCapability = capabilityCache.get(capabilityId);
+          return cachedCapability?.name || "";
+        }
+        
+        // If not in cache, derive from ID
+        if (capabilityId.startsWith('capability_')) {
+          return capabilityId.replace('capability_', '')
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+        
+        return capabilityId; // Last resort
+      }).filter(Boolean);
+    }
     
-    return results.filter(Boolean);
+    // For array format
+    if (Array.isArray(card.capabilities)) {
+      return card.capabilities.map(c => typeof c === 'string' ? c : "").filter(Boolean);
+    }
+    
+    // For string format (comma-separated)
+    if (typeof card.capabilities === 'string') {
+      return card.capabilities.split(',').map(c => c.trim()).filter(Boolean);
+    }
+    
+    // Default fallback capabilities
+    return ["Problem Solving", "Communication"];
   }
 
   /**
    * Helper function to get the optimized card data for popover display
-   * Uses the cached card data with preloaded values and capabilities
+   * Uses ONLY the cached card data with preloaded values and capabilities
+   * and ensures no Gun references are returned that might trigger queries
    */
   function getOptimizedCardData(node: D3Node): Card | Agreement {
     // Make sure we're using our cached data with values and capabilities loaded
@@ -1008,17 +1344,76 @@
       // Find the card in our cardsWithPosition array that has values and capabilities loaded
       const cardWithDetails = cardsWithPosition.find(c => c.card_id === node.id);
       if (cardWithDetails) {
-        // Use the card with preloaded details from our batch loading
-        console.log("Using preloaded card data for popover with values and capabilities");
-        return cardWithDetails;
+        // Clone the card to avoid modifying the original and to strip any potential Gun references
+        // that might trigger Gun queries in the popover
+        const cardWithExtras = cardWithDetails as CardWithPosition & {
+          _valueNames?: string[];
+          _capabilityNames?: string[];
+        };
+        
+        // Create a clean copy with explicitly formatted values and capabilities
+        const cleanCard: Card = {
+          ...cardWithDetails,
+          // Replace any GunDB references with direct objects
+          values: {},
+          capabilities: {}
+        };
+        
+        // Build values object from _valueNames
+        if (cardWithExtras._valueNames && cardWithExtras._valueNames.length > 0) {
+          const valuesObj: Record<string, boolean> = {};
+          cardWithExtras._valueNames.forEach(valueName => {
+            const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+            valuesObj[valueId] = true;
+          });
+          cleanCard.values = valuesObj;
+        }
+        
+        // Build capabilities object from _capabilityNames
+        if (cardWithExtras._capabilityNames && cardWithExtras._capabilityNames.length > 0) {
+          const capabilitiesObj: Record<string, boolean> = {};
+          cardWithExtras._capabilityNames.forEach(capName => {
+            const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+            capabilitiesObj[capabilityId] = true;
+          });
+          cleanCard.capabilities = capabilitiesObj;
+        }
+        
+        // Add the precomputed value and capability name arrays directly to the object
+        (cleanCard as any)._valueNames = cardWithExtras._valueNames || [];
+        (cleanCard as any)._capabilityNames = cardWithExtras._capabilityNames || [];
+        
+        console.log("Using fully optimized card data for popover with no Gun queries");
+        return cleanCard;
       } else {
         // Fallback to the node data if not found in our cache
+        // This should rarely happen, but if it does, ensure we normalize it
         console.log("Using node data for popover (not found in cache)");
-        return node.data as Card;
+        const cardData = node.data as Card;
+        
+        // Ensure we strip any Gun references to avoid queries
+        if (cardData.values && typeof cardData.values === 'object' && '#' in cardData.values) {
+          // Replace Gun reference with empty object
+          cardData.values = {};
+        }
+        
+        if (cardData.capabilities && typeof cardData.capabilities === 'object' && '#' in cardData.capabilities) {
+          // Replace Gun reference with empty object
+          cardData.capabilities = {};
+        }
+        
+        return cardData;
       }
     } else {
-      // For agreements, just use the node data
-      return node.data as Agreement;
+      // For agreements, just use the node data, but ensure we strip any Gun references
+      const agreement = { ...node.data as Agreement };
+      
+      // Ensure no Gun references in the agreement object
+      if (agreement.parties && typeof agreement.parties === 'object' && '#' in agreement.parties) {
+        agreement.parties = {};
+      }
+      
+      return agreement;
     }
   }
 
