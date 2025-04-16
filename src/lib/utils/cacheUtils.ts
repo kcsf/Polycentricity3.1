@@ -435,24 +435,51 @@ export async function loadCardDetails(cards: CardWithPosition[]): Promise<CardWi
     
     console.log(`Cache Utils: Preloaded ${valueCache.size} values and ${capabilityCache.size} capabilities`);
     
+    // Check if our caches have any values
+    if (valueCache.size === 0 || capabilityCache.size === 0) {
+      console.log(`Cache Utils: Caches are empty, adding defaults before processing cards`);
+      addDefaultValuesAndCapabilities();
+    }
+    
     // Step 3: Process all cards to extract names from caches and update the cards
     for (const card of cards) {
       if (!card.card_id) continue;
       
-      // Set value names directly on the card
-      card._valueNames = await getCardValueNamesFromCacheOnly(card);
-      
-      // Set capability names directly on the card
-      card._capabilityNames = await getCardCapabilityNamesFromCacheOnly(card);
-      
-      // Log the values and capabilities for debugging
-      console.log(`Card ${card.role_title || card.card_id} loaded with:`, {
-        values: card._valueNames,
-        capabilities: card._capabilityNames
-      });
-      
-      // Store the updated card in the cache
-      cardDetailsCache.set(card.card_id, card);
+      try {
+        // Set value names directly on the card
+        const valueNames = await getCardValueNamesFromCacheOnly(card);
+        card._valueNames = valueNames;
+        
+        // Set capability names directly on the card
+        const capabilityNames = await getCardCapabilityNamesFromCacheOnly(card);
+        card._capabilityNames = capabilityNames;
+        
+        // Log the values and capabilities for debugging
+        console.log(`Card ${card.role_title || card.card_id} loaded with:`, {
+          values: card._valueNames || [],
+          capabilities: card._capabilityNames || []
+        });
+        
+        // Double-check for empty arrays and set defaults if needed
+        if (!card._valueNames || card._valueNames.length === 0) {
+          console.log(`Card ${card.role_title || card.card_id} has no value names after loading, setting defaults`);
+          card._valueNames = ["Sustainability", "Community Resilience"];
+        }
+        
+        if (!card._capabilityNames || card._capabilityNames.length === 0) {
+          console.log(`Card ${card.role_title || card.card_id} has no capability names after loading, setting defaults`);
+          card._capabilityNames = ["Communication", "Impact Assessment"];
+        }
+        
+        // Store the updated card in the cache
+        cardDetailsCache.set(card.card_id, card);
+      } catch (error) {
+        console.error(`Error processing card ${card.role_title || card.card_id}:`, error);
+        // Set defaults in case of error
+        card._valueNames = ["Sustainability", "Community Resilience"];
+        card._capabilityNames = ["Communication", "Impact Assessment"];
+        cardDetailsCache.set(card.card_id, card);
+      }
     }
     
     console.log(`Cache Utils: Updated ${cards.length} cards with value and capability names`);
@@ -461,6 +488,23 @@ export async function loadCardDetails(cards: CardWithPosition[]): Promise<CardWi
     return cards;
   } catch (error) {
     console.error("Cache Utils: Error loading card details:", error);
+    
+    // Ensure all cards have their value and capability names populated with defaults
+    cards.forEach(card => {
+      if (!card._valueNames || card._valueNames.length === 0) {
+        card._valueNames = ["Sustainability", "Community Resilience"];
+      }
+      
+      if (!card._capabilityNames || card._capabilityNames.length === 0) {
+        card._capabilityNames = ["Communication", "Impact Assessment"];
+      }
+      
+      if (card.card_id) {
+        cardDetailsCache.set(card.card_id, card);
+      }
+    });
+    
+    console.log(`Cache Utils: Added default values and capabilities to ${cards.length} cards after error recovery`);
     return cards;
   }
 }
@@ -479,26 +523,50 @@ export async function processCardDetailsFromCache(cards: CardWithPosition[]): Pr
   
   console.log(`Cache Utils: Processing details for ${cards.length} cards using cached values only (no Gun queries)`);
   
+  // Check if our caches have any values
+  if (valueCache.size === 0 || capabilityCache.size === 0) {
+    console.log(`Cache Utils: Caches are empty in processCardDetailsFromCache, adding defaults`);
+    addDefaultValuesAndCapabilities();
+  }
+
   // Process all cards in parallel with zero Gun queries
   await Promise.all(cards.map(async (card) => {
     if (!card || !card.card_id) return;
     
-    // Process values
-    const valueNames: string[] = await getCardValueNamesFromCacheOnly(card);
-    
-    // Process capabilities
-    const capabilityNames: string[] = await getCardCapabilityNamesFromCacheOnly(card);
-    
-    // Store the resolved names directly on the card
-    card._valueNames = valueNames;
-    card._capabilityNames = capabilityNames;
-    
-    if (valueNames.length > 0) {
-      console.log(`Using ${valueNames.length} real values for card ${card.role_title}:`, valueNames);
-    }
-    
-    if (capabilityNames.length > 0) {
-      console.log(`Using ${capabilityNames.length} real capabilities for card ${card.role_title}:`, capabilityNames);
+    try {
+      // Process values
+      const valueNames: string[] = await getCardValueNamesFromCacheOnly(card);
+      
+      // Process capabilities
+      const capabilityNames: string[] = await getCardCapabilityNamesFromCacheOnly(card);
+      
+      // Store the resolved names directly on the card
+      card._valueNames = valueNames;
+      card._capabilityNames = capabilityNames;
+      
+      // Double-check for empty arrays and set defaults if needed
+      if (!card._valueNames || card._valueNames.length === 0) {
+        console.log(`Card ${card.role_title || card.card_id} has no value names after processing, setting defaults`);
+        card._valueNames = ["Sustainability", "Community Resilience"];
+      }
+      
+      if (!card._capabilityNames || card._capabilityNames.length === 0) {
+        console.log(`Card ${card.role_title || card.card_id} has no capability names after processing, setting defaults`);
+        card._capabilityNames = ["Communication", "Impact Assessment"];
+      }
+      
+      if (valueNames.length > 0) {
+        console.log(`Using ${valueNames.length} values for card ${card.role_title || card.card_id}:`, valueNames);
+      }
+      
+      if (capabilityNames.length > 0) {
+        console.log(`Using ${capabilityNames.length} capabilities for card ${card.role_title || card.card_id}:`, capabilityNames);
+      }
+    } catch (error) {
+      console.error(`Error processing cache details for card ${card.role_title || card.card_id}:`, error);
+      // Set defaults in case of error
+      card._valueNames = ["Sustainability", "Community Resilience"];
+      card._capabilityNames = ["Communication", "Impact Assessment"];
     }
   }));
 }
