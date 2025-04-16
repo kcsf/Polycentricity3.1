@@ -710,15 +710,65 @@ export function initializeD3Graph(
   });
   
   // Create D3 nodes and links with defensive coding
-  const nodes = cards && agreements ? createNodes(cards, agreements, width, height) : [];
+  if (!cards || !Array.isArray(cards) || cards.length === 0) {
+    console.warn('No valid cards data provided for D3 graph initialization');
+    
+    // Create empty SVG structure
+    const svg = d3.select(svgElement);
+    svg.selectAll("*").remove();
+    
+    const nodeGroup = svg.append("g").attr("class", "nodes");
+    const linkGroup = svg.append("g").attr("class", "links");
+    
+    // Return an empty graph structure when no data exists
+    return {
+      simulation: d3.forceSimulation<D3Node>([]),
+      nodeElements: nodeGroup.selectAll("g") as any, // Empty selection
+      linkElements: linkGroup.selectAll("g") as any, // Empty selection
+      nodes: [],
+      links: []
+    };
+  }
+  
+  // Create nodes with safer approach
+  let nodes: D3Node[] = [];
+  try {
+    nodes = createNodes(cards, agreements || [], width, height);
+  } catch (err) {
+    console.error('Error creating nodes:', err);
+    
+    // Create empty SVG structure on error
+    const svg = d3.select(svgElement);
+    svg.selectAll("*").remove();
+    
+    const nodeGroup = svg.append("g").attr("class", "nodes");
+    const linkGroup = svg.append("g").attr("class", "links");
+    
+    // Return an empty graph structure
+    return {
+      simulation: d3.forceSimulation<D3Node>([]),
+      nodeElements: nodeGroup.selectAll("g") as any,
+      linkElements: linkGroup.selectAll("g") as any,
+      nodes: [],
+      links: []
+    };
+  }
+  
   if (!nodes || nodes.length === 0) {
     console.warn('No nodes created in D3 graph initialization');
+    
+    // Create empty SVG structure
+    const svg = d3.select(svgElement);
+    svg.selectAll("*").remove();
+    
+    const nodeGroup = svg.append("g").attr("class", "nodes");
+    const linkGroup = svg.append("g").attr("class", "links");
     
     // Return an empty graph structure when no nodes exist
     return {
       simulation: d3.forceSimulation<D3Node>([]),
-      nodeElements: d3.select(svgElement).append('g').attr('class', 'nodes') as any,
-      linkElements: d3.select(svgElement).append('g').attr('class', 'links') as any,
+      nodeElements: nodeGroup.selectAll("g") as any,
+      linkElements: linkGroup.selectAll("g") as any,
       nodes: [],
       links: []
     };
@@ -760,15 +810,31 @@ export function initializeD3Graph(
     .attr("class", d => `link-path ${d.type}`)
     .attr("marker-end", d => `url(#arrow-${d.type})`);
   
-  // Create node elements
-  const nodeElements = nodeGroup
-    .selectAll("g")
-    .data(nodes)
-    .enter()
-    .append("g")
-    .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
-    .on("click", (_, d) => handleNodeClick(d))
-    .call(dragBehavior as any);
+  // Create node elements with defensive coding
+  let nodeElements;
+  try {
+    nodeElements = nodeGroup
+      .selectAll("g")
+      .data(nodes)
+      .enter()
+      .append("g")
+      .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+      .on("click", (_, d) => handleNodeClick(d))
+      .call(dragBehavior as any);
+    
+    // Verify that nodeElements is created correctly
+    if (!nodeElements || nodeElements.empty()) {
+      console.warn("Node elements selection is empty after creation");
+      
+      // Create an empty selection that can be safely returned
+      nodeElements = nodeGroup.selectAll("g");
+    }
+  } catch (err) {
+    console.error("Error creating node elements:", err);
+    
+    // Create an empty selection that can be safely returned
+    nodeElements = nodeGroup.selectAll("g");
+  }
   
   // Add background circles for nodes
   nodeElements.append("circle")

@@ -1197,6 +1197,26 @@
     
     // Use our utility function to initialize the D3 graph
     try {
+      // Debug: Check parameters before initializing
+      console.log('D3 Initialization params:', {
+        svgExists: !!svgRef,
+        cardsCount: cardsWithPosition?.length || 0,
+        agreementsCount: agreements?.length || 0,
+        width,
+        height
+      });
+      
+      // Verify cards data first to avoid initialization issues
+      if (!svgRef) {
+        console.error('Cannot initialize D3 graph: SVG reference is undefined');
+        return; 
+      }
+      
+      if (!cardsWithPosition || cardsWithPosition.length === 0) {
+        console.warn('No cards available to visualize, skipping graph initialization');
+        return;
+      }
+      
       // Initialize the graph using our utility function
       const graphState = initializeD3Graph(
         svgRef,
@@ -1208,28 +1228,32 @@
         handleNodeClick
       );
       
+      // Verify we received a valid graph state
+      if (!graphState) {
+        console.error('Graph state is undefined after initialization');
+        return;
+      }
+      
       // Store references to the graph elements for later use
       simulation = graphState.simulation;
       nodeElements = graphState.nodeElements;
       
-      // After the graph is initialized, we can add donut segments to the nodes
-      // Store references to the node elements first since they're needed for donut rings
-      if (graphState && graphState.nodeElements) {
-        nodeElements = graphState.nodeElements;
-        
-        // Now we can safely use nodeElements in addDonutRings 
-        console.log('Adding donut rings to nodes...');
-        
-        // Important: Pass all required parameters
-        addDonutRings(
-          nodeElements,
-          activeCardId,
-          valueCache,
-          capabilityCache
-        );
-      } else {
-        console.error('Cannot add donut rings: graph state or nodeElements is undefined');
+      // Double check node elements before attempting to add donut rings
+      if (!nodeElements || !graphState.nodeElements) {
+        console.error('Cannot add donut rings: nodeElements is undefined after initialization');
+        return;
       }
+      
+      // Now we can safely use nodeElements in addDonutRings 
+      console.log('Adding donut rings to nodes...');
+      
+      // Important: Pass all required parameters
+      addDonutRings(
+        nodeElements,
+        activeCardId,
+        valueCache,
+        capabilityCache
+      );
       
       // Add center icons to the nodes
       if (nodeElements) {
