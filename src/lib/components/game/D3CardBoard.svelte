@@ -2431,7 +2431,8 @@
   }
   
   // Complete remake of donut rings to EXACTLY match React implementation
-  function addDonutRings() {
+  // Note: This function is kept for reference but not used - we use addDonutRings from d3GraphUtils.ts instead
+  function addLocalDonutRings() {
     // ----- EXACTLY MATCH REACT APPROACH -----
     
     // Get all card nodes
