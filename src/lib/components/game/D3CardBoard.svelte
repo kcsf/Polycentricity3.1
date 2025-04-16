@@ -2163,32 +2163,60 @@
           // Get the icon component asynchronously
           const IconComponent = await getLucideIcon(iconName);
           
-          // Create a simple SVG icon directly
+          // Create container for the icon
           const container = div.node();
           if (container) {
             try {
-              // Create a simple SVG element
-              const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-              svg.setAttribute("width", iconSize.toString());
-              svg.setAttribute("height", iconSize.toString());
-              svg.setAttribute("viewBox", "0 0 24 24");
-              svg.setAttribute("stroke", "#555555");
-              svg.setAttribute("stroke-width", "2");
-              svg.setAttribute("stroke-linecap", "round");
-              svg.setAttribute("stroke-linejoin", "round");
-              svg.setAttribute("fill", "none");
-              svg.setAttribute("class", "lucide-icon");
+              // Import SvelteComponent to instantiate the icon properly
+              const { SvelteComponent } = await import('svelte/internal');
               
-              // Create a circle (common element in many icons)
-              const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-              circle.setAttribute("cx", "12");
-              circle.setAttribute("cy", "12");
-              circle.setAttribute("r", "10");
+              // Clear the container first
+              while (container.firstChild) {
+                container.removeChild(container.firstChild);
+              }
               
-              svg.appendChild(circle);
-              container.appendChild(svg);
-              
-              console.log(`Successfully created icon component for ${card.role_title}`);
+              if (IconComponent && typeof IconComponent === 'function') {
+                // Create new instance of the Lucide icon component
+                new IconComponent({
+                  target: container,
+                  props: {
+                    size: iconSize,
+                    color: '#555555',
+                    strokeWidth: 2,
+                    class: 'lucide-icon'
+                  }
+                });
+                
+                console.log(`Successfully created icon component for ${card.role_title}`);
+              } else {
+                // Fallback: Create a simple SVG if the component isn't available
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svg.setAttribute("width", iconSize.toString());
+                svg.setAttribute("height", iconSize.toString());
+                svg.setAttribute("viewBox", "0 0 24 24");
+                svg.setAttribute("stroke", "#555555");
+                svg.setAttribute("stroke-width", "2");
+                svg.setAttribute("stroke-linecap", "round");
+                svg.setAttribute("stroke-linejoin", "round");
+                svg.setAttribute("fill", "none");
+                svg.setAttribute("class", "lucide-icon");
+                
+                // Create a user icon as fallback
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", "12");
+                circle.setAttribute("cy", "12");
+                circle.setAttribute("r", "5");
+                
+                // Add head above the circle
+                const head = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                head.setAttribute("cx", "12");
+                head.setAttribute("cy", "7");
+                head.setAttribute("r", "3");
+                
+                svg.appendChild(circle);
+                svg.appendChild(head);
+                container.appendChild(svg);
+              }
             } catch (err) {
               console.error(`Error creating icon component: ${err}`);
             }
