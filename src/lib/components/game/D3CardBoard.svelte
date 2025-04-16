@@ -254,31 +254,22 @@
     try {
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
-        // Create a new array instead of modifying the original cards array
-        const newCardsWithPosition: CardWithPosition[] = [];
-        
-        // Process each card to add position data
-        for (const card of cards) {
-          if (!card || !card.card_id) {
-            continue;
-          }
-          
-          const cardWithPosition: CardWithPosition = {
+        // Create a new array with position data
+        const newCardsWithPosition: CardWithPosition[] = cards
+          .filter(card => card && card.card_id)
+          .map(card => ({
             ...card,
             position: {
               x: Math.random() * width,
               y: Math.random() * height
             }
-          };
-          
-          newCardsWithPosition.push(cardWithPosition);
-          
-          // Load card details (values and capabilities) 
-          await loadCardDetails(card);
-        }
+          }));
         
         // Update the cardsWithPosition array with all processed cards at once
         cardsWithPosition = newCardsWithPosition;
+        
+        // Batch load all card details before initializing the graph
+        await loadAllCardDetails(newCardsWithPosition);
       } else {
         // If no cards were passed directly, fetch from database
         await loadGameData();
@@ -299,6 +290,7 @@
           createDemoAgreements();
         }
         
+        // Initialize the graph once, after all data is loaded
         initializeGraph();
       }
       
@@ -367,8 +359,8 @@
                 };
                 cardsWithPosition = [...cardsWithPosition, cardWithPosition];
                 
-                // Load Values and Capabilities for this card
-                loadCardDetails(cardData);
+                // Do not call loadCardDetails for each card individually
+                // We will batch load all cards once the collection is complete
               }
             });
           }
@@ -463,7 +455,130 @@
     }
   }
   
-  async function loadCardDetails(card: Card) {
+  /**
+   * Optimized batch loading function for all card details
+   * Loads values and capabilities for all cards in one go,
+   * then updates the cards once at the end, avoiding multiple graph redraws
+   */
+  async function loadAllCardDetails(cards: CardWithPosition[]): Promise<void> {
+    try {
+      const gun = getGun();
+      if (!gun) {
+        console.error("D3CardBoard: Gun not initialized");
+        return;
+      }
+      
+      if (!cards || cards.length === 0) {
+        console.log("D3CardBoard: No cards to load details for");
+        return;
+      }
+      
+      console.log(`Loading details for ${cards.length} cards in batch mode`);
+      
+      // Create promises for loading values and capabilities for all cards
+      const loadPromises = cards.map(async (card) => {
+        if (!card || !card.card_id) {
+          console.error("D3CardBoard: Invalid card object or missing card_id", card);
+          return null;
+        }
+        
+        // Use our optimized functions to get values and capabilities
+        const valueNames = await getCardValueNames(card);
+        const capabilityNames = await getCardCapabilityNames(card);
+        
+        // Add the value names and capability names to the card for visualization
+        const cardWithDetails = card as CardWithPosition & {
+          _valueNames?: string[],
+          _capabilityNames?: string[]
+        };
+        
+        cardWithDetails._valueNames = valueNames;
+        cardWithDetails._capabilityNames = capabilityNames;
+        
+        // Create values object based on the names we got
+        if (valueNames && valueNames.length > 0) {
+          const valuesObj: Record<string, boolean> = {};
+          valueNames.forEach(valueName => {
+            const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+            valuesObj[valueId] = true;
+            
+            // Add to value cache if not already there
+            if (!valueCache.has(valueId)) {
+              valueCache.set(valueId, {
+                value_id: valueId,
+                name: valueName,
+                description: `${valueName} for ${card.role_title}`,
+                created_at: Date.now()
+              });
+            }
+          });
+          
+          // Update the card's values
+          card.values = valuesObj;
+        }
+        
+        // Do the same for capabilities
+        if (capabilityNames && capabilityNames.length > 0) {
+          const capabilitiesObj: Record<string, boolean> = {};
+          capabilityNames.forEach(capName => {
+            const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+            capabilitiesObj[capabilityId] = true;
+            
+            // Add to capability cache if not already there
+            if (!capabilityCache.has(capabilityId)) {
+              capabilityCache.set(capabilityId, {
+                capability_id: capabilityId,
+                name: capName,
+                description: `${capName} for ${card.role_title}`,
+                created_at: Date.now()
+              });
+            }
+          });
+          
+          // Update the card's capabilities
+          card.capabilities = capabilitiesObj;
+        }
+        
+        return {
+          card_id: card.card_id,
+          values: card.values,
+          capabilities: card.capabilities,
+          _valueNames: cardWithDetails._valueNames,
+          _capabilityNames: cardWithDetails._capabilityNames
+        };
+      });
+      
+      // Wait for all promises to resolve
+      const results = await Promise.all(loadPromises);
+      
+      // Update cardsWithPosition with all the loaded details at once
+      cardsWithPosition = cardsWithPosition.map(c => {
+        const updatedCard = results.find(r => r && r.card_id === c.card_id);
+        if (updatedCard) {
+          return {
+            ...c,
+            values: updatedCard.values,
+            capabilities: updatedCard.capabilities,
+            _valueNames: updatedCard._valueNames,
+            _capabilityNames: updatedCard._capabilityNames
+          };
+        }
+        return c;
+      });
+      
+      console.log("Finished loading all card details in batch mode");
+      // No need to call initializeGraph() here - that will happen after this function returns
+      
+    } catch (error) {
+      console.error("D3CardBoard: Unexpected error in loadAllCardDetails:", error);
+    }
+  }
+  
+  /**
+   * Legacy function for single card detail loading
+   * Now refactored to avoid reinitializing the graph
+   */
+  async function loadCardDetails(card: Card): Promise<void> {
     try {
       const gun = getGun();
       if (!gun) {
@@ -478,12 +593,21 @@
       
       console.log(`Loading details for card: ${card.card_id} - ${card.role_title}`);
 
-      // Use our new optimized functions to get values and capabilities
+      // Use our optimized functions to get values and capabilities
       const valueNames = await getCardValueNames(card);
       console.log(`Values for ${card.role_title}:`, valueNames);
       
       const capabilityNames = await getCardCapabilityNames(card);
       console.log(`Capabilities for ${card.role_title}:`, capabilityNames);
+      
+      // Add the value names and capability names to the card for visualization
+      const cardWithDetails = card as Card & {
+        _valueNames?: string[],
+        _capabilityNames?: string[]
+      };
+      
+      cardWithDetails._valueNames = valueNames;
+      cardWithDetails._capabilityNames = capabilityNames;
       
       // IMPORTANT: Update the card with the values and capabilities
       if (valueNames && valueNames.length > 0) {
@@ -492,6 +616,16 @@
         valueNames.forEach(valueName => {
           const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
           valuesObj[valueId] = true;
+          
+          // Add to value cache if not already there
+          if (!valueCache.has(valueId)) {
+            valueCache.set(valueId, {
+              value_id: valueId,
+              name: valueName,
+              description: `${valueName} for ${card.role_title}`,
+              created_at: Date.now()
+            });
+          }
         });
         
         // Replace the card's values with our new object
@@ -505,6 +639,16 @@
         capabilityNames.forEach(capName => {
           const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
           capabilitiesObj[capabilityId] = true;
+          
+          // Add to capability cache if not already there
+          if (!capabilityCache.has(capabilityId)) {
+            capabilityCache.set(capabilityId, {
+              capability_id: capabilityId,
+              name: capName,
+              description: `${capName} for ${card.role_title}`,
+              created_at: Date.now()
+            });
+          }
         });
         
         // Replace the card's capabilities with our new object
@@ -517,18 +661,16 @@
           return {
             ...c,
             values: card.values,
-            capabilities: card.capabilities
+            capabilities: card.capabilities,
+            _valueNames: cardWithDetails._valueNames,
+            _capabilityNames: cardWithDetails._capabilityNames
           };
         }
         return c;
       });
       
-      // Now reinitialize the graph
-      if (svgRef) {
-        const svg = d3.select(svgRef);
-        svg.selectAll("*").remove();
-        initializeGraph();
-      }
+      // DO NOT reinitialize the graph here anymore - this would cause multiple redraws
+      // Now we just update the data and let the caller decide when to redraw
     } catch (error) {
       console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
