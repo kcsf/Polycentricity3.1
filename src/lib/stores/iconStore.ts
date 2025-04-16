@@ -65,7 +65,7 @@ export async function loadIcons(iconNames: string[]) {
       .join("");
 
     try {
-      const module = await import("svelte-lucide");
+      const module = await import("svelte-lucide") as Record<string, any>;
       if (module[pascalName]) {
         console.log(`Loaded icon ${name} as ${pascalName} from svelte-lucide`);
         newIcons.set(name, { name, component: module[pascalName] });

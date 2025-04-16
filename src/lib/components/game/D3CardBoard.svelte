@@ -1244,7 +1244,6 @@
           });
         }
       })();
-      }
     });
 
     // Create name labels outside/below the node for better readability
