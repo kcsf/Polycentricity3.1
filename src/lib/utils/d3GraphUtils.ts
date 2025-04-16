@@ -495,6 +495,12 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
+  // Guard against undefined nodeElements
+  if (!nodeElements) {
+    console.error("Cannot add donut rings: nodeElements is undefined");
+    return;
+  }
+  
   // Get all card nodes
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
   
