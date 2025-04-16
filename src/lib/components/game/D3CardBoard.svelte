@@ -1217,10 +1217,23 @@
         return;
       }
       
+      // Create a simple, manually created SVG structure first if we need a fallback
+      const svg = d3.select(svgRef);
+      
+      // Manual approach - create a base structure as a safety net
+      if (!svg.select('.links').node()) {
+        svg.append('g').attr('class', 'links');
+      }
+      
+      if (!svg.select('.nodes').node()) {
+        svg.append('g').attr('class', 'nodes');
+      }
+      
       // Initialize the graph using our utility function
+      console.log('Initializing D3 graph with data...');
       const graphState = initializeD3Graph(
         svgRef,
-        cardsWithPosition,
+        cardsWithPosition, 
         agreements,
         width,
         height,
@@ -1234,26 +1247,37 @@
         return;
       }
       
+      // Log what we received from the graph initialization
+      console.log('Graph initialized. Received:', {
+        hasSimulation: !!graphState.simulation,
+        hasNodeElements: !!graphState.nodeElements,
+        nodeElementsEmpty: graphState.nodeElements?.empty?.() || true,
+        nodesCount: graphState.nodes?.length || 0
+      });
+      
       // Store references to the graph elements for later use
       simulation = graphState.simulation;
       nodeElements = graphState.nodeElements;
       
-      // Double check node elements before attempting to add donut rings
-      if (!nodeElements || !graphState.nodeElements) {
-        console.error('Cannot add donut rings: nodeElements is undefined after initialization');
-        return;
+      // Create a safety mechanism for donut rings
+      try {
+        // Only attempt to add donut rings if we have actual node elements
+        if (nodeElements && !nodeElements.empty() && graphState.nodes.length > 0) {
+          console.log('Adding donut rings to nodes...');
+          
+          // Important: Pass all required parameters
+          addDonutRings(
+            nodeElements,
+            activeCardId,
+            valueCache,
+            capabilityCache
+          );
+        } else {
+          console.warn('Skipping donut rings: No node elements available');
+        }
+      } catch (err) {
+        console.error('Error adding donut rings:', err);
       }
-      
-      // Now we can safely use nodeElements in addDonutRings 
-      console.log('Adding donut rings to nodes...');
-      
-      // Important: Pass all required parameters
-      addDonutRings(
-        nodeElements,
-        activeCardId,
-        valueCache,
-        capabilityCache
-      );
       
       // Add center icons to the nodes
       if (nodeElements) {

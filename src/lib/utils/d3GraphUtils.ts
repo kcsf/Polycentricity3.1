@@ -490,7 +490,7 @@ export function updateForces(
  * @param capabilityCache - Map of capability IDs to Capability objects
  */
 export function addDonutRings(
-  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
+  nodeElements: d3.Selection<any, any, any, any>,
   activeCardId?: string | null,
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
@@ -498,6 +498,17 @@ export function addDonutRings(
   // Guard against undefined nodeElements
   if (!nodeElements) {
     console.error("Cannot add donut rings: nodeElements is undefined");
+    return;
+  }
+  
+  // Also check if the selection is empty
+  try {
+    if (nodeElements.empty()) {
+      console.warn("Cannot add donut rings: nodeElements selection is empty");
+      return;
+    }
+  } catch (err) {
+    console.error("Error checking nodeElements:", err);
     return;
   }
   
@@ -694,8 +705,8 @@ export function initializeD3Graph(
   handleNodeClick: (node: D3Node) => void
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
-  nodeElements: d3.Selection<SVGGElement, D3Node, any, any>,
-  linkElements: d3.Selection<SVGGElement, D3Link, any, any>,
+  nodeElements: d3.Selection<any, any, any, any>,
+  linkElements: d3.Selection<any, any, any, any>,
   nodes: D3Node[],
   links: D3Link[]
 } {
@@ -811,15 +822,16 @@ export function initializeD3Graph(
     .attr("marker-end", d => `url(#arrow-${d.type})`);
   
   // Create node elements with defensive coding
-  let nodeElements;
+  // Use a more flexible type to avoid TypeScript errors with D3's selections
+  let nodeElements: d3.Selection<any, any, any, any>;
   try {
     nodeElements = nodeGroup
       .selectAll("g")
       .data(nodes)
       .enter()
       .append("g")
-      .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
-      .on("click", (_, d) => handleNodeClick(d))
+      .attr("class", (d: D3Node) => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+      .on("click", (_: any, d: D3Node) => handleNodeClick(d))
       .call(dragBehavior as any);
     
     // Verify that nodeElements is created correctly
@@ -836,10 +848,14 @@ export function initializeD3Graph(
     nodeElements = nodeGroup.selectAll("g");
   }
   
-  // Add background circles for nodes
-  nodeElements.append("circle")
-    .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
-    .attr("r", d => d.type === 'actor' ? 35 : 17);
+  // Add background circles for nodes - with proper type annotations
+  try {
+    nodeElements.append("circle")
+      .attr("class", (d: D3Node) => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
+      .attr("r", (d: D3Node) => d.type === 'actor' ? 35 : 17);
+  } catch (err) {
+    console.error("Error adding background circles to nodes:", err);
+  }
   
   // Setup visualization update on tick
   simulation.on("tick", () => {
