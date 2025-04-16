@@ -1371,7 +1371,7 @@
             console.log("Closing popover - same node clicked again");
           } else {
             // Open the popover to show node details for a different node
-            popoverNode = getOptimizedCardData(node);
+            popoverNode = node.data;
             popoverNodeType = node.type;
             
             // Calculate position for the popover using CURRENT coordinates
@@ -1612,7 +1612,7 @@
             console.log("Closing popover - same node clicked again");
           } else {
             // Open the popover to show node details for a different node
-            popoverNode = getOptimizedCardData(node);
+            popoverNode = node.data;
             popoverNodeType = node.type;
             
             // Calculate position for the popover using CURRENT coordinates
