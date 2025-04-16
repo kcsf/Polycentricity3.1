@@ -1,8 +1,8 @@
 import { writable } from "svelte/store";
 import { User } from "lucide-svelte";
 
-// Map GunDB icon names to svelte-lucide names
-// Add new mappings here for any new icons that don’t match svelte-lucide exactly
+// Map GunDB icon names to lucide-svelte names
+// Add new mappings here for any new icons that don’t match lucide-svelte exactly
 const iconNameMap: Record<string, string> = {
   // Common card icons we've seen in the database
   Hammer: "Hammer",

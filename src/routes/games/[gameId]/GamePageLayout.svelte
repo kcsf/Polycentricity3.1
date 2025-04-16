@@ -15,7 +15,7 @@
     ChevronDown,
     ChevronUp,
     Maximize
-  } from 'svelte-lucide';
+  } from 'lucide-svelte';
   import gameStore, { activeActorId } from '$lib/stores/enhancedGameStore';
   import { userStore } from '$lib/stores/userStore';
   import type { Game, Actor, Card } from '$lib/types';

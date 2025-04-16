@@ -2,7 +2,7 @@
   import { gameStore, AgreementType } from '@/store/gameStore';
   import type { Actor } from '@/store/gameStore';
   import { v4 as uuidv4 } from 'uuid';
-  import { Plus, Trash2, X } from 'svelte-lucide';
+  import { Plus, Trash2, X } from 'lucide-svelte';
   
   // Form data
   let title = '';
