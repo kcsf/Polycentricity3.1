@@ -312,9 +312,10 @@
       // This ensures all values and capabilities are loaded first
       await initializeCaches(gameId);
       
-      console.log("D3CardBoard: Caches initialized before loading cards:");
-      console.log("Values cache size:", getAllCachedValues().size);
-      console.log("Capabilities cache size:", getAllCachedCapabilities().size);
+      console.log("Caches initialized:", { 
+        values: getAllCachedValues().size, 
+        capabilities: getAllCachedCapabilities().size 
+      });
       
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
