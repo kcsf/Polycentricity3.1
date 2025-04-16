@@ -89,7 +89,9 @@
   // Import getAllCachedValues and getAllCachedCapabilities
   import { 
     getAllCachedValues,
-    getAllCachedCapabilities
+    getAllCachedCapabilities,
+    addValueToCache,
+    addCapabilityToCache
   } from '$lib/utils/cacheUtils';
   let actorCardMap: Map<string, string> = new Map(); // Maps actor_id to card_id
   

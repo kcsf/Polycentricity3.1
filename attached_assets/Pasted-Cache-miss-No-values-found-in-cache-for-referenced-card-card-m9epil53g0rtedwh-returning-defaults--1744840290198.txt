@@ -1,0 +1,35 @@
+Cache miss: No values found in cache for referenced card card_m9epil53g0rtedwh, returning defaults
+DEBUG: Looking for capabilityNames in card PMA Seedkeeper. 
+Object {hasCapabilities: true, capabilityType: "object", capabilitiesObj: {…}}
+Cache miss: No capabilities found in cache for referenced card card_m9epil53g0rtedwh, returning defaults
+Card PMA Seedkeeper loaded with: 
+Object {values: Array(2), capabilities: Array(2)}
+DEBUG: Looking for valueNames in card Eco-Patron Collective. 
+Object {hasValues: true, valueType: "object", valuesObj: {…}}
+Cache miss: No values found in cache for referenced card card_m9epimjtsgubbspn, returning defaults
+DEBUG: Looking for capabilityNames in card Eco-Patron Collective. 
+Object {hasCapabilities: true, capabilityType: "object", capabilitiesObj: {…}}
+Cache miss: No capabilities found in cache for referenced card card_m9epimjtsgubbspn, returning defaults
+Card Eco-Patron Collective loaded with: 
+Object {values: Array(2), capabilities: Array(2)}
+Cache Utils: Updated 4 cards with value and capability names
+Cache Utils: Card details cache size: 18
+Processed cards: 
+(4) [{…}, {…}, {…}, {…}]
+Finished loading all card details using centralized cache utilities
+Cache status updated through centralized cache management
+D3CardBoard: Cards with value and capability names before visualization:
+Card Luminos Funder has: 
+Object {valueNames: Array(2), valueCount: 2, capabilityNames: Array(2), capabilityCount: 2}
+Card DAO of the Green Veil has: 
+Object {valueNames: Array(2), valueCount: 2, capabilityNames: Array(2), capabilityCount: 2}
+Card PMA Seedkeeper has: 
+Object {valueNames: Array(2), valueCount: 2, capabilityNames: Array(2), capabilityCount: 2}
+Card Eco-Patron Collective has: 
+Object {valueNames: Array(2), valueCount: 2, capabilityNames: Array(2), capabilityCount: 2}
+D3CardBoard: Initializing graph with fully processed cards
+addValueToCache is not defined
+at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744839731634:1358:4
+at Array.forEach (<anonymous>)
+at initializeGraph (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744839731634:1357:17)
+at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744839731634:447:5
