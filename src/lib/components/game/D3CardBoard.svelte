@@ -12,6 +12,29 @@
   import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
   import RoleCard from '$lib/components/RoleCard.svelte';
   
+  // Helper for rendering Svelte components into the DOM with Svelte 5 compatibility
+  function getCardIcon(iconName = 'default') {
+    // Try to get from the iconStore first
+    const iconMap = get(iconStore);
+    const iconData = iconMap.get(iconName);
+    
+    if (iconData && iconData.component) {
+      console.log(`Found icon ${iconName} in iconStore`);
+      return iconData.component;
+    }
+    
+    // Static fallbacks for common icons
+    const staticIconMap = {
+      'user': User,
+      'User': User,
+      'default': User
+    };
+    
+    console.log(`Using fallback icon for ${iconName}`);
+    // Return the appropriate icon component or default
+    return staticIconMap[iconName] || User;
+  }
+  
   // Props
   export let gameId: string;
   export let activeActorId: string | undefined = undefined;
@@ -1217,31 +1240,38 @@
           // Get the icon component asynchronously
           const IconComponent = await getLucideIcon(iconName);
           
-          // Create the Svelte icon component
-          new IconComponent({
-            target: div.node(),
-            props: {
+          // Create the Svelte component directly (Svelte 5 compatible)
+          const container = div.node();
+          if (container) {
+            // Use the getCardIcon function to get a component we know how to render
+            const Icon = getCardIcon(iconName);
+            // Create the component using the Svelte 5 compatible syntax
+            Icon({ target: container, props: {
               size: iconSize,
               color: '#555555',
               strokeWidth: 2,
               class: 'lucide-icon',
-            },
-          });
+            }});
+          }
           
           console.log(`Successfully rendered icon for ${card.role_title}`);
         } catch (e) {
           console.error(`Error rendering icon for ${card.role_title}:`, e);
           
           // Fallback to User icon if something goes wrong
-          new User({
-            target: div.node(),
-            props: {
-              size: iconSize,
-              color: '#555555',
-              strokeWidth: 2,
-              class: 'lucide-icon',
-            },
-          });
+          const container = div.node();
+          if (container) {
+            // Use the User component directly with Svelte 5 compatible syntax
+            User({ 
+              target: container, 
+              props: {
+                size: iconSize,
+                color: '#555555',
+                strokeWidth: 2,
+                class: 'lucide-icon',
+              }
+            });
+          }
         }
       })();
     });
