@@ -529,7 +529,7 @@ export function fixNodeSelectors() {
  * @param capabilityCache - Map of capability IDs to Capability objects
  */
 export function addDonutRings(
-  nodeElements: d3.Selection<any, any, any, any>,
+  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
   activeCardId?: string | null,
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
@@ -540,37 +540,14 @@ export function addDonutRings(
   // Guard against undefined nodeElements
   if (!nodeElements) {
     console.error("Cannot add donut rings: nodeElements is undefined");
-    
-    // Try a direct DOM query as a fallback
-    try {
-      const cardNodes = d3.selectAll('.node-actor');
-      if (!cardNodes.empty()) {
-        console.log(`Found ${cardNodes.size()} nodes directly with .node-actor selector, using them instead`);
-        nodeElements = cardNodes;
-      } else {
-        console.warn('No nodes found even with direct selection, cannot add donut rings');
-        return;
-      }
-    } catch (err) {
-      console.error("Error with direct DOM query:", err);
-      return;
-    }
+    return;
   }
   
   // Also check if the selection is empty
   try {
     if (nodeElements.empty()) {
       console.warn("Cannot add donut rings: nodeElements selection is empty");
-      
-      // Try a direct DOM query as a fallback
-      const cardNodes = d3.selectAll('.node-actor');
-      if (!cardNodes.empty()) {
-        console.log(`Found ${cardNodes.size()} nodes directly with .node-actor selector, using them instead`);
-        nodeElements = cardNodes;
-      } else {
-        console.warn('No nodes found even with direct selection, cannot add donut rings');
-        return;
-      }
+      return;
     }
     
     // Debug the node elements data
@@ -602,7 +579,6 @@ export function addDonutRings(
     
     // If _valueNames and _capabilityNames aren't set, try to extract from cached values
     if (!cardNode._valueNames || cardNode._valueNames.length === 0) {
-      // We'll add some default values for testing but will be overridden by actual data
       console.log(`Node ${d.id} has no _valueNames property, attempting to find from card data`);
       
       // Extract from card data if available
@@ -756,17 +732,22 @@ export function addDonutRings(
           categoryData = categoryData.toString();
         }
         categoryItems = ensureArray(categoryData);
-        
-        // Log the items found (or not found)
-        if (categoryItems.length > 0) {
-          console.log(`Found ${categoryItems.length} items for category ${category} in node ${nodeData.id}:`, categoryItems);
-        } else {
-          console.log(`No items found for category ${category} in node ${nodeData.id}`);
-        }
       }
       
-      // Now proceed with creating wedges if we have items
-      if (categoryItems.length > 0) {
+      // Log all categories for this node with detailed information
+      console.log(`Category ${category} for node ${nodeData.id}:`, {
+        count: categoryItems.length,
+        items: categoryItems,
+        hasData: categoryItems.length > 0
+      });
+        
+      // Skip rendering if the category has no items
+      if (categoryItems.length === 0) {
+        console.log(`Skipping rendering for empty category ${category} in node ${nodeData.id}`);
+        return; // Skip to next category
+      }
+      
+      // Now proceed with creating wedges
         // Calculate angles for wedges based on number of items
         const isActive = nodeData.id === activeCardId;
         const scaleFactor = isActive ? 1.5 : 1;
