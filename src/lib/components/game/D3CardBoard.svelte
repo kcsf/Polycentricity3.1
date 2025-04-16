@@ -10,7 +10,8 @@
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
-  import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
+  // Removed import of getCardValueNames, getCardCapabilityNames to eliminate Gun.js queries
+  // Using internal cache-only implementations instead
   import RoleCard from '$lib/components/RoleCard.svelte';
   
   // Helper for rendering Svelte components into the DOM with Svelte 5 compatibility
