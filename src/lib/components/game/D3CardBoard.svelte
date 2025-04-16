@@ -79,6 +79,7 @@
   // All UI elements are now handled directly with D3
   let categoryCount = 0;
   let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
+  let simulation: d3.Simulation<D3Node, d3.SimulationLinkDatum<D3Node>>; // Store simulation for access in multiple functions
   
   // Dataset
   let cardsWithPosition: CardWithPosition[] = [];

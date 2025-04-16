@@ -1,0 +1,19 @@
+Error initializing D3 graph: 
+ReferenceError {}
+
+at t.value (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+REFERENCE ERROR DETAILS: This usually means a variable is undefined or doesn't exist
+Error name: ReferenceError
+Error message: simulation is not defined
+Error stack: ReferenceError: simulation is not defined
+    at initializeGraph (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744830131488:1362:15)
+    at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744830131488:419:5
+at initializeGraph (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744830131488:1362:15)
+at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/src/lib/components/game/D3CardBoard.svelte?t=1744830131488:419:5
+at t.value (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://308c3cd4-629d-4842-a74f-714ffd4b8ba2-00-nmcqb5x4k5f0.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
