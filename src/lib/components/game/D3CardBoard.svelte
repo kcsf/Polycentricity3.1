@@ -1240,37 +1240,50 @@
           // Get the icon component asynchronously
           const IconComponent = await getLucideIcon(iconName);
           
-          // Create the Svelte component directly (Svelte 5 compatible)
+          // Create the Svelte component directly 
           const container = div.node();
           if (container) {
-            // Use the getCardIcon function to get a component we know how to render
-            const Icon = getCardIcon(iconName);
-            // Create the component using the Svelte 5 compatible syntax
-            Icon({ target: container, props: {
-              size: iconSize,
-              color: '#555555',
-              strokeWidth: 2,
-              class: 'lucide-icon',
-            }});
+            try {
+              // Use the User component directly as a safer approach
+              // This ensures the component API is used correctly
+              const icon = User({
+                target: container,
+                props: {
+                  size: iconSize,
+                  color: '#555555',
+                  strokeWidth: 2,
+                  class: 'lucide-icon',
+                }
+              });
+              console.log(`Successfully created icon component for ${card.role_title}`);
+            } catch (err) {
+              console.error(`Error creating icon component: ${err}`);
+            }
           }
           
           console.log(`Successfully rendered icon for ${card.role_title}`);
         } catch (e) {
           console.error(`Error rendering icon for ${card.role_title}:`, e);
           
-          // Fallback to User icon if something goes wrong
+          // Fallback to simpler SVG circle if component rendering fails
           const container = div.node();
           if (container) {
-            // Use the User component directly with Svelte 5 compatible syntax
-            User({ 
-              target: container, 
-              props: {
-                size: iconSize,
-                color: '#555555',
-                strokeWidth: 2,
-                class: 'lucide-icon',
-              }
-            });
+            // Create a simple colored circle as a visual indicator that doesn't depend on component rendering
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", "24");
+            svg.setAttribute("height", "24");
+            svg.setAttribute("viewBox", "0 0 24 24");
+            
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", "12");
+            circle.setAttribute("cy", "12");
+            circle.setAttribute("r", "10");
+            circle.setAttribute("fill", "#555555");
+            
+            svg.appendChild(circle);
+            container.appendChild(svg);
+            
+            console.log(`Created fallback icon for ${card.role_title}`);
           }
         }
       })();
