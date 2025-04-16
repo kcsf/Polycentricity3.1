@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Actor } from '$lib/types';
-    import * as icons from 'svelte-lucide';
+    import * as icons from 'lucide-svelte';
     
     // Make component visible/invisible
     export let open = false;

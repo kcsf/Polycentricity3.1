@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import { createEventDispatcher } from 'svelte';
   import { updateDeck } from '$lib/services/deckService';
   import type { Deck } from '$lib/types';

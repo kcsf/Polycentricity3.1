@@ -1,7 +1,7 @@
 <script lang="ts">
   import { gameStore } from '@/store/gameStore';
   import type { Actor, Agreement } from '@/store/gameStore';
-  import { X } from 'svelte-lucide';
+  import { X } from 'lucide-svelte';
   
   let selectedNode: Actor | Agreement | null = null;
   let selectedNodeType: 'actor' | 'agreement' | null = null;

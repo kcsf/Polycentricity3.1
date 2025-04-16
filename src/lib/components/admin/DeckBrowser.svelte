@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import { getGun, nodes } from '$lib/services/gunService';
   import { getDeck } from '$lib/services/deckService';
@@ -249,7 +249,7 @@
     }
   }
   
-  // Transform icon name to PascalCase for svelte-lucide
+  // Transform icon name to PascalCase for lucide-svelte
   function toPascalCase(str: string): string {
     return str
       .split('-')

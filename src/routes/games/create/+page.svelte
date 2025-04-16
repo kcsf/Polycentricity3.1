@@ -3,7 +3,7 @@
         import { goto } from '$app/navigation';
         import { userStore } from '$lib/stores/userStore';
         import CreateGameForm from '$lib/components/CreateGameForm.svelte';
-        import { ArrowLeft } from 'svelte-lucide';
+        import { ArrowLeft } from 'lucide-svelte';
         
         // Temporarily disabled authentication check for development
         // onMount(() => {

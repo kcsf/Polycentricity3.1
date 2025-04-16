@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { replaceState } from '$app/navigation';

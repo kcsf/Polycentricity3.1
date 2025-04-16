@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import gameStore from '$lib/stores/enhancedGameStore';
   import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   
   // Props
   export let editMode = false;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
-  import { PlusCircle, ZoomIn, ZoomOut, Maximize, Search } from 'svelte-lucide';
+  import { PlusCircle, ZoomIn, ZoomOut, Maximize, Search } from 'lucide-svelte';
   // import { gameStore } from '@/store/gameStore';
   // import type { Actor, Agreement } from '@/store/gameStore';
 

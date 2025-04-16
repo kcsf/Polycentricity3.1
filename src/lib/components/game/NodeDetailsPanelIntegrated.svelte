@@ -1,7 +1,7 @@
 <script lang="ts">
   import gameStore from '$lib/stores/enhancedGameStore';
   import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import { derived } from 'svelte/store';
   
   // Props

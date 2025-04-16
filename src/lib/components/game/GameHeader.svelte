@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   
   export let game = { name: 'Polycentricity', game_id: 'demo' };
   

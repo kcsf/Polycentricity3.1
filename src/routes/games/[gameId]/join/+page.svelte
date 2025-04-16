@@ -7,7 +7,7 @@
     import { activeActorId } from '$lib/stores/enhancedGameStore'; 
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     import type { Game, Actor } from '$lib/types';
-    import * as icons from 'svelte-lucide';
+    import * as icons from 'lucide-svelte';
     import { GameStatus } from '$lib/types';
     
     const gameId = $page.params.gameId;

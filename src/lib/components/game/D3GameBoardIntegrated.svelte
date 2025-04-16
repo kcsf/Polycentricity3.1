@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import gameStore from '$lib/stores/enhancedGameStore';
   import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
   import AgreementModalIntegrated from './AgreementModalIntegrated.svelte';

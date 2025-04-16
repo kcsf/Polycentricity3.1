@@ -4,7 +4,7 @@
         import { goto } from '$app/navigation';
         import { formatDateTime } from '$lib/utils/helpers';
         import { userStore } from '$lib/stores/userStore';
-        import * as icons from 'svelte-lucide';
+        import * as icons from 'lucide-svelte';
         import { joinGame, leaveGame } from '$lib/services/gameService';
         
         export let game: Game;

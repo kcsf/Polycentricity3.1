@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import { getGun, nodes, generateId, put } from '$lib/services/gunService';
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
   import type { User } from '$lib/types';

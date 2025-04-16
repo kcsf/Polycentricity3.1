@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { getUserActors, getAvailableCardsForGame, createActor, getCard, getGameActors } from '$lib/services/gameService';
     import type { Actor, Card } from '$lib/types';
-    import * as icons from 'svelte-lucide';
+    import * as icons from 'lucide-svelte';
     
     export let gameId: string;
     export let onSelectActor: (actor: Actor) => void;

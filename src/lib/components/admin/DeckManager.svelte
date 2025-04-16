@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import * as icons from 'svelte-lucide';
+  import * as icons from 'lucide-svelte';
   import { getDeck, updateDeck, importCardsToDeck } from '$lib/services/deckService';
   import { getGun, nodes, generateId } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
