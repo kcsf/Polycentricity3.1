@@ -528,6 +528,40 @@ export function addDonutRings(
     data: cardNodes.data()
   });
   
+  // EMERGENCY OVERRIDE: Add simple colored rings to FORCE visualization
+  cardNodes.each(function(d) {
+    console.log("Adding FORCED rings to node:", d.id);
+    
+    // Add a simple colored ring around each node - color indicates we're in the override mode
+    d3.select(this)
+      .append("circle")
+      .attr("r", 45)
+      .attr("fill", "none")
+      .attr("stroke", "#ff0000")
+      .attr("stroke-width", 3)
+      .attr("stroke-opacity", 0.8);
+      
+    // Add a second ring - blue
+    d3.select(this)
+      .append("circle")
+      .attr("r", 55)
+      .attr("fill", "none")
+      .attr("stroke", "#0000ff")
+      .attr("stroke-width", 3)
+      .attr("stroke-opacity", 0.8);
+      
+    // Add a third ring - green
+    d3.select(this)
+      .append("circle")
+      .attr("r", 65)
+      .attr("fill", "none")
+      .attr("stroke", "#00ff00")
+      .attr("stroke-width", 3)
+      .attr("stroke-opacity", 0.8);
+    
+    console.log("Forced rings added to node:", d.id);
+  });
+  
   // Fixed values for radii
   const baseActorRadius = 35; 
   const baseDonutThickness = 15;

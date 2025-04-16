@@ -1385,6 +1385,32 @@
           });
         }
         
+        // MANUAL EMERGENCY OVERRIDE: Force add some distinctive circles for easier debugging
+        if (nodeElements) {
+          console.log("EMERGENCY: Trying manual direct circle on nodes");
+          try {
+            // Loop through each node in nodeElements
+            nodeElements.each(function(d) {
+              if (d && d.type === 'actor') {
+                // Try a more direct approach
+                const node = d3.select(this);
+                
+                // Add a bright MAGENTA colored circle (this should be unmistakable if it works)
+                node.append("circle")
+                   .attr("r", 75)
+                   .attr("fill", "none")
+                   .attr("stroke", "#FF00FF")
+                   .attr("stroke-width", 5)
+                   .attr("stroke-opacity", 1);
+                   
+                console.log("EMERGENCY: Added magenta circle to node", d.id);
+              }
+            });
+          } catch (e) {
+            console.error("EMERGENCY OVERRIDE FAILED:", e);
+          }
+        }
+        
         // Manually check what node selection gets
         try {
           const nodes = d3.select(svgRef).selectAll('.node-actor');
