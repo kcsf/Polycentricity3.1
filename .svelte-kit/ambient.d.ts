@@ -67,7 +67,6 @@ declare module '$env/static/private' {
 	export const INIT_CWD: string;
 	export const REPLIT_PID1_FLAG_NIXMODULES_BEFORE_REPLIT_NIX: string;
 	export const XDG_CACHE_HOME: string;
-	export const NIX_PS1: string;
 	export const npm_lifecycle_script: string;
 	export const REPLIT_RTLD_LOADER: string;
 	export const npm_config_npm_version: string;
@@ -180,7 +179,6 @@ declare module '$env/dynamic/private' {
 		INIT_CWD: string;
 		REPLIT_PID1_FLAG_NIXMODULES_BEFORE_REPLIT_NIX: string;
 		XDG_CACHE_HOME: string;
-		NIX_PS1: string;
 		npm_lifecycle_script: string;
 		REPLIT_RTLD_LOADER: string;
 		npm_config_npm_version: string;
