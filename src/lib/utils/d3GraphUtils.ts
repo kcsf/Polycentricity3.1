@@ -593,14 +593,53 @@ export function addDonutRings(
   
   // CRITICAL DEBUG: Check if node classes are correctly set
   console.log("NODE CLASS DEBUG:", {
-    nodeElementsClasses: nodeElements.nodes().map((n: any) => n.className.baseVal).join(', '),
+    nodeElementsClasses: nodeElements.nodes().map((n: any) => n.className?.baseVal || "no-class").join(', '),
     actorNodeCount: d3.selectAll('.node-actor').size(),
     agreementNodeCount: d3.selectAll('.node-agreement').size()
   });
   
-  // Get all card nodes - CRITICAL CHANGE: Use .node-actor class selector
-  // const cardNodes = nodeElements.filter((d) => d.type === "actor");
-  const cardNodes = d3.selectAll('.node-actor');
+  // CRITICAL FIX: Adding a forced class to ensure all actor nodes have the node-actor class
+  try {
+    nodeElements.each(function(d: any) {
+      if (d && d.type === 'actor') {
+        const element = d3.select(this);
+        const currentClass = element.attr('class') || '';
+        
+        // Only add if not already present
+        if (!currentClass.includes('node-actor')) {
+          element.classed('node-actor', true);
+          console.log(`Added node-actor class to node ${d.id}`);
+        }
+      }
+    });
+    
+    // Re-check after fixing
+    console.log("After class fix, node count:", {
+      actorNodeCount: d3.selectAll('.node-actor').size(),
+    });
+  } catch (err) {
+    console.error("Error fixing node classes:", err);
+  }
+  
+  // Get all card nodes - Try two different approaches and use the one that works
+  let cardNodes;
+  try {
+    // First try direct D3 global selector (more reliable when classes are set)
+    cardNodes = d3.selectAll('.node-actor');
+    console.log(`Using global selector: Found ${cardNodes.size()} nodes`);
+    
+    // If that fails, fall back to filtering the nodeElements
+    if (cardNodes.empty()) {
+      console.log("Global selector returned empty selection, trying filter approach");
+      cardNodes = nodeElements.filter((d: any) => d && d.type === "actor");
+      console.log(`Using filter approach: Found ${cardNodes.size()} nodes`);
+    }
+  } catch (err) {
+    console.error("Error selecting card nodes:", err);
+    // Last resort fallback
+    console.log("Using last resort filter approach");
+    cardNodes = nodeElements.filter((d: any) => d && d.type === "actor");
+  }
   
   // Debug the filtered card nodes
   console.log("Filtered card nodes debug:", {
@@ -1045,6 +1084,14 @@ export function initializeD3Graph(
           return `node node-card node-actor ${d.id === activeCardId ? 'active' : ''}`;
         } else {
           return `node node-agreement ${d.id === activeCardId ? 'active' : ''}`;
+        }
+      })
+      // CRITICAL PATCH: Force add classes to ensure they're correctly set
+      .each(function(d) {
+        if (d.type === 'actor') {
+          d3.select(this).classed('node-actor', true).classed('node-card', true);
+        } else {
+          d3.select(this).classed('node-agreement', true);
         }
       })
       .on("click", (_: any, d: D3Node) => handleNodeClick(d))
