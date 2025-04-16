@@ -39,7 +39,7 @@
   
   // Popover state
   let popoverOpen = false;
-  let popoverNode: any = null;
+  let popoverNode: Card | Agreement | null = null;
   let popoverNodeType: 'actor' | 'agreement' = 'actor';
   let popoverPosition = { x: 0, y: 0 };
   
@@ -2308,7 +2308,7 @@
   
   <!-- Popover Container -->
   {#if popoverOpen && popoverNode}
-    {@const cardCategory = popoverNode.card_category || 'Supporters'}
+    {@const cardCategory = popoverNodeType === 'actor' ? (popoverNode.card_category || 'Supporters') : ''}
     {@const categoryColor = 
       cardCategory === 'Funders' ? 'primary' : 
       cardCategory === 'Providers' ? 'success' : 
@@ -2330,33 +2330,33 @@
         </button>
       </div>
       
-      {#if popoverNodeType === 'actor'}
+      {#if popoverNodeType === 'actor' && popoverNode}
         <!-- Card styled to match DeckBrowser format exactly -->
-        {#if popoverNode}
-          <!-- Get values directly from the card's values property -->
-          <!-- Card styled to exactly match the example image -->
-          <div class="card bg-surface-50-900 rounded-lg shadow-lg border border-surface-300-600 w-80">
-            <!-- Header with gradient -->
-            <header class="p-3 text-white bg-{categoryColor}-500 rounded-t-lg">
-              <div class="flex items-center gap-2">
-                <!-- Icon circle -->
-                <div class="bg-surface-900-50/30 rounded-full p-1.5 flex items-center justify-center">
-                  <svelte:component this={getCardIcon(popoverNode.icon)} class="w-5 h-5" />
+        <!-- Using type casting for TypeScript safety -->
+        {@const cardNode = popoverNode as Card}
+        <!-- Card styled to exactly match the example image -->
+        <div class="card bg-surface-50-900 rounded-lg shadow-lg border border-surface-300-600 w-80">
+          <!-- Header with gradient -->
+          <header class="p-3 text-white bg-{categoryColor}-500 rounded-t-lg">
+            <div class="flex items-center gap-2">
+              <!-- Icon circle -->
+              <div class="bg-surface-900-50/30 rounded-full p-1.5 flex items-center justify-center">
+                <svelte:component this={getCardIcon(cardNode.icon)} class="w-5 h-5" />
+              </div>
+              
+              <!-- Title and type -->
+              <div class="flex-1">
+                <div class="flex justify-between items-center">
+                  <h3 class="font-bold text-lg">{cardNode.role_title}</h3>
+                  <span class="text-white text-sm">{cardNode.card_number}</span>
                 </div>
-                
-                <!-- Title and type -->
-                <div class="flex-1">
-                  <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-lg">{popoverNode.role_title}</h3>
-                    <span class="text-white text-sm">{popoverNode.card_number}</span>
-                  </div>
-                  <div class="flex justify-between items-center text-sm">
-                    <span>{popoverNode.type || 'Individual'}</span>
-                    <span class="bg-white/20 rounded-full px-2 py-0.5 text-xs">{cardCategory}</span>
-                  </div>
+                <div class="flex justify-between items-center text-sm">
+                  <span>{cardNode.type || 'Individual'}</span>
+                  <span class="bg-white/20 rounded-full px-2 py-0.5 text-xs">{cardCategory}</span>
                 </div>
               </div>
-            </header>
+            </div>
+          </header>
             
             <!-- Card body with sections -->
             <div class="p-4 space-y-3">
