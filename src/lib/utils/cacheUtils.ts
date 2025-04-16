@@ -85,32 +85,100 @@ export async function initializeCaches(gameId: string): Promise<void> {
     // Placeholder for agreements
     const agreements: Agreement[] = [];
     
-    // Load all cards in the deck (simplified for now)
+    // Actually load all cards in the deck for real this time
     const cards: Card[] = [];
     
-    // Simulate loading cards
-    // In a real implementation, we would fetch from gun.get(nodes.decks).get(deckId).get('cards').map()
+    // Fetch cards from GunDB
     try {
       await new Promise<void>((resolve) => {
-        gun.get(nodes.decks).get(deckId).get('cards').map().once((cardData: any, cardRef: string) => {
+        const cardsRef = gun.get(nodes.decks).get(deckId).get('cards');
+        
+        // Use map() to get all cards references
+        cardsRef.map().once(async (cardData: any, cardRef: string) => {
           if (cardRef !== '_' && cardRef !== '#') {
-            // This would be where we load card data
-            // For now, we're just simulating the process
+            // Follow the card reference to get the actual card data
+            gun.get(cardRef).once((actualCardData: any) => {
+              if (actualCardData && actualCardData.card_id) {
+                // Push card to our array
+                cards.push(actualCardData);
+                
+                // Also pre-populate card details cache
+                cardDetailsCache.set(actualCardData.card_id, {
+                  ...actualCardData,
+                  position: {
+                    x: Math.random() * 500, // Add some default position
+                    y: Math.random() * 500
+                  }
+                });
+                
+                // Pre-populate the values and capabilities for this card
+                if (actualCardData.values) {
+                  if (typeof actualCardData.values === 'object' && !Array.isArray(actualCardData.values)) {
+                    Object.keys(actualCardData.values).forEach(valueId => {
+                      if (valueId !== '_' && valueId !== '#' && !valueCache.has(valueId)) {
+                        // Create a named value entry
+                        const valueName = valueId
+                          .replace('value_', '')
+                          .split(/[-_]/)
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                          
+                        valueCache.set(valueId, {
+                          value_id: valueId,
+                          name: valueName,
+                          description: `Value: ${valueName}`,
+                          created_at: Date.now()
+                        });
+                      }
+                    });
+                  }
+                }
+                
+                // Same for capabilities
+                if (actualCardData.capabilities) {
+                  if (typeof actualCardData.capabilities === 'object' && !Array.isArray(actualCardData.capabilities)) {
+                    Object.keys(actualCardData.capabilities).forEach(capabilityId => {
+                      if (capabilityId !== '_' && capabilityId !== '#' && !capabilityCache.has(capabilityId)) {
+                        // Create a named capability entry
+                        const capabilityName = capabilityId
+                          .replace('capability_', '')
+                          .split(/[-_]/)
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                          
+                        capabilityCache.set(capabilityId, {
+                          capability_id: capabilityId,
+                          name: capabilityName,
+                          description: `Capability: ${capabilityName}`,
+                          created_at: Date.now()
+                        });
+                      }
+                    });
+                  }
+                }
+              }
+            });
           }
         });
-        // Resolve after small timeout to allow gun to process
-        setTimeout(() => resolve(), 100);
+        
+        // Resolve after reasonable timeout to allow Gun.js to process
+        setTimeout(() => resolve(), 500);
       });
     } catch (error) {
       console.log("Error loading cards:", error);
     }
     
+    // Log what we have
+    console.log(`Cache Utils: Loaded ${cards.length} cards in initializeCaches`);
+    console.log(`Cache Utils: Loaded ${valueCache.size} values`);
+    console.log(`Cache Utils: Loaded ${capabilityCache.size} capabilities`);
+    
     // Convert to CardWithPosition format
     let cardsWithPosition: CardWithPosition[] = cards.map(card => ({
       ...card,
       position: {
-        x: 0, 
-        y: 0
+        x: Math.random() * 500, // Use random starting positions
+        y: Math.random() * 500
       }
     }));
     
