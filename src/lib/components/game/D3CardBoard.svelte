@@ -1313,13 +1313,95 @@
         console.warn('No node elements available from graph state');
       }
       
-      // Add donut rings to the nodes
+      // Add donut rings to the nodes with detailed debug information
       try {
-        console.log('Adding donut rings to the nodes...');
+        console.log('Adding donut rings to the nodes...', {
+          nodeElementsIsDefined: !!nodeElements,
+          nodeElementsType: typeof nodeElements,
+          nodeElementsConstructor: nodeElements?.constructor?.name,
+          valueCount: valueCache?.size,
+          capabilityCount: capabilityCache?.size
+        });
+        
+        // Create some dummy values for testing if caches are empty
+        if (!valueCache || valueCache.size === 0) {
+          console.log('Creating dummy values for testing');
+          valueCache = new Map();
+          // Add some common values
+          valueCache.set('value_sustainability', { 
+            value_id: 'value_sustainability',
+            name: 'Sustainability',
+            description: 'Core value: Sustainability',
+            created_at: Date.now()
+          });
+          valueCache.set('value_community_resilience', { 
+            value_id: 'value_community_resilience',
+            name: 'Community Resilience',
+            description: 'Core value: Community Resilience',
+            created_at: Date.now()
+          });
+          valueCache.set('value_regeneration', { 
+            value_id: 'value_regeneration',
+            name: 'Regeneration',
+            description: 'Core value: Regeneration',
+            created_at: Date.now()
+          });
+        }
+        
+        if (!capabilityCache || capabilityCache.size === 0) {
+          console.log('Creating dummy capabilities for testing');
+          capabilityCache = new Map();
+          // Add some common capabilities
+          capabilityCache.set('capability_problem_solving', { 
+            capability_id: 'capability_problem_solving',
+            name: 'Problem Solving',
+            description: 'Core capability: Problem Solving',
+            created_at: Date.now()
+          });
+          capabilityCache.set('capability_communication', { 
+            capability_id: 'capability_communication',
+            name: 'Communication',
+            description: 'Core capability: Communication',
+            created_at: Date.now()
+          });
+          capabilityCache.set('capability_leadership', { 
+            capability_id: 'capability_leadership',
+            name: 'Leadership',
+            description: 'Core capability: Leadership',
+            created_at: Date.now()
+          });
+        }
+        
+        // Also add some dummy values to each node for testing
+        if (nodeElements) {
+          nodeElements.each(function(d) {
+            if (d && d.type === 'actor') {
+              // Add dummy values and capabilities to nodes
+              d.values = ['value_sustainability', 'value_community_resilience', 'value_regeneration'];
+              d.capabilities = ['capability_problem_solving', 'capability_communication', 'capability_leadership'];
+              d.goals = 'Create a sustainable community garden';
+              d.resources = 'Time, Energy, Funding';
+            }
+          });
+        }
+        
+        // Manually check what node selection gets
+        try {
+          const nodes = d3.select(svgRef).selectAll('.node-actor');
+          console.log('Direct D3 node selection (.node-actor):', {
+            isEmpty: nodes.empty(),
+            count: nodes.size()
+          });
+        } catch (e) {
+          console.error('Error with direct node selection:', e);
+        }
+        
+        // Call the function with explicit debugging information
         addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
         console.log('Successfully added donut rings');
       } catch (err) {
         console.error('Error adding donut rings:', err);
+        console.error('Error stack:', err.stack);
       }
       
       // Add center icons to the nodes

@@ -507,6 +507,13 @@ export function addDonutRings(
       console.warn("Cannot add donut rings: nodeElements selection is empty");
       return;
     }
+    
+    // Debug the node elements data
+    console.log("D3 nodeElements debug:", {
+      size: nodeElements.size(),
+      data: nodeElements.data(),
+      types: nodeElements.data().map(d => d.type)
+    });
   } catch (err) {
     console.error("Error checking nodeElements:", err);
     return;
@@ -514,6 +521,12 @@ export function addDonutRings(
   
   // Get all card nodes
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
+  
+  // Debug the filtered card nodes
+  console.log("Filtered card nodes debug:", {
+    count: cardNodes.size(),
+    data: cardNodes.data()
+  });
   
   // Fixed values for radii
   const baseActorRadius = 35; 
