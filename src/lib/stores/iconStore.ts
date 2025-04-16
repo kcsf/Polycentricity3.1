@@ -4,12 +4,31 @@ import { User } from "svelte-lucide";
 // Map GunDB icon names to svelte-lucide names
 // Add new mappings here for any new icons that don’t match svelte-lucide exactly
 const iconNameMap: Record<string, string> = {
+  // Common card icons we've seen in the database
   Hammer: "Hammer",
   CircleDollarSign: "CircleDollarSign", // Falls back to DollarSign if missing
+  DollarSign: "DollarSign",
   sun: "Sun",
   link: "Link",
   lock: "Lock",
   users: "Users",
+  user: "User",
+  leaf: "Leaf",
+  seedling: "Seedling",
+  home: "Home",
+  building: "Building",
+  tree: "PalmTree",
+  garden: "Flower2",
+  plant: "Sprout",
+  money: "Coins",
+  coins: "Coins",
+  default: "Box",
+  
+  // Card categories
+  farmer: "Tractor",
+  funder: "PiggyBank",
+  steward: "Shield",
+  investor: "TrendingUp"
 };
 
 interface IconData {
@@ -20,8 +39,25 @@ interface IconData {
 export const iconStore = writable<Map<string, IconData>>(new Map());
 
 export async function loadIcons(iconNames: string[]) {
-  const newIcons = new Map<string, IconData>();
+  // Get existing icons from the store
+  let existingIcons: Map<string, IconData> = new Map<string, IconData>();
+  
+  // Subscribe to get current value then immediately unsubscribe
+  const unsubscribe = iconStore.subscribe(value => {
+    existingIcons = value;
+  });
+  unsubscribe();
+  
+  // Create a new map with existing icons
+  const newIcons = new Map<string, IconData>(existingIcons);
+  
   for (const name of iconNames) {
+    // Skip if this icon is already loaded
+    if (newIcons.has(name)) {
+      console.log(`Icon ${name} already loaded, skipping`);
+      continue;
+    }
+    
     const mappedName = iconNameMap[name] || name;
     const pascalName = mappedName
       .split("-")
@@ -57,6 +93,10 @@ export async function loadIcons(iconNames: string[]) {
       newIcons.set(name, { name, component: User });
     }
   }
-  console.log("Icon store updated with:", [...newIcons.keys()]);
-  iconStore.set(newIcons);
+  
+  // Only update if we loaded new icons
+  if (newIcons.size > existingIcons.size) {
+    console.log("Icon store updated with:", [...newIcons.keys()]);
+    iconStore.set(newIcons);
+  }
 }

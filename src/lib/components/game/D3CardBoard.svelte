@@ -53,22 +53,44 @@
   
   // Get Lucide icon component using the iconStore
   function getLucideIcon(iconName: string | undefined): any {
-    if (!iconName) return User;
+    console.log(`Getting icon for: "${iconName}"`);
+    
+    if (!iconName) {
+      console.log(`No icon name provided, returning User`);
+      return User;
+    }
     
     // Get the icon from the iconStore if available
     const iconMap = get(iconStore);
-    const iconData = iconMap.get(iconName);
+    console.log(`Current icons in store:`, Array.from(iconMap.keys()));
+    
+    // First try with the exact name
+    let iconData = iconMap.get(iconName);
+    
+    // If not found, try lowercase
+    if (!iconData && typeof iconName === 'string') {
+      const lowercaseName = iconName.toLowerCase();
+      console.log(`Trying lowercase: "${lowercaseName}"`);
+      iconData = iconMap.get(lowercaseName);
+    }
     
     if (iconData) {
+      console.log(`Found icon: ${iconName}`);
       return iconData.component;
     }
     
     // Otherwise load the icon and fall back to User
+    console.log(`Icon not found in store, attempting to load: "${iconName}"`);
     const iconNames = [iconName];
-    if (!iconMap.has(iconName)) {
-      loadIcons(iconNames);
-    }
+    loadIcons(iconNames);
     
+    // Wait for next tick and check again
+    setTimeout(() => {
+      const updatedIconMap = get(iconStore);
+      console.log(`After loading, icons in store:`, Array.from(updatedIconMap.keys()));
+    }, 100);
+    
+    console.log(`Returning User as fallback for: "${iconName}"`);
     return User;
   }
   
@@ -471,7 +493,7 @@
   }
   
   // Function to initialize D3 visualization
-  function initializeGraph() {
+  async function initializeGraph() {
     if (!svgRef) return;
     
     // Set up dimensions based on container size
@@ -1106,7 +1128,10 @@
     // Filter out duplicates and load icons once for all nodes
     const uniqueIcons = [...new Set(iconNames)];
     if (uniqueIcons.length > 0) {
-      loadIcons(uniqueIcons);
+      console.log("Preloading icons:", uniqueIcons);
+      // Load icons and wait for them to finish before continuing
+      await loadIcons(uniqueIcons);
+      console.log("Icons loaded, continuing with visualization");
     }
     
     // After loading all icons, add them to each node
