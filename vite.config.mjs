@@ -11,7 +11,7 @@ export default defineConfig({
         // Special config for Gun.js to work properly with Vite
         // Source: https://github.com/amark/gun/wiki/Vite
         optimizeDeps: {
-                include: ['gun'],
+                include: ['gun', 'svelte-lucide'],
                 exclude: ['gun/sea', 'gun/lib/radix', 'gun/lib/radisk', 'gun/lib/store', 'gun/lib/rindexed'],
         },
         build: {

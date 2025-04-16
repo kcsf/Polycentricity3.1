@@ -2288,7 +2288,7 @@
   }
 </style>
 
-<div class="game-board-container">
+<div class="game-board-container">  
   <!-- D3 SVG container -->
   <svg 
     bind:this={svgRef} 
