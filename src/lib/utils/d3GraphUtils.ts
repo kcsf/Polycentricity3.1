@@ -703,9 +703,25 @@ export function initializeD3Graph(
     }
   });
   
-  // Create D3 nodes and links
-  const nodes = createNodes(cards, agreements, width, height);
-  const links = createLinks(nodes, agreements, actorCardMap);
+  // Create D3 nodes and links with defensive coding
+  const nodes = cards && agreements ? createNodes(cards, agreements, width, height) : [];
+  if (!nodes || nodes.length === 0) {
+    console.warn('No nodes created in D3 graph initialization');
+    
+    // Return an empty graph structure when no nodes exist
+    return {
+      simulation: d3.forceSimulation<D3Node>([]),
+      nodeElements: d3.select(svgElement).append('g').attr('class', 'nodes') as any,
+      linkElements: d3.select(svgElement).append('g').attr('class', 'links') as any,
+      nodes: [],
+      links: []
+    };
+  }
+  
+  const links = nodes && agreements ? createLinks(nodes, agreements, actorCardMap) : [];
+  if (!links || links.length === 0) {
+    console.warn('No links created in D3 graph initialization');
+  }
   
   // Clear existing SVG content
   const svg = d3.select(svgElement);

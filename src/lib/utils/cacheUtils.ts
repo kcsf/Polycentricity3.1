@@ -17,9 +17,17 @@ async function get<T>(path: string): Promise<T | null> {
   if (!gun) return null;
   
   return new Promise((resolve) => {
-    gun.get(path).once((data: any) => {
-      // Cast Gun data to expected type
-      resolve(data as T);
+    gun.get(path).once((data: GunDataNode<T> | null) => {
+      // Type-safe casting of Gun's data to the expected type
+      if (!data) {
+        resolve(null);
+        return;
+      }
+      
+      // Extract and return just the data without Gun metadata
+      // We need to remove the Gun metadata property '_'
+      const { _, ...actualData } = data;
+      resolve(actualData as unknown as T);
     });
   });
 }
