@@ -91,6 +91,22 @@
     popoverNode = null;
   }
   
+  // Function to handle node click
+  function handleNodeClick(node: D3Node) {
+    console.log(`Node clicked: ${node.id}`, node);
+    
+    // Set the active card or agreement
+    if (node.type === 'actor') {
+      activeCardId = node.id;
+    }
+    
+    // Show popover for the clicked node
+    popoverNode = node.data;
+    popoverNodeType = node.type;
+    popoverPosition = { x: node.x, y: node.y };
+    popoverOpen = true;
+  }
+  
   // Get Lucide icon component using direct import
   async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
     console.log(`Getting icon for: "${iconName}"`);
@@ -1479,7 +1495,7 @@
     }
   }
   
-  // Function to initialize D3 visualization
+  // Function to initialize D3 visualization using our utility function
   async function initializeGraph() {
     if (!svgRef) return;
     
@@ -1515,6 +1531,62 @@
         cardWithNames._valueNames || "none", 
         cardWithNames._capabilityNames || "none");
     });
+    
+    // Use our utility function to initialize the D3 graph
+    try {
+      // Initialize the graph using our utility function
+      const graphState = initializeD3Graph(
+        svgRef,
+        cardsWithPosition,
+        agreements,
+        width,
+        height,
+        activeCardId,
+        handleNodeClick
+      );
+      
+      // Store references to the graph elements for later use
+      simulation = graphState.simulation;
+      nodeElements = graphState.nodeElements;
+      
+      // After the graph is initialized, we can add donut segments to the nodes
+      addDonutRings(nodeElements);
+      
+      // Add center icons to the nodes
+      nodeElements.each(function(node) {
+        if (node.type === 'actor') {
+          const centerGroup = d3.select(this).append("g")
+            .attr("class", "center-group");
+          
+          // Create a container div for the icon
+          const iconContainer = document.createElement('div');
+          iconContainer.className = 'center-icon-container';
+          
+          // Get the card data
+          const card = node.data as Card;
+          
+          // Get the icon name from the card data
+          const iconName = card.icon || 'user';
+          
+          // Create the icon using our utility function
+          createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
+          
+          // Convert the div container to a foreignObject in the SVG
+          const foreignObject = centerGroup.append('foreignObject')
+            .attr('width', 24)
+            .attr('height', 24)
+            .attr('x', -12)
+            .attr('y', -12);
+            
+          // Append the icon container to the foreignObject
+          foreignObject.node()?.appendChild(iconContainer);
+        }
+      });
+      
+      console.log("D3 graph initialized with utility function");
+    } catch (error) {
+      console.error("Error initializing D3 graph:", error);
+    }
     
     // Prepare nodes and links data
     let nodes: D3Node[] = [

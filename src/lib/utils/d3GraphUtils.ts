@@ -479,3 +479,122 @@ export function updateForces(
   // Restart simulation
   simulation.alpha(0.3).restart();
 }
+
+/**
+ * Initializes the D3 graph with nodes and links
+ * 
+ * @param svgElement - SVG element to draw the graph in
+ * @param cards - Array of cards with position information
+ * @param agreements - Array of agreements with position information
+ * @param width - Width of the container
+ * @param height - Height of the container
+ * @param activeCardId - ID of the currently active card (if any)
+ * @param handleNodeClick - Callback for node click events
+ * @returns Object with simulation, node and link selections
+ */
+export function initializeD3Graph(
+  svgElement: SVGSVGElement,
+  cards: CardWithPosition[],
+  agreements: AgreementWithPosition[],
+  width: number,
+  height: number,
+  activeCardId: string | null,
+  handleNodeClick: (node: D3Node) => void
+): {
+  simulation: d3.Simulation<D3Node, D3Link>,
+  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
+  linkElements: d3.Selection<SVGGElement, D3Link, null, undefined>,
+  nodes: D3Node[],
+  links: D3Link[]
+} {
+  // Create actorCardMap
+  const actorCardMap = new Map<string, string>();
+  
+  // Map actor_id to card_id for lookup during link creation
+  cards.forEach(card => {
+    if (card.actor_id) {
+      actorCardMap.set(card.actor_id, card.card_id);
+    }
+  });
+  
+  // Create D3 nodes and links
+  const nodes = createNodes(cards, agreements, width, height);
+  const links = createLinks(nodes, agreements, actorCardMap);
+  
+  // Clear existing SVG content
+  const svg = d3.select(svgElement);
+  svg.selectAll("*").remove();
+  
+  // Create groups for links and nodes (links should be created first so they're behind nodes)
+  const linkGroup = svg.append("g").attr("class", "links");
+  const nodeGroup = svg.append("g").attr("class", "nodes");
+  
+  // Create the force simulation
+  const simulation = d3.forceSimulation<D3Node>(nodes)
+    .force("link", d3.forceLink<D3Node, D3Link>(links).id(d => d.id).distance(100).strength(0.7))
+    .force("charge", d3.forceManyBody().strength(-300))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collide", d3.forceCollide<D3Node>().radius(50));
+  
+  // Set up interactions (zoom, drag)
+  const dragBehavior = setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
+  
+  // Create link elements
+  const linkElements = linkGroup
+    .selectAll("g")
+    .data(links)
+    .enter()
+    .append("g")
+    .attr("class", d => `link ${d.type}`);
+  
+  // Add path for each link
+  linkElements.append("path")
+    .attr("class", d => `link-path ${d.type}`)
+    .attr("marker-end", d => `url(#arrow-${d.type})`);
+  
+  // Create node elements
+  const nodeElements = nodeGroup
+    .selectAll("g")
+    .data(nodes)
+    .enter()
+    .append("g")
+    .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+    .on("click", (_, d) => handleNodeClick(d))
+    .call(dragBehavior as any);
+  
+  // Add background circles for nodes
+  nodeElements.append("circle")
+    .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
+    .attr("r", d => d.type === 'actor' ? 35 : 17);
+  
+  // Setup visualization update on tick
+  simulation.on("tick", () => {
+    // Update link positions
+    linkElements.selectAll(".link-path")
+      .attr("d", (d) => {
+        // Handle string sources that haven't been replaced with objects yet
+        const source = typeof d.source === 'string' 
+          ? nodes.find(n => n.id === d.source) 
+          : d.source;
+        
+        const target = typeof d.target === 'string'
+          ? nodes.find(n => n.id === d.target)
+          : d.target;
+        
+        if (!source || !target) return '';
+        
+        return `M${source.x},${source.y} L${target.x},${target.y}`;
+      });
+    
+    // Update node positions
+    nodeElements.attr("transform", d => `translate(${d.x}, ${d.y})`);
+  });
+  
+  return {
+    simulation,
+    nodeElements,
+    linkElements,
+    nodes,
+    links
+  };
+}
