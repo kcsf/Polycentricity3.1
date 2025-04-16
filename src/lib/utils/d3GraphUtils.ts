@@ -249,7 +249,7 @@ export function setupInteractions(
   simulation: d3.Simulation<D3Node, D3Link>,
   width: number,
   height: number
-): void {
+): d3.DragBehavior<SVGGElement, D3Node, D3Node | d3.SubjectPosition> {
   // Set up zoom behavior
   const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.25, 3])
@@ -317,11 +317,13 @@ export function setupInteractions(
  * @param cardTitle - Title of the card for logging
  */
 export function createCardIcon(
-  iconName: string,
+  iconName: string | undefined,
   iconSize: number,
   container: HTMLElement,
   cardTitle: string
 ): void {
+  // If iconName is undefined, use 'default' as fallback
+  const icon = iconName || 'default';
   try {
     // Clear the container first
     while (container.firstChild) {

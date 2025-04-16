@@ -10,6 +10,21 @@
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
+  import { 
+    createNodes, 
+    createLinks, 
+    setupInteractions, 
+    createCardIcon, 
+    updateForces,
+    type D3Node,
+    type D3Link,
+    type SubItem,
+    type CardWithPosition,
+    type ObligationItem,
+    type BenefitItem,
+    type AgreementWithPosition,
+    type D3NodeWithRelationships
+  } from '$lib/utils/d3GraphUtils';
   // Removed import of getCardValueNames, getCardCapabilityNames to eliminate Gun.js queries
   // Using internal cache-only implementations instead
   import RoleCard from '$lib/components/RoleCard.svelte';
