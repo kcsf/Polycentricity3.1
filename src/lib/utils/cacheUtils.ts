@@ -581,9 +581,31 @@ export async function getCardValueNamesFromCacheOnly(card: Card): Promise<string
   // Default values to return if no other values are found
   const defaultValues = ["Sustainability", "Community Resilience"];
   
+  // Debug the card values object
+  console.log(`DEBUG: Looking for valueNames in card ${card?.role_title || card?.card_id || 'unknown'}.`, { 
+    hasValues: !!card?.values,
+    valueType: card?.values ? typeof card.values : 'none',
+    valuesObj: card?.values || 'none'
+  });
+  
   if (!card || !card.values) {
     // Return default values when card or values are missing
     console.log(`Returning default values for card: ${card?.card_id || 'unknown'}`);
+    
+    // Also update the centralized value cache with these defaults
+    if (valueCache.size === 0) {
+      defaultValues.forEach(name => {
+        const valueId = `value_${name.toLowerCase().replace(/\s+/g, '-')}`;
+        valueCache.set(valueId, {
+          value_id: valueId,
+          name,
+          description: `Default value: ${name}`,
+          created_at: Date.now()
+        });
+      });
+      console.log(`Added default values to cache: ${defaultValues.join(', ')}`);
+    }
+    
     return defaultValues;
   }
   
@@ -670,9 +692,31 @@ export async function getCardCapabilityNamesFromCacheOnly(card: Card): Promise<s
   // Default capabilities to return if no other capabilities are found
   const defaultCapabilities = ["Communication", "Impact Assessment"];
   
+  // Debug the card capabilities object
+  console.log(`DEBUG: Looking for capabilityNames in card ${card?.role_title || card?.card_id || 'unknown'}.`, { 
+    hasCapabilities: !!card?.capabilities,
+    capabilityType: card?.capabilities ? typeof card.capabilities : 'none',
+    capabilitiesObj: card?.capabilities || 'none'
+  });
+  
   if (!card || !card.capabilities) {
     // Return default capabilities when card or capabilities are missing
     console.log(`Returning default capabilities for card: ${card?.card_id || 'unknown'}`);
+    
+    // Also update the centralized capability cache with these defaults
+    if (capabilityCache.size === 0) {
+      defaultCapabilities.forEach(name => {
+        const capabilityId = `capability_${name.toLowerCase().replace(/\s+/g, '-')}`;
+        capabilityCache.set(capabilityId, {
+          capability_id: capabilityId,
+          name,
+          description: `Default capability: ${name}`,
+          created_at: Date.now()
+        });
+      });
+      console.log(`Added default capabilities to cache: ${defaultCapabilities.join(', ')}`);
+    }
+    
     return defaultCapabilities;
   }
   

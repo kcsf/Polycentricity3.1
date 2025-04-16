@@ -1426,7 +1426,18 @@
         
         // Call the function with explicit debugging information
         // Use getAllCachedValues and getAllCachedCapabilities to get the most up-to-date caches
-        addDonutRings(nodeElements, activeCardId, getAllCachedValues(), getAllCachedCapabilities());
+        console.log("CRITICAL: About to call addDonutRings with caches:", {
+          valueCount: getAllCachedValues().size,
+          capabilityCount: getAllCachedCapabilities().size,
+          nodeElementsCount: nodeElements?.size() || 0
+        });
+        
+        // Make sure we're passing the actual Map objects from the centralized caches
+        const valueMapForDonut = getAllCachedValues();
+        const capabilityMapForDonut = getAllCachedCapabilities();
+        
+        // Pass the Maps directly to the function
+        addDonutRings(nodeElements, activeCardId, valueMapForDonut, capabilityMapForDonut);
         console.log('Successfully added donut rings');
       } catch (err) {
         console.error('Error adding donut rings:', err);
