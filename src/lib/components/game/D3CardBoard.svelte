@@ -311,6 +311,12 @@
       console.log("Values cache size:", getAllCachedValues().size);
       console.log("Capabilities cache size:", getAllCachedCapabilities().size);
       
+      await initializeCaches(gameId); // Added second call per instructions
+      
+      console.log("D3CardBoard: Caches re-initialized:");
+      console.log("Values cache size after re-init:", getAllCachedValues().size);
+      console.log("Capabilities cache size after re-init:", getAllCachedCapabilities().size);
+      
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
         // Create a new array with position data
@@ -740,8 +746,15 @@
           console.log(`D3CardBoard: Card loading complete with ${tempCards.length} cards`);
           console.log(`D3CardBoard: Value cache has ${valueCache.size} entries, capability cache has ${capabilityCache.size} entries`);
           
-          // Update our global cards array
-          cardsWithPosition = tempCards;
+          // Update our global cards array using loadCardDetails (as requested)
+          cardsWithPosition = await loadCardDetails(tempCards);
+          
+          // Log the processed cards with values and capabilities
+          console.log("Processed cards:", cardsWithPosition.map(c => ({ 
+            id: c.card_id, 
+            values: c._valueNames, 
+            capabilities: c._capabilityNames 
+          })));
         } catch (e) {
           console.error("Error in card and reference loading:", e);
         }
@@ -933,17 +946,14 @@
       console.log(`Using centralized cache utility: loadCardDetails`);
       
       // This single function call processes the cards and returns them with updated details
-      const processedCards = await loadCardDetails(cards);
+      // UPDATED: Assign directly to cardsWithPosition as requested
+      cardsWithPosition = await loadCardDetails(cards);
       
-      // Update cardsWithPosition with the processed cards - crucial for getting _valueNames & _capabilityNames
-      cardsWithPosition = [...processedCards];
-      
-      // Log the cards to verify they have the required properties
-      console.log("Processed cards:", cardsWithPosition.map(card => ({
-        card_id: card.card_id,
-        role_title: card.role_title,
-        valueNames: card._valueNames,
-        capabilityNames: card._capabilityNames
+      // Log the cards to verify they have the required properties with updated format
+      console.log("Processed cards:", cardsWithPosition.map(c => ({ 
+        id: c.card_id, 
+        values: c._valueNames, 
+        capabilities: c._capabilityNames 
       })));
       
       console.log("Finished loading all card details using centralized cache utilities");
