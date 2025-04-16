@@ -1214,46 +1214,55 @@
       
       // After the graph is initialized, we can add donut segments to the nodes
       // Store references to the node elements first since they're needed for donut rings
-      nodeElements = graphState.nodeElements;
-      
-      // Now we can safely use nodeElements in addDonutRings
-      console.log('Adding donut rings to nodes...');
-      if (nodeElements) {
-        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+      if (graphState && graphState.nodeElements) {
+        nodeElements = graphState.nodeElements;
+        
+        // Now we can safely use nodeElements in addDonutRings 
+        console.log('Adding donut rings to nodes...');
+        
+        // Important: Pass all required parameters
+        addDonutRings(
+          nodeElements,
+          activeCardId,
+          valueCache,
+          capabilityCache
+        );
       } else {
-        console.error('Cannot add donut rings: nodeElements is undefined');
+        console.error('Cannot add donut rings: graph state or nodeElements is undefined');
       }
       
       // Add center icons to the nodes
-      nodeElements.each(function(node) {
-        if (node.type === 'actor') {
-          const centerGroup = d3.select(this).append("g")
-            .attr("class", "center-group");
-          
-          // Create a container div for the icon
-          const iconContainer = document.createElement('div');
-          iconContainer.className = 'center-icon-container';
-          
-          // Get the card data
-          const card = node.data as Card;
-          
-          // Get the icon name from the card data
-          const iconName = card.icon || 'user';
-          
-          // Create the icon using our utility function
-          createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
-          
-          // Convert the div container to a foreignObject in the SVG
-          const foreignObject = centerGroup.append('foreignObject')
-            .attr('width', 24)
-            .attr('height', 24)
-            .attr('x', -12)
-            .attr('y', -12);
+      if (nodeElements) {
+        nodeElements.each(function(node) {
+          if (node && node.type === 'actor') {
+            const centerGroup = d3.select(this).append("g")
+              .attr("class", "center-group");
             
-          // Append the icon container to the foreignObject
-          foreignObject.node()?.appendChild(iconContainer);
-        }
-      });
+            // Create a container div for the icon
+            const iconContainer = document.createElement('div');
+            iconContainer.className = 'center-icon-container';
+            
+            // Get the card data
+            const card = node.data as Card;
+            
+            // Get the icon name from the card data
+            const iconName = card.icon || 'user';
+            
+            // Create the icon using our utility function
+            createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
+            
+            // Convert the div container to a foreignObject in the SVG
+            const foreignObject = centerGroup.append('foreignObject')
+              .attr('width', 24)
+              .attr('height', 24)
+              .attr('x', -12)
+              .attr('y', -12);
+              
+            // Append the icon container to the foreignObject
+            foreignObject.node()?.appendChild(iconContainer);
+          }
+        });
+      }
       
       console.log("D3 graph initialized with utility function");
     } catch (error) {
