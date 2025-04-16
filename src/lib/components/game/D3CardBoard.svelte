@@ -911,8 +911,8 @@
         }
         
         // Use our cache-first functions to get values and capabilities
-        const valueNames = await getCachedCardValueNames(card);
-        const capabilityNames = await getCachedCardCapabilityNames(card);
+        const valueNames = await getCardValueNamesFromCacheOnly(card);
+        const capabilityNames = await getCardCapabilityNamesFromCacheOnly(card);
         
         console.log(`Loaded for card ${card.card_id}: Values: ${valueNames.length}, Capabilities: ${capabilityNames.length}`);
         
@@ -1025,10 +1025,10 @@
       console.log(`Loading details for card: ${card.card_id} - ${card.role_title || 'Unnamed Card'}`);
 
       // Use our cache-first functions to get values and capabilities
-      const valueNames = await getCachedCardValueNames(card);
+      const valueNames = await getCardValueNamesFromCacheOnly(card);
       console.log(`Values for ${card.role_title || 'Unnamed Card'}:`, valueNames);
       
-      const capabilityNames = await getCachedCardCapabilityNames(card);
+      const capabilityNames = await getCardCapabilityNamesFromCacheOnly(card);
       console.log(`Capabilities for ${card.role_title || 'Unnamed Card'}:`, capabilityNames);
       
       // Add the value names and capability names to the card for visualization
