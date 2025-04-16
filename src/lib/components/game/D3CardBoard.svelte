@@ -3,7 +3,7 @@
   import type { SvelteComponent } from 'svelte';
   import { get } from 'svelte/store';
   import * as d3 from 'd3';
-  import { User } from 'svelte-lucide';
+  import { User } from 'lucide-svelte';
   import { iconStore, loadIcons } from '$lib/stores/iconStore';
   import gameStore from '$lib/stores/enhancedGameStore';
   import { getGun, nodes } from '$lib/services/gunService';
@@ -135,7 +135,7 @@
       
       // If not in store, try to import directly
       console.log(`Attempting direct import: ${normalizedName}`);
-      const icons = await import('svelte-lucide');
+      const icons = await import('lucide-svelte');
       
       if (icons[normalizedName]) {
         console.log(`Successfully imported ${normalizedName}`);

@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import { User } from "svelte-lucide";
+import { User } from "lucide-svelte";
 
 // Map GunDB icon names to svelte-lucide names
 // Add new mappings here for any new icons that don’t match svelte-lucide exactly
@@ -65,9 +65,9 @@ export async function loadIcons(iconNames: string[]) {
       .join("");
 
     try {
-      const module = await import("svelte-lucide") as Record<string, any>;
+      const module = await import("lucide-svelte") as Record<string, any>;
       if (module[pascalName]) {
-        console.log(`Loaded icon ${name} as ${pascalName} from svelte-lucide`);
+        console.log(`Loaded icon ${name} as ${pascalName} from lucide-svelte`);
         newIcons.set(name, { name, component: module[pascalName] });
       } else {
         // Special case for CircleDollarSign
@@ -82,7 +82,7 @@ export async function loadIcons(iconNames: string[]) {
             throw new Error("DollarSign fallback not found");
           }
         } else {
-          throw new Error(`${pascalName} not found in svelte-lucide`);
+          throw new Error(`${pascalName} not found in lucide-svelte`);
         }
       }
     } catch (error) {
