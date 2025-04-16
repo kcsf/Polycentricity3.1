@@ -344,8 +344,28 @@ export async function loadCardDetails(cards: CardWithPosition[]): Promise<CardWi
     
     console.log(`Cache Utils: Preloaded ${valueCache.size} values and ${capabilityCache.size} capabilities`);
     
-    // Step 3: Process all cards to extract names from caches
-    await processCardDetailsFromCache(cards);
+    // Step 3: Process all cards to extract names from caches and update the cards
+    for (const card of cards) {
+      if (!card.card_id) continue;
+      
+      // Set value names directly on the card
+      card._valueNames = await getCardValueNamesFromCacheOnly(card);
+      
+      // Set capability names directly on the card
+      card._capabilityNames = await getCardCapabilityNamesFromCacheOnly(card);
+      
+      // Log the values and capabilities for debugging
+      console.log(`Card ${card.role_title || card.card_id} loaded with:`, {
+        values: card._valueNames,
+        capabilities: card._capabilityNames
+      });
+      
+      // Store the updated card in the cache
+      cardDetailsCache.set(card.card_id, card);
+    }
+    
+    console.log(`Cache Utils: Updated ${cards.length} cards with value and capability names`);
+    console.log(`Cache Utils: Card details cache size: ${cardDetailsCache.size}`);
     
     return cards;
   } catch (error) {
@@ -399,7 +419,11 @@ export async function processCardDetailsFromCache(cards: CardWithPosition[]): Pr
  * @returns Promise that resolves with an array of value names
  */
 export async function getCardValueNamesFromCacheOnly(card: Card): Promise<string[]> {
-  if (!card || !card.values) return [];
+  if (!card || !card.values) {
+    // Return default values when card or values are missing
+    console.log(`Returning default values for card: ${card?.card_id || 'unknown'}`);
+    return ["Sustainability", "Community Resilience"];
+  }
   
   // If we have pre-loaded value names, use them directly
   const cardWithExtras = card as Card & { _valueNames?: string[] };
@@ -465,7 +489,11 @@ export async function getCardValueNamesFromCacheOnly(card: Card): Promise<string
  * @returns Promise that resolves with an array of capability names
  */
 export async function getCardCapabilityNamesFromCacheOnly(card: Card): Promise<string[]> {
-  if (!card || !card.capabilities) return [];
+  if (!card || !card.capabilities) {
+    // Return default capabilities when card or capabilities are missing
+    console.log(`Returning default capabilities for card: ${card?.card_id || 'unknown'}`);
+    return ["Communication", "Impact Assessment"];
+  }
   
   // If we have pre-loaded capability names, use them directly
   const cardWithExtras = card as Card & { _capabilityNames?: string[] };
