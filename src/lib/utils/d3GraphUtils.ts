@@ -58,6 +58,7 @@ export interface CardWithPosition extends Card {
     x: number;
     y: number;
   };
+  actor_id?: string; // Add actor_id field which is needed for card-actor mapping
 }
 
 /**
@@ -323,7 +324,7 @@ export function createCardIcon(
   cardTitle: string
 ): void {
   // If iconName is undefined, use 'default' as fallback
-  const icon = iconName || 'default';
+  const icon = iconName ?? 'default';
   
   try {
     // Clear the container first
@@ -478,6 +479,177 @@ export function updateForces(
   
   // Restart simulation
   simulation.alpha(0.3).restart();
+}
+
+/**
+ * Add donut ring segments to card nodes based on their values, capabilities, etc.
+ * 
+ * @param nodeElements - D3 Selection of node elements
+ * @param activeCardId - ID of the active card (if any) for highlighting
+ * @param valueCache - Map of value IDs to Value objects
+ * @param capabilityCache - Map of capability IDs to Capability objects
+ */
+export function addDonutRings(
+  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
+  activeCardId?: string | null,
+  valueCache?: Map<string, any>,
+  capabilityCache?: Map<string, any>
+): void {
+  // Get all card nodes
+  const cardNodes = nodeElements.filter((d) => d.type === "actor");
+  
+  // Fixed values for radii
+  const baseActorRadius = 35; 
+  const baseDonutThickness = 15;
+
+  // Helper function to ensure array format for properties
+  const ensureArray = (field: Record<string, boolean | any> | string[] | string | undefined | null): string[] => {
+    if (!field) return [];
+    if (Array.isArray(field)) return field;
+    if (typeof field === 'object') {
+      // Handle Gun.js objects and references
+      return Object.keys(field).filter(id => id !== '_' && id !== '#');
+    }
+    if (typeof field === 'string') {
+      return field.split(',').map(item => item.trim());
+    }
+    return [];
+  };
+  
+  // Step 1: Add outer donut rings to all card nodes first
+  cardNodes.each(function(d) {
+    const isActive = d.id === activeCardId;
+    const scaleFactor = isActive ? 1.5 : 1;
+    const scaledNodeRadius = baseActorRadius * scaleFactor;
+    const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
+    
+    // Add a donut ring
+    d3.select(this)
+      .append("circle")
+      .attr("r", donutRadius)
+      .attr("class", `donut-ring${isActive ? " active" : ""}`)
+      .attr("fill", "transparent")
+      .attr("stroke", "var(--border)")
+      .attr("stroke-width", 1);
+  });
+
+  // Available categories for visualization
+  const categories = ["values", "capabilities", "intellectualProperty", "resources", "goals"];
+  
+  // Format category name nicely (shared helper function)
+  const formatCategoryName = (cat: string) => {
+    return cat
+      .replace(/([A-Z])/g, " $1") // Add space before capital letters
+      .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
+      .trim();
+  };
+  
+  // Color scale for categories - using same colors as original React implementation
+  const colorScale = d3.scaleOrdinal<string>()
+    .domain(categories)
+    .range([
+      "#3B82F6", // blue for values
+      "#10B981", // green for capabilities
+      "#F59E0B", // amber for intellectual property
+      "#6366F1", // indigo for resources
+      "#EC4899"  // pink for goals
+    ]);
+  
+  // Process each card node to add wedges
+  cardNodes.each(function(nodeData) {
+    // Basic setup for this node
+    const node = d3.select(this);
+    const card = nodeData.data as Card;
+    
+    // Create wedges for each category that has data
+    let totalOffset = 0;
+    let categoryIndex = 0;
+    
+    // Process each category
+    categories.forEach(category => {
+      const categoryData = nodeData[category as keyof D3Node] || card[category as keyof Card];
+      const categoryItems = ensureArray(categoryData);
+      
+      if (categoryItems.length > 0) {
+        // Calculate angles for wedges based on number of items
+        const isActive = nodeData.id === activeCardId;
+        const scaleFactor = isActive ? 1.5 : 1;
+        const scaledNodeRadius = baseActorRadius * scaleFactor;
+        const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
+        
+        // Calculate angles and create wedge paths
+        const itemCount = categoryItems.length;
+        const categoryColor = colorScale(category);
+        const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
+        const startAngle = totalOffset;
+        const anglePerItem = totalAngle / itemCount;
+        
+        // Create a group for this category
+        const categoryGroup = node.append("g")
+          .attr("class", `category-group ${category}`);
+        
+        // Add each wedge for this category
+        categoryItems.forEach((itemId, i) => {
+          const itemAngle = startAngle + (i * anglePerItem);
+          const wedgeStartAngle = (itemAngle * Math.PI) / 180;
+          const wedgeEndAngle = ((itemAngle + anglePerItem) * Math.PI) / 180;
+          
+          // Create SVG arc path
+          const arc = d3.arc<any>()
+            .innerRadius(scaledNodeRadius)
+            .outerRadius(donutRadius)
+            .startAngle(wedgeStartAngle)
+            .endAngle(wedgeEndAngle)
+            .padAngle(0.01);
+          
+          // Add wedge path
+          categoryGroup.append("path")
+            .attr("d", arc({} as any))
+            .attr("fill", categoryColor)
+            .attr("opacity", 0.8)
+            .attr("stroke", "white")
+            .attr("stroke-width", 0.5)
+            .attr("class", `wedge ${category}`)
+            .on("mouseover", function() {
+              // Highlight this wedge
+              d3.select(this)
+                .attr("opacity", 1)
+                .attr("stroke-width", 1);
+            })
+            .on("mouseout", function() {
+              // Reset appearance
+              d3.select(this)
+                .attr("opacity", 0.8)
+                .attr("stroke-width", 0.5);
+            });
+            
+          // Add tooltip or label if needed
+          let itemName = itemId;
+          
+          // Try to get a friendly name from cache
+          if (category === "values" && valueCache && valueCache.has(itemId)) {
+            itemName = valueCache.get(itemId).name;
+          } else if (category === "capabilities" && capabilityCache && capabilityCache.has(itemId)) {
+            itemName = capabilityCache.get(itemId).name;
+          } else {
+            // Extract name from the ID if no cache is available
+            itemName = itemId.replace(/^(value_|capability_|resource_|goal_)/, '')
+              .split(/[-_]/)
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+          }
+          
+          // Add title for tooltip
+          categoryGroup.append("title")
+            .text(`${formatCategoryName(category)}: ${itemName}`);
+        });
+        
+        // Update offset for next category
+        totalOffset += totalAngle;
+        categoryIndex++;
+      }
+    });
+  });
 }
 
 /**

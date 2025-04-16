@@ -1550,7 +1550,7 @@
       nodeElements = graphState.nodeElements;
       
       // After the graph is initialized, we can add donut segments to the nodes
-      addDonutRings(nodeElements);
+      addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
       
       // Add center icons to the nodes
       nodeElements.each(function(node) {
