@@ -16,6 +16,8 @@
     setupInteractions, 
     createCardIcon, 
     updateForces,
+    initializeD3Graph,
+    addDonutRings,
     type D3Node,
     type D3Link,
     type SubItem,
@@ -1211,6 +1213,8 @@
       nodeElements = graphState.nodeElements;
       
       // After the graph is initialized, we can add donut segments to the nodes
+      // Use the utility function but with access to the centralized caches
+      // through getAllCachedValues() and getAllCachedCapabilities()
       addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
       
       // Add center icons to the nodes
