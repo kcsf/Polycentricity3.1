@@ -49,7 +49,7 @@
   let hoveredCategory: string | null = null;
   // All UI elements are now handled directly with D3
   let categoryCount = 0;
-  let nodeElements: d3.Selection<any, D3Node, any, any>; // Store node elements for access in multiple functions
+  let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
   
   // Dataset
   let cardsWithPosition: CardWithPosition[] = [];
@@ -75,7 +75,7 @@
   }
   
   // Get Lucide icon component using direct import
-  async function getLucideIcon(iconName: string | undefined): Promise<any> {
+  async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
     console.log(`Getting icon for: "${iconName}"`);
     
     if (!iconName) {
@@ -205,29 +205,47 @@
     };
   }
   
-  // Create a custom type for AgreementWithPosition to avoid type conflicts
+  // Obligation and benefit items extracted for reuse
+  interface ObligationItem {
+    id: string;
+    fromActorId: string;
+    description: string;
+    toActorId?: string; // May be needed in some contexts
+  }
+  
+  interface BenefitItem {
+    id: string;
+    toActorId: string;
+    description: string;
+    fromActorId?: string; // May be needed in some contexts
+  }
+  
+  // Create a custom type for AgreementWithPosition to handle the 
+  // difference between Gun.js data structure and our visualization needs
   interface AgreementWithPosition {
     agreement_id: string;
+    game_id?: string;
     title: string;
     description?: string;
+    summary?: string; // For consistency with Agreement type
+    type?: 'symmetric' | 'asymmetric';
     status: string;
     created_at: number;
+    updated_at?: number;
+    created_by?: string;
     parties?: Record<string, boolean>;
     terms?: string;
+    votes?: Record<string, 'accept' | 'reject'>;
     position?: {
       x: number;
       y: number;
     };
-    obligations: {
-      id: string;
-      fromActorId: string;
-      description: string;
-    }[];
-    benefits: {
-      id: string;
-      toActorId: string;
-      description: string;
-    }[];
+    // These are the transformed arrays for visualization
+    obligations: ObligationItem[];
+    benefits: BenefitItem[];
+    // Original data might have string-based records
+    originalObligations?: Record<string, string>;
+    originalBenefits?: Record<string, string>;
   }
 
   // Load data on mount
@@ -335,7 +353,7 @@
       
       // 1. Load Cards for this deck
       await new Promise<void>((resolve) => {
-        gun.get(nodes.decks).get(deckId).get('cards').map().once((cardValue: any, cardKey: string) => {
+        gun.get(nodes.decks).get(deckId).get('cards').map().once((cardValue: boolean, cardKey: string) => {
           if (cardValue === true) {
             gun.get(nodes.cards).get(cardKey).once((cardData: Card) => {
               if (cardData && cardData.card_id) {
@@ -586,15 +604,27 @@
     // Debug the cards before mapping
     console.log("Cards before visualization:", cardsWithPosition);
     cardsWithPosition.forEach(card => {
+      // Use proper type for card's extended properties
+      const cardWithNames = card as CardWithPosition & {
+        _valueNames?: string[];
+        _capabilityNames?: string[];
+      };
+      
       // Add debug logs for each card's values
       console.log(`Card ${card.role_title} values:`, 
-        (card as any)._valueNames || "none", 
-        (card as any)._capabilityNames || "none");
+        cardWithNames._valueNames || "none", 
+        cardWithNames._capabilityNames || "none");
     });
     
     // Prepare nodes and links data
     let nodes: D3Node[] = [
       ...cardsWithPosition.map((card) => {
+        // Handle extended card properties with proper typing
+        const cardWithNames = card as CardWithPosition & {
+          _valueNames?: string[];
+          _capabilityNames?: string[];
+        };
+        
         // Create normal node data
         return {
           id: card.card_id,
@@ -606,9 +636,9 @@
           fx: card.position?.x || null,
           fy: card.position?.y || null,
           active: card.card_id === activeCardId,
-          // Explicitly transfer value and capability names to the node
-          _valueNames: (card as any)._valueNames,
-          _capabilityNames: (card as any)._capabilityNames
+          // Use properly typed properties
+          _valueNames: cardWithNames._valueNames,
+          _capabilityNames: cardWithNames._capabilityNames
         };
       }),
       ...agreements.map((agreement) => ({
@@ -803,10 +833,10 @@
 
     // Define a function to wrap text with SVG tspan elements
     function wrapText(
-      text: d3.Selection<any, any, any, any>,
+      text: d3.Selection<SVGTextElement, unknown, null, undefined>,
       width: number,
     ): void {
-      text.each(function (this: any) {
+      text.each(function (this: SVGTextElement) {
         const text = d3.select(this);
         const words = text.text().split(/\s+/).reverse();
         const lineHeight = 1.1; // ems
@@ -933,8 +963,16 @@
                 const finalY = midY + perpY;
                 
                 // Store original cards for this agreement to help with link drawing
-                (node as any).sourceCard = card1;
-                (node as any).targetCard = card2;
+                // Extend the node type with a proper interface instead of using 'any'
+                interface D3NodeWithRelationships extends D3Node {
+                  sourceCard?: D3Node;
+                  targetCard?: D3Node;
+                }
+                
+                // Cast to our extended interface with relationship fields
+                const nodeWithRelationships = node as D3NodeWithRelationships;
+                nodeWithRelationships.sourceCard = card1;
+                nodeWithRelationships.targetCard = card2;
                 
                 // Update agreement node position
                 node.x = finalX;
@@ -1022,7 +1060,7 @@
       .attr("transform", (d) => `translate(${d.x},${d.y})`)
       .call(
         d3
-          .drag<any, D3Node>()
+          .drag<SVGGElement, D3Node>()
           .on("start", (event, d) => {
             // Remove any fx/fy values which can cause simulation auto-movement
             d.fx = null;
