@@ -1231,15 +1231,43 @@
       
       // Initialize the graph using our utility function
       console.log('Initializing D3 graph with data...');
-      const graphState = initializeD3Graph(
-        svgRef,
-        cardsWithPosition, 
-        agreements,
-        width,
-        height,
-        activeCardId,
-        handleNodeClick
-      );
+      
+      // Handle potential ReferenceError by wrapping the function call
+      let graphState;
+      try {
+        // Debug all arguments before passing them to the function
+        const args = {
+          svgRefExists: !!svgRef,
+          cardsWithPositionLength: cardsWithPosition?.length,
+          agreementsLength: agreements?.length,
+          width,
+          height,
+          activeCardId,
+          handleNodeClickIsDefined: !!handleNodeClick
+        };
+        console.log('D3 initialization arguments:', args);
+        
+        graphState = initializeD3Graph(
+          svgRef,
+          cardsWithPosition, 
+          agreements,
+          width,
+          height,
+          activeCardId,
+          handleNodeClick
+        );
+      } catch (initError) {
+        console.error('Direct error in initializeD3Graph call:', initError);
+        
+        // Create a basic fallback graph state
+        graphState = {
+          simulation: d3.forceSimulation<D3Node>([]),
+          nodeElements: d3.select(svgRef).select('.nodes').selectAll('g'),
+          linkElements: d3.select(svgRef).select('.links').selectAll('g'),
+          nodes: [],
+          links: []
+        };
+      }
       
       // Verify we received a valid graph state
       if (!graphState) {
@@ -1321,7 +1349,27 @@
       
       console.log("D3 graph initialized with utility function");
     } catch (error) {
+      // Enhanced error handling
       console.error("Error initializing D3 graph:", error);
+      
+      if (error instanceof ReferenceError) {
+        console.error("REFERENCE ERROR DETAILS: This usually means a variable is undefined or doesn't exist");
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      
+      // Create a safe fallback visualization
+      const svg = d3.select(svgRef);
+      svg.selectAll("*").remove();
+      
+      // Add warning text to the SVG
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .attr("fill", "red")
+        .text("Error initializing graph visualization");
     }
     
     // Prepare nodes and links data
