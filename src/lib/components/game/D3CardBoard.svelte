@@ -2247,8 +2247,12 @@
   function handleZoomIn() {
     const svg = d3.select(svgRef);
     const currentTransform = d3.zoomTransform(svg.node() as Element);
+    // Use proper typing for the zoom transform
+    const zoom = d3.zoom<SVGSVGElement, unknown>();
     svg.transition().duration(300).call(
-      d3.zoom<SVGSVGElement, unknown>().transform as any,
+      // Use explicit function type for transform method
+      (selection: d3.Selection<SVGSVGElement, unknown, null, undefined>, transform: d3.ZoomTransform) => 
+        zoom.transform(selection, transform),
       d3.zoomIdentity.scale(currentTransform.k * 1.3)
     );
   }
@@ -2256,16 +2260,24 @@
   function handleZoomOut() {
     const svg = d3.select(svgRef);
     const currentTransform = d3.zoomTransform(svg.node() as Element);
+    // Use proper typing for the zoom transform
+    const zoom = d3.zoom<SVGSVGElement, unknown>();
     svg.transition().duration(300).call(
-      d3.zoom<SVGSVGElement, unknown>().transform as any,
+      // Use explicit function type for transform method
+      (selection: d3.Selection<SVGSVGElement, unknown, null, undefined>, transform: d3.ZoomTransform) => 
+        zoom.transform(selection, transform),
       d3.zoomIdentity.scale(currentTransform.k / 1.3)
     );
   }
 
   function handleReset() {
     const svg = d3.select(svgRef);
+    // Use proper typing for the zoom transform
+    const zoom = d3.zoom<SVGSVGElement, unknown>();
     svg.transition().duration(300).call(
-      d3.zoom<SVGSVGElement, unknown>().transform as any,
+      // Use explicit function type for transform method
+      (selection: d3.Selection<SVGSVGElement, unknown, null, undefined>, transform: d3.ZoomTransform) => 
+        zoom.transform(selection, transform),
       d3.zoomIdentity
     );
   }
@@ -2509,7 +2521,7 @@
                   {#each agreementNode.obligations as obligation}
                     <li class="text-sm">
                       <span class="font-medium">{obligation.fromActorId}:</span> 
-                      {obligation.description || (obligation as any).text || ''}
+                      {obligation.description || (obligation as unknown as {text: string}).text || ''}
                     </li>
                   {/each}
                 </ul>
@@ -2524,7 +2536,7 @@
                   {#each agreementNode.benefits as benefit}
                     <li class="text-sm">
                       <span class="font-medium">To {benefit.toActorId}:</span> 
-                      {benefit.description || (benefit as any).text || ''}
+                      {benefit.description || (benefit as unknown as {text: string}).text || ''}
                     </li>
                   {/each}
                 </ul>
