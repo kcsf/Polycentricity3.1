@@ -14,13 +14,24 @@ export interface ActorWithPosition extends Actor {
     position?: NodePosition;
 }
 
-export interface AgreementWithPosition extends Omit<Agreement, 'obligations' | 'benefits'> {
-    id: string; // Match the ID field used in the application
+export interface AgreementWithPosition {
+    id: string; // Match the ID field used in the application (same as agreement_id)
+    agreement_id?: string; // For compatibility with Agreement interface
+    game_id: string;
+    title: string;
+    summary?: string;
+    type?: 'symmetric' | 'asymmetric';
     position?: NodePosition;
     parties: Record<string, boolean>; // actor_ids as keys with boolean values
     terms?: string; // Optional terms field
     description?: string; // Optional description field
     status: 'proposed' | 'accepted' | 'rejected' | 'completed';
+    created_at: number;
+    updated_at?: number;
+    created_by?: string; // actor_id or user_id of creator
+    votes?: Record<string, 'accept' | 'reject'>; // actor_id to vote
+    
+    // Store obligations and benefits as arrays for easier manipulation
     obligations: {
         id: string;
         fromActorId: string;
@@ -133,14 +144,19 @@ export async function loadAgreements(gameId: string) {
                 // Transform to AgreementWithPosition
                 const agreementWithPos: AgreementWithPosition = {
                     id: agreementId,
+                    agreement_id: agreementId, // For compatibility
                     game_id: agreement.game_id,
                     title: agreement.title || '',
+                    summary: agreement.summary || '',
+                    type: agreement.type || 'symmetric',
                     parties: agreement.parties || {},
                     status: agreement.status || 'proposed',
                     created_at: agreement.created_at || Date.now(),
                     updated_at: agreement.updated_at || Date.now(),
+                    created_by: agreement.created_by || '',
                     description: agreement.description || '',
                     terms: agreement.terms || '',
+                    votes: agreement.votes || {},
                     position,
                     obligations: [], // We'll load these separately
                     benefits: []     // We'll load these separately
@@ -206,11 +222,13 @@ export function subscribeToAgreements(gameId: string) {
 
 // Load obligations and benefits for an agreement
 async function loadAgreementRelations(agreement: AgreementWithPosition) {
-    if (!gun) return Promise.resolve();
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return Promise.resolve();
+    }
     
     return new Promise<void>((resolve) => {
-        const gunInstance = getGun();
-        
         // Load obligations from custom node path
         gunInstance.get('obligations').map().once((obligation: any, obligationId: string) => {
             if (obligation && obligation.agreementId === agreement.id) {
@@ -240,10 +258,13 @@ async function loadAgreementRelations(agreement: AgreementWithPosition) {
 
 // Get position data for a node
 async function getNodePosition(nodeId: string): Promise<NodePosition | undefined> {
-    if (!gun) return Promise.resolve(undefined);
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return Promise.resolve(undefined);
+    }
     
     return new Promise((resolve) => {
-        const gunInstance = getGun();
         gunInstance.get(nodes.positions).get(nodeId).once((position: NodePosition) => {
             resolve(position);
         });
