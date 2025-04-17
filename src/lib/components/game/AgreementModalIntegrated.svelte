@@ -172,13 +172,13 @@
   <div class="modal-container w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-surface-800 rounded-lg shadow-xl">
     <div class="p-4 border-b border-surface-200 dark:border-surface-700 flex justify-between items-center">
       <h2 class="text-xl font-semibold">{editMode ? 'Edit' : 'Create'} Agreement</h2>
-      <button class="btn btn-sm btn-icon variant-ghost-surface" on:click={closeModal}>
+      <button class="btn btn-sm btn-icon variant-ghost-surface" onclick={closeModal}>
         <svelte:component this={icons.X} class="w-4 h-4" />
       </button>
     </div>
     
     <div class="p-4">
-      <form on:submit|preventDefault={saveAgreement} class="space-y-4">
+      <form onsubmit={(e) => { e.preventDefault(); saveAgreement(e); }} class="space-y-4">
         <!-- Title and Description -->
         <div class="form-group">
           <label for="title" class="form-label">Title</label>
@@ -249,7 +249,7 @@
             <button
               type="button"
               class="btn btn-sm variant-ghost-primary"
-              on:click={addTerm}
+              onclick={addTerm}
             >
               Add Term
             </button>
