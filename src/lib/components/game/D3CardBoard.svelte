@@ -138,6 +138,53 @@
         }
       });
       
+      // Load agreements for this game
+      agreements = [];
+      
+      // Check if the game has agreements
+      if (game.agreements) {
+        console.log("D3CardBoard: Game has agreements, loading...");
+        
+        // Get agreement ids from the game's agreements object
+        const agreementIds = Object.keys(game.agreements);
+        console.log(`D3CardBoard: Found ${agreementIds.length} agreement IDs in game`);
+        
+        if (agreementIds.length > 0) {
+          // Create a promise for each agreement to load
+          const agreementPromises = agreementIds.map(agreementId => {
+            return new Promise<AgreementWithPosition>(resolve => {
+              // Query the agreement from Gun
+              getGun().get(nodes.agreements).get(agreementId).once((agreementData: Agreement) => {
+                if (agreementData) {
+                  console.log(`D3CardBoard: Loaded agreement ${agreementId}:`, agreementData);
+                  
+                  // Add position for visualization
+                  const agreementWithPosition: AgreementWithPosition = {
+                    ...agreementData,
+                    position: {
+                      x: width / 2 + (Math.random() * 100 - 50),
+                      y: height / 2 + (Math.random() * 100 - 50)
+                    }
+                  };
+                  
+                  resolve(agreementWithPosition);
+                } else {
+                  console.warn(`D3CardBoard: Agreement ${agreementId} not found`);
+                  resolve(null);
+                }
+              });
+            });
+          });
+          
+          // Wait for all agreements to load
+          const loadedAgreements = await Promise.all(agreementPromises);
+          
+          // Filter out null values and add to agreements array
+          agreements = loadedAgreements.filter(a => a !== null);
+          console.log(`D3CardBoard: Successfully loaded ${agreements.length} agreements`);
+        }
+      }
+      
       console.log("D3CardBoard: Setup data", {
         cardsCount: cardsWithPosition.length,
         agreementsCount: agreements.length,

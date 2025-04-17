@@ -600,7 +600,7 @@
       {#if viewMode === 'actors'}
         <GameBoard {gameId} activeActorId={playerRole?.actor_id} />
       {:else}
-        <CardBoard {gameId} activeActorId={playerRole?.actor_id} />
+        <CardBoard bind:this={cardBoardComponent} {gameId} activeActorId={playerRole?.actor_id} />
       {/if}
     </main>
     
