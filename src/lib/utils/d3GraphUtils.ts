@@ -838,16 +838,25 @@ export function addDonutRings(
       .trim();
   };
   
-  // Color scale for categories - using vibrant colors that match the original design
+  // Color scale for categories - matching exactly the original React implementation
   const colorScale = d3.scaleOrdinal<string>()
     .domain(categories)
     .range([
       "#4C9AFF", // bright blue for values
       "#36B37E", // emerald green for capabilities
-      "#FF991F", // bright orange for intellectual property
+      "#FF991F", // bright orange for intellectual property 
       "#998DD9", // purple for resources
       "#FF5630"  // bright red for goals
     ]);
+    
+  // Create secondary color variants for hover states and sub-wedges
+  const secondaryColors: { [key: string]: string } = {
+    "values": "#00C7E6",      // cyan variant for values
+    "capabilities": "#57D9A3", // light green variant
+    "intellectualProperty": "#FFC400", // yellow variant
+    "resources": "#C0B6F2",   // light purple variant
+    "goals": "#FF8F73"        // light red variant
+  };
   
   // Process each card node to add wedges
   cardNodes.each(function(nodeData: any) {
@@ -936,38 +945,75 @@ export function addDonutRings(
           .endAngle(wedgeEndAngle)
           .padAngle(0.01);
         
-        // Add wedge path with more prominent styling
-        // CRITICAL FIX: Using more vibrant colors and higher opacity
+        // Create the outer wedge with primary color
         const wedgePath = categoryGroup.append("path")
           .attr("d", arc({} as any))
           .attr("fill", categoryColor)
-          .attr("opacity", 1) // Full opacity for maximum visibility
+          .attr("opacity", 0.9) // Slightly transparent for layered effect
           .attr("stroke", "white")
-          .attr("stroke-width", 2) // Thicker stroke for visibility
+          .attr("stroke-width", 1.5)
           .attr("class", `wedge ${category} category-wedge`)
-          // CRITICAL: Move nodes forward in the z-index
           .style("z-index", "10") // Set explicit z-index
-          // Make sure it's visible
           .style("visibility", "visible")
           .style("display", "block")
-          .style("pointer-events", "all") // Ensure clickable
-          .on("mouseover", function() {
-            // Highlight this wedge more obviously
-            d3.select(this)
-              .attr("opacity", 1)
-              .attr("stroke-width", 2)
-              .attr("fill", function() {
-                const color = d3.color(categoryColor);
-                return color ? (color.brighter(0.3).toString()) : categoryColor;
-              });
-          })
-          .on("mouseout", function() {
-            // Reset appearance but keep visible
-            d3.select(this)
-              .attr("opacity", 0.9)
-              .attr("stroke-width", 1.5)
-              .attr("fill", categoryColor);
-          });
+          .style("pointer-events", "all"); // Ensure clickable
+          
+        // Add inner wedge with gradient or secondary color for depth
+        // Create smaller inner arc for nested visual effect
+        const innerArc = d3.arc<any>()
+          .innerRadius(scaledNodeRadius + (baseDonutThickness * 0.4)) // Inner radius is larger
+          .outerRadius(donutRadius - (baseDonutThickness * 0.2)) // Outer radius is smaller
+          .startAngle(wedgeStartAngle)
+          .endAngle(wedgeEndAngle)
+          .padAngle(0.01);
+          
+        // Get secondary color for this category
+        const secondaryColor = secondaryColors[category] || d3.color(categoryColor)?.brighter(0.5)?.toString() || categoryColor;
+        
+        // Add inner wedge with secondary color
+        const innerWedge = categoryGroup.append("path")
+          .attr("d", innerArc({} as any))
+          .attr("fill", secondaryColor)
+          .attr("opacity", 0.7) // More transparent for layered effect
+          .attr("stroke", "white")
+          .attr("stroke-width", 0.5)
+          .attr("class", `inner-wedge ${category}`)
+          .style("z-index", "11") // Higher z-index to appear on top
+          .style("visibility", "visible");
+        
+        // Add event handlers to both paths for consistent interaction
+        const handleMouseOver = function() {
+          wedgePath
+            .attr("opacity", 1)
+            .attr("stroke-width", 2)
+            .attr("fill", categoryColor);
+            
+          innerWedge
+            .attr("opacity", 0.9)
+            .attr("stroke-width", 1)
+            .attr("fill", secondaryColor);
+        };
+        
+        const handleMouseOut = function() {
+          wedgePath
+            .attr("opacity", 0.9)
+            .attr("stroke-width", 1.5)
+            .attr("fill", categoryColor);
+            
+          innerWedge
+            .attr("opacity", 0.7)
+            .attr("stroke-width", 0.5)
+            .attr("fill", secondaryColor);
+        };
+        
+        // Apply event handlers to both paths
+        wedgePath
+          .on("mouseover", handleMouseOver)
+          .on("mouseout", handleMouseOut);
+          
+        innerWedge
+          .on("mouseover", handleMouseOver)
+          .on("mouseout", handleMouseOut);
           
         // Log the SVG path for verification
         console.log("Wedges added for node:", nodeData.id, "count:", categoryItems.length, 

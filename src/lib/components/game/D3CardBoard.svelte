@@ -129,7 +129,7 @@
     popoverOpen = true;
   }
   
-  // Function to update radial menu
+  // Function to update radial menu with enhanced visualization
   function updateRadialMenu(node: D3Node) {
     if (!node || node.type !== 'actor') return;
     
@@ -144,16 +144,43 @@
       .attr("class", "radial-menu")
       .attr("transform", `translate(${node.x}, ${node.y})`);
     
-    // Define action buttons
+    // Add a semi-transparent overlay for the menu background
+    menuGroup.append("circle")
+      .attr("r", 100)
+      .attr("fill", "rgba(0,0,0,0.1)")
+      .attr("stroke", "none")
+      .attr("class", "radial-menu-backdrop")
+      .style("pointer-events", "none"); // Allow clicks to pass through
+    
+    // Define action buttons with icons and labels
     const actions = [
-      { id: "view", label: "View", icon: "eye", angle: -45, color: "#4C9AFF" },
-      { id: "edit", label: "Edit", icon: "edit", angle: 45, color: "#36B37E" },
-      { id: "connect", label: "Connect", icon: "link", angle: 135, color: "#FF991F" },
-      { id: "delete", label: "Delete", icon: "trash", angle: 225, color: "#FF5630" }
+      { id: "view", label: "View", icon: "eye", angle: -45, color: "#4C9AFF", secondaryColor: "#00C7E6" },
+      { id: "edit", label: "Edit", icon: "edit", angle: 45, color: "#36B37E", secondaryColor: "#57D9A3" },
+      { id: "connect", label: "Connect", icon: "link", angle: 135, color: "#FF991F", secondaryColor: "#FFC400" },
+      { id: "delete", label: "Delete", icon: "trash", angle: 225, color: "#FF5630", secondaryColor: "#FF8F73" }
     ];
     
     // Calculate positions
     const radius = 70; // Distance from center
+    
+    // Add dashed connection lines from center to each button
+    actions.forEach(action => {
+      const angleRad = (action.angle * Math.PI) / 180;
+      const x = radius * Math.cos(angleRad);
+      const y = radius * Math.sin(angleRad);
+      
+      // Draw dashed line connecting center to button
+      menuGroup.append("line")
+        .attr("x1", 0)
+        .attr("y1", 0)
+        .attr("x2", x * 0.9) // Make line slightly shorter than full distance
+        .attr("y2", y * 0.9)
+        .attr("stroke", action.color)
+        .attr("stroke-width", 1.5)
+        .attr("stroke-dasharray", "3,3")
+        .attr("opacity", 0.6)
+        .attr("class", "radial-connector");
+    });
     
     // Add action buttons
     actions.forEach(action => {
@@ -161,7 +188,7 @@
       const x = radius * Math.cos(angleRad);
       const y = radius * Math.sin(angleRad);
       
-      // Create action button background
+      // Create action button group
       const actionButton = menuGroup.append("g")
         .attr("class", `radial-action ${action.id}`)
         .attr("transform", `translate(${x}, ${y})`)
@@ -192,22 +219,86 @@
           }
         });
       
-      // Add circle background
+      // Add outer circle with gradient effect
+      const gradientId = `radial-gradient-${action.id}-${node.id}`;
+      
+      // Create gradient definition
+      const gradient = menuSvg.select("defs").append("radialGradient")
+        .attr("id", gradientId)
+        .attr("cx", "50%")
+        .attr("cy", "50%")
+        .attr("r", "50%");
+        
+      // Add gradient stops
+      gradient.append("stop")
+        .attr("offset", "0%")
+        .attr("stop-color", action.secondaryColor)
+        .attr("stop-opacity", 1);
+        
+      gradient.append("stop")
+        .attr("offset", "80%")
+        .attr("stop-color", action.color)
+        .attr("stop-opacity", 1);
+        
+      gradient.append("stop")
+        .attr("offset", "100%")
+        .attr("stop-color", action.color)
+        .attr("stop-opacity", 0.9);
+      
+      // Add button outer circle with gradient
+      actionButton.append("circle")
+        .attr("r", 24)
+        .attr("fill", `url(#${gradientId})`)
+        .attr("stroke", "white")
+        .attr("stroke-width", 2)
+        .attr("class", "radial-button-outer");
+      
+      // Add inner circle
       actionButton.append("circle")
         .attr("r", 20)
-        .attr("fill", action.color)
+        .attr("fill", "white")
         .attr("opacity", 0.9)
-        .attr("stroke", "white")
-        .attr("stroke-width", 2);
+        .attr("stroke", action.color)
+        .attr("stroke-width", 1.5)
+        .attr("class", "radial-button-inner");
       
-      // Add icon or text
-      actionButton.append("text")
+      // Add label text
+      const textElement = actionButton.append("text")
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("fill", "white")
+        .attr("fill", action.color)
         .attr("font-size", "10px")
         .attr("font-weight", "bold")
+        .attr("class", "radial-button-text")
         .text(action.label);
+      
+      // Add hover effects
+      actionButton.on("mouseover", function() {
+        d3.select(this).select(".radial-button-outer")
+          .attr("r", 26)
+          .attr("stroke-width", 2.5);
+          
+        d3.select(this).select(".radial-button-inner")
+          .attr("r", 22)
+          .attr("opacity", 1);
+          
+        textElement
+          .attr("font-size", "11px")
+          .attr("font-weight", "bolder");
+      })
+      .on("mouseout", function() {
+        d3.select(this).select(".radial-button-outer")
+          .attr("r", 24)
+          .attr("stroke-width", 2);
+          
+        d3.select(this).select(".radial-button-inner")
+          .attr("r", 20)
+          .attr("opacity", 0.9);
+          
+        textElement
+          .attr("font-size", "10px")
+          .attr("font-weight", "bold");
+      });
     });
   }
   
