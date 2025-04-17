@@ -166,9 +166,25 @@ export function addDonutRings(
     const node = d3.select(this);
     const isActive = nodeData.id === activeCardId;
     
-    // Exact sizes from reference HTML
-    const centerRadius = isActive ? 52.5 : 35; // 52.5px for active nodes (reference)
-    const donutRadius = isActive ? 45 : 40; // Make donut thinner
+    // Calculate responsive dimensions based on base size
+    const BASE_SIZE = isActive ? 40 : 35; // Base size in pixels
+    
+    // Define all sizes as proportions of BASE_SIZE
+    const DIMENSIONS = {
+      centerRadius: BASE_SIZE * 0.9,       // Inner circle radius
+      donutRadius: BASE_SIZE * 1.15,       // Outer donut radius
+      subWedgeRadius: BASE_SIZE * 1.25,    // Sub-wedge radius
+      labelRadius: BASE_SIZE * 1.8,        // Label distance from center
+      textSize: BASE_SIZE * 0.3,           // Text size
+      centerTextSize: BASE_SIZE * 0.35,    // Center category text
+      countTextSize: BASE_SIZE * 0.3       // Count text size
+    };
+    
+    // Store references to center elements for visibility control on hover
+    let centerIcon: d3.Selection<Element, any, null, undefined>;
+    if (node.select(".center-icon-container").size() > 0) {
+      centerIcon = node.select(".center-icon-container");
+    }
     
     console.log(`Processing node ${nodeData.name} for donut rings:`, {
       _valueNames: nodeData._valueNames,
@@ -182,15 +198,15 @@ export function addDonutRings(
       return;
     }
     
-    // 1. Create a surrounding donut ring exactly matching reference
+    // 1. Create a surrounding donut ring
     node.append("circle")
-      .attr("r", donutRadius)
+      .attr("r", DIMENSIONS.donutRadius)
       .attr("class", `donut-ring ${isActive ? "active" : ""}`)
       .attr("fill", "transparent")
       .attr("stroke", "var(--border)")
       .attr("stroke-width", 1);
       
-    // 2. CATEGORIES SETUP - EXACTLY matching reference
+    // 2. CATEGORIES SETUP 
     const categories = [
       { 
         name: "values", 
@@ -214,29 +230,29 @@ export function addDonutRings(
       }
     ];
     
-    // Calculate angles for 4 equal segments (exactly like reference)
-    const totalCategories = 4; // Always 4 sections
-    const anglePerCategory = (2 * Math.PI) / totalCategories;
+    // Calculate angles for 4 equal segments using radians
+    const TOTAL_CATEGORIES = 4; 
+    const ANGLE_PER_CATEGORY = (2 * Math.PI) / TOTAL_CATEGORIES;
     
-    // 3. RENDER EACH CATEGORY (Processing all 4 categories)
+    // 3. RENDER EACH CATEGORY 
     categories.forEach((category, categoryIndex) => {
       // Calculate angles for this category
-      const startAngle = -Math.PI/2 + (categoryIndex * anglePerCategory);
-      const endAngle = startAngle + anglePerCategory;
+      const startAngle = -Math.PI/2 + (categoryIndex * ANGLE_PER_CATEGORY);
+      const endAngle = startAngle + ANGLE_PER_CATEGORY;
       
-      // Create category group - exact class from reference
+      // Create category group
       const categoryGroup = node.append("g")
         .attr("class", "category-group")
         .attr("data-category", category.name);
       
-      // Create the wedge exactly like reference
+      // Create the wedge arc using d3.arc
       const arc = d3.arc<any>()
-        .innerRadius(centerRadius)
-        .outerRadius(donutRadius)
+        .innerRadius(DIMENSIONS.centerRadius)
+        .outerRadius(DIMENSIONS.donutRadius)
         .startAngle(startAngle)
         .endAngle(endAngle);
         
-      // Add the wedge - match reference classes and attributes
+      // Add the wedge
       const wedge = categoryGroup.append("path")
         .attr("class", "category-wedge")
         .attr("d", arc({}) as string)
@@ -248,7 +264,7 @@ export function addDonutRings(
         .attr("pointer-events", "all")
         .style("cursor", "pointer");
         
-      // Create category label for center display on hover
+      // Create category label group for center display on hover
       const categoryLabelGroup = categoryGroup.append("g")
         .attr("class", "category-label")
         .attr("opacity", 0)
@@ -261,24 +277,35 @@ export function addDonutRings(
         .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
         .trim(); // Remove extra spaces
       
+      // Add category name text
       categoryLabelGroup.append("text")
         .attr("x", 0)
-        .attr("y", 0)
+        .attr("y", -5)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("font-size", "12px")
+        .attr("font-size", DIMENSIONS.centerTextSize)
         .attr("font-weight", "bold")
         .attr("fill", category.color)
         .text(displayCategoryName);
       
-      // Create label container - hidden by default (exact match to reference)
+      // Add count text (shows number of items)
+      categoryLabelGroup.append("text")
+        .attr("x", 0)
+        .attr("y", 7)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("font-size", DIMENSIONS.countTextSize)
+        .attr("fill", category.color)
+        .text(`${category.items.length} items`);
+      
+      // Create label container for the radiating labels
       const labelContainer = categoryGroup.append("g")
         .attr("class", "label-container")
         .attr("opacity", 0)
         .attr("pointer-events", "none")
         .style("visibility", "hidden");
       
-      // Create sub-wedges container - hidden by default (exact match to reference)
+      // Create sub-wedges container
       const subWedgesContainer = categoryGroup.append("g")
         .attr("class", "sub-wedges")
         .attr("opacity", 0)
@@ -288,7 +315,7 @@ export function addDonutRings(
       // Add items with their labels and sub-wedges
       if (category.items && category.items.length > 0) {
         const itemCount = category.items.length;
-        const anglePerItem = anglePerCategory / itemCount;
+        const anglePerItem = ANGLE_PER_CATEGORY / itemCount;
         
         // Process each item in this category
         category.items.forEach((item, itemIndex) => {
@@ -296,17 +323,15 @@ export function addDonutRings(
           const itemEndAngle = itemStartAngle + anglePerItem;
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
           
-          // Calculate label position - exact radiating pattern
-          const labelRadius = donutRadius * 1.5; // Labels outside the wheel
-          const labelX = Math.cos(itemMidAngle) * labelRadius;
-          const labelY = Math.sin(itemMidAngle) * labelRadius;
+          // Calculate label position - using radians directly
+          const labelX = Math.cos(itemMidAngle) * DIMENSIONS.labelRadius;
+          const labelY = Math.sin(itemMidAngle) * DIMENSIONS.labelRadius;
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Add text with correct positioning and angle
-          // Text anchor based on position - match reference behavior
+          // Determine text anchor based on position in radians
           const textAnchor = (itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5) 
             ? "end" : "start";
            
@@ -329,40 +354,32 @@ export function addDonutRings(
               .join(' ');
           }
           
+          // Add the text label
           labelGroup.append("text")
             .attr("x", labelX)
             .attr("y", labelY)
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "11px")
+            .attr("font-size", DIMENSIONS.textSize)
             .attr("fill", category.color)
             .attr("font-weight", "500")
-            // Apply a proper rotation angle for text labels:
-            // For left side: rotate counterclockwise (-90 to 0 degrees)
-            // For right side: rotate clockwise (0 to 90 degrees)
+            // Apply rotation based directly on radians
             .attr("transform", function() {
-              let rotationAngle;
-              
-              // Convert to degrees and normalize to 0-360 range
-              const degrees = (itemMidAngle * 180/Math.PI) % 360;
-              
-              // Determine rotation based on position in the circle
-              if (degrees >= 90 && degrees <= 270) {
-                // Left side of the circle - make text readable from left to right
-                rotationAngle = degrees + 180;
-              } else {
-                // Right side of the circle - normal orientation
-                rotationAngle = degrees;
-              }
-              
-              return `rotate(${rotationAngle},${labelX},${labelY})`;
+              // For labels on left side, flip them 180 degrees
+              const rotation = itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5
+                ? itemMidAngle + Math.PI  // Add π radians (180 degrees) to flip
+                : itemMidAngle;
+                
+              // Convert to degrees for the SVG transform
+              const rotationDegrees = (rotation * 180 / Math.PI) % 360;
+              return `rotate(${rotationDegrees},${labelX},${labelY})`;
             })
             .text(displayName);
           
           // Create sub-wedge for this item
           const subArc = d3.arc<any>()
-            .innerRadius(donutRadius)
-            .outerRadius(donutRadius * 1.3)
+            .innerRadius(DIMENSIONS.donutRadius)
+            .outerRadius(DIMENSIONS.subWedgeRadius)
             .startAngle(itemStartAngle)
             .endAngle(itemEndAngle);
           
@@ -378,8 +395,16 @@ export function addDonutRings(
         });
       }
       
-      // Add hover interactions exactly like reference
+      // Add hover interactions
       wedge.on("mouseenter", function() {
+        // Hide the center icon when hovering on wedge
+        if (centerIcon) {
+          centerIcon
+            .transition().duration(100)
+            .attr("opacity", 0)
+            .style("display", "none");
+        }
+        
         // Show labels and sub-wedges on hover
         labelContainer
           .style("visibility", "visible")
@@ -398,6 +423,14 @@ export function addDonutRings(
           .attr("opacity", 1);
       })
       .on("mouseleave", function() {
+        // Show the center icon again when not hovering
+        if (centerIcon) {
+          centerIcon
+            .style("display", "block")
+            .transition().duration(200)
+            .attr("opacity", 1);
+        }
+        
         // Hide on mouse leave
         labelContainer
           .transition().duration(200)

@@ -1598,11 +1598,11 @@
           try {
             if (node.type === 'actor') {
               const centerGroup = d3.select(this).append("g")
-                .attr("class", "center-group");
+                .attr("class", "center-group center-icon-container");
               
               // Create a container div for the icon
               const iconContainer = document.createElement('div');
-              iconContainer.className = 'center-icon-container';
+              iconContainer.className = 'icon-container';
               
               // Get the card data
               const card = node.data as Card;
