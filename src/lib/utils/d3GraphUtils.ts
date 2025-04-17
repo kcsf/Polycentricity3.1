@@ -144,6 +144,8 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
+  // DEBUG MARKER: This is the UPDATED VERSION with radial labels
+  console.log("UPDATED addDonutRings with radial labels called");
   // Get all card nodes that are actors (not agreements)
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
   
