@@ -7,7 +7,7 @@ import {
     get,
     getCollection,
 } from "./gunService";
-import type { Capability } from "$lib/types";
+import type { Capability, Card } from "$lib/types";
 
 // Create a new capability
 export async function createCapability(
@@ -132,4 +132,110 @@ export async function createOrGetCapabilities(
         `[createOrGetCapabilities] Processed ${Object.keys(capabilityMap).length} capabilities`,
     );
     return capabilityMap;
+}
+
+/**
+ * Get all capability names for a card efficiently using Gun.js references
+ * 
+ * @param card - The card to get capability names for
+ * @returns Array of capability names
+ */
+export async function getCardCapabilityNames(card: Card): Promise<string[]> {
+    console.log(`[getCardCapabilityNames] Processing capabilities for card: ${card.card_id}`);
+    
+    try {
+        // Early return if no capabilities
+        if (!card.capabilities) {
+            console.log(`[getCardCapabilityNames] No capabilities found for card: ${card.card_id}`);
+            return [];
+        }
+        
+        // Handle different Gun.js reference formats
+        let capabilityIds: string[] = [];
+        
+        // Check if capabilities is a Gun.js reference (format: {"#": "path"})
+        if (typeof card.capabilities === 'object' && '#' in card.capabilities) {
+            // It's a reference to a Gun.js node
+            const capabilitiesRef = (card.capabilities as any)['#'];
+            console.log(`[getCardCapabilityNames] Following capabilities reference: ${capabilitiesRef}`);
+            
+            try {
+                // Get the referenced node data
+                const refCapabilities = await get(capabilitiesRef);
+                
+                if (refCapabilities && typeof refCapabilities === 'object') {
+                    // Extract capability IDs (keys where value is true)
+                    capabilityIds = Object.keys(refCapabilities)
+                        .filter(key => 
+                            key !== '_' && 
+                            key !== '#' && 
+                            (refCapabilities as Record<string, any>)[key] === true
+                        );
+                    
+                    console.log(`[getCardCapabilityNames] Found ${capabilityIds.length} capabilities from reference:`, capabilityIds);
+                } else {
+                    console.log(`[getCardCapabilityNames] Referenced capabilities object not found: ${capabilitiesRef}`);
+                }
+            } catch (error) {
+                console.error(`[getCardCapabilityNames] Error resolving capabilities reference:`, error);
+            }
+        } else if (typeof card.capabilities === 'object') {
+            // It's an inline object with capability IDs as keys
+            capabilityIds = Object.keys(card.capabilities as Record<string, boolean>)
+                .filter(key => {
+                    const value = (card.capabilities as Record<string, any>)[key];
+                    return key !== '_' && key !== '#' && value === true;
+                });
+            
+            console.log(`[getCardCapabilityNames] Found ${capabilityIds.length} inline capabilities:`, capabilityIds);
+        }
+        
+        // Now resolve the capability IDs to actual capability names
+        const gun = getGun();
+        if (!gun) {
+            console.error("[getCardCapabilityNames] Gun not initialized");
+            return [];
+        }
+        
+        // Create a Map to hold capability names as they're resolved (for deduplication)
+        const capabilityNamesMap = new Map<string, string>();
+        
+        // Process each capability ID in parallel
+        await Promise.all(capabilityIds.map(async (capabilityId) => {
+            try {
+                // Handle standard capability IDs (starting with 'capability_')
+                if (capabilityId.startsWith('capability_')) {
+                    const capabilityData = await get(`${nodes.capabilities}/${capabilityId}`);
+                    if (capabilityData?.name) {
+                        capabilityNamesMap.set(capabilityId, capabilityData.name);
+                        return;
+                    }
+                }
+                
+                // For any other format, make a readable name from the ID
+                if (capabilityId.startsWith('capability_')) {
+                    // Convert capability_something-like-this to Something Like This
+                    const readable = capabilityId.replace('capability_', '')
+                        .split('-')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ');
+                    capabilityNamesMap.set(capabilityId, readable);
+                } else {
+                    // Use the ID directly if no other processing applies
+                    capabilityNamesMap.set(capabilityId, capabilityId);
+                }
+            } catch (error) {
+                console.error(`[getCardCapabilityNames] Error processing capability ID ${capabilityId}:`, error);
+            }
+        }));
+        
+        // Convert Map values to array and remove duplicates
+        const capabilityNames = [...capabilityNamesMap.values()];
+        console.log(`[getCardCapabilityNames] Final capability names for card ${card.card_id}:`, capabilityNames);
+        
+        return capabilityNames;
+    } catch (error) {
+        console.error(`[getCardCapabilityNames] Error:`, error);
+        return [];
+    }
 }

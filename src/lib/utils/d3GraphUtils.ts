@@ -7,6 +7,8 @@
 import * as d3 from 'd3';
 import { Card, Actor, Agreement } from '$lib/types';
 import type { SvelteComponent } from 'svelte';
+import { getCardValueNames } from '$lib/services/valueService';
+import { getCardCapabilityNames } from '$lib/services/capabilityService';
 
 // Define color scale for categories (shared with D3CardBoard.svelte)
 export const categoryColors = d3.scaleOrdinal([
