@@ -410,9 +410,10 @@ export function addDonutRings(
           // Add the text label with radial orientation (like in reference image)
           // Create a text element that will follow the radial line from center
           labelGroup.append("text")
+            .attr("class", "radial-label") // Added specific class to target with CSS
             .attr("x", labelX)
             .attr("y", labelY)
-            .attr("text-anchor", textAnchor)
+            .attr("text-anchor", textAnchor) // Will be overridden by .node text, need CSS override
             .attr("dominant-baseline", "middle")
             .attr("font-size", "10px") // Slightly smaller font for better appearance
             .attr("fill", category.color)
@@ -420,6 +421,10 @@ export function addDonutRings(
             // Apply rotation to make text follow the radial line
             .attr("transform", `rotate(${rotationDeg},${labelX},${labelY})`)
             .text(displayName);
+          
+          // Add inline style to force the text-anchor (more specific than CSS)
+          labelGroup.select("text.radial-label")
+            .style("text-anchor", textAnchor);
           
           // Create sub-wedge for this item
           const subArc = d3.arc<any>()
