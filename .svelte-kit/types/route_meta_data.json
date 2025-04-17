@@ -13,6 +13,9 @@
 	"/database-schema": [
 		"src/routes/+layout.ts"
 	],
+	"/db-explorer": [
+		"src/routes/+layout.ts"
+	],
 	"/games": [
 		"src/routes/+layout.ts"
 	],

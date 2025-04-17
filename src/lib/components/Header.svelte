@@ -3,7 +3,7 @@
   import { userStore } from '$lib/stores/userStore';
   import { logoutUser } from '$lib/services/authService';
   import { goto } from '$app/navigation';
-  import { Sun, Moon, Menu, X, Sprout, LogOut, Gamepad2, Settings, LayoutDashboard } from 'lucide-svelte';
+  import { Sun, Moon, Menu, X, Sprout, LogOut, Gamepad2, Settings, LayoutDashboard, Database } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import themeStore from '$lib/stores/themeStore';
   import { browser } from '$app/environment';
