@@ -168,7 +168,7 @@ export function addDonutRings(
     
     // Exact sizes from reference HTML
     const centerRadius = isActive ? 52.5 : 35; // 52.5px for active nodes (reference)
-    const donutRadius = 75; // 75px from reference
+    const donutRadius = isActive ? 45 : 40; // Make donut thinner
     
     console.log(`Processing node ${nodeData.name} for donut rings:`, {
       _valueNames: nodeData._valueNames,
@@ -247,6 +247,29 @@ export function addDonutRings(
         .attr("data-category", category.name)
         .attr("pointer-events", "all")
         .style("cursor", "pointer");
+        
+      // Create category label for center display on hover
+      const categoryLabelGroup = categoryGroup.append("g")
+        .attr("class", "category-label")
+        .attr("opacity", 0)
+        .attr("pointer-events", "none")
+        .style("visibility", "hidden");
+        
+      // Format the category name for display
+      const displayCategoryName = category.name
+        .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+        .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+        .trim(); // Remove extra spaces
+      
+      categoryLabelGroup.append("text")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
+        .attr("fill", category.color)
+        .text(displayCategoryName);
       
       // Create label container - hidden by default (exact match to reference)
       const labelContainer = categoryGroup.append("g")
@@ -367,6 +390,12 @@ export function addDonutRings(
           .style("visibility", "visible")
           .transition().duration(200)
           .attr("opacity", 1);
+          
+        // Show category label in center
+        categoryLabelGroup
+          .style("visibility", "visible")
+          .transition().duration(200)
+          .attr("opacity", 1);
       })
       .on("mouseleave", function() {
         // Hide on mouse leave
@@ -378,6 +407,14 @@ export function addDonutRings(
           });
         
         subWedgesContainer
+          .transition().duration(200)
+          .attr("opacity", 0)
+          .on("end", function() {
+            d3.select(this).style("visibility", "hidden");
+          });
+          
+        // Hide category label in center
+        categoryLabelGroup
           .transition().duration(200)
           .attr("opacity", 0)
           .on("end", function() {
@@ -852,11 +889,30 @@ export function initializeD3Graph(
       .attr("class", d => d.type === "actor" ? "actor-circle" : "agreement-circle");
     
     // Add labels to nodes
-    nodeElements
+    const nodeLabels = nodeElements
+      .append("g")
+      .attr("class", "node-label");
+      
+    // Add background for labels
+    nodeLabels
+      .append("rect")
+      .attr("x", -50)
+      .attr("y", d => d.type === "actor" ? 35 : 25)
+      .attr("width", 100)
+      .attr("height", 20)
+      .attr("rx", 4)
+      .attr("ry", 4)
+      .attr("fill", "rgba(255, 255, 255, 0.8)")
+      .attr("stroke", "#e9e9e9")
+      .attr("stroke-width", 1);
+      
+    // Add text labels
+    nodeLabels
       .append("text")
       .attr("text-anchor", "middle")
-      .attr("dy", d => d.type === "actor" ? 55 : 35) // Position below the circle
+      .attr("y", d => d.type === "actor" ? 50 : 40) // Position below the circle
       .attr("font-size", 12)
+      .attr("font-weight", 500)
       .attr("fill", "#333")
       .text(d => d.name);
     
