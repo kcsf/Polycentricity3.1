@@ -11,7 +11,7 @@
         
         import GamePageLayout from './GamePageLayout.svelte';
         
-        export let data;
+        export const data = {}; // Using export const instead of export let for external reference
         
         let game: Game | null = null;
         let isLoading = true;
