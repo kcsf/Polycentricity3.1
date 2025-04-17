@@ -48,6 +48,9 @@
   let playersExpanded = false;
   let chatExpanded = true;
   
+  // Component references
+  let cardBoardComponent: CardBoard;
+  
   // Card data for the player role
   let playerCard: Card | null = null;
   let playerCardValues: string[] = [];
@@ -579,14 +582,9 @@
                 <SampleAgreementGenerator 
                   {gameId} 
                   refreshBoard={() => {
-                    if (viewMode === 'cards') {
-                      // Find CardBoard component and call its refreshBoard method
-                      const cardBoardEl = document.querySelector('main > div');
-                      if (cardBoardEl && cardBoardEl.__svelte) {
-                        if (cardBoardEl.__svelte.refreshBoard) {
-                          cardBoardEl.__svelte.refreshBoard();
-                        }
-                      }
+                    if (viewMode === 'cards' && cardBoardComponent) {
+                      // Call the refreshBoard method directly via our binding
+                      cardBoardComponent.refreshBoard();
                     }
                   }} 
                 />

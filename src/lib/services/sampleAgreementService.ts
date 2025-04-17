@@ -82,14 +82,23 @@ export async function generateSampleAgreements(
     
     // Save the agreement to the database
     if (onlySave || true) {  // Always save for now
+      console.log(`Creating agreement ${agreementId} between ${card1.role_title} and ${card2.role_title}`);
+      
+      // Save the agreement to the database
       gun.get(nodes.agreements).get(agreementId).put(sampleAgreement);
       
-      // Add agreement reference to the game
+      // Add agreement reference to the game - this is the key path that the visualization uses
       gun.get(nodes.games).get(gameId).get('agreements').get(agreementId).put(true);
       
       // Add agreement reference to each party's card
       gun.get(nodes.cards).get(card1.card_id || 'unknown').get('agreements').get(agreementId).put(true);
       gun.get(nodes.cards).get(card2.card_id || 'unknown').get('agreements').get(agreementId).put(true);
+      
+      // Add the parties to the cards map for relationship visualization
+      if (card1.actor_id && card2.actor_id) {
+        gun.get(nodes.actors).get(card1.actor_id).get('agreements').get(agreementId).put(true);
+        gun.get(nodes.actors).get(card2.actor_id).get('agreements').get(agreementId).put(true);
+      }
     }
     
     agreements.push(sampleAgreement);
