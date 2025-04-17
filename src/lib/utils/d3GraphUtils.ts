@@ -1156,83 +1156,105 @@ export function initializeD3Graph(
       
     // Constants for the node sizing - all other measurements will be relative to this
     const baseNodeRadius = 30; // Base radius of the node circle
+    const agreementNodeRadius = 17; // Smaller size for agreement nodes
     const outerRingRadiusMultiplier = 1.5; // How much bigger the outer ring is compared to base
     const labelPositionMultiplier = 1.1; // Position label 10% outside the outer ring
     
-    // Add background for labels (responsive to node size)
+    // Add labels - differently for actor vs agreement nodes
     nodeLabels.each(function(this: SVGGElement, d: D3Node) {
       const labelGroup = d3.select(this);
       const labelText = d.name;
       
-      // All sizing is proportional to the base node radius
-      const outerRadius = baseNodeRadius * outerRingRadiusMultiplier;
-      const labelDistance = outerRadius * labelPositionMultiplier;
-      
-      // Calculate font size proportional to node size
-      // Shorter names get relatively larger font, but maintain readability for all lengths
-      const fontSizeFactor = 0.3; // Font size as a fraction of node radius
-      const nameLength = Math.max(labelText.length, 1);
-      const fontSizeBase = baseNodeRadius * fontSizeFactor;
-      
-      // Gradual scaling for different name lengths:
-      // - Very short names (≤6 chars): 100% of base size
-      // - Medium names (7-15 chars): scaled between 85-100% of base size
-      // - Long names (>15 chars): scaled between 70-85% of base size
-      let scaleFactor = 1.0;
-      if (nameLength > 15) {
-        // For long names, scale between 70-85% based on length
-        scaleFactor = 0.7 + (0.15 * (25 - Math.min(nameLength, 25)) / 10);
-      } else if (nameLength > 6) {
-        // For medium names, scale between 85-100% based on length
-        scaleFactor = 0.85 + (0.15 * (15 - nameLength) / 9);
-      }
-      
-      const fontSizeAdjusted = Math.max(
-        baseNodeRadius * 0.2, // Minimum size as proportion of node
-        fontSizeBase * scaleFactor // Apply the calculated scale factor
-      );
-      
-      // Label container dimensions based on node size
-      const labelHeight = baseNodeRadius * 0.4; // 40% of node radius
-      const labelY = d.type === "actor" ? labelDistance : labelDistance * 0.8;
-      
-      // Create a temporary text element to measure width
-      const tempText = labelGroup.append("text")
-        .attr("font-size", fontSizeAdjusted)
-        .text(labelText)
-        .style("visibility", "hidden");
+      // Only create external labels for actor nodes
+      if (d.type === "actor") {
+        // All sizing is proportional to the base node radius
+        const outerRadius = baseNodeRadius * outerRingRadiusMultiplier;
+        const labelDistance = outerRadius * labelPositionMultiplier;
         
-      // Get text width to make container properly sized
-      const textWidth = (tempText.node() as SVGTextElement)?.getComputedTextLength() || 
-                        (labelText.length * fontSizeAdjusted * 0.6);
-      tempText.remove();
-      
-      // Border radius proportional to label height
-      const cornerRadius = labelHeight * 0.2;
-      
-      // Padding proportional to label size
-      const horizontalPadding = labelHeight * 0.25;
-      
-      // Add the background rect
-      labelGroup.append("rect")
-        .attr("x", -textWidth / 2 - horizontalPadding)
-        .attr("y", labelY)
-        .attr("width", textWidth + (horizontalPadding * 2))
-        .attr("height", labelHeight)
-        .attr("rx", cornerRadius)
-        .attr("ry", cornerRadius)
-        .attr("fill", "rgba(255, 255, 255, 0.8)")
-        .attr("stroke", "#e9e9e9")
-        .attr("stroke-width", 1);
-      
-      // Add the text - vertical positioning based on font metrics
-      labelGroup.append("text")
-        .attr("text-anchor", "middle")
-        .attr("y", labelY + (labelHeight * 0.65)) // Adjust text vertical centering
-        .attr("font-size", fontSizeAdjusted)
-        .attr("font-weight", 500)
-        .attr("fill", "#333")
-        .text(labelText);
+        // Calculate font size proportional to node size
+        // Shorter names get relatively larger font, but maintain readability for all lengths
+        const fontSizeFactor = 0.3; // Font size as a fraction of node radius
+        const nameLength = Math.max(labelText.length, 1);
+        const fontSizeBase = baseNodeRadius * fontSizeFactor;
+        
+        // Gradual scaling for different name lengths:
+        // - Very short names (≤6 chars): 100% of base size
+        // - Medium names (7-15 chars): scaled between 85-100% of base size
+        // - Long names (>15 chars): scaled between 70-85% of base size
+        let scaleFactor = 1.0;
+        if (nameLength > 15) {
+          // For long names, scale between 70-85% based on length
+          scaleFactor = 0.7 + (0.15 * (25 - Math.min(nameLength, 25)) / 10);
+        } else if (nameLength > 6) {
+          // For medium names, scale between 85-100% based on length
+          scaleFactor = 0.85 + (0.15 * (15 - nameLength) / 9);
+        }
+        
+        const fontSizeAdjusted = Math.max(
+          baseNodeRadius * 0.2, // Minimum size as proportion of node
+          fontSizeBase * scaleFactor // Apply the calculated scale factor
+        );
+        
+        // Label container dimensions based on node size
+        const labelHeight = baseNodeRadius * 0.4; // 40% of node radius
+        const labelY = labelDistance;
+        
+        // Create a temporary text element to measure width
+        const tempText = labelGroup.append("text")
+          .attr("font-size", fontSizeAdjusted)
+          .text(labelText)
+          .style("visibility", "hidden");
+          
+        // Get text width to make container properly sized
+        const textWidth = (tempText.node() as SVGTextElement)?.getComputedTextLength() || 
+                          (labelText.length * fontSizeAdjusted * 0.6);
+        tempText.remove();
+        
+        // Border radius proportional to label height
+        const cornerRadius = labelHeight * 0.2;
+        
+        // Padding proportional to label size
+        const horizontalPadding = labelHeight * 0.25;
+        
+        // Add the background rect
+        labelGroup.append("rect")
+          .attr("x", -textWidth / 2 - horizontalPadding)
+          .attr("y", labelY)
+          .attr("width", textWidth + (horizontalPadding * 2))
+          .attr("height", labelHeight)
+          .attr("rx", cornerRadius)
+          .attr("ry", cornerRadius)
+          .attr("fill", "rgba(255, 255, 255, 0.8)")
+          .attr("stroke", "#e9e9e9")
+          .attr("stroke-width", 1);
+        
+        // Add the text - vertical positioning based on font metrics
+        labelGroup.append("text")
+          .attr("text-anchor", "middle")
+          .attr("y", labelY + (labelHeight * 0.65)) // Adjust text vertical centering
+          .attr("font-size", fontSizeAdjusted)
+          .attr("font-weight", 500)
+          .attr("fill", "#333")
+          .text(labelText);
+      } else if (d.type === "agreement") {
+        // For agreement nodes, add text inside the node circle
+        // Extract the agreement ID number part (e.g., "AG1" from "agreement_1")
+        let agreementLabel = d.id;
+        if (d.id.startsWith("agreement_")) {
+          const idNumber = d.id.split("_")[1];
+          agreementLabel = `AG${idNumber}`;
+        }
+        
+        // Add text inside the circle
+        labelGroup.append("text")
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "middle")
+          .attr("y", 1) // Small adjustment for visual centering
+          .attr("font-size", agreementNodeRadius * 0.8)
+          .attr("font-weight", "bold")
+          .attr("fill", "#333")
+          .text(agreementLabel);
+      }
     });
     
     // Create simulation
