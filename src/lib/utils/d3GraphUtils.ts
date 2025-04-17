@@ -521,17 +521,7 @@ export function addDonutRings(
             // For angles 90-270 degrees, we need to flip the text (+180 rotation)
             const needsFlip = isLeftSide;
 
-            // Apply rotation based on position
-            let rotationDeg;
-            if (needsFlip) {
-              // For left side (90-270 degrees), add 180 to make text readable
-              rotationDeg = angleDeg + 180;
-            } else {
-              // For right side (0-90, 270-360 degrees), use angle as-is
-              rotationDeg = angleDeg;
-            }
-
-            // Clean up the item name for display
+            // Extract name for logging and display
             let logName = ""; // Just for logging
             let displayName = ""; // For display in SVG
 
@@ -568,6 +558,25 @@ export function addDonutRings(
               // Handle non-string items
               logName = String(item);
               displayName = String(item);
+            }
+            
+            // FIX #1: Update rotation logic to match labelAdjustedAngle
+            // Since labelAdjustedAngle already adds PI (180 degrees) for left side,
+            // we need to make sure rotationDeg is aligned with that
+            let rotationDeg;
+            if (isLeftSide) {
+              // For left side (90-270 degrees), use angle as-is
+              // We've already adjusted the coordinates using labelAdjustedAngle
+              rotationDeg = angleDeg;
+            } else {
+              // For right side (0-90, 270-360 degrees), use angle as-is
+              rotationDeg = angleDeg;
+            }
+            
+            // Debug logging for the adjusted label angle
+            if (category.debug || category.name === "rivalrousResources") {
+              const labelAdjustedAngleDeg = ((labelAdjustedAngle * 180) / Math.PI) % 360;
+              console.log(`Label adjusted angle: ${labelAdjustedAngleDeg.toFixed(1)}° for ${logName}`);
             }
 
             // Log orientation values for debugging (only for specific categories or items)
