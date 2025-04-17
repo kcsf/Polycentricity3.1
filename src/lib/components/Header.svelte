@@ -77,6 +77,11 @@
         <Settings size={18} />
         <span>Admin</span>
       </a>
+      
+      <a href="/db-explorer" class="flex items-center space-x-1 px-3 py-2 rounded-full transition-all hover:bg-primary-500/10">
+        <Database size={18} />
+        <span>DB Explorer</span>
+      </a>
     </nav>
     
     <!-- Right Side Actions -->
@@ -167,6 +172,10 @@
           <a href="/admin" class="flex items-center space-x-2 p-3 rounded-lg hover:bg-primary-500/10" on:click={handleNavClick}>
             <Settings size={20} />
             <span>Admin</span>
+          </a>
+          <a href="/db-explorer" class="flex items-center space-x-2 p-3 rounded-lg hover:bg-primary-500/10" on:click={handleNavClick}>
+            <Database size={20} />
+            <span>DB Explorer</span>
           </a>
         </nav>
         
