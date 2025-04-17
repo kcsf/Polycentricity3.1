@@ -221,7 +221,9 @@ export function addDonutRings(
         color: "#77B061",
         items: (nodeData.type === 'actor' && (nodeData.data as Card).rivalrous_resources)
           ? ((nodeData.data as Card).rivalrous_resources as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
-          : []
+          : [],
+        // Add a special flag to debug this category
+        debug: true
       },
       {
         name: "obligations",
@@ -264,15 +266,12 @@ export function addDonutRings(
     });
     
     // 3. RENDER EACH CATEGORY 
-    categories.forEach((category, categoryIndex) => {
+    // First, create all the main category wedges
+    // This ensures they're rendered in the correct order (lowest z-index)
+    const mainWedges = categories.map((category, categoryIndex) => {
       // Get the precalculated angles for this category
       const startAngle = categoryAngles[categoryIndex].start;
       const endAngle = categoryAngles[categoryIndex].end;
-      
-      // Create category group
-      const categoryGroup = node.append("g")
-        .attr("class", "category-group")
-        .attr("data-category", category.name);
       
       // Create the wedge arc using d3.arc
       const arc = d3.arc<any>()
@@ -281,6 +280,23 @@ export function addDonutRings(
         .startAngle(startAngle)
         .endAngle(endAngle);
         
+      // Return the category info and arc generator for later use
+      return {
+        category,
+        categoryIndex,
+        startAngle,
+        endAngle,
+        arc
+      };
+    });
+    
+    // Now render each category in the correct stacking order
+    mainWedges.forEach(({ category, categoryIndex, startAngle, endAngle, arc }) => {
+      // Create category group
+      const categoryGroup = node.append("g")
+        .attr("class", "category-group")
+        .attr("data-category", category.name);
+      
       // Add the wedge
       const wedge = categoryGroup.append("path")
         .attr("class", "category-wedge")
@@ -336,9 +352,14 @@ export function addDonutRings(
         .attr("pointer-events", "none")
         .style("visibility", "hidden");
       
-      // Create sub-wedges container
-      const subWedgesContainer = categoryGroup.append("g")
-        .attr("class", "sub-wedges")
+      // Create sub-wedges container - add to overlay group with higher z-index
+      // Use a separate group that renders on top of the main wedges
+      // This ensures sub-wedges always appear above the main wedges
+      const overlayGroup = node.select(".overlay-group") || 
+                           node.append("g").attr("class", "overlay-group");
+      
+      const subWedgesContainer = overlayGroup.append("g")
+        .attr("class", `sub-wedges-${category.name}`)
         .attr("opacity", 0)
         .attr("pointer-events", "none")
         .style("visibility", "hidden");
@@ -378,12 +399,37 @@ export function addDonutRings(
           // Convert angle to degrees for rotation calculations
           const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
           
-          // Determine which side of the circle we're on
-          const isLeftSide = angleDeg > 90 && angleDeg < 270;
+          // Debug rotation calculation if this is the rivalrousResources category
+          if (category.debug) {
+            console.log(`Rivalrous Resources label angle: ${angleDeg} degrees`);
+          }
           
-          // Set the rotation angle for the text to follow the radius
-          // For left side, need to flip text 180 degrees so it's not upside down
-          const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
+          // Determine which side of the circle we're on - FIX: special handling for top section (upside down text)
+          // We need to handle 4 quadrants properly to avoid upside-down text:
+          // - Top right: 0-90 degrees (text reads from left to right)
+          // - Bottom right: 90-180 degrees (text reads from top to bottom)
+          // - Bottom left: 180-270 degrees (text reads from right to left)
+          // - Top left: 270-360 degrees (text reads from bottom to top)
+          
+          // FIX: Improve text orientation logic for better readability 
+          let isLeftSide = false;
+          let needsFlip = false;
+          
+          // Quadrant-specific handling (angles in degrees)
+          if (angleDeg > 90 && angleDeg < 270) {
+            // Left half of the circle (either bottom-left or top-left)
+            isLeftSide = true;
+            needsFlip = true;
+          } else if (angleDeg >= 270 && angleDeg <= 360) {
+            // Special case for top-left quadrant (270-360 degrees)
+            // Text would be upside down without flipping
+            isLeftSide = false;
+            needsFlip = true;
+          }
+          
+          // Apply rotation based on improved orientation logic
+          // If needsFlip is true, rotate text by 180 degrees to fix orientation
+          const rotationDeg = needsFlip ? angleDeg + 180 : angleDeg;
           
           // Text anchor should be at start of text for right side labels, end of text for left side
           const textAnchor = isLeftSide ? "end" : "start";
