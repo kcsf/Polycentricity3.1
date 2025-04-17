@@ -129,6 +129,88 @@
     popoverOpen = true;
   }
   
+  // Function to update radial menu
+  function updateRadialMenu(node: D3Node) {
+    if (!node || node.type !== 'actor') return;
+    
+    console.log("Updating radial menu for node:", node.id);
+    
+    // Clear existing radial menu
+    const menuSvg = d3.select(svgRef);
+    menuSvg.selectAll(".radial-menu").remove();
+    
+    // Create radial menu group
+    const menuGroup = menuSvg.append("g")
+      .attr("class", "radial-menu")
+      .attr("transform", `translate(${node.x}, ${node.y})`);
+    
+    // Define action buttons
+    const actions = [
+      { id: "view", label: "View", icon: "eye", angle: -45, color: "#4C9AFF" },
+      { id: "edit", label: "Edit", icon: "edit", angle: 45, color: "#36B37E" },
+      { id: "connect", label: "Connect", icon: "link", angle: 135, color: "#FF991F" },
+      { id: "delete", label: "Delete", icon: "trash", angle: 225, color: "#FF5630" }
+    ];
+    
+    // Calculate positions
+    const radius = 70; // Distance from center
+    
+    // Add action buttons
+    actions.forEach(action => {
+      const angleRad = (action.angle * Math.PI) / 180;
+      const x = radius * Math.cos(angleRad);
+      const y = radius * Math.sin(angleRad);
+      
+      // Create action button background
+      const actionButton = menuGroup.append("g")
+        .attr("class", `radial-action ${action.id}`)
+        .attr("transform", `translate(${x}, ${y})`)
+        .style("cursor", "pointer")
+        .on("click", (event) => {
+          event.stopPropagation();
+          console.log(`Action ${action.id} clicked for node ${node.id}`);
+          
+          // Handle various actions
+          if (action.id === "view") {
+            // Toggle popover to view card details
+            popoverNode = node.data;
+            popoverNodeType = 'actor';
+            popoverPosition = { x: node.x, y: node.y };
+            popoverOpen = true;
+          }
+          else if (action.id === "edit") {
+            // Open edit modal - if implemented
+            console.log("Edit not implemented yet");
+          }
+          else if (action.id === "connect") {
+            // Start connection flow - if implemented
+            console.log("Connect not implemented yet");
+          }
+          else if (action.id === "delete") {
+            // Delete confirmation - if implemented
+            console.log("Delete not implemented yet");
+          }
+        });
+      
+      // Add circle background
+      actionButton.append("circle")
+        .attr("r", 20)
+        .attr("fill", action.color)
+        .attr("opacity", 0.9)
+        .attr("stroke", "white")
+        .attr("stroke-width", 2);
+      
+      // Add icon or text
+      actionButton.append("text")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "white")
+        .attr("font-size", "10px")
+        .attr("font-weight", "bold")
+        .text(action.label);
+    });
+  }
+  
   // Get Lucide icon component using direct import
   async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
     console.log(`Getting icon for: "${iconName}"`);
