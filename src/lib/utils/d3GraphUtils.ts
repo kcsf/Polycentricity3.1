@@ -43,7 +43,8 @@ export interface D3Node {
   fx?: number | null;
   fy?: number | null;
   active?: boolean;
-  _valueNames?: string[];  // Store value names for card nodes
+  _valueNames?: string[];      // Store value names for visualization
+  _capabilityNames?: string[]; // Store capability names for visualization
 }
 
 /**
@@ -172,14 +173,23 @@ export function createNodes(
       x = Math.max(50, Math.min(width - 50, x));
       y = Math.max(50, Math.min(height - 50, y));
       
-      // Create node
+      // Process card with extended properties
+      const cardWithExtensions = card as CardWithPosition & {
+        _valueNames?: string[];
+        _capabilityNames?: string[];
+      };
+      
+      // Create node with extended properties
       nodes.push({
         id: card.card_id,
         name: card.role_title || "Unnamed Card",
         type: "actor",
         data: card,
         x,
-        y
+        y,
+        // Preserve special properties needed for donut visualization
+        _valueNames: cardWithExtensions._valueNames || [],
+        _capabilityNames: cardWithExtensions._capabilityNames || []
       });
     } catch (error) {
       console.error("d3GraphUtils: Error creating card node:", error, card);
