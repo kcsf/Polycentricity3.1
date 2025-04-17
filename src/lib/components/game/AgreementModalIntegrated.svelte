@@ -205,7 +205,7 @@
         
         <!-- Parties Selection -->
         <div class="form-group">
-          <label id="parties-group-label" class="form-label">Parties</label>
+          <legend id="parties-group-label" class="form-label">Parties</legend>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2" role="group" aria-labelledby="parties-group-label">
             {#each actors as actor}
               <label class="flex items-center space-x-2 p-2 border rounded hover:bg-surface-100 dark:hover:bg-surface-700">
@@ -213,6 +213,8 @@
                   type="checkbox"
                   bind:checked={selectedParties[actor.actor_id]}
                   class="checkbox"
+                  aria-labelledby="parties-group-label"
+                  id={`party-checkbox-${actor.actor_id}`}
                 />
                 <span>{actor.role_title}</span>
               </label>
@@ -221,8 +223,8 @@
         </div>
         
         <!-- Terms -->
-        <div class="form-group">
-          <label id="terms-group-label" class="form-label">Terms</label>
+        <fieldset class="form-group">
+          <legend id="terms-group-label" class="form-label">Terms</legend>
           <div class="space-y-2" role="group" aria-labelledby="terms-group-label">
             {#each terms as term, index}
               <div class="flex space-x-2">
@@ -254,11 +256,11 @@
               Add Term
             </button>
           </div>
-        </div>
+        </fieldset>
         
         <!-- Obligations -->
-        <div class="form-group">
-          <label id="obligations-group-label" class="form-label">Obligations</label>
+        <fieldset class="form-group">
+          <legend id="obligations-group-label" class="form-label">Obligations</legend>
           
           <div class="space-y-4" role="group" aria-labelledby="obligations-group-label">
             {#each Object.entries(selectedParties).filter(([_, selected]) => selected) as [actorId, _]}
@@ -303,11 +305,11 @@
               </div>
             {/each}
           </div>
-        </div>
+        </fieldset>
         
         <!-- Benefits -->
-        <div class="form-group">
-          <label id="benefits-group-label" class="form-label">Benefits</label>
+        <fieldset class="form-group">
+          <legend id="benefits-group-label" class="form-label">Benefits</legend>
           
           <div class="space-y-4" role="group" aria-labelledby="benefits-group-label">
             {#each Object.entries(selectedParties).filter(([_, selected]) => selected) as [actorId, _]}
@@ -352,7 +354,7 @@
               </div>
             {/each}
           </div>
-        </div>
+        </fieldset>
         
         <!-- Actions -->
         <div class="flex justify-end space-x-2 pt-4 border-t border-surface-200 dark:border-surface-700">
