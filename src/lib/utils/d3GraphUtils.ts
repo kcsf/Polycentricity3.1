@@ -1086,13 +1086,14 @@ export function initializeD3Graph(
     
     // Calculate optimal font size based on text length
     function calculateFontSize(text: string) {
-      const baseSize = 12;
-      const maxLength = 20; // Reference length for full-size text
-      const minSize = 9; // Minimum font size we'll use
+      const baseSize = 14; // Increased from 12
+      const maxLength = 18; // Adjusted reference length
+      const minSize = 12; // Increased minimum font size
       
       if (!text) return baseSize;
       
       // Scale font size based on text length, but don't go below minimum
+      // Use a less aggressive scaling to keep text larger
       return Math.max(minSize, baseSize * (maxLength / Math.max(text.length, 1)));
     }
     
@@ -1102,7 +1103,7 @@ export function initializeD3Graph(
       const labelText = d.name;
       const fontSize = calculateFontSize(labelText);
       const labelWidth = Math.min(maxLabelWidth, labelText.length * (fontSize * 0.6));
-      const labelHeight = 20;
+      const labelHeight = 24; // Increased to better fit larger font
       const labelY = calculateLabelPosition(d);
       
       // Create a temporary text element to measure width
@@ -1130,7 +1131,7 @@ export function initializeD3Graph(
       // Add the text
       labelGroup.append("text")
         .attr("text-anchor", "middle")
-        .attr("y", labelY + 14) // Center vertically in the rect
+        .attr("y", labelY + 17) // Adjusted to center vertically in the taller rect
         .attr("font-size", fontSize)
         .attr("font-weight", 500)
         .attr("fill", "#333")
