@@ -28,15 +28,15 @@
     type AgreementWithPosition,
     type D3NodeWithRelationships
   } from '$lib/utils/d3GraphUtils';
-  import RoleCard from '$lib/components/RoleCard.svelte';
   
   // Props
   export let gameId: string;
   export let activeActorId: string | undefined = undefined;
   export let cards: Card[] = [];
   
-  // Local state variables
+  // References and constants
   let svgElement: SVGSVGElement;
+  let containerElement: HTMLDivElement;
   let width = 800;
   let height = 600;
   let simulation: d3.Simulation<D3Node, undefined> | null = null;
@@ -53,168 +53,38 @@
   
   // Selected node for detail display
   let selectedNode: D3Node | null = null;
-
-  // Icon helper function
-  async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
-    if (!iconName) return User;
-    
-    // Try to get from the iconStore first
-    const iconMap = get(iconStore);
-    const iconData = iconMap.get(iconName);
-    if (iconData && iconData.component) return iconData.component;
-    
-    // Normalize name for Lucide format
-    let normalizedName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
-    
-    // Common icon mappings
-    const iconMappings: Record<string, string> = {
-      'CircleDollarSign': 'DollarSign',
-      'Tree': 'PalmTree',
-      'Garden': 'Flower2',
-      'Plant': 'Sprout',
-      'Money': 'Coins',
-      'Default': 'Box',
-      'Farmer': 'Tractor',
-      'Funder': 'PiggyBank',
-      'Steward': 'Shield',
-      'Investor': 'TrendingUp',
-    };
-    
-    if (iconMappings[normalizedName]) {
-      normalizedName = iconMappings[normalizedName];
-    }
-    
-    try {
-      const icons = await import('lucide-svelte');
-      if (icons[normalizedName]) {
-        return icons[normalizedName];
-      }
-    } catch (error) {
-      console.error(`Error loading icon: ${error}`);
-    }
-    
-    console.log(`Using fallback icon for ${iconName}`);
-    return User;
-  }
   
-  // Handle node click
-  function handleNodeClick(node: D3Node) {
-    console.log(`Node clicked: ${node.id}`, node);
-    selectedNode = node;
-  }
+  // Graph state
+  let graphState: {
+    svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
+    nodes: D3Node[];
+    links: D3Link[];
+    simulation: d3.Simulation<D3Node, undefined>;
+  } | null = null;
   
-  // Get data for card values from Gun.js database
-  async function getValueForCard(valueId: string): Promise<Value | null> {
-    // First check our cache
-    if (valueCache.has(valueId)) {
-      return valueCache.get(valueId) || null;
+  // Track initialization status
+  let initialDataFetched = false;
+  let cardsData = cards;
+  
+  // Export a refresh method that can be called by parent components
+  export function refreshVisualization() {
+    console.log("D3CardBoard: Refreshing visualization");
+    
+    // Clear existing visualization
+    if (graphState && graphState.svg) {
+      graphState.svg.selectAll("*").remove();
     }
     
-    try {
-      return new Promise<Value | null>((resolve) => {
-        const gun = getGun();
-        gun.get(nodes.values).get(valueId).once((valueData: Value) => {
-          if (valueData) {
-            valueCache.set(valueId, valueData);
-            resolve(valueData);
-          } else {
-            resolve(null);
-          }
-        });
-      });
-    } catch (error) {
-      console.error(`Error fetching value ${valueId}:`, error);
-      return null;
-    }
-  }
-  
-  // Get data for capability from Gun.js database
-  async function getCapabilityForCard(capabilityId: string): Promise<Capability | null> {
-    // First check our cache
-    if (capabilityCache.has(capabilityId)) {
-      return capabilityCache.get(capabilityId) || null;
-    }
+    // Reset state to force data reload
+    initialDataFetched = false;
+    cardsWithPosition = [];
+    agreements = [];
+    actorCardMap = new Map();
+    valueCache = new Map();
+    capabilityCache = new Map();
     
-    try {
-      return new Promise<Capability | null>((resolve) => {
-        const gun = getGun();
-        gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: Capability) => {
-          if (capabilityData) {
-            capabilityCache.set(capabilityId, capabilityData);
-            resolve(capabilityData);
-          } else {
-            resolve(null);
-          }
-        });
-      });
-    } catch (error) {
-      console.error(`Error fetching capability ${capabilityId}:`, error);
-      return null;
-    }
-  }
-  
-  // Getting value names for a card
-  async function getCardValueNamesLocal(card: Card): Promise<string[]> {
-    if (!card.values) return [];
-    
-    try {
-      // Extract value IDs from the card
-      const valueIds = Object.keys(card.values);
-      
-      // Map each value ID to its name by fetching from Gun
-      const valuePromises = valueIds.map(async (valueId) => {
-        // If it's a direct string rather than an ID reference
-        if (!valueId.startsWith('value_')) {
-          return valueId.replace(/-/g, ' ');
-        }
-        
-        const valueData = await getValueForCard(valueId);
-        if (valueData && valueData.name) {
-          return valueData.name;
-        }
-        // Just return the ID as a fallback
-        return valueId.replace('value_', '').replace(/-/g, ' ');
-      });
-      
-      // Wait for all promises to resolve
-      const valueNames = await Promise.all(valuePromises);
-      return valueNames;
-    } catch (error) {
-      console.warn(`Failed to retrieve values for card: ${card.card_id}`);
-      return [];
-    }
-  }
-  
-  // Getting capability names for a card
-  async function getCardCapabilityNamesLocal(card: Card): Promise<string[]> {
-    if (!card.capabilities) return [];
-    
-    try {
-      // Extract capability IDs from the card
-      const capabilityIds = Object.keys(card.capabilities);
-      
-      // Map each capability ID to its name by fetching from Gun
-      const capabilityPromises = capabilityIds.map(async (capabilityId) => {
-        // If it's a direct string rather than an ID reference
-        if (!capabilityId.startsWith('capability_')) {
-          return capabilityId.replace(/-/g, ' ');
-        }
-        
-        const capabilityData = await getCapabilityForCard(capabilityId);
-        if (capabilityData && capabilityData.name) {
-          return capabilityData.name;
-        }
-        // Just return the ID as a fallback
-        return capabilityId.replace('capability_', '').replace(/-/g, ' ');
-      });
-      
-      // Wait for all promises to resolve
-      const capabilityNames = await Promise.all(capabilityPromises);
-      return capabilityNames;
-    } catch (error) {
-      console.warn(`Failed to retrieve capabilities for card: ${card.card_id}`);
-      return [];
-    }
+    // Restart the visualization
+    initializeVisualization();
   }
   
   // Main function to initialize the D3 visualization
@@ -268,235 +138,331 @@
         }
       });
       
-      // Load agreements from the game
-      agreements = (game.agreements || []).map(agreement => {
-        return {
-          ...agreement,
-          position: agreement.position || {
-            x: Math.random() * width,
-            y: Math.random() * height
-          }
-        };
-      });
-      
       console.log("D3CardBoard: Setup data", {
         cardsCount: cardsWithPosition.length,
         agreementsCount: agreements.length,
         actorCardMapSize: actorCardMap.size
       });
       
-      // Extend cards with value and capability names
-      for (const card of cardsWithPosition) {
-        try {
-          // Get value and capability names
-          const valueNames = await getCardValueNamesLocal(card);
-          const capabilityNames = await getCardCapabilityNamesLocal(card);
-          
-          // Store them on the card object for visualization
-          (card as any)._valueNames = valueNames;
-          (card as any)._capabilityNames = capabilityNames;
-        } catch (error) {
-          console.error(`Error getting names for card ${card.card_id}:`, error);
-        }
-      }
+      // Get actor-card map size for logging
+      const actorCardMapEntries = Array.from(actorCardMap.entries());
+      console.log("D3CardBoard: Passing actor-card map to initializeD3Graph:", {
+        mapSize: actorCardMap.size,
+        entries: actorCardMapEntries
+      });
       
-      // Initialize D3 graph
-      let graphState;
-      try {
-        // Log the actor-card map we'll be passing to initializeD3Graph
-        console.log("D3CardBoard: Passing actor-card map to initializeD3Graph:", {
-          mapSize: actorCardMap.size,
-          entries: Array.from(actorCardMap.entries())
-        });
-
-        graphState = initializeD3Graph(
-          svgElement,
-          cardsWithPosition,
-          agreements,
-          width,
-          height,
-          activeCardId,
-          handleNodeClick,
-          actorCardMap // Pass the actor-card map to the initializer
-        );
+      // Initialize the D3 graph with our data
+      graphState = initializeD3Graph(
+        svgElement,
+        cardsWithPosition,
+        agreements,
+        width,
+        height,
+        selectedNode,
+        handleNodeClick,
+        (newNode) => {
+          selectedNode = newNode;
+        },
+        activeCardId,
+        actorCardMap // Pass the actor-card map to the initializer
+      );
+      
+      if (graphState) {
         console.log("D3CardBoard: D3 graph initialized successfully");
-      } catch (initError) {
-        console.error("D3CardBoard: Failed to initialize D3 graph:", initError);
-        throw initError;
-      }
-      
-      // Store references to the graph elements for later use
-      simulation = graphState.simulation;
-      nodeElements = graphState.nodeElements;
-      
-      console.log("D3CardBoard: Adding donut rings to nodes");
-      
-      // After the graph is initialized, we can add donut segments to the nodes
-      try {
+        
+        // Add donut rings to show values and capabilities
+        console.log("D3CardBoard: Adding donut rings to nodes");
+        
+        // Get the node elements once they're created
+        nodeElements = d3.select(svgElement).selectAll<SVGGElement, D3Node>('.node');
+        
+        // Log some info about this operation
         console.log("D3CardBoard: Adding donut rings with:", {
           nodeElementsCount: nodeElements.size(),
           activeCardId,
-          valueCacheSize: valueCache?.size,
-          capabilityCacheSize: capabilityCache?.size
+          valueCacheSize: valueCache.size,
+          capabilityCacheSize: capabilityCache.size
         });
         
-        // Use our utility function to add the donut rings
-        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+        // Add the donut rings to nodes
+        addDonutRings(
+          nodeElements,
+          activeCardId,
+          valueCache,
+          capabilityCache
+        );
         console.log("D3CardBoard: Donut rings added successfully");
-      } catch (donutError) {
-        console.error("D3CardBoard: Failed to add donut rings:", donutError);
-      }
-      
-      console.log("D3CardBoard: Adding center icons to nodes");
-      
-      // Add center icons to the nodes
-      try {
-        nodeElements.each(function(node) {
-          try {
-            if (node.type === 'actor') {
-              const centerGroup = d3.select(this).append("g")
-                .attr("class", "center-group center-icon-container");
-              
-              // Create a container div for the icon
-              const iconContainer = document.createElement('div');
-              iconContainer.className = 'icon-container';
-              
-              // Get the card data
-              const card = node.data as Card;
-              if (!card) {
-                console.warn("D3CardBoard: Card data is missing for node:", node);
-                return;
-              }
-              
-              // Get the icon name from the card data with fallback
-              const iconName = card.icon || 'user';
-              
-              // Determine size based on active status
-              const isActive = node.id === activeCardId;
-              const iconSize = isActive ? 36 : 24;
-              const offset = isActive ? -18 : -12;
-              
-              // Create the icon using our utility function
+        
+        // Add center icons to nodes
+        console.log("D3CardBoard: Adding center icons to nodes");
+        
+        // Find all actor nodes and add icons to them
+        const nodeActors = d3.select(svgElement).selectAll<SVGGElement, D3Node>('.node-actor');
+        
+        nodeActors.each(async function(d: D3Node) {
+          const node = d3.select(this);
+          const iconContainer = node.select('.icon-container');
+          
+          if (iconContainer.size() > 0) {
+            // Find card data for this node
+            const cardData = cardsWithPosition.find(c => c.card_id === d.id);
+            if (cardData) {
               try {
-                // Use larger icons for active nodes
-                createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
-                console.log(`Successfully rendered icon for ${card.role_title || 'Card'}`);
+                const iconName = cardData.icon || cardData.type;
+                if (iconName) {
+                  const IconComponent = await getLucideIcon(iconName);
+                  console.log(`Successfully created icon component for ${cardData.role_title}`);
+                  
+                  // Create a new div for the icon and mount the component to it
+                  const iconDiv = document.createElement('div');
+                  iconContainer.node()?.appendChild(iconDiv);
+                  
+                  if (typeof IconComponent === 'function') {
+                    new IconComponent({
+                      target: iconDiv,
+                      props: {
+                        size: 16,
+                        strokeWidth: 2,
+                        class: "text-surface-700-200-token"
+                      }
+                    });
+                    console.log(`Successfully rendered icon for ${cardData.role_title}`);
+                  }
+                }
               } catch (iconError) {
-                console.error("D3CardBoard: Failed to create icon:", iconError);
-              }
-              
-              // Convert the div container to a foreignObject in the SVG with proper positioning
-              // Position exactly in the center of the node
-              const foreignObject = centerGroup.append('foreignObject')
-                .attr('width', iconSize)
-                .attr('height', iconSize)
-                .attr('x', offset)
-                .attr('y', offset)
-                .attr('class', 'icon-container')
-                .style('pointer-events', 'none');
-                
-              // Append the icon container to the foreignObject
-              if (foreignObject.node()) {
-                foreignObject.node()?.appendChild(iconContainer);
-              } else {
-                console.warn("D3CardBoard: Foreign object node is null");
+                console.error(`Failed to create icon for ${cardData.role_title}:`, iconError);
               }
             }
-          } catch (nodeError) {
-            console.error("D3CardBoard: Error processing node:", nodeError, node);
           }
         });
         console.log("D3CardBoard: Center icons added successfully");
-      } catch (iconsError) {
-        console.error("D3CardBoard: Failed to add center icons:", iconsError);
+      } else {
+        console.error("D3CardBoard: Failed to initialize D3 graph:", initError);
       }
       
-      console.log("D3 graph fully initialized with utility function");
+      // Update the state
+      initialDataFetched = true;
+      
+      // After the graph is initialized, we can add donut segments to the nodes
+      if (selectedNode) {
+        selectNode(selectedNode);
+      }
+      
     } catch (error) {
-      console.error("Error initializing D3 graph:", error);
-      // Show more detailed error information
-      if (error instanceof ReferenceError) {
-        console.error("Reference error details:", error.message, error.stack);
-      }
-      if (error instanceof TypeError) {
-        console.error("Type error details:", error.message, error.stack);
-      }
+      console.error("Error in initializeVisualization:", error);
     }
   }
   
-  // Method to refresh the board - can be called externally
-  export function refreshBoard() {
-    console.log("D3CardBoard: Refreshing visualization");
+  // Icon helper function
+  async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
+    if (!iconName) return User;
     
-    // Clean up any existing simulation
-    if (simulation) {
-      simulation.stop();
+    // Try to get from the iconStore first
+    const iconMap = get(iconStore);
+    const iconData = iconMap.get(iconName);
+    if (iconData && iconData.component) return iconData.component;
+    
+    // Normalize name for Lucide format
+    let normalizedName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
+    
+    // Common icon mappings
+    const iconMappings: Record<string, string> = {
+      'CircleDollarSign': 'DollarSign',
+      'Tree': 'PalmTree',
+      'Garden': 'Flower2',
+      'Plant': 'Sprout',
+      'Money': 'Coins',
+      'Default': 'Box',
+      'Farmer': 'Tractor',
+      'Funder': 'PiggyBank',
+      'Steward': 'Shield',
+      'Investor': 'TrendingUp',
+    };
+    
+    if (iconMappings[normalizedName]) {
+      normalizedName = iconMappings[normalizedName];
     }
     
-    // Clear the SVG element and redraw
-    if (svgElement) {
-      while (svgElement.firstChild) {
-        svgElement.removeChild(svgElement.firstChild);
+    try {
+      const icons = await import('lucide-svelte');
+      if (icons[normalizedName]) {
+        return icons[normalizedName];
       }
+    } catch (error) {
+      console.error(`Error loading icon: ${error}`);
     }
     
-    // Re-initialize 
-    setTimeout(() => {
-      initializeVisualization();
-    }, 100);
+    console.log(`Using fallback icon for ${iconName}`);
+    return User;
   }
-
-  // Initialize on mount
+  
+  // Handle node click
+  function handleNodeClick(node: D3Node) {
+    console.log("Node clicked:", node);
+    selectedNode = node;
+    selectNode(node);
+  }
+  
+  // Handle node selection
+  function selectNode(node: D3Node) {
+    if (graphState && node) {
+      // Highlight the selected node
+      graphState.svg.selectAll('.node').classed('active', false);
+      graphState.svg.select(`.node[data-id="${node.id}"]`).classed('active', true);
+    }
+  }
+  
+  // Highlight active node (based on activeActorId)
+  function highlightActiveNode(actorId: string) {
+    if (!graphState || !actorId) return;
+    
+    // Find the card ID for this actor
+    const cardId = actorCardMap.get(actorId);
+    if (!cardId) return;
+    
+    // Remove active class from all nodes first
+    graphState.svg.selectAll('.node').classed('active', false);
+    
+    // Add active class to the matching node
+    graphState.svg.select(`.node[data-id="${cardId}"]`).classed('active', true);
+  }
+  
+  // Reactive statements
+  $: if (cards && cards.length > 0 && !initialDataFetched) {
+    console.log(`D3CardBoard: Cards data changed - ${cards.length} cards available`);
+    cardsData = cards;
+  }
+  
+  // When active card changes, update the visualization
+  $: if (activeActorId && graphState) {
+    highlightActiveNode(activeActorId);
+  }
+  
   onMount(async () => {
     console.log("D3CardBoard: Component mounted");
     
     // Load icons first
     try {
       await loadIcons();
-      console.log("D3CardBoard: Icons loaded");
-    } catch (error) {
-      console.warn("D3CardBoard: Failed to load icons:", error);
+    } catch (iconError) {
+      console.warn("D3CardBoard: Failed to load icons:", iconError);
     }
     
-    // Add a slight delay to ensure the DOM is ready
-    // This helps with calculating dimensions correctly
-    setTimeout(() => {
-      initializeVisualization();
-    }, 100);
+    // Initialize the visualization
+    initializeVisualization();
     
-    return () => {
-      // Clean up simulations on unmount
-      if (simulation) {
-        simulation.stop();
-      }
-    };
+    console.log("D3 graph fully initialized with utility function");
   });
   
-  // Test color scheme - useful for debugging
-  console.log("Testing d3GraphUtils categoryColors:", categoryColors);
+  onDestroy(() => {
+    // Clean up listeners
+    if (simulation) {
+      simulation.stop();
+    }
+  });
 </script>
 
+<div class="component-container w-full h-full" bind:this={containerElement}>
+  <svg class="w-full h-full" bind:this={svgElement}></svg>
+  
+  {#if selectedNode}
+    <div class="node-details absolute top-5 right-5 bg-surface-100 dark:bg-surface-800 p-4 rounded-lg shadow-lg max-w-72 z-10">
+      <h3 class="text-lg font-bold mb-2">{selectedNode.name}</h3>
+      <div class="flex gap-1 text-xs items-center mb-2">
+        <span class="badge bg-primary-500 text-white px-2 py-0.5 rounded-full">
+          {selectedNode.type.charAt(0).toUpperCase() + selectedNode.type.slice(1)}
+        </span>
+      </div>
+      <button class="btn btn-sm variant-soft-surface absolute top-2 right-2" onclick={() => selectedNode = null}>×</button>
+      
+      {#if selectedNode.type === 'actor'}
+        {#if selectedNode.data.backstory}
+          <div class="mb-2">
+            <h4 class="text-sm font-semibold">Backstory</h4>
+            <p class="text-xs">{selectedNode.data.backstory}</p>
+          </div>
+        {/if}
+        
+        {#if selectedNode.data.values && Object.keys(selectedNode.data.values).length > 0}
+          <div class="mb-2">
+            <h4 class="text-sm font-semibold flex items-center">
+              <span class="w-3 h-3 rounded-full bg-[var(--values-color)] mr-1"></span>
+              Values
+            </h4>
+            <ul class="text-xs list-disc pl-4">
+              {#each Object.keys(selectedNode.data.values) as valueId}
+                <li>{valueId}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        
+        {#if selectedNode.data.capabilities && Object.keys(selectedNode.data.capabilities).length > 0}
+          <div class="mb-2">
+            <h4 class="text-sm font-semibold flex items-center">
+              <span class="w-3 h-3 rounded-full bg-[var(--capabilities-color)] mr-1"></span>
+              Capabilities
+            </h4>
+            <ul class="text-xs list-disc pl-4">
+              {#each Object.keys(selectedNode.data.capabilities) as capabilityId}
+                <li>{capabilityId}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+      {:else if selectedNode.type === 'agreement'}
+        <div class="mb-2">
+          <h4 class="text-sm font-semibold">Description</h4>
+          <p class="text-xs">{selectedNode.data.summary || 'No description'}</p>
+        </div>
+        
+        {#if selectedNode.data.parties && Object.keys(selectedNode.data.parties).length > 0}
+          <div class="mb-2">
+            <h4 class="text-sm font-semibold">Parties</h4>
+            <div class="grid grid-cols-2 gap-1 text-xs mt-1">
+              {#each Object.keys(selectedNode.data.parties) as partyId}
+                <div class="bg-surface-200 dark:bg-surface-700 rounded px-2 py-1">
+                  {partyId}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        
+        {#if selectedNode.data.obligations && Object.keys(selectedNode.data.obligations).length > 0}
+          <div class="mb-2">
+            <h4 class="text-sm font-semibold">Obligations</h4>
+            <ul class="text-xs list-disc pl-4">
+              {#each Object.entries(selectedNode.data.obligations) as [partyId, obligation]}
+                <li>
+                  <span class="font-semibold">{partyId}:</span> {obligation}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        
+        {#if selectedNode.data.benefits && Object.keys(selectedNode.data.benefits).length > 0}
+          <div class="mb-2">
+            <h4 class="text-sm font-semibold">Benefits</h4>
+            <ul class="text-xs list-disc pl-4">
+              {#each Object.entries(selectedNode.data.benefits) as [partyId, benefit]}
+                <li>
+                  <span class="font-semibold">{partyId}:</span> {benefit}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+      {/if}
+    </div>
+  {/if}
+</div>
+
 <style>
-  /* D3 graph styling */
-  :global(.nodes circle) {
-    fill: var(--color-surface-100);
-    stroke: var(--color-surface-300);
-    stroke-width: 1px;
-  }
-  
-  :global(.nodes circle.active) {
-    stroke: var(--color-primary-500);
-    stroke-width: 2px;
-  }
-  
-  /* Links styling */
-  :global(.link-obligation) {
-    stroke: var(--color-indigo-500);
-  }
-  
-  :global(.link-benefit) {
-    stroke: var(--color-emerald-500);
-    stroke-dasharray: 4, 2;
+  .component-container {
+    position: relative;
+    overflow: hidden;
   }
   
   /* Node styling */
@@ -549,69 +515,32 @@
   :global(.segment-goals) {
     fill: var(--goals-color, #8FBC49);
   }
-</style>
-
-<div class="w-full h-full relative overflow-hidden">
-  <svg bind:this={svgElement} width="100%" height="100%" class="d3-graph"></svg>
   
-  {#if selectedNode}
-    <div class="absolute bottom-4 left-4 p-4 bg-surface-100 rounded-xl shadow-lg max-w-lg">
-      {#if selectedNode.type === 'actor'}
-        <h3 class="text-lg font-semibold mb-2">{selectedNode.name}</h3>
-        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-          {#if selectedNode._valueNames && selectedNode._valueNames.length > 0}
-            <div>
-              <h4 class="text-sm font-medium text-primary-700">Values</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode._valueNames as value}
-                  <li>{value}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          
-          {#if selectedNode._capabilityNames && selectedNode._capabilityNames.length > 0}
-            <div>
-              <h4 class="text-sm font-medium text-primary-700">Capabilities</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode._capabilityNames as capability}
-                  <li>{capability}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-        </div>
-      {:else if selectedNode.type === 'agreement'}
-        <h3 class="text-lg font-semibold mb-2">{selectedNode.name}</h3>
-        <div class="grid grid-cols-1 gap-2">
-          {#if selectedNode.data?.obligations && selectedNode.data.obligations.length > 0}
-            <div>
-              <h4 class="text-sm font-medium text-indigo-700">Obligations</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode.data.obligations as obligation}
-                  <li>{obligation.text}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          
-          {#if selectedNode.data?.benefits && selectedNode.data.benefits.length > 0}
-            <div>
-              <h4 class="text-sm font-medium text-emerald-700">Benefits</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode.data.benefits as benefit}
-                  <li>{benefit.text}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-        </div>
-      {/if}
-      <button 
-        class="mt-2 px-2 py-1 text-xs bg-surface-200 rounded hover:bg-surface-300"
-        on:click={() => selectedNode = null}>
-        Close
-      </button>
-    </div>
-  {/if}
-</div>
+  /* Link styling */
+  :global(.link) {
+    stroke-width: 1.5px;
+    stroke-opacity: 0.6;
+  }
+  
+  :global(.link-obligation) {
+    stroke: #4f46e5; /* Indigo */
+  }
+  
+  :global(.link-benefit) {
+    stroke: #059669; /* Emerald */
+    stroke-dasharray: 5, 5;
+  }
+  
+  /* Node label styling */
+  :global(.node-label) {
+    font-size: 10px;
+    fill: #374151;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  
+  :global(.node-agreement .node-label) {
+    font-size: 8px;
+    fill: #4b5563;
+  }
+</style>
