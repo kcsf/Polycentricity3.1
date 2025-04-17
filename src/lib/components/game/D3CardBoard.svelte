@@ -1534,56 +1534,118 @@
     
     // Use our utility function to initialize the D3 graph
     try {
+      console.log("D3CardBoard: Starting D3 graph initialization");
+      
+      // Check inputs are valid
+      if (!svgRef) {
+        throw new Error("SVG reference is null");
+      }
+      
+      if (!cardsWithPosition || cardsWithPosition.length === 0) {
+        console.warn("No cards to display in D3 graph");
+      }
+      
       // Initialize the graph using our utility function
-      const graphState = initializeD3Graph(
-        svgRef,
-        cardsWithPosition,
-        agreements,
+      console.log("D3CardBoard: Calling initializeD3Graph with", {
+        svgRefExists: !!svgRef,
+        cardsCount: cardsWithPosition.length,
+        agreementsCount: agreements.length,
         width,
         height,
-        activeCardId,
-        handleNodeClick
-      );
+        activeCardId
+      });
+      
+      let graphState;
+      try {
+        graphState = initializeD3Graph(
+          svgRef,
+          cardsWithPosition,
+          agreements,
+          width,
+          height,
+          activeCardId,
+          handleNodeClick
+        );
+        console.log("D3CardBoard: D3 graph initialized successfully");
+      } catch (initError) {
+        console.error("D3CardBoard: Failed to initialize D3 graph:", initError);
+        throw initError;
+      }
       
       // Store references to the graph elements for later use
       simulation = graphState.simulation;
       nodeElements = graphState.nodeElements;
       
+      console.log("D3CardBoard: Adding donut rings to nodes");
+      
       // After the graph is initialized, we can add donut segments to the nodes
-      addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+      try {
+        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
+        console.log("D3CardBoard: Donut rings added successfully");
+      } catch (donutError) {
+        console.error("D3CardBoard: Failed to add donut rings:", donutError);
+      }
+      
+      console.log("D3CardBoard: Adding center icons to nodes");
       
       // Add center icons to the nodes
-      nodeElements.each(function(node) {
-        if (node.type === 'actor') {
-          const centerGroup = d3.select(this).append("g")
-            .attr("class", "center-group");
-          
-          // Create a container div for the icon
-          const iconContainer = document.createElement('div');
-          iconContainer.className = 'center-icon-container';
-          
-          // Get the card data
-          const card = node.data as Card;
-          
-          // Get the icon name from the card data
-          const iconName = card.icon || 'user';
-          
-          // Create the icon using our utility function
-          createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
-          
-          // Convert the div container to a foreignObject in the SVG
-          const foreignObject = centerGroup.append('foreignObject')
-            .attr('width', 24)
-            .attr('height', 24)
-            .attr('x', -12)
-            .attr('y', -12);
-            
-          // Append the icon container to the foreignObject
-          foreignObject.node()?.appendChild(iconContainer);
-        }
-      });
+      try {
+        nodeElements.each(function(node) {
+          try {
+            if (node.type === 'actor') {
+              const centerGroup = d3.select(this).append("g")
+                .attr("class", "center-group");
+              
+              // Create a container div for the icon
+              const iconContainer = document.createElement('div');
+              iconContainer.className = 'center-icon-container';
+              
+              // Get the card data
+              const card = node.data as Card;
+              if (!card) {
+                console.warn("D3CardBoard: Card data is missing for node:", node);
+                return;
+              }
+              
+              // Get the icon name from the card data with fallback
+              const iconName = card.icon || 'user';
+              
+              // Create the icon using our utility function
+              try {
+                createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
+                console.log(`Successfully rendered icon for ${card.role_title || 'Card'}`);
+              } catch (iconError) {
+                console.error("D3CardBoard: Failed to create icon:", iconError);
+              }
+              
+              // Convert the div container to a foreignObject in the SVG
+              const foreignObject = centerGroup.append('foreignObject')
+                .attr('width', 24)
+                .attr('height', 24)
+                .attr('x', -12)
+                .attr('y', -12);
+                
+              // Append the icon container to the foreignObject
+              if (foreignObject.node()) {
+                foreignObject.node()?.appendChild(iconContainer);
+              } else {
+                console.warn("D3CardBoard: Foreign object node is null");
+              }
+            }
+          } catch (nodeError) {
+            console.error("D3CardBoard: Error processing node:", nodeError, node);
+          }
+        });
+        console.log("D3CardBoard: Center icons added successfully");
+      } catch (iconsError) {
+        console.error("D3CardBoard: Failed to add center icons:", iconsError);
+      }
       
-      console.log("D3 graph initialized with utility function");
+      // Skip the rest of the code that duplicates D3 graph initialization
+      // since we're now using the utility functions from d3GraphUtils.ts
+      
+      console.log("D3 graph fully initialized with utility function");
+      return;
     } catch (error) {
       console.error("Error initializing D3 graph:", error);
     }
