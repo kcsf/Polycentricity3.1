@@ -1205,6 +1205,7 @@
     if (svgRef) {
       // Clear any existing visualization
       const svg = d3.select(svgRef);
+      console.log("CRITICAL: Clearing SVG content in updateVisualization at line ~1208");
       svg.selectAll("*").remove();
       
       // Reinitialize the graph with latest data
@@ -1811,7 +1812,9 @@
 
     // Clear the SVG
     const svg = d3.select(svgRef);
-    svg.selectAll("*").remove();
+    console.log("CRITICAL: Clearing SVG content in D3CardBoard.svelte at line 1814 - THIS REMOVES THE WEDGES!");
+    // Comment out this line temporarily to see if wedges are preserved
+    // svg.selectAll("*").remove();
 
     if (nodes.length === 0) return;
 
