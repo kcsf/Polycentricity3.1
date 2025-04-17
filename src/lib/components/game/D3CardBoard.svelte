@@ -757,6 +757,35 @@
       // Step 4: Wait for all the key data loading to complete
       await Promise.all([loadDeckMetadataPromise, loadCardsAndReferencesPromise, loadActorsPromise]);
       
+      // Step 4.5: Map actors to cards to establish the relationship
+      console.log("D3CardBoard: Mapping actors to cards", { 
+        actorCount: actors.length, 
+        cardCount: cardsWithPosition.length, 
+        actorCardMapSize: actorCardMap.size 
+      });
+      
+      // First update all cards with their actor_id based on actorCardMap
+      actors.forEach(actor => {
+        if (actor.actor_id && actor.card_id) {
+          const card = cardsWithPosition.find(c => c.card_id === actor.card_id);
+          if (card) {
+            card.actor_id = actor.actor_id;
+            console.log(`D3CardBoard: Mapped actor ${actor.actor_id} to card ${card.card_id}`);
+          }
+        }
+      });
+      
+      // Double check that our actorCardMap is populated
+      if (actorCardMap.size === 0) {
+        console.log("D3CardBoard: ActorCardMap is empty, populating from actor data");
+        // If actorCardMap is empty, rebuild it from actors
+        actors.forEach(actor => {
+          if (actor.actor_id && actor.card_id) {
+            actorCardMap.set(actor.actor_id, actor.card_id);
+          }
+        });
+      }
+      
       // Step 5: Now load agreements based on the actors we loaded
       const loadAgreementsPromise = (async () => {
         const tempAgreements: AgreementWithPosition[] = [];
