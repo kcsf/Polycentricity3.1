@@ -1110,7 +1110,6 @@ export function initializeD3Graph(
   
   // Clear existing SVG content
   const svg = d3.select(svgElement);
-  console.log("CRITICAL: Clearing ALL SVG content in initializeD3Graph at line ~1115");
   svg.selectAll("*").remove();
   
   // Create groups for links and nodes (links should be created first so they're behind nodes)

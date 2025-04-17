@@ -1814,12 +1814,7 @@
 
     // Clear the SVG
     const svg = d3.select(svgRef);
-    console.log("CRITICAL: Cleaning up SVG content in D3CardBoard.svelte but preserving wedges");
-    
-    // Instead of removing everything, just clear specific groups but preserve category wedges
-    svg.selectAll(".links").remove();
-    svg.selectAll(".nodes").remove();
-    // But do NOT remove .category-group or .category-wedge!
+    svg.selectAll("*").remove();
 
     if (nodes.length === 0) return;
 
@@ -2116,111 +2111,8 @@
     // Initialize link positions
     updateLinks();
     
-    // Create donut rings directly in SVG
-    // We create these AFTER the node elements so they appear on top
-    // This ensures they're visible and not removed by any clean operations
-    function createWedgesDirectly() {
-      console.log("Creating wedges directly with custom function");
-
-      // Available categories for visualization
-      const categories = ["values", "capabilities", "intellectualProperty", "resources", "goals"];
-      
-      // Color scale for categories
-      const colorScale = d3.scaleOrdinal<string>()
-        .domain(categories)
-        .range([
-          "#3B82F6", // blue for values
-          "#10B981", // green for capabilities
-          "#F59E0B", // amber for intellectual property 
-          "#6366F1", // indigo for resources
-          "#EC4899"  // pink for goals
-        ]);
-        
-      // Create a dedicated group for all wedges
-      const wedgeGroup = svg.append("g")
-        .attr("class", "wedge-container")
-        .style("pointer-events", "none")
-        .style("z-index", "100");
-        
-      // Process each card node
-      cardNodes.each(function(d) {
-        if (!d || !d.id) return;
-        
-        // Get values and capabilities from the node
-        const valueNames = d._valueNames || [];
-        const capabilityNames = d._capabilityNames || [];
-        const intellectualProperty = d.intellectualProperty ? Object.keys(d.intellectualProperty) : [];
-        const resources = d.resources ? Object.keys(d.resources) : [];
-        const goals = d.goals || [];
-        
-        // We'll create a specific group for this node's wedges
-        const nodeWedgeGroup = wedgeGroup.append("g")
-          .attr("class", "node-wedges")
-          .attr("id", `wedges-${d.id}`)
-          .attr("transform", `translate(${d.x},${d.y})`);
-          
-        // Create an array to track all categories and items
-        const categoryData = [
-          { category: "values", items: valueNames },
-          { category: "capabilities", items: capabilityNames },
-          { category: "intellectualProperty", items: intellectualProperty },
-          { category: "resources", items: resources },
-          { category: "goals", items: goals }
-        ].filter(cat => cat.items && cat.items.length > 0);
-        
-        // Draw wedges for each category
-        let currentAngle = 0;
-        categoryData.forEach(categoryInfo => {
-          const { category, items } = categoryInfo;
-          const itemCount = items.length;
-          if (itemCount === 0) return;
-          
-          console.log(`Drawing ${itemCount} wedges for category ${category} on node ${d.id}`);
-          
-          // Calculate the angle per item within this category
-          const totalAngleForCategory = (Math.PI * 2) * (itemCount / 20); // Max 20 items would be full circle
-          const anglePerItem = totalAngleForCategory / itemCount;
-          
-          // Draw wedges for each item in this category
-          items.forEach((item, index) => {
-            // Calculate angles for this wedge
-            const startAngle = currentAngle;
-            const endAngle = startAngle + anglePerItem;
-            
-            // Create a path for the wedge (donut segment)
-            const outerRadius = 50; // Base radius + donut thickness
-            const innerRadius = 35; // Base node radius
-            
-            // Create SVG arc generator
-            const arc = d3.arc()
-              .innerRadius(innerRadius)
-              .outerRadius(outerRadius)
-              .startAngle(startAngle)
-              .endAngle(endAngle);
-              
-            // Add the path
-            nodeWedgeGroup.append("path")
-              .attr("d", arc() as string)
-              .attr("class", "category-wedge")
-              .attr("fill", colorScale(category))
-              .attr("stroke", "white")
-              .attr("stroke-width", 1)
-              .attr("opacity", 0.8)
-              .style("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.1))")
-              .attr("data-category", category)
-              .attr("data-item", item);
-              
-            // Update current angle for next wedge
-            currentAngle = endAngle;
-          });
-        });
-      });
-      
-      console.log("Direct wedge creation complete!");
-    }
-    
-    // Call our custom wedge creation function to ensure wedges are created directly
-    createWedgesDirectly();
+    // Add donut rings using d3GraphUtils function
+    addDonutRings(nodeElements, activeCardId, getAllCachedValues(), getAllCachedCapabilities());
     
     // Add center circles with gradients and add text on top
     const cardNodes = nodeElements.filter((d) => d.type === "actor");
