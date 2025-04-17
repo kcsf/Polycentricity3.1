@@ -278,10 +278,11 @@ export function addDonutRings(
         .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
         .trim(); // Remove extra spaces
       
-      // Add the number of items (large, centered)
+      // Add the number of items (large, centered) - based directly on the original implementation
       categoryLabelGroup.append("text")
+        .attr("class", "count-text")
         .attr("x", 0)
-        .attr("y", 0)
+        .attr("y", -5)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
         .attr("font-size", DIMENSIONS.centerTextSize * 2) // Larger size for count
@@ -291,8 +292,9 @@ export function addDonutRings(
       
       // Add the category name text (smaller, below the number)
       categoryLabelGroup.append("text")
+        .attr("class", "options-text")
         .attr("x", 0)
-        .attr("y", DIMENSIONS.centerTextSize * 2) // Position below the count
+        .attr("y", DIMENSIONS.centerTextSize * 1.5) // Position below the count
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
         .attr("font-size", DIMENSIONS.centerTextSize * 0.8) // Smaller size for category name
@@ -401,63 +403,96 @@ export function addDonutRings(
         });
       }
       
-      // Add hover interactions
-      wedge.on("mouseenter", function() {
+      // Add hover interactions - based directly on original implementation
+      wedge.on("mouseenter", function(event) {
+        // Prevent event bubbling
+        event.stopPropagation();
+        
+        // Store references to DOM elements
+        const thisWedge = d3.select(this);
+        const thisSubWedges = subWedgesContainer;
+        const thisLabels = labelContainer;
+        const thisNode = node;
+        
         // Hide the center icon when hovering on wedge
-        if (centerIcon) {
-          centerIcon
-            .transition().duration(100)
-            .attr("opacity", 0)
-            .style("display", "none");
-        }
+        thisNode.select(".center-group")
+          .transition()
+          .duration(150)
+          .attr("opacity", 0);
+        
+        // Hide any foreign objects (icons) directly
+        thisNode.selectAll("foreignObject")
+          .transition()
+          .duration(150)
+          .attr("opacity", 0);
         
         // Show labels and sub-wedges on hover
-        labelContainer
+        thisLabels
           .style("visibility", "visible")
-          .transition().duration(200)
+          .transition()
+          .duration(150)
           .attr("opacity", 1);
         
-        subWedgesContainer
+        thisSubWedges
           .style("visibility", "visible")
-          .transition().duration(200)
+          .transition()
+          .duration(150)
           .attr("opacity", 1);
           
         // Show category label in center
         categoryLabelGroup
           .style("visibility", "visible")
-          .transition().duration(200)
+          .transition()
+          .duration(150)
           .attr("opacity", 1);
       })
-      .on("mouseleave", function() {
-        // Show the center icon again when not hovering
-        if (centerIcon) {
-          centerIcon
-            .style("display", "block")
-            .transition().duration(200)
-            .attr("opacity", 1);
-        }
+      .on("mouseleave", function(event) {
+        // Prevent event bubbling
+        event.stopPropagation();
         
-        // Hide on mouse leave
-        labelContainer
-          .transition().duration(200)
+        // Store references to DOM elements
+        const thisWedge = d3.select(this);
+        const thisSubWedges = subWedgesContainer;
+        const thisLabels = labelContainer;
+        const thisNode = node;
+        
+        // Hide sub-wedges
+        thisSubWedges
+          .transition()
+          .duration(100)
           .attr("opacity", 0)
           .on("end", function() {
-            d3.select(this).style("visibility", "hidden");
+            thisSubWedges.style("visibility", "hidden");
           });
         
-        subWedgesContainer
-          .transition().duration(200)
+        // Hide labels
+        thisLabels
+          .transition()
+          .duration(100)
           .attr("opacity", 0)
           .on("end", function() {
-            d3.select(this).style("visibility", "hidden");
+            thisLabels.style("visibility", "hidden");
           });
-          
+        
+        // Show center icon again
+        thisNode.select(".center-group")
+          .transition()
+          .duration(200)
+          .attr("opacity", 1);
+        
+        // Also show any foreign objects (icons) directly
+        thisNode.selectAll("foreignObject")
+          .transition()
+          .duration(200)
+          .attr("opacity", 1);
+        
         // Hide category label in center
         categoryLabelGroup
-          .transition().duration(200)
+          .transition()
+          .duration(100)
           .attr("opacity", 0)
           .on("end", function() {
-            d3.select(this).style("visibility", "hidden");
+            categoryLabelGroup.style("visibility", "hidden");
           });
       });
     });
