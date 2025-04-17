@@ -181,10 +181,11 @@ export function addDonutRings(
     };
     
     // Store references to center elements for visibility control on hover
-    let centerIcon: d3.Selection<Element, any, null, undefined>;
-    if (node.select(".center-icon-container").size() > 0) {
-      centerIcon = node.select(".center-icon-container");
-    }
+    const centerIcon = node.select(".center-group");
+    
+    // Also select any foreignObject within the center group 
+    // to hide the icon properly when hovering on wedges
+    const foreignObjects = centerIcon.selectAll("foreignObject");
     
     console.log(`Processing node ${nodeData.name} for donut rings:`, {
       _valueNames: nodeData._valueNames,
@@ -277,26 +278,26 @@ export function addDonutRings(
         .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
         .trim(); // Remove extra spaces
       
-      // Add category name text
+      // Add the number of items (large, centered)
       categoryLabelGroup.append("text")
         .attr("x", 0)
-        .attr("y", -5)
+        .attr("y", 0)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("font-size", DIMENSIONS.centerTextSize)
+        .attr("font-size", DIMENSIONS.centerTextSize * 2) // Larger size for count
         .attr("font-weight", "bold")
         .attr("fill", category.color)
-        .text(displayCategoryName);
+        .text(`${category.items.length}`);
       
-      // Add count text (shows number of items)
+      // Add the category name text (smaller, below the number)
       categoryLabelGroup.append("text")
         .attr("x", 0)
-        .attr("y", 7)
+        .attr("y", DIMENSIONS.centerTextSize * 2) // Position below the count
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("font-size", DIMENSIONS.countTextSize)
+        .attr("font-size", DIMENSIONS.centerTextSize * 0.8) // Smaller size for category name
         .attr("fill", category.color)
-        .text(`${category.items.length} items`);
+        .text(displayCategoryName);
       
       // Create label container for the radiating labels
       const labelContainer = categoryGroup.append("g")
@@ -324,6 +325,11 @@ export function addDonutRings(
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
           
           // Calculate label position - using radians directly
+          // Position labels precisely at the sub-wedge centers
+          const subWedgeMiddleRadius = DIMENSIONS.donutRadius + 
+              (DIMENSIONS.subWedgeRadius - DIMENSIONS.donutRadius) / 2;
+          
+          // Use coordinates along the middle of the sub-wedge for better alignment
           const labelX = Math.cos(itemMidAngle) * DIMENSIONS.labelRadius;
           const labelY = Math.sin(itemMidAngle) * DIMENSIONS.labelRadius;
           
