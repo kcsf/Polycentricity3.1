@@ -1249,9 +1249,57 @@
         }
       }
       
-      // If we got here, we couldn't find a match in our cardsWithPosition array
-      // Return an empty array instead of making a Gun query or using hardcoded values
-      // The visualization will adapt to show no values if needed
+      // If we couldn't find in the cache, fetch directly from the Gun database
+      try {
+        // Extract the values from the referenced path using our DB service
+        console.log(`Fetching values from reference path: ${refPath}`);
+        
+        // Retrieve values using Gun get
+        const referencedValues = await new Promise<Record<string, any>>((resolve) => {
+          gun.get(refPath).once((data: Record<string, any>) => {
+            resolve(data || {});
+          });
+        });
+        
+        // Process the values - they should be in a format where each key is a value ID with value of true
+        if (referencedValues) {
+          const valueIds = Object.keys(referencedValues)
+            .filter(key => key !== '_' && key !== '#' && referencedValues[key] === true);
+          
+          console.log(`Found ${valueIds.length} values from reference: `, valueIds);
+          
+          // Map value IDs to names
+          const valueNames = valueIds.map(valueId => {
+            // Check cache first
+            if (valueCache.has(valueId)) {
+              const cachedValue = valueCache.get(valueId);
+              return cachedValue?.name || "";
+            }
+            
+            // If not in cache, derive from ID
+            if (valueId.startsWith('value_')) {
+              return valueId.replace('value_', '')
+                .split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            }
+            
+            // Fallback for hardcoded IDs
+            if (valueId === 'c1') return 'Sustainability';
+            if (valueId === 'c2') return 'Community Resilience';
+            if (valueId === 'c3') return 'Regeneration';
+            if (valueId === 'c4') return 'Equity';
+            
+            return valueId; // Last resort
+          }).filter(Boolean);
+          
+          return valueNames;
+        }
+      } catch (error) {
+        console.error('Error fetching values from reference:', error);
+      }
+      
+      // If we got here, we couldn't fetch the referenced values
       console.log(`No values found for card with values reference: ${refPath}`);
       return [];
     }
@@ -1338,9 +1386,51 @@
         }
       }
       
-      // If we got here, we couldn't find a match in our cardsWithPosition array
-      // Return an empty array instead of making a Gun query or using hardcoded capabilities
-      // The visualization will adapt to show no capabilities if needed
+      // If we couldn't find in the cache, fetch directly from the Gun database
+      try {
+        // Extract the capabilities from the referenced path using our DB service
+        console.log(`Fetching capabilities from reference path: ${refPath}`);
+        
+        // Retrieve capabilities using Gun get
+        const referencedCapabilities = await new Promise<Record<string, any>>((resolve) => {
+          gun.get(refPath).once((data: Record<string, any>) => {
+            resolve(data || {});
+          });
+        });
+        
+        // Process the capabilities - they should be in a format where each key is a capability ID with value of true
+        if (referencedCapabilities) {
+          const capabilityIds = Object.keys(referencedCapabilities)
+            .filter(key => key !== '_' && key !== '#' && referencedCapabilities[key] === true);
+          
+          console.log(`Found ${capabilityIds.length} capabilities from reference: `, capabilityIds);
+          
+          // Map capability IDs to names
+          const capabilityNames = capabilityIds.map(capabilityId => {
+            // Check cache first
+            if (capabilityCache.has(capabilityId)) {
+              const cachedCapability = capabilityCache.get(capabilityId);
+              return cachedCapability?.name || "";
+            }
+            
+            // If not in cache, derive from ID
+            if (capabilityId.startsWith('capability_')) {
+              return capabilityId.replace('capability_', '')
+                .split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            }
+            
+            return capabilityId; // Last resort
+          }).filter(Boolean);
+          
+          return capabilityNames;
+        }
+      } catch (error) {
+        console.error('Error fetching capabilities from reference:', error);
+      }
+      
+      // If we got here, we couldn't fetch the referenced capabilities
       console.log(`No capabilities found for card with capabilities reference: ${refPath}`);
       return [];
     }
