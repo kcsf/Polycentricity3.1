@@ -28,6 +28,7 @@
     type AgreementWithPosition,
     type D3NodeWithRelationships
   } from '$lib/utils/d3GraphUtils';
+  import { fixRadialLabels } from '$lib/utils/radialLabelFix';
   import RoleCard from '$lib/components/RoleCard.svelte';
   
   // Props using Svelte 5 RUNES syntax
@@ -471,6 +472,12 @@
         // Use our utility function to add the donut rings
         addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
         console.log("D3CardBoard: Donut rings added successfully");
+        
+        // CRITICAL FIX: Apply direct CSS fix to radial labels
+        setTimeout(() => {
+          fixRadialLabels();
+          console.log("D3CardBoard: Applied additional fix to radial labels");
+        }, 100);
       } catch (donutError) {
         console.error("D3CardBoard: Failed to add donut rings:", donutError);
       }
