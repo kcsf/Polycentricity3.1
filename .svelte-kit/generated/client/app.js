@@ -14,8 +14,7 @@ export const nodes = [
 	() => import('./nodes/10'),
 	() => import('./nodes/11'),
 	() => import('./nodes/12'),
-	() => import('./nodes/13'),
-	() => import('./nodes/14')
+	() => import('./nodes/13')
 ];
 
 export const server_loads = [];
@@ -32,8 +31,7 @@ export const dictionary = {
 		"/games/[gameId]/chat": [9],
 		"/games/[gameId]/join": [10],
 		"/login": [12],
-		"/register": [13],
-		"/test-database": [14]
+		"/register": [13]
 	};
 
 export const hooks = {

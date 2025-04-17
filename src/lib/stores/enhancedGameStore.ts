@@ -14,8 +14,13 @@ export interface ActorWithPosition extends Actor {
     position?: NodePosition;
 }
 
-export interface AgreementWithPosition extends Agreement {
+export interface AgreementWithPosition extends Omit<Agreement, 'obligations' | 'benefits'> {
+    id: string; // Match the ID field used in the application
     position?: NodePosition;
+    parties: Record<string, boolean>; // actor_ids as keys with boolean values
+    terms?: string; // Optional terms field
+    description?: string; // Optional description field
+    status: 'proposed' | 'accepted' | 'rejected' | 'completed';
     obligations: {
         id: string;
         fromActorId: string;
