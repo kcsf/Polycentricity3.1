@@ -249,11 +249,22 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         // Process each capability ID in parallel
         await Promise.all(capabilityIds.map(async (capabilityId) => {
             try {
+                // Check cache first for better performance
+                if (capabilityCache.has(capabilityId)) {
+                    const cachedCapability = capabilityCache.get(capabilityId);
+                    if (cachedCapability && cachedCapability.name) {
+                        console.log(`[getCardCapabilityNames] Cache hit for ${capabilityId}: ${cachedCapability.name}`);
+                        capabilityNamesMap.set(capabilityId, cachedCapability.name);
+                        return;
+                    }
+                }
+                
                 // Handle standard capability IDs (starting with 'capability_')
                 if (capabilityId.startsWith('capability_')) {
-                    const capabilityData = await get(`${nodes.capabilities}/${capabilityId}`);
-                    if (capabilityData?.name) {
-                        capabilityNamesMap.set(capabilityId, capabilityData.name);
+                    // Use getCapability to take advantage of its caching logic
+                    const capability = await getCapability(capabilityId);
+                    if (capability?.name) {
+                        capabilityNamesMap.set(capabilityId, capability.name);
                         return;
                     }
                 }
