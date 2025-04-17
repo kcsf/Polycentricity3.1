@@ -116,17 +116,31 @@ export async function initializeGameBoard(gameId: string) {
 export async function loadAgreements(gameId: string) {
     if (!gameId) return;
     
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return;
+    }
+    
     return new Promise<void>((resolve) => {
         const agreementsList: AgreementWithPosition[] = [];
         
-        gun.get(nodes.agreements).map().once(async (agreement: Agreement, agreementId: string) => {
+        gunInstance.get(nodes.agreements).map().once(async (agreement: any, agreementId: string) => {
             if (agreement && agreement.game_id === gameId) {
                 // Get position data if available
                 const position = await getNodePosition(agreementId);
                 
                 // Transform to AgreementWithPosition
                 const agreementWithPos: AgreementWithPosition = {
-                    ...agreement,
+                    id: agreementId,
+                    game_id: agreement.game_id,
+                    title: agreement.title || '',
+                    parties: agreement.parties || {},
+                    status: agreement.status || 'proposed',
+                    created_at: agreement.created_at || Date.now(),
+                    updated_at: agreement.updated_at || Date.now(),
+                    description: agreement.description || '',
+                    terms: agreement.terms || '',
                     position,
                     obligations: [], // We'll load these separately
                     benefits: []     // We'll load these separately
@@ -149,14 +163,28 @@ export async function loadAgreements(gameId: string) {
 
 // Subscribe to agreement changes
 export function subscribeToAgreements(gameId: string) {
-    gun.get(nodes.agreements).map().on(async (agreement: Agreement, agreementId: string) => {
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return;
+    }
+    
+    gunInstance.get(nodes.agreements).map().on(async (agreement: any, agreementId: string) => {
         if (agreement && agreement.game_id === gameId) {
             // Get position data if available
             const position = await getNodePosition(agreementId);
             
             // Transform to AgreementWithPosition
             const agreementWithPos: AgreementWithPosition = {
-                ...agreement,
+                id: agreementId,
+                game_id: agreement.game_id,
+                title: agreement.title || '',
+                parties: agreement.parties || {},
+                status: agreement.status || 'proposed',
+                created_at: agreement.created_at || Date.now(),
+                updated_at: agreement.updated_at || Date.now(),
+                description: agreement.description || '',
+                terms: agreement.terms || '',
                 position,
                 obligations: [], // We'll load these separately
                 benefits: []     // We'll load these separately
@@ -178,9 +206,13 @@ export function subscribeToAgreements(gameId: string) {
 
 // Load obligations and benefits for an agreement
 async function loadAgreementRelations(agreement: AgreementWithPosition) {
+    if (!gun) return Promise.resolve();
+    
     return new Promise<void>((resolve) => {
-        // Load obligations
-        gun.get(nodes.obligations).map().once((obligation: any, obligationId: string) => {
+        const gunInstance = getGun();
+        
+        // Load obligations from custom node path
+        gunInstance.get('obligations').map().once((obligation: any, obligationId: string) => {
             if (obligation && obligation.agreementId === agreement.id) {
                 agreement.obligations.push({
                     id: obligationId,
@@ -190,8 +222,8 @@ async function loadAgreementRelations(agreement: AgreementWithPosition) {
             }
         });
         
-        // Load benefits
-        gun.get(nodes.benefits).map().once((benefit: any, benefitId: string) => {
+        // Load benefits from custom node path
+        gunInstance.get('benefits').map().once((benefit: any, benefitId: string) => {
             if (benefit && benefit.agreementId === agreement.id) {
                 agreement.benefits.push({
                     id: benefitId,
@@ -208,8 +240,11 @@ async function loadAgreementRelations(agreement: AgreementWithPosition) {
 
 // Get position data for a node
 async function getNodePosition(nodeId: string): Promise<NodePosition | undefined> {
+    if (!gun) return Promise.resolve(undefined);
+    
     return new Promise((resolve) => {
-        gun.get(nodes.positions).get(nodeId).once((position: NodePosition) => {
+        const gunInstance = getGun();
+        gunInstance.get(nodes.positions).get(nodeId).once((position: NodePosition) => {
             resolve(position);
         });
         
@@ -222,8 +257,11 @@ async function getNodePosition(nodeId: string): Promise<NodePosition | undefined
 export function updateNodePosition(nodeId: string, x: number, y: number) {
     const position = { x, y };
     
-    // Save to Gun.js
-    gun.get(nodes.positions).get(nodeId).put(position);
+    // Save to Gun.js if available
+    const gunInstance = getGun();
+    if (gunInstance) {
+        gunInstance.get(nodes.positions).get(nodeId).put(position);
+    }
     
     // Update local stores
     actors.update(current => {
@@ -279,6 +317,12 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
         return null;
     }
     
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return null;
+    }
+    
     const agreementId = generateId();
     const timestamp = Date.now();
     
@@ -294,7 +338,7 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
     };
     
     // Save to Gun.js
-    gun.get(nodes.agreements).get(agreementId).put({
+    gunInstance.get(nodes.agreements).get(agreementId).put({
         id: agreementId,
         game_id: gameId,
         title: newAgreement.title,
@@ -309,7 +353,7 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
     // Save obligations
     for (const obligation of newAgreement.obligations) {
         const obligationId = generateId();
-        gun.get(nodes.obligations).get(obligationId).put({
+        gunInstance.get('obligations').get(obligationId).put({
             id: obligationId,
             agreementId: agreementId,
             fromActorId: obligation.fromActorId,
@@ -320,7 +364,7 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
     // Save benefits
     for (const benefit of newAgreement.benefits) {
         const benefitId = generateId();
-        gun.get(nodes.benefits).get(benefitId).put({
+        gunInstance.get('benefits').get(benefitId).put({
             id: benefitId,
             agreementId: agreementId,
             toActorId: benefit.toActorId,
@@ -335,8 +379,14 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
 export async function updateAgreement(agreementId: string, updates: Partial<Omit<AgreementWithPosition, 'id' | 'created_at'>>) {
     const timestamp = Date.now();
     
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return;
+    }
+    
     // Update in Gun.js
-    gun.get(nodes.agreements).get(agreementId).put({
+    gunInstance.get(nodes.agreements).get(agreementId).put({
         ...updates,
         updated_at: timestamp
     });
@@ -344,16 +394,16 @@ export async function updateAgreement(agreementId: string, updates: Partial<Omit
     // Handle relationship updates if needed
     if (updates.obligations) {
         // First delete existing obligations
-        gun.get(nodes.obligations).map().once((obligation: any, obligationId: string) => {
+        gunInstance.get('obligations').map().once((obligation: any, obligationId: string) => {
             if (obligation && obligation.agreementId === agreementId) {
-                gun.get(nodes.obligations).get(obligationId).put(null);
+                gunInstance.get('obligations').get(obligationId).put(null);
             }
         });
         
         // Then add the new ones
         for (const obligation of updates.obligations) {
             const obligationId = generateId();
-            gun.get(nodes.obligations).get(obligationId).put({
+            gunInstance.get('obligations').get(obligationId).put({
                 id: obligationId,
                 agreementId: agreementId,
                 fromActorId: obligation.fromActorId,
@@ -364,16 +414,16 @@ export async function updateAgreement(agreementId: string, updates: Partial<Omit
     
     if (updates.benefits) {
         // First delete existing benefits
-        gun.get(nodes.benefits).map().once((benefit: any, benefitId: string) => {
+        gunInstance.get('benefits').map().once((benefit: any, benefitId: string) => {
             if (benefit && benefit.agreementId === agreementId) {
-                gun.get(nodes.benefits).get(benefitId).put(null);
+                gunInstance.get('benefits').get(benefitId).put(null);
             }
         });
         
         // Then add the new ones
         for (const benefit of updates.benefits) {
             const benefitId = generateId();
-            gun.get(nodes.benefits).get(benefitId).put({
+            gunInstance.get('benefits').get(benefitId).put({
                 id: benefitId,
                 agreementId: agreementId,
                 toActorId: benefit.toActorId,
@@ -399,19 +449,25 @@ export async function updateAgreement(agreementId: string, updates: Partial<Omit
 
 // Delete an agreement
 export async function deleteAgreement(agreementId: string) {
+    const gunInstance = getGun();
+    if (!gunInstance) {
+        console.error('Gun.js instance not available');
+        return;
+    }
+    
     // Delete from Gun.js
-    gun.get(nodes.agreements).get(agreementId).put(null);
+    gunInstance.get(nodes.agreements).get(agreementId).put(null);
     
     // Also delete associated obligations and benefits
-    gun.get(nodes.obligations).map().once((obligation: any, obligationId: string) => {
+    gunInstance.get('obligations').map().once((obligation: any, obligationId: string) => {
         if (obligation && obligation.agreementId === agreementId) {
-            gun.get(nodes.obligations).get(obligationId).put(null);
+            gunInstance.get('obligations').get(obligationId).put(null);
         }
     });
     
-    gun.get(nodes.benefits).map().once((benefit: any, benefitId: string) => {
+    gunInstance.get('benefits').map().once((benefit: any, benefitId: string) => {
         if (benefit && benefit.agreementId === agreementId) {
-            gun.get(nodes.benefits).get(benefitId).put(null);
+            gunInstance.get('benefits').get(benefitId).put(null);
         }
     });
     
