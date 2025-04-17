@@ -1,3 +1,20 @@
+import * as d3 from 'd3';
+
+// Import necessary type
+interface D3Node {
+  id: string;
+  name: string;
+  type: "actor" | "agreement";
+  _valueNames?: string[];
+  _capabilityNames?: string[];
+  data: any;
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
+  active?: boolean;
+}
+
 export function addDonutRings(
   nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
   activeCardId?: string | null,
@@ -128,10 +145,12 @@ export function addDonutRings(
           const itemEndAngle = itemStartAngle + anglePerItem;
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
           
-          // Calculate label position - exact radiating pattern
-          const labelRadius = donutRadius * 1.5; // Labels outside the wheel
-          const labelX = Math.cos(itemMidAngle) * labelRadius;
-          const labelY = Math.sin(itemMidAngle) * labelRadius;
+          // Calculate label position - with exact 10% gap from outer ring
+          // Calculate 10% additional distance from the outer ring
+          const textDistanceFromRing = donutRadius * 0.1;
+          // Position labels with exact 10% gap from outer edge
+          const labelX = Math.cos(itemMidAngle) * (donutRadius + textDistanceFromRing);
+          const labelY = Math.sin(itemMidAngle) * (donutRadius + textDistanceFromRing);
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
@@ -142,16 +161,20 @@ export function addDonutRings(
           const textAnchor = (itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5) 
             ? "end" : "start";
             
-          labelGroup.append("text")
+          const textElement = labelGroup.append("text")
             .attr("x", labelX)
             .attr("y", labelY)
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "11px")
+            .attr("font-size", "8px") // FIXED at exactly 8px
             .attr("fill", category.color)
-            .attr("font-weight", "500")
+            .attr("font-weight", "400") // Lighter weight
+            .attr("opacity", 0.8) // Add opacity directly
             .attr("transform", `rotate(${(itemMidAngle * 180/Math.PI)},${labelX},${labelY})`)
             .text(item);
+            
+          // Explicitly set inline style to ensure 8px font size is applied
+          textElement.node()?.setAttribute("style", "font-size: 8px; font-family: sans-serif;");
           
           // Create sub-wedge for this item
           const subArc = d3.arc<any>()

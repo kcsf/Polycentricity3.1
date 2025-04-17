@@ -138,12 +138,47 @@ export interface D3NodeWithRelationships extends D3Node {
  * @param valueCache - Map of value IDs to Value objects
  * @param capabilityCache - Map of capability IDs to Capability objects
  */
+// Import the optimized addDonutRings function from external file
+import { addDonutRings as optimizedAddDonutRings } from '../../../new-donut-rings';
+
+// Re-export the optimized version
+export const addDonutRings = optimizedAddDonutRings;
+
+// Original function kept for reference - COMPLETELY COMMENTED OUT
+/*
 export function addDonutRings(
   nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
   activeCardId?: string | null,
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
+  // Get all card nodes that are actors (not agreements)
+  const cardNodes = nodeElements.filter((d) => d.type === "actor");
+  
+  // Process each card node to add complete donut rings with interactive segments
+  cardNodes.each(function(nodeData) {
+    // Basic setup for this node
+    const node = d3.select(this);
+    const isActive = nodeData.id === activeCardId;
+    
+    // Calculate responsive dimensions based on base size
+    const BASE_SIZE = isActive ? 40 : 35; // Base size in pixels
+    
+    // Define all sizes as proportions of BASE_SIZE
+    const DIMENSIONS = {
+      centerRadius: BASE_SIZE * 0.9,       // Inner circle radius
+      donutRadius: BASE_SIZE * 1.15,       // Outer donut radius (the ring)
+      subWedgeRadius: BASE_SIZE * 1.35,    // Sub-wedge radius (slightly larger than donut)
+      labelRadius: BASE_SIZE * 2.0,        // Label distance from center
+      textSize: BASE_SIZE * 0.15,          // TINY text size for better readability (8px)
+      centerTextSize: BASE_SIZE * 0.25,    // Center category text
+      countTextSize: BASE_SIZE * 0.2       // Count text size
+    };
+    
+    // And so on with the rest of the function...
+  });
+}
+*/
   // Get all card nodes that are actors (not agreements)
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
   
