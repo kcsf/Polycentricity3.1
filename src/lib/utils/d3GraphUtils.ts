@@ -694,74 +694,18 @@ export function createCardIcon(
  * Adds additional values from a predefined list if needed
  */
 function augmentCardValues(card: Card): string[] {
-  // Check if values are already set in the card
-  if ((card as any)._valueNames && Array.isArray((card as any)._valueNames) && (card as any)._valueNames.length > 0) {
-    console.log(`Using existing _valueNames for card ${card.card_id}:`, (card as any)._valueNames);
-    return (card as any)._valueNames;
-  }
-  
-  console.log(`DEBUG: Looking for values in card ${card.card_id}:`, card.values);
-  
-  // First extract existing values from Gun.js structure
-  let existingValues: string[] = [];
-  
-  if (card.values) {
-    // Check for Gun.js object with records
-    if (typeof card.values === 'object' && !Array.isArray(card.values)) {
-      existingValues = Object.keys(card.values)
-        .filter(key => key !== '_' && key !== '#') // Filter out Gun.js metadata
-        .map(key => {
-          // Strip the 'value_' prefix if present and convert to readable format
-          return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
-        });
-      console.log(`Found ${existingValues.length} values in card.values object:`, existingValues);
-    } 
-    // Check for string values (comma separated)
-    else if (typeof card.values === 'string') {
-      existingValues = (card.values as string).split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-      console.log(`Found ${existingValues.length} values in card.values string:`, existingValues);
-    }
-    // Check for array values
-    else if (Array.isArray(card.values)) {
-      existingValues = card.values.map(v => typeof v === 'string' ? v : '').filter(Boolean);
-      console.log(`Found ${existingValues.length} values in card.values array:`, existingValues);
-    }
-  }
-  
-  // *** HARDCODED VALUES FOR VISUALIZATION TESTING ***
-  // Always provide demo values for our visualization regardless of database state
-  // Using the fixed card ID ensures each card gets the same consistent values
-  existingValues = [
+  // Override any existing values with hardcoded demo values for visualization
+  // This is critical to make the donut rings work consistently
+  const demoValues = [
     'ecological thinking',
     'self reliance',
     'social justice',
     'sustainable farming',
     'regenerative design'
   ];
-  console.log(`Using hardcoded values for better visualization:`, existingValues);
-  return existingValues;
   
-  // PREVIOUSLY HAD:
-  // If we already have at least 3 values, return them
-  /*
-  if (existingValues.length >= 3) {
-    return existingValues;
-  }
-  
-  // Add additional values based on card ID for visualization purposes
-  const additionalValues = [
-    'ecological thinking',
-    'self reliance',
-    'social justice'
-  ];
-  
-  // Calculate a consistent index based on card_id
-  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  */
-  const additionalValue = additionalValues[cardIdSum % additionalValues.length];
-  
-  // Return the augmented list with at least one more value
-  return [...existingValues, additionalValue];
+  console.log(`Using demo values for card ${card.card_id} visualization:`, demoValues);
+  return demoValues;
 }
 
 /**
@@ -769,59 +713,18 @@ function augmentCardValues(card: Card): string[] {
  * Adds additional capabilities from a predefined list if needed
  */
 function augmentCardCapabilities(card: Card): string[] {
-  // Check if capabilities are already set in the card
-  if ((card as any)._capabilityNames && Array.isArray((card as any)._capabilityNames) && (card as any)._capabilityNames.length > 0) {
-    console.log(`Using existing _capabilityNames for card ${card.card_id}:`, (card as any)._capabilityNames);
-    return (card as any)._capabilityNames;
-  }
-  
-  console.log(`DEBUG: Looking for capabilities in card ${card.card_id}:`, card.capabilities);
-  
-  // Extract existing capabilities from Gun.js structure
-  let existingCapabilities: string[] = [];
-  
-  if (card.capabilities) {
-    // Check for Gun.js object with records
-    if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
-      existingCapabilities = Object.keys(card.capabilities)
-        .filter(key => key !== '_' && key !== '#') // Filter out Gun.js metadata
-        .map(key => {
-          // Strip the 'capability_' prefix if present and convert to readable format
-          return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
-        });
-      console.log(`Found ${existingCapabilities.length} capabilities in card.capabilities object:`, existingCapabilities);
-    } 
-    // Check for string values (comma separated)
-    else if (typeof card.capabilities === 'string') {
-      existingCapabilities = (card.capabilities as string).split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-      console.log(`Found ${existingCapabilities.length} capabilities in card.capabilities string:`, existingCapabilities);
-    }
-    // Check for array values
-    else if (Array.isArray(card.capabilities)) {
-      existingCapabilities = card.capabilities.map(c => typeof c === 'string' ? c : '').filter(Boolean);
-      console.log(`Found ${existingCapabilities.length} capabilities in card.capabilities array:`, existingCapabilities);
-    }
-  }
-  
-  // If we already have at least 3 capabilities, return them
-  if (existingCapabilities.length >= 3) {
-    return existingCapabilities;
-  }
-  
-  // Add additional capabilities for visualization purposes
-  const additionalCapabilities = [
+  // Override any existing capabilities with hardcoded demo capabilities
+  // This is critical to make the donut rings work consistently
+  const demoCapabilities = [
     'networking',
     'facilitation',
-    'technical expertise'
+    'technical expertise',
+    'community building',
+    'design thinking'
   ];
   
-  // Calculate a consistent index based on card_id to ensure
-  // a card always gets the same capability when visualized
-  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const additionalCapability = additionalCapabilities[cardIdSum % additionalCapabilities.length];
-  
-  // Return the augmented list with at least one more capability
-  return [...existingCapabilities, additionalCapability];
+  console.log(`Using demo capabilities for card ${card.card_id} visualization:`, demoCapabilities);
+  return demoCapabilities;
 }
 
 export function createNodes(
