@@ -326,22 +326,24 @@ export function addDonutRings(
           const itemEndAngle = itemStartAngle + anglePerItem;
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
           
-          // Calculate label position - using radians directly
-          // Position labels precisely at the sub-wedge centers
-          const subWedgeMiddleRadius = DIMENSIONS.donutRadius + 
-              (DIMENSIONS.subWedgeRadius - DIMENSIONS.donutRadius) / 2;
+          // Calculate label position based on the original implementation
+          // Add a gap percentage to position labels away from the circle
+          const gapPercentage = 0.15;
+          const labelDistance = DIMENSIONS.subWedgeRadius * (1 + gapPercentage);
           
-          // Use coordinates along the middle of the sub-wedge for better alignment
-          const labelX = Math.cos(itemMidAngle) * DIMENSIONS.labelRadius;
-          const labelY = Math.sin(itemMidAngle) * DIMENSIONS.labelRadius;
+          // Calculate label coordinates using the midpoint angle
+          const labelX = Math.cos(itemMidAngle) * labelDistance;
+          const labelY = Math.sin(itemMidAngle) * labelDistance;
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Determine text anchor based on position in radians
-          const textAnchor = (itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5) 
-            ? "end" : "start";
+          // Determine text anchor based on position in radians (exactly like the original)
+          // Angles between 90° and 270° (in radians: π/2 and 3π/2) are on the left side
+          const angleDeg = ((itemMidAngle * 180) / Math.PI) % 360;
+          const isLeftSide = angleDeg > 90 && angleDeg < 270;
+          const textAnchor = isLeftSide ? "end" : "start";
            
           // Clean up the item name by removing prefixes
           let displayName = item;
@@ -368,19 +370,16 @@ export function addDonutRings(
             .attr("y", labelY)
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", DIMENSIONS.textSize)
+            .attr("font-size", "11px") // Match original exactly
             .attr("fill", category.color)
             .attr("font-weight", "500")
-            // Apply rotation based directly on radians
+            // Apply rotation based exactly like the original implementation
             .attr("transform", function() {
-              // For labels on left side, flip them 180 degrees
-              const rotation = itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5
-                ? itemMidAngle + Math.PI  // Add π radians (180 degrees) to flip
-                : itemMidAngle;
-                
-              // Convert to degrees for the SVG transform
-              const rotationDegrees = (rotation * 180 / Math.PI) % 360;
-              return `rotate(${rotationDegrees},${labelX},${labelY})`;
+              // Calculate rotation in degrees based on the angle position
+              // For text on left side (90-270 degrees), add 180 degrees to flip it
+              const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
+              
+              return `rotate(${rotationDeg},${labelX},${labelY})`;
             })
             .text(displayName);
           
