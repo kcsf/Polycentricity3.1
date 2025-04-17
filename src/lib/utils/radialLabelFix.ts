@@ -8,72 +8,66 @@ import * as d3 from 'd3';
  * Apply the label fixes to the existing SVG elements
  * This function directly modifies the existing DOM elements without replacing them
  */
-export function fixDonutRingLabels() {
+export function fixDonutRingLabels(): void {
   // Wait a brief moment for the SVG to be rendered
   setTimeout(() => {
     try {
-      // Find all text elements within label groups
-      const textLabels = d3.selectAll('g.label-group text');
+      // Find all text elements within label groups and set font size
+      d3.selectAll('g.label-group text')
+        .attr('font-size', '8px')
+        .style('font-size', '8px')
+        .style('font-family', 'sans-serif');
       
-      // For each text label, adjust position and size
-      textLabels.each(function(this: Element) {
-        const textNode = d3.select(this);
+      // Set all text labels to be positioned 10% away from donut rings
+      // Find all donut rings first to get their radius
+      const donutRings = d3.selectAll('circle.donut-ring');
+      if (donutRings.empty()) {
+        console.log('No donut rings found, skipping label fix');
+        return;
+      }
+      
+      // Get the radius from the first donut ring (they should all be the same)
+      const firstRing = donutRings.nodes()[0];
+      if (!firstRing) return;
+      
+      const radius = d3.select(firstRing).attr('r');
+      if (!radius) return;
+      
+      const outerRadius = parseFloat(radius);
+      const gapDistance = outerRadius * 0.1; // Exactly 10% gap
+      
+      console.log(`Fixing text labels with ${gapDistance}px gap (10% of ${outerRadius}px radius)`);
+      
+      // Process all text elements in label groups
+      d3.selectAll('g.label-group text').each(function() {
+        const textEl = d3.select(this);
         
-        // Force the font size to exactly 8px using both SVG attributes and inline style
-        textNode.attr('font-size', '8px');
-        textNode.style('font-size', '8px');
-        textNode.style('font-family', 'sans-serif');
+        // Get current position
+        const x = parseFloat(textEl.attr('x') || '0');
+        const y = parseFloat(textEl.attr('y') || '0');
         
-        // Get the parent node's group (to access the transforms)
-        // Safely check for parentNode
-        if (this && this.parentNode) {
-          // Get parent node and check for higher levels
-          const parentNode = this.parentNode;
+        // Calculate angle and current distance
+        const angle = Math.atan2(y, x);
+        const currentDistance = Math.sqrt(x*x + y*y);
+        
+        // If we're near the outer radius, adjust position outward
+        if (Math.abs(currentDistance - outerRadius) < 10) {
+          // Calculate new position with exact 10% gap
+          const newDist = outerRadius + gapDistance;
+          const newX = Math.cos(angle) * newDist;
+          const newY = Math.sin(angle) * newDist;
           
-          if (parentNode.parentNode && parentNode.parentNode.parentNode) {
-            // Get the parent wedge to determine the outer ring radius
-            // Traversing up two levels to get to the category-group from the label-group
-            const categoryGroup = d3.select(parentNode.parentNode.parentNode);
-            const donutRing = categoryGroup.select('circle.donut-ring');
-            
-            // Get the donut ring radius (if available)
-            const radius = donutRing.attr('r');
-            if (radius) {
-              const outerRadius = parseFloat(radius);
-              
-              // Calculate 10% gap from the outer ring
-              const gapDistance = outerRadius * 0.1;
-              
-              // Get current position from the text element
-              const x = parseFloat(textNode.attr('x') || '0');
-              const y = parseFloat(textNode.attr('y') || '0');
-              
-              // Calculate the angle from center to the current point
-              const angle = Math.atan2(y, x);
-              
-              // Calculate the current distance from center
-              const currentDistance = Math.sqrt(x*x + y*y);
-              
-              // If the text is currently at the donut ring, adjust it outward
-              if (Math.abs(currentDistance - outerRadius) < 5) {
-                // Calculate new position with 10% gap
-                const newDist = outerRadius + gapDistance;
-                const newX = Math.cos(angle) * newDist;
-                const newY = Math.sin(angle) * newDist;
-                
-                // Update the text element's position
-                textNode.attr('x', newX);
-                textNode.attr('y', newY);
-                
-                // Update transform attribute for rotation (keep the rotation value but use new x,y)
-                const currentTransform = textNode.attr('transform') || '';
-                // Extract rotation angle from transform string
-                const rotateMatch = currentTransform.match(/rotate\(([^,]+),/);
-                if (rotateMatch && rotateMatch[1]) {
-                  const rotation = parseFloat(rotateMatch[1]);
-                  textNode.attr('transform', `rotate(${rotation},${newX},${newY})`);
-                }
-              }
+          // Update position
+          textEl.attr('x', newX)
+               .attr('y', newY);
+          
+          // Update rotation transform if it exists
+          const transform = textEl.attr('transform');
+          if (transform && transform.includes('rotate')) {
+            const rotateMatch = transform.match(/rotate\(([^,]+),/);
+            if (rotateMatch && rotateMatch[1]) {
+              const rotation = parseFloat(rotateMatch[1]);
+              textEl.attr('transform', `rotate(${rotation},${newX},${newY})`);
             }
           }
         }
@@ -83,5 +77,5 @@ export function fixDonutRingLabels() {
     } catch (error) {
       console.error('Error applying donut ring label fixes:', error);
     }
-  }, 500); // Brief delay to ensure the DOM is ready
+  }, 1000); // Longer delay to ensure elements are fully rendered
 }

@@ -21,6 +21,12 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
+  // Safety check for nodeElements - must be defined to proceed
+  if (!nodeElements) {
+    console.warn("addDonutRings: nodeElements is undefined, cannot add donut rings");
+    return;
+  }
+  
   console.log("addDonutRings called with", {
     nodeElementsExists: !!nodeElements,
     activeCardId,
