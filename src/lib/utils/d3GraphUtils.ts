@@ -359,30 +359,29 @@ export function addDonutRings(
           // This is the key part that makes the labels align correctly
           const adjustedAngle = itemMidAngle - Math.PI / 2;
           
-          // Calculate label position with gap - starting EXACTLY 10% away from outer donut ring
-          // This ensures labels are positioned correctly and don't overlap with node rings
+          // SIMPLIFIED APPROACH: Position labels directly on the wedge at the outer edge
+          // with proper rotation so they're easier to read
           
-          // Calculate 10% gap from the outer donut ring
+          // Get the outer radius of the donut ring
           const outerRingRadius = DIMENSIONS.donutRadius;
-          const gapDistance = outerRingRadius * 0.1; // 10% of the outer ring radius
           
-          // CRITICAL FIX: Position labels right at 10% from the outer ring, not at center distance
-          // Calculate the exact starting position that is 10% away from the outer ring
-          const startX = Math.cos(adjustedAngle) * (outerRingRadius + gapDistance);
-          const startY = Math.sin(adjustedAngle) * (outerRingRadius + gapDistance);
-          
-          // These are the same as startX/Y - we want labels at the start of the line, 10% from ring
-          const labelX = startX;
-          const labelY = startY;
+          // Position the text directly on the outer edge with slight offset (5px)
+          const textX = Math.cos(adjustedAngle) * (outerRingRadius + 5);
+          const textY = Math.sin(adjustedAngle) * (outerRingRadius + 5);
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Determine text anchor and rotation - exactly as in original
+          // Determine if we're on the left or right half of the circle
           const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
           const isLeftSide = angleDeg > 90 && angleDeg < 270;
+          
+          // Set text anchor based on position (end for left side, start for right side)
           const textAnchor = isLeftSide ? "end" : "start";
+          
+          // Calculate rotation angle to make text readable
+          // When on left side, rotate 180 degrees more to flip text
           const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
            
           // Clean up the item name by removing prefixes
@@ -404,27 +403,19 @@ export function addDonutRings(
               .join(' ');
           }
           
-          // Add a visible line showing the exact 10% gap from the outer ring to text
-          labelGroup.append("line")
-            .attr("x1", startX)
-            .attr("y1", startY)
-            .attr("x2", labelX)
-            .attr("y2", labelY)
-            .attr("stroke", category.color)
-            .attr("stroke-width", 0.5)
-            .attr("stroke-opacity", 0.4);
+          // REMOVED line indicators - placed text directly at the position
           
-          // Add the text label - EXPLICITLY using absolute smallest size (8px) and positioned from the outer ring
+          // Add the text label - place directly on the donut ring
           const textElement = labelGroup.append("text")
-            .attr("x", startX) // USE THE START POINT (10% away from outer ring)
-            .attr("y", startY) // USE THE START POINT (10% away from outer ring) 
+            .attr("x", textX) // Position directly on the outer edge
+            .attr("y", textY) // Position directly on the outer edge
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "8px") // FIXED at exactly 8px 
+            .attr("font-size", "8px") // FIXED at exactly 8px
             .attr("fill", category.color)
             .attr("font-weight", "400") // Lighter weight
             .attr("opacity", 0.8) // Add opacity directly
-            .attr("transform", `rotate(${rotationDeg},${startX},${startY})`) // Rotate around start point
+            .attr("transform", `rotate(${rotationDeg},${textX},${textY})`) // Rotate around text position
             .text(displayName);
             
           // Explicitly set inline style to ensure 8px font size is applied
