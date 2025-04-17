@@ -15,7 +15,7 @@
     error?: string;
   } | null = null;
   let showAlert = false;
-  let alertTimeout: NodeJS.Timeout;
+  let alertTimeout: ReturnType<typeof setTimeout>;
   
   // Method to generate sample agreements
   async function generateAgreements() {
@@ -56,7 +56,7 @@
       result = {
         success: false,
         count: 0,
-        error: error.message || "Unknown error generating agreements"
+        error: error instanceof Error ? error.message : "Unknown error generating agreements"
       };
       showAlert = true;
     } finally {

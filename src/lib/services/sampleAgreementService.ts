@@ -1,8 +1,16 @@
 import type { Agreement, Card } from '$lib/types';
-import gun, { nodes } from './gun-db';
+import gun from './gun-db';
 import { getCurrentUser } from './authService';
 import { getGame, getGameActors, getAvailableCardsForGame } from './gameService';
 import { uniqueId } from 'lodash-es';
+
+// Define database nodes for consistent access
+const nodes = {
+  agreements: 'agreements',
+  games: 'games',
+  cards: 'cards',
+  actors: 'actors'
+};
 
 /**
  * Generates sample agreements between cards for demonstration purposes
@@ -46,8 +54,9 @@ export async function generateSampleAgreements(
     const sampleAgreement: Agreement = {
       agreement_id: agreementId,
       title: `Sample Agreement ${i+1}`,
-      description: `A sample agreement between ${card1.role_title || 'Card 1'} and ${card2.role_title || 'Card 2'}`,
-      status: 'active',
+      summary: `A sample agreement between ${card1.role_title || 'Card 1'} and ${card2.role_title || 'Card 2'}`,
+      type: Math.random() > 0.5 ? 'symmetric' : 'asymmetric',
+      status: 'accepted', // Use 'accepted' since 'active' is not in the enum
       created_at: Date.now(),
       created_by: userId,
       game_id: gameId,
@@ -58,28 +67,16 @@ export async function generateSampleAgreements(
         [card2.card_id || 'unknown']: true
       },
       
-      // Define obligations for each party
+      // Define obligations for each party (convert array to string for type compatibility)
       obligations: {
-        [card1.card_id || 'unknown']: [
-          { id: uniqueId(), text: `Provide ${getRandomResource()}` },
-          { id: uniqueId(), text: `Share ${getRandomKnowledge()}` }
-        ],
-        [card2.card_id || 'unknown']: [
-          { id: uniqueId(), text: `Contribute ${getRandomService()}` },
-          { id: uniqueId(), text: `Offer ${getRandomResource()}` }
-        ]
+        [card1.card_id || 'unknown']: `Provide ${getRandomResource()}; Share ${getRandomKnowledge()}`,
+        [card2.card_id || 'unknown']: `Contribute ${getRandomService()}; Offer ${getRandomResource()}`
       },
       
-      // Define benefits for each party  
+      // Define benefits for each party (convert array to string for type compatibility)
       benefits: {
-        [card1.card_id || 'unknown']: [
-          { id: uniqueId(), text: `Receive ${getRandomService()}` },
-          { id: uniqueId(), text: `Access to ${getRandomResource()}` }
-        ],
-        [card2.card_id || 'unknown']: [
-          { id: uniqueId(), text: `Gain ${getRandomKnowledge()}` },
-          { id: uniqueId(), text: `Obtain ${getRandomResource()}` }
-        ]
+        [card1.card_id || 'unknown']: `Receive ${getRandomService()}; Access to ${getRandomResource()}`,
+        [card2.card_id || 'unknown']: `Gain ${getRandomKnowledge()}; Obtain ${getRandomResource()}`
       }
     };
     
