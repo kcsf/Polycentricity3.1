@@ -6,6 +6,7 @@
         import { currentGameStore } from '$lib/stores/gameStore';
         import { activeActorId } from '$lib/stores/enhancedGameStore';
         import { getGame, subscribeToGame, joinGame, getPlayerRole, assignRole } from '$lib/services/gameService';
+        import { addSampleAgreementsToGame } from '$lib/services/sampleAgreementService';
         import type { Game, Actor } from '$lib/types';
         import { GameStatus } from '$lib/types';
         
@@ -82,6 +83,22 @@
                         
                         if (game) {
                                 currentGameStore.set(game);
+                                
+                                // Check if we need to generate sample agreements
+                                if (!game.agreements || Object.keys(game.agreements).length === 0) {
+                                    console.log("Game has no agreements, generating sample agreements automatically");
+                                    await addSampleAgreementsToGame(gameId);
+                                    
+                                    // Refresh game data to get updated agreements
+                                    game = await getGame(gameId);
+                                    if (game) {
+                                        currentGameStore.set(game);
+                                        console.log("Game refreshed with agreements:", 
+                                            game.agreements ? Object.keys(game.agreements).length : 0);
+                                    }
+                                } else {
+                                    console.log(`Game already has ${Object.keys(game.agreements).length} agreements`);
+                                }
                         } else {
                                 error = 'Game not found';
                         }

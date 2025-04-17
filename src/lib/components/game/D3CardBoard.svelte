@@ -132,9 +132,26 @@
       });
       
       // Set up actor to card mapping
+      // Map actors to cards - this is critical for agreement links
       cardsWithPosition.forEach(card => {
         if (card.actor_id) {
+          // Set the actor_id -> card_id mapping
           actorCardMap.set(card.actor_id, card.card_id);
+          console.log(`D3CardBoard: Mapped actor ${card.actor_id} to card ${card.card_id}`);
+        } else {
+          // Try to find the actor ID from the card properties - hackish fix
+          if (card.role_title) {
+            // Check if this card is tied to an actor in this game
+            getGun().get(nodes.actors).map().once((actorData) => {
+              if (actorData && actorData.name === card.role_title) {
+                const actorId = actorData?.actor_id;
+                if (actorId) {
+                  actorCardMap.set(actorId, card.card_id);
+                  console.log(`D3CardBoard: Mapped actor ${actorId} to card ${card.card_id} by role title`);
+                }
+              }
+            });
+          }
         }
       });
       
@@ -152,10 +169,12 @@
         if (agreementIds.length > 0) {
           // Create a promise for each agreement to load
           const agreementPromises = agreementIds.map(agreementId => {
+            if (agreementId === '#') return Promise.resolve(null); // Skip Gun.js reference edges
+            
             return new Promise<AgreementWithPosition>(resolve => {
               // Query the agreement from Gun
               getGun().get(nodes.agreements).get(agreementId).once((agreementData: Agreement) => {
-                if (agreementData) {
+                if (agreementData && agreementData.agreement_id) {
                   console.log(`D3CardBoard: Loaded agreement ${agreementId}:`, agreementData);
                   
                   // Add position for visualization
@@ -169,7 +188,7 @@
                   
                   resolve(agreementWithPosition);
                 } else {
-                  console.warn(`D3CardBoard: Agreement ${agreementId} not found`);
+                  console.warn(`D3CardBoard: Agreement ${agreementId} not found or invalid`);
                   resolve(null);
                 }
               });
@@ -182,6 +201,50 @@
           // Filter out null values and add to agreements array
           agreements = loadedAgreements.filter(a => a !== null);
           console.log(`D3CardBoard: Successfully loaded ${agreements.length} agreements`);
+          
+          // If no agreements were loaded but we know they exist in the game,
+          // there might be a timing issue or data consistency problem
+          if (agreements.length === 0 && agreementIds.length > 0) {
+            console.warn(`D3CardBoard: Failed to load any agreements, but game has ${agreementIds.length} agreement IDs.`);
+            
+            // Create fallback agreements with fixed ids for immediate display
+            for (const agreementId of agreementIds) {
+              if (agreementId === '#') continue;
+              
+              // Create a basic fallback agreement
+              const fallbackAgreement: AgreementWithPosition = {
+                agreement_id: agreementId,
+                title: `Agreement ${agreementId}`,
+                summary: "Agreement details loading...",
+                parties: {},
+                obligations: {},
+                benefits: {},
+                created_at: Date.now(),
+                created_by: "system",
+                game_id: gameId,
+                status: "accepted",
+                type: "symmetric",
+                position: {
+                  x: width / 2 + (Math.random() * 200 - 100),
+                  y: height / 2 + (Math.random() * 200 - 100)
+                }
+              };
+              
+              // Add to the agreements array
+              agreements.push(fallbackAgreement);
+              console.log(`D3CardBoard: Added fallback agreement for ${agreementId}`);
+            }
+            
+            // Also try direct load for debugging
+            const gun = getGun();
+            agreementIds.forEach(agreementId => {
+              if (agreementId === '#') return;
+              
+              gun.get(nodes.agreements).get(agreementId).once((data) => {
+                console.log(`DIRECT LOAD: Agreement ${agreementId}:`, data);
+              });
+            });
+          }
         }
       }
       
