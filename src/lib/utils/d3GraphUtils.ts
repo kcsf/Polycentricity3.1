@@ -215,20 +215,12 @@ export function addDonutRings(
         items: nodeData._valueNames || []
       },
       { 
-        name: "goals", 
-        color: "#9BC23D", 
-        items: ["Maintain peace", "Protect sites"]
-      },
-      { 
         name: "capabilities", 
         color: "#8FBC49", 
         items: nodeData._capabilityNames || []
-      },
-      { 
-        name: "intellectualProperty", 
-        color: "#83B655", 
-        items: ["Historical records", "Diplomatic protocols"]
       }
+      // Removed hardcoded "goals" and "intellectualProperty" categories
+      // as requested by the user to make visualization work with actual data
     ];
     
     // Calculate the total number of items across all categories

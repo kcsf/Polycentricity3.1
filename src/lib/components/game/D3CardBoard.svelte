@@ -1239,8 +1239,10 @@
       }
       
       // If we got here, we couldn't find a match in our cardsWithPosition array
-      // Fall back to default values instead of making a Gun query
-      return ["Sustainability", "Community Resilience"];
+      // Return an empty array instead of making a Gun query or using hardcoded values
+      // The visualization will adapt to show no values if needed
+      console.log(`No values found for card with values reference: ${refPath}`);
+      return [];
     }
     
     // For direct object mapping (most common case)
@@ -1285,8 +1287,9 @@
       return card.values.split(',').map(v => v.trim()).filter(Boolean);
     }
     
-    // Default fallback values
-    return ["Sustainability", "Community Resilience"];
+    // Return empty array instead of hardcoded values
+    // The visualization will adapt to show no values
+    return [];
   }
   
   /**
@@ -1325,8 +1328,10 @@
       }
       
       // If we got here, we couldn't find a match in our cardsWithPosition array
-      // Fall back to default capabilities instead of making a Gun query
-      return ["Problem Solving", "Communication"];
+      // Return an empty array instead of making a Gun query or using hardcoded capabilities
+      // The visualization will adapt to show no capabilities if needed
+      console.log(`No capabilities found for card with capabilities reference: ${refPath}`);
+      return [];
     }
     
     // For direct object mapping (most common case)
@@ -1365,8 +1370,9 @@
       return card.capabilities.split(',').map(c => c.trim()).filter(Boolean);
     }
     
-    // Default fallback capabilities
-    return ["Problem Solving", "Communication"];
+    // Return empty array instead of hardcoded capabilities
+    // The visualization will adapt to show no capabilities
+    return [];
   }
 
   /**
