@@ -194,19 +194,21 @@ export function createLinks(
     // Process obligations (fromActor -> agreement)
     agreement.obligations.forEach(obligation => {
       const fromActorId = obligation.fromActorId;
-      const toActorId = obligation.toActorId;
       
-      // Get card IDs from actor IDs
-      const creatorCardId = actorCardMap.get(fromActorId);
-      
-      if (creatorCardId) {
-        // Create link from creator card to agreement
-        links.push({
-          source: creatorCardId,
-          target: agreement.agreement_id,
-          type: "obligation",
-          id: `ob_${obligation.id}`,
-        });
+      // Only proceed if fromActorId is defined
+      if (fromActorId) {
+        // Get card IDs from actor IDs
+        const creatorCardId = actorCardMap.get(fromActorId);
+        
+        if (creatorCardId) {
+          // Create link from creator card to agreement
+          links.push({
+            source: creatorCardId,
+            target: agreement.agreement_id,
+            type: "obligation",
+            id: `ob_${obligation.id}`,
+          });
+        }
       }
     });
     
@@ -215,17 +217,20 @@ export function createLinks(
       const fromActorId = benefit.fromActorId;
       const toActorId = benefit.toActorId;
       
-      // Get card IDs from actor IDs
-      const recipientCardId = actorCardMap.get(toActorId);
-      
-      if (recipientCardId) {
-        // Create link from agreement to recipient card
-        links.push({
-          source: agreement.agreement_id,
-          target: recipientCardId,
-          type: "benefit",
-          id: `be_${benefit.id}`,
-        });
+      // Only proceed if toActorId is defined
+      if (toActorId) {
+        // Get card IDs from actor IDs
+        const recipientCardId = actorCardMap.get(toActorId);
+        
+        if (recipientCardId) {
+          // Create link from agreement to recipient card
+          links.push({
+            source: agreement.agreement_id,
+            target: recipientCardId,
+            type: "benefit",
+            id: `be_${benefit.id}`,
+          });
+        }
       }
     });
   });
@@ -567,7 +572,13 @@ export function addDonutRings(
     
     // Process each category
     categories.forEach(category => {
-      const categoryData = nodeData[category as keyof D3Node] || card[category as keyof Card];
+      // Access data safely with type checks
+      let categoryData: any;
+      if (typeof nodeData === 'object' && nodeData !== null) {
+        categoryData = (nodeData as any)[category] || 
+                      (card && typeof card === 'object' ? (card as any)[category] : undefined);
+      }
+      
       const categoryItems = ensureArray(categoryData);
       
       if (categoryItems.length > 0) {
@@ -674,8 +685,8 @@ export function initializeD3Graph(
   handleNodeClick: (node: D3Node) => void
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
-  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
-  linkElements: d3.Selection<SVGGElement, D3Link, null, undefined>,
+  nodeElements: d3.Selection<SVGGElement, D3Node, any, any>,
+  linkElements: d3.Selection<SVGGElement, D3Link, any, any>,
   nodes: D3Node[],
   links: D3Link[]
 } {
@@ -711,6 +722,35 @@ export function initializeD3Graph(
   // Set up interactions (zoom, drag)
   const dragBehavior = setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
   
+  // Create arrow markers for each type of link
+  const defs = svg.append("defs");
+  
+  // Create obligation arrow marker
+  defs.append("marker")
+    .attr("id", "arrow-obligation")
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 15)
+    .attr("refY", 0)
+    .attr("markerWidth", 4)
+    .attr("markerHeight", 4)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("fill", "#BBBBBB")
+    .attr("d", "M0,-5L10,0L0,5");
+    
+  // Create benefit arrow marker
+  defs.append("marker")
+    .attr("id", "arrow-benefit")
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 15)
+    .attr("refY", 0)
+    .attr("markerWidth", 4)
+    .attr("markerHeight", 4)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("fill", "#BBBBBB")
+    .attr("d", "M0,-5L10,0L0,5");
+
   // Create link elements
   const linkElements = linkGroup
     .selectAll("g")
@@ -722,6 +762,10 @@ export function initializeD3Graph(
   // Add path for each link
   linkElements.append("path")
     .attr("class", d => `link-path ${d.type}`)
+    .attr("stroke", "#e5e5e5")
+    .attr("stroke-width", 1)
+    .attr("stroke-opacity", 0.8)
+    .attr("fill", "none")
     .attr("marker-end", d => `url(#arrow-${d.type})`);
   
   // Create node elements
@@ -743,23 +787,29 @@ export function initializeD3Graph(
   simulation.on("tick", () => {
     // Update link positions
     linkElements.selectAll(".link-path")
-      .attr("d", (d) => {
+      .attr("d", (d: any) => {
         // Handle string sources that haven't been replaced with objects yet
-        const source = typeof d.source === 'string' 
+        const sourceObj = typeof d.source === 'string' 
           ? nodes.find(n => n.id === d.source) 
           : d.source;
         
-        const target = typeof d.target === 'string'
+        const targetObj = typeof d.target === 'string'
           ? nodes.find(n => n.id === d.target)
           : d.target;
         
-        if (!source || !target) return '';
+        if (!sourceObj || !targetObj) return '';
         
-        return `M${source.x},${source.y} L${target.x},${target.y}`;
+        // Safe access coordinates
+        const sourceX = sourceObj.x ?? 0;
+        const sourceY = sourceObj.y ?? 0;
+        const targetX = targetObj.x ?? 0;
+        const targetY = targetObj.y ?? 0;
+        
+        return `M${sourceX},${sourceY} L${targetX},${targetY}`;
       });
     
     // Update node positions
-    nodeElements.attr("transform", d => `translate(${d.x}, ${d.y})`);
+    nodeElements.attr("transform", (d: any) => `translate(${d.x ?? 0}, ${d.y ?? 0})`);
   });
   
   return {
