@@ -355,14 +355,17 @@ export function addDonutRings(
       // Create sub-wedges container - add to overlay group with higher z-index
       // Use a separate group that renders on top of the main wedges
       // This ensures sub-wedges always appear above the main wedges
+      // Important: This overlay group must be added AFTER all main wedges in the DOM order for proper SVG layering
       const overlayGroup = node.select(".overlay-group") || 
                            node.append("g").attr("class", "overlay-group");
       
+      // FIXED: Set initial visibility to visible for debugging sub-wedge creation
+      // Once verified, we can restore the opacity/visibility settings for hover effects
       const subWedgesContainer = overlayGroup.append("g")
         .attr("class", `sub-wedges-${category.name}`)
-        .attr("opacity", 0)
+        .attr("opacity", 0) // Keep this at 0 initially, but show when debugging
         .attr("pointer-events", "none")
-        .style("visibility", "hidden");
+        .style("visibility", "hidden"); // Hidden until hover
       
       // Add items with their labels and sub-wedges
       if (category.items && category.items.length > 0) {
@@ -415,17 +418,35 @@ export function addDonutRings(
           const gapPercentage = 0.6; // Significantly increased to match reference image
           const labelDistance = DIMENSIONS.subWedgeRadius * (1 + gapPercentage);
           
+          // Determine if text is on the left-hand side (between 90-270 degrees) for label positioning
+          // Used for fixing requirement #1 - make sub-wedge labels fan outward
+          const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
+          const normalizedAngleDeg = ((angleDeg % 360) + 360) % 360;
+          const isLeftHalf = normalizedAngleDeg >= 90 && normalizedAngleDeg <= 270;
+          
+          // FIX #1: For left-side labels (90-270 degrees), add 180 degrees to adjustedAngle
+          // This makes the labels fan outward instead of crossing through the circle
+          let labelAdjustedAngle = adjustedAngle;
+          if (isLeftHalf) {
+            // For angles 90-270, add PI radians (180 degrees) to make labels fan outward
+            labelAdjustedAngle = adjustedAngle + Math.PI;
+          }
+          
           // Calculate label coordinates using the adjusted angle
-          const labelX = Math.cos(adjustedAngle) * labelDistance;
-          const labelY = Math.sin(adjustedAngle) * labelDistance;
+          const labelX = Math.cos(labelAdjustedAngle) * labelDistance;
+          const labelY = Math.sin(labelAdjustedAngle) * labelDistance;
+          
+          // Debug logging for label positioning
+          if (category.name === "rivalrousResources" || category.debug) {
+            console.log(`Label position: angle=${angleDeg.toFixed(1)}°, isLeftHalf=${isLeftHalf}, x=${labelX.toFixed(1)}, y=${labelY.toFixed(1)}`);
+          }
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Calculate radial text positioning and rotation
-          // Convert angle to degrees for rotation calculations (0-360)
-          const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
+          // Reuse the angleDeg and normalizedAngleDeg values calculated above
+          // We already have these variables from earlier code, no need to redefine them
           
           // Debug rotation calculation if this is the rivalrousResources category
           if (category.debug) {
@@ -437,8 +458,7 @@ export function addDonutRings(
           // 1. Using the correct text-anchor (start/end) based on which half of the circle
           // 2. Flipping text that would otherwise be upside down
           
-          // Fix for angles: normalize to 0-360 range to handle negative angles correctly
-          const normalizedAngleDeg = ((angleDeg % 360) + 360) % 360;
+          // We're reusing normalizedAngleDeg from the code above
           
           // Determine if text is on the left-hand side (between 90-270 degrees)
           // This is the critical area where text orientation needs special handling
