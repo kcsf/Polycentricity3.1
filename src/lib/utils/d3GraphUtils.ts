@@ -149,6 +149,13 @@ export function addDonutRings(
   
   // Process each card node to add complete donut rings with interactive segments
   cardNodes.each(function(nodeData) {
+    // Debug log to check values and capabilities
+    console.log("Node data values and capabilities:", {
+      nodeId: nodeData.id,
+      valueNames: nodeData._valueNames,
+      capabilityNames: nodeData._capabilityNames
+    });
+    
     // Basic setup for this node
     const node = d3.select(this);
     const isActive = nodeData.id === activeCardId;
@@ -704,11 +711,18 @@ export function createCardIcon(
  * Adds additional values from a predefined list if needed
  */
 function augmentCardValues(card: Card): string[] {
+  // Debug log for inspection
+  console.log("Augmenting values for card:", card.card_id, card.values);
+  
   // First extract existing values
-  const existingValues = card.values ? Object.keys(card.values).map(key => {
-    // Strip the 'value_' prefix if present and convert to readable format
-    return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
-  }) : [];
+  const existingValues = card.values ? Object.keys(card.values)
+    .filter(key => key !== '#')  // Filter out the '#' key explicitly
+    .map(key => {
+      // Strip the 'value_' prefix if present and convert to readable format
+      return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
+    }) : [];
+  
+  console.log("Existing values after filtering:", existingValues);
   
   // If we already have at least 3 values, return them
   if (existingValues.length >= 3) {
@@ -719,15 +733,36 @@ function augmentCardValues(card: Card): string[] {
   const additionalValues = [
     'ecological thinking',
     'self reliance',
-    'social justice'
+    'social justice',
+    'preservation',
+    'wisdom',
+    'balance of power',
+    'community resilience',
+    'sustainability'
   ];
   
-  // Calculate a consistent index based on card_id
-  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const additionalValue = additionalValues[cardIdSum % additionalValues.length];
+  // Add values until we have at least 3
+  const result = [...existingValues];
   
-  // Return the augmented list with at least one more value
-  return [...existingValues, additionalValue];
+  // Calculate a consistent starting index based on card_id
+  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  let currentIndex = cardIdSum % additionalValues.length;
+  
+  // Add values until we reach at least 3
+  while (result.length < 3) {
+    const valueToAdd = additionalValues[currentIndex];
+    // Only add if not already in the list
+    if (!result.includes(valueToAdd)) {
+      result.push(valueToAdd);
+    }
+    // Move to next value in the list (wrap around if needed)
+    currentIndex = (currentIndex + 1) % additionalValues.length;
+  }
+  
+  console.log("Augmented values result:", result);
+  
+  // Return the augmented list with at least 3 values
+  return result;
 }
 
 /**
@@ -735,11 +770,18 @@ function augmentCardValues(card: Card): string[] {
  * Adds additional capabilities from a predefined list if needed
  */
 function augmentCardCapabilities(card: Card): string[] {
+  // Debug log for inspection
+  console.log("Augmenting capabilities for card:", card.card_id, card.capabilities);
+  
   // First extract existing capabilities
-  const existingCapabilities = card.capabilities ? Object.keys(card.capabilities).map(key => {
-    // Strip the 'capability_' prefix if present and convert to readable format
-    return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
-  }) : [];
+  const existingCapabilities = card.capabilities ? Object.keys(card.capabilities)
+    .filter(key => key !== '#')  // Filter out the '#' key explicitly
+    .map(key => {
+      // Strip the 'capability_' prefix if present and convert to readable format
+      return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
+    }) : [];
+  
+  console.log("Existing capabilities after filtering:", existingCapabilities);
   
   // If we already have at least 3 capabilities, return them
   if (existingCapabilities.length >= 3) {
@@ -750,16 +792,36 @@ function augmentCardCapabilities(card: Card): string[] {
   const additionalCapabilities = [
     'networking',
     'facilitation',
-    'technical expertise'
+    'technical expertise',
+    'project management',
+    'fundraising',
+    'sustainable agriculture',
+    'renewable energy',
+    'community organizing'
   ];
   
-  // Calculate a consistent index based on card_id to ensure
-  // a card always gets the same capability when visualized
-  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const additionalCapability = additionalCapabilities[cardIdSum % additionalCapabilities.length];
+  // Add capabilities until we have at least 3
+  const result = [...existingCapabilities];
   
-  // Return the augmented list with at least one more capability
-  return [...existingCapabilities, additionalCapability];
+  // Calculate a consistent starting index based on card_id
+  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  let currentIndex = cardIdSum % additionalCapabilities.length;
+  
+  // Add capabilities until we reach at least 3
+  while (result.length < 3) {
+    const capabilityToAdd = additionalCapabilities[currentIndex];
+    // Only add if not already in the list
+    if (!result.includes(capabilityToAdd)) {
+      result.push(capabilityToAdd);
+    }
+    // Move to next capability in the list (wrap around if needed)
+    currentIndex = (currentIndex + 1) % additionalCapabilities.length;
+  }
+  
+  console.log("Augmented capabilities result:", result);
+  
+  // Return the augmented list with at least 3 capabilities
+  return result;
 }
 
 export function createNodes(
