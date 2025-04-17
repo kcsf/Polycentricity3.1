@@ -939,7 +939,7 @@ export function setupInteractions(
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   nodeGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
   linkGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
-  simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>,
+  simulation: d3.Simulation<D3Node, undefined>,
   width: number,
   height: number
 ): void {
@@ -992,7 +992,7 @@ export function setupInteractions(
  * @param height - Height of the container
  */
 export function updateForces(
-  simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>,
+  simulation: d3.Simulation<D3Node, undefined>,
   nodes: D3Node[],
   links: D3Link[],
   width: number, 

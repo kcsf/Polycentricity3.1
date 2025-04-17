@@ -35,25 +35,25 @@
   export let activeActorId: string | undefined = undefined;
   export let cards: Card[] = [];
   
-  // Local state variables
+  // Local state variables using Svelte 5 RUNES mode
   let svgElement: SVGSVGElement;
-  let width = 800;
-  let height = 600;
-  let simulation: d3.Simulation<D3Node, undefined> | null = null;
-  let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>;
+  let width = $state(800);
+  let height = $state(600);
+  let simulation = $state<d3.Simulation<D3Node, undefined> | null>(null);
+  let nodeElements = $state<d3.Selection<SVGGElement, D3Node, null, undefined> | null>(null);
   
-  // Data state
-  let cardsWithPosition: CardWithPosition[] = [];
-  let agreements: AgreementWithPosition[] = [];
-  let actors: Actor[] = [];
-  let valueCache: Map<string, Value> = new Map();
-  let capabilityCache: Map<string, Capability> = new Map();
+  // Data state using Svelte 5 RUNES mode
+  let cardsWithPosition = $state<CardWithPosition[]>([]);
+  let agreements = $state<AgreementWithPosition[]>([]);
+  let actors = $state<Actor[]>([]);
+  let valueCache = $state(new Map<string, Value>());
+  let capabilityCache = $state(new Map<string, Capability>());
   
   // Actor to card mapping
-  let actorCardMap: Map<string, string> = new Map();
+  let actorCardMap = $state(new Map<string, string>());
   
   // Selected node for detail view
-  let selectedNode: D3Node | null = null;
+  let selectedNode = $state<D3Node | null>(null);
   
   /**
    * Load agreement data from a Gun.js reference
