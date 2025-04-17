@@ -359,8 +359,9 @@ export function addDonutRings(
           // This is the key part that makes the labels align correctly
           const adjustedAngle = itemMidAngle - Math.PI / 2;
           
-          // Calculate label position with gap - exactly as in original
-          const gapPercentage = 0.15;
+          // Calculate label position with increased gap for better readability
+          // Position labels further out from the donut, matching the reference image
+          const gapPercentage = 0.6; // Significantly increased to match reference image
           const labelDistance = DIMENSIONS.subWedgeRadius * (1 + gapPercentage);
           
           // Calculate label coordinates using the adjusted angle
@@ -371,11 +372,19 @@ export function addDonutRings(
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Determine text anchor and rotation - exactly as in original
+          // Calculate radial text positioning and rotation
+          // Convert angle to degrees for rotation calculations
           const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
+          
+          // Determine which side of the circle we're on
           const isLeftSide = angleDeg > 90 && angleDeg < 270;
-          const textAnchor = isLeftSide ? "end" : "start";
+          
+          // Set the rotation angle for the text to follow the radius
+          // For left side, need to flip text 180 degrees so it's not upside down
           const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
+          
+          // Text anchor should be at start of text for right side labels, end of text for left side
+          const textAnchor = isLeftSide ? "end" : "start";
            
           // Clean up the item name by removing prefixes
           let displayName = item;
@@ -396,16 +405,17 @@ export function addDonutRings(
               .join(' ');
           }
           
-          // Add the text label
+          // Add the text label with radial orientation (like in reference image)
+          // Create a text element that will follow the radial line from center
           labelGroup.append("text")
             .attr("x", labelX)
             .attr("y", labelY)
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "11px") // Match original exactly
+            .attr("font-size", "10px") // Slightly smaller font for better appearance
             .attr("fill", category.color)
             .attr("font-weight", "500")
-            // Apply rotation exactly as in the original implementation
+            // Apply rotation to make text follow the radial line
             .attr("transform", `rotate(${rotationDeg},${labelX},${labelY})`)
             .text(displayName);
           
