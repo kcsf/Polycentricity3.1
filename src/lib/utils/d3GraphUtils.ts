@@ -400,10 +400,10 @@ export function addDonutRings(
           // Get the outer radius of the donut ring
           const outerRingRadius = DIMENSIONS.donutRadius;
           
-          // Calculate 10% additional distance from the outer ring
+          // Calculate EXACTLY 10% additional distance from the outer ring as requested
           const textDistanceFromRing = outerRingRadius * 0.1;
           
-          // Position the text with exact 10% gap from the outer edge
+          // Position the text with precise 10% gap from the outer edge of the ring
           const textX = Math.cos(adjustedAngle) * (outerRingRadius + textDistanceFromRing);
           const textY = Math.sin(adjustedAngle) * (outerRingRadius + textDistanceFromRing);
           
@@ -572,7 +572,6 @@ export function addDonutRings(
       });
     });
   });
-}
 
 /**
  * Creates SVG icon for card based on icon name
