@@ -1071,28 +1071,71 @@ export function initializeD3Graph(
       .append("g")
       .attr("class", "node-label");
       
-    // Add background for labels
-    nodeLabels
-      .append("rect")
-      .attr("x", -50)
-      .attr("y", d => d.type === "actor" ? 35 : 25)
-      .attr("width", 100)
-      .attr("height", 20)
-      .attr("rx", 4)
-      .attr("ry", 4)
-      .attr("fill", "rgba(255, 255, 255, 0.8)")
-      .attr("stroke", "#e9e9e9")
-      .attr("stroke-width", 1);
+    // Constants for the node sizing
+    const baseNodeRadius = 30; // Base radius of the node circle
+    const outerRingRadiusMultiplier = 1.5; // How much bigger the outer ring is compared to base
+    const labelPositionMultiplier = 1.1; // Position label 10% outside the outer ring
+    const maxLabelWidth = baseNodeRadius * outerRingRadiusMultiplier * 2; // Max width for the label container
+    
+    // Calculate the appropriate position and size for labels
+    function calculateLabelPosition(d: D3Node) {
+      const outerRadius = baseNodeRadius * outerRingRadiusMultiplier;
+      const labelDistance = outerRadius * labelPositionMultiplier;
+      return d.type === "actor" ? labelDistance : labelDistance * 0.8; // Slightly closer for agreements
+    }
+    
+    // Calculate optimal font size based on text length
+    function calculateFontSize(text: string) {
+      const baseSize = 12;
+      const maxLength = 20; // Reference length for full-size text
+      const minSize = 9; // Minimum font size we'll use
       
-    // Add text labels
-    nodeLabels
-      .append("text")
-      .attr("text-anchor", "middle")
-      .attr("y", d => d.type === "actor" ? 50 : 40) // Position below the circle
-      .attr("font-size", 12)
-      .attr("font-weight", 500)
-      .attr("fill", "#333")
-      .text(d => d.name);
+      if (!text) return baseSize;
+      
+      // Scale font size based on text length, but don't go below minimum
+      return Math.max(minSize, baseSize * (maxLength / Math.max(text.length, 1)));
+    }
+    
+    // Add background for labels (flexible width based on content)
+    nodeLabels.each(function(this: SVGGElement, d: D3Node) {
+      const labelGroup = d3.select(this);
+      const labelText = d.name;
+      const fontSize = calculateFontSize(labelText);
+      const labelWidth = Math.min(maxLabelWidth, labelText.length * (fontSize * 0.6));
+      const labelHeight = 20;
+      const labelY = calculateLabelPosition(d);
+      
+      // Create a temporary text element to measure width
+      const tempText = labelGroup.append("text")
+        .attr("font-size", fontSize)
+        .text(labelText)
+        .style("visibility", "hidden");
+        
+      // Get text width to make container properly sized
+      const textWidth = Math.min(maxLabelWidth, (tempText.node() as SVGTextElement)?.getComputedTextLength() || labelWidth);
+      tempText.remove();
+      
+      // Add the background rect
+      labelGroup.append("rect")
+        .attr("x", -textWidth / 2 - 6) // Add some padding
+        .attr("y", labelY)
+        .attr("width", textWidth + 12) // Add padding on both sides
+        .attr("height", labelHeight)
+        .attr("rx", 4)
+        .attr("ry", 4)
+        .attr("fill", "rgba(255, 255, 255, 0.8)")
+        .attr("stroke", "#e9e9e9")
+        .attr("stroke-width", 1);
+      
+      // Add the text
+      labelGroup.append("text")
+        .attr("text-anchor", "middle")
+        .attr("y", labelY + 14) // Center vertically in the rect
+        .attr("font-size", fontSize)
+        .attr("font-weight", 500)
+        .attr("fill", "#333")
+        .text(labelText);
+    });
     
     // Create simulation
     const simulation = d3.forceSimulation<D3Node>()
