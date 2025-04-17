@@ -134,14 +134,23 @@
       // Set up actor to card mapping
       // Map actors to cards - this is critical for agreement links
       cardsWithPosition.forEach(card => {
+        // ALWAYS map the card ID to itself - this ensures we can reference cards directly in agreements
+        actorCardMap.set(card.card_id, card.card_id);
+        console.log(`D3CardBoard: Self-mapped card ${card.card_id} for direct references`);
+        
         if (card.actor_id) {
-          // Set the actor_id -> card_id mapping
+          // Set the actor_id -> card_id mapping if available
           actorCardMap.set(card.actor_id, card.card_id);
           console.log(`D3CardBoard: Mapped actor ${card.actor_id} to card ${card.card_id}`);
         } else {
-          // Try to find the actor ID from the card properties - hackish fix
+          // Try to find the actor ID from the card properties
           if (card.role_title) {
-            // Check if this card is tied to an actor in this game
+            // First create a synthetic actor ID based on role title (slug-like)
+            const syntheticActorId = `actor_${card.card_id}`;
+            actorCardMap.set(syntheticActorId, card.card_id);
+            console.log(`D3CardBoard: Created synthetic actor mapping ${syntheticActorId} -> ${card.card_id}`);
+            
+            // Also try to find from the database based on title
             getGun().get(nodes.actors).map().once((actorData) => {
               if (actorData && actorData.name === card.role_title) {
                 const actorId = actorData?.actor_id;
@@ -203,22 +212,64 @@
           console.log(`D3CardBoard: Successfully loaded ${agreements.length} agreements`);
           
           // If no agreements were loaded but we know they exist in the game,
-          // there might be a timing issue or data consistency problem
+          // we'll force the creation of agreement nodes to ensure they're part of the visualization
           if (agreements.length === 0 && agreementIds.length > 0) {
             console.warn(`D3CardBoard: Failed to load any agreements, but game has ${agreementIds.length} agreement IDs.`);
+            
+            // Create cards map for easier reference
+            const cardsMap = new Map<string, CardWithPosition>();
+            cardsWithPosition.forEach(card => {
+              cardsMap.set(card.card_id, card);
+            });
             
             // Create fallback agreements with fixed ids for immediate display
             for (const agreementId of agreementIds) {
               if (agreementId === '#') continue;
+              
+              // Try direct load for debugging first
+              getGun().get(nodes.agreements).get(agreementId).once((data) => {
+                console.log(`DIRECT LOAD: Agreement ${agreementId}:`, data);
+                
+                if (data && data.agreement_id) {
+                  // We got an actual agreement - create a proper position
+                  const agrWithPos: AgreementWithPosition = {
+                    ...data,
+                    position: {
+                      x: width / 2 + (Math.random() * 200 - 100),
+                      y: height / 2 + (Math.random() * 200 - 100)
+                    }
+                  };
+                  agreements.push(agrWithPos);
+                  console.log(`D3CardBoard: Added real agreement for ${agreementId}`, agrWithPos);
+                  return;
+                }
+              });
+              
+              // Assign dummy actor IDs based on available cards
+              let actorId1 = "actor1";
+              let actorId2 = "actor2";
+              
+              // Use actual card IDs if available
+              if (cardsWithPosition.length >= 2) {
+                actorId1 = cardsWithPosition[0].card_id;
+                actorId2 = cardsWithPosition[1].card_id;
+              }
               
               // Create a basic fallback agreement
               const fallbackAgreement: AgreementWithPosition = {
                 agreement_id: agreementId,
                 title: `Agreement ${agreementId}`,
                 summary: "Agreement details loading...",
-                parties: { "actor1": true, "actor2": true }, // Add dummy parties for visualization
-                obligations: { "actor1": "Obligation placeholder" }, // Object format as expected by Gun.js
-                benefits: { "actor2": "Benefit placeholder" }, // Object format as expected by Gun.js
+                parties: { 
+                  [actorId1]: true, 
+                  [actorId2]: true 
+                },
+                obligations: { 
+                  [actorId1]: "Obligation placeholder" 
+                },
+                benefits: { 
+                  [actorId2]: "Benefit placeholder" 
+                },
                 created_at: Date.now(),
                 created_by: "system",
                 game_id: gameId,
@@ -232,18 +283,8 @@
               
               // Add to the agreements array
               agreements.push(fallbackAgreement);
-              console.log(`D3CardBoard: Added fallback agreement for ${agreementId}`);
+              console.log(`D3CardBoard: Added fallback agreement for ${agreementId}`, fallbackAgreement);
             }
-            
-            // Also try direct load for debugging
-            const gun = getGun();
-            agreementIds.forEach(agreementId => {
-              if (agreementId === '#') return;
-              
-              gun.get(nodes.agreements).get(agreementId).once((data) => {
-                console.log(`DIRECT LOAD: Agreement ${agreementId}:`, data);
-              });
-            });
           }
         }
       }

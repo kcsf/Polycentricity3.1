@@ -894,8 +894,18 @@ export function createLinks(
     
     // If we have explicit obligations, use the actor with obligations as creator
     if (agreement.obligations && typeof agreement.obligations === 'object') {
-      // Get all actor IDs from obligations (object keys)
-      const obligationActorIds = Object.keys(agreement.obligations);
+      let obligationActorIds: string[] = [];
+      
+      // Handle both array or object format for obligations
+      if (Array.isArray(agreement.obligations)) {
+        // Extract actor IDs from array of obligation items
+        obligationActorIds = agreement.obligations
+          .filter(o => o && o.fromActorId)
+          .map(o => o.fromActorId);
+      } else {
+        // Extract actor IDs from object keys
+        obligationActorIds = Object.keys(agreement.obligations);
+      }
       
       console.log(`Found obligation actor IDs: ${JSON.stringify(obligationActorIds)}`);
       
