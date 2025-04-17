@@ -713,10 +713,13 @@ export function createNodes(
       y: card.position?.y || Math.random() * height,
       fx: card.position?.x || null,
       fy: card.position?.y || null,
-      _valueNames: card.values ? Object.keys(card.values) : [],
+      _valueNames: card.values ? Object.keys(card.values).map(key => {
+        // Strip the 'value_' prefix if present and convert to readable format
+        return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
+      }) : [],
       _capabilityNames: card.capabilities ? Object.keys(card.capabilities).map(key => {
-        // Strip the 'capability_' prefix if present
-        return key.startsWith('capability_') ? key.substring(11) : key;
+        // Strip the 'capability_' prefix if present and convert to readable format
+        return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
       }) : []
     })),
     ...agreements.map((agreement) => ({
