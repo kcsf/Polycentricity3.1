@@ -471,6 +471,13 @@
         // Use our utility function to add the donut rings
         addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
         console.log("D3CardBoard: Donut rings added successfully");
+        
+        // Import and apply the label fix
+        import { fixDonutRingLabels } from '$lib/utils/radialLabelFix';
+        
+        // Apply our label fix to position text correctly with 10% gap and 8px font
+        fixDonutRingLabels();
+        console.log("D3CardBoard: Applied donut ring label fixes");
       } catch (donutError) {
         console.error("D3CardBoard: Failed to add donut rings:", donutError);
       }
