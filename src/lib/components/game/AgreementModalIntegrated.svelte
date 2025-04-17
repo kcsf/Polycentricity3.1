@@ -229,7 +229,7 @@
                 <input
                   type="text"
                   value={term}
-                  on:input={(e) => updateTerm(index, e.currentTarget.value)}
+                  oninput={(e) => updateTerm(index, e.currentTarget.value)}
                   placeholder="Enter a term of the agreement"
                   class="input flex-grow"
                   aria-label={`Term ${index + 1}`}
@@ -237,7 +237,7 @@
                 <button
                   type="button"
                   class="btn btn-sm btn-icon variant-ghost-error"
-                  on:click={() => removeTerm(index)}
+                  onclick={() => removeTerm(index)}
                   disabled={terms.length === 1}
                   aria-label={`Remove term ${index + 1}`}
                 >
@@ -277,7 +277,7 @@
                   <button
                     type="button"
                     class="btn btn-sm variant-filled-primary"
-                    on:click={() => addObligation(actorId)}
+                    onclick={() => addObligation(actorId)}
                     aria-label={`Add obligation for ${getActorName(actorId)}`}
                   >
                     Add
@@ -292,7 +292,7 @@
                       <button
                         type="button"
                         class="btn btn-sm btn-icon variant-ghost-error"
-                        on:click={() => removeObligation(index)}
+                        onclick={() => removeObligation(index)}
                         aria-label={`Remove obligation ${index + 1}`}
                       >
                         <svelte:component this={icons.X} class="w-3 h-3" />
@@ -326,7 +326,7 @@
                   <button
                     type="button"
                     class="btn btn-sm variant-filled-primary"
-                    on:click={() => addBenefit(actorId)}
+                    onclick={() => addBenefit(actorId)}
                     aria-label={`Add benefit for ${getActorName(actorId)}`}
                   >
                     Add
@@ -341,7 +341,7 @@
                       <button
                         type="button"
                         class="btn btn-sm btn-icon variant-ghost-error"
-                        on:click={() => removeBenefit(index)}
+                        onclick={() => removeBenefit(index)}
                         aria-label={`Remove benefit ${index + 1}`}
                       >
                         <svelte:component this={icons.X} class="w-3 h-3" />
@@ -359,7 +359,7 @@
           <button
             type="button"
             class="btn variant-ghost-surface"
-            on:click={closeModal}
+            onclick={closeModal}
           >
             Cancel
           </button>
