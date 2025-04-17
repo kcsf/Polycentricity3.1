@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import gun from '$lib/services/gun-db';
   
+  // Need to import Gun.js 'open' plugin
+  import 'gun/lib/open.js';
+  
   // Reactive state with runes
   let rootKey = $state('cards');  // Default root key
   let dbData = $state(null);
@@ -29,29 +32,48 @@
     // Log to console for debugging
     console.log(`Fetching data for key: ${rootKey}`);
     
-    // Using .map().once() to get all items at this level
-    gun.get(rootKey).map().once((data, key) => {
-      console.log(`Found data for ${rootKey}/${key}:`, data);
-    });
-    
-    // Using .open() to get a deep snapshot
-    gun.get(rootKey).open((data) => {
-      console.log(`Open data for ${rootKey}:`, data);
+    try {
+      // Handle nested paths (e.g., 'cards/card_id/values')
+      const pathSegments = rootKey.split('/').filter(Boolean);
       
-      if (data) {
-        try {
-          // Process the data to expand GUN references
-          const processedData = processGunReferences(data);
-          dbData = safeStringify(processedData);
-        } catch (e) {
-          console.error("Error processing data:", e);
-          error = `Error serializing data: ${e.message}`;
+      // Start with the base reference
+      let gunRef = gun;
+      
+      // Build up the path
+      pathSegments.forEach(segment => {
+        gunRef = gunRef.get(segment);
+      });
+      
+      // Log all direct child items first to help with debugging
+      console.log(`Fetching all direct children of '${rootKey}':`);
+      gunRef.map().once((data, key) => {
+        console.log(`Found entry: ${key}`, data);
+      });
+      
+      // Now get a deeper view with open
+      console.log(`Getting deep data from '${rootKey}'`);
+      gunRef.open((data) => {
+        console.log(`Open data for ${rootKey}:`, data);
+        
+        if (data) {
+          try {
+            // Process the data to expand GUN references
+            const processedData = processGunReferences(data);
+            dbData = safeStringify(processedData);
+          } catch (e) {
+            console.error("Error processing data:", e);
+            error = `Error serializing data: ${e.message}`;
+          }
+        } else {
+          error = `No data found for key: ${rootKey}`;
         }
-      } else {
-        error = `No data found for key: ${rootKey}`;
-      }
+        isLoading = false;
+      });
+    } catch (e) {
+      console.error("Error accessing Gun data:", e);
+      error = `Error: ${e.message}`;
       isLoading = false;
-    });
+    }
   });
   
   // Helper to process and display Gun references more nicely
@@ -72,7 +94,13 @@
       
       // Handle Gun reference objects (format: {"#": "path"})
       if (value && typeof value === 'object' && value['#'] && Object.keys(value).length === 1) {
-        result[key] = `[GUN Reference → ${value['#']}]`;
+        // Store the reference path for later navigation
+        const refPath = value['#'];
+        result[key] = {
+          type: 'gun-reference',
+          path: refPath,
+          display: `[GUN Reference → ${refPath}]`
+        };
       } 
       // Handle nested objects
       else if (value && typeof value === 'object') {
@@ -86,7 +114,103 @@
     
     return result;
   }
+  
+  // Navigation history for breadcrumb
+  let pathHistory = $state([]);
+  
+  // Navigate to a Gun.js reference 
+  function navigateToReference(path) {
+    // Add current path to history unless already there
+    if (rootKey && !pathHistory.includes(rootKey)) {
+      pathHistory = [...pathHistory, rootKey];
+    }
+    
+    // Set new path
+    rootKey = path;
+  }
+  
+  // Go back to previous path
+  function navigateBack() {
+    if (pathHistory.length > 0) {
+      // Take the last path from history
+      const previousPath = pathHistory.pop();
+      // Update history without the removed path
+      pathHistory = [...pathHistory];
+      // Set rootKey to previous path
+      if (previousPath) {
+        rootKey = previousPath;
+      }
+    }
+  }
 
+  // Function to render the data with clickable links for references
+  function renderDbDataWithLinks(data) {
+    if (!data) return '';
+    
+    // Helper to handle different data types for rendering
+    function renderValue(val, indent = 0) {
+      if (val === null) return '<span class="text-error-500">null</span>';
+      if (val === undefined) return '<span class="text-error-500">undefined</span>';
+      
+      // Format indentation
+      const padding = '  '.repeat(indent);
+      
+      // Handle Gun.js reference objects (special format we created)
+      if (val && typeof val === 'object' && val.type === 'gun-reference') {
+        return `<a href="#" class="text-primary-500 underline" onclick="window.navigateToPath('${val.path}'); return false;">${val.display}</a>`;
+      }
+      
+      // Handle arrays
+      if (Array.isArray(val)) {
+        if (val.length === 0) return '[]';
+        
+        let result = '[\n';
+        val.forEach((item, i) => {
+          result += `${padding}  ${renderValue(item, indent + 1)}${i < val.length - 1 ? ',' : ''}\n`;
+        });
+        result += `${padding}]`;
+        return result;
+      }
+      
+      // Handle objects
+      if (typeof val === 'object') {
+        const keys = Object.keys(val);
+        if (keys.length === 0) return '{}';
+        
+        let result = '{\n';
+        keys.forEach((key, i) => {
+          const formattedKey = `<span class="text-tertiary-500">"${key}"</span>`;
+          result += `${padding}  ${formattedKey}: ${renderValue(val[key], indent + 1)}${i < keys.length - 1 ? ',' : ''}\n`;
+        });
+        result += `${padding}}`;
+        return result;
+      }
+      
+      // Handle primitive types
+      if (typeof val === 'string') {
+        return `<span class="text-success-500">"${val.replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`;
+      }
+      if (typeof val === 'number') {
+        return `<span class="text-warning-500">${val}</span>`;
+      }
+      if (typeof val === 'boolean') {
+        return `<span class="text-primary-500">${val}</span>`;
+      }
+      
+      // Default for any other types
+      return String(val);
+    }
+    
+    // Expose navigation function to window for event handling
+    if (typeof window !== 'undefined') {
+      window.navigateToPath = (path) => {
+        navigateToReference(path);
+      };
+    }
+    
+    return renderValue(data);
+  }
+  
   // Common root keys for quick access
   const commonKeys = [
     'cards',
@@ -135,6 +259,40 @@
     </div>
   </div>
   
+  <!-- Breadcrumbs Navigation -->
+  {#if pathHistory.length > 0}
+    <div class="mb-4 flex items-center text-sm">
+      <button 
+        class="btn btn-sm variant-soft mr-2"
+        on:click={navigateBack}
+      >
+        ← Back
+      </button>
+      
+      <div class="breadcrumbs">
+        {#each pathHistory as path, i}
+          <span>
+            <button 
+              class="btn btn-sm variant-ghost-primary"
+              on:click={() => {
+                // Go to this path and truncate history to this point
+                pathHistory = pathHistory.slice(0, i);
+                rootKey = path;
+              }}
+            >
+              {path}
+            </button>
+            {#if i < pathHistory.length - 1}
+              <span class="mx-1">→</span>
+            {/if}
+          </span>
+        {/each}
+        <span class="mx-1">→</span>
+        <span class="font-bold">{rootKey}</span>
+      </div>
+    </div>
+  {/if}
+  
   <div class="card">
     <header class="card-header flex justify-between items-center">
       <h2 class="h4">Data for "{rootKey}"</h2>
@@ -157,7 +315,10 @@
           <div class="spinner-third w-8 h-8"></div>
         </div>
       {:else if dbData}
-        <pre class="bg-surface-200-700-token p-4 rounded-container-token overflow-auto max-h-[600px] text-sm whitespace-pre-wrap">{dbData}</pre>
+        <div class="bg-surface-200-700-token p-4 rounded-container-token overflow-auto max-h-[600px] text-sm">
+          <!-- Custom rendering to make references clickable -->
+          <pre class="whitespace-pre-wrap">{@html renderDbDataWithLinks(JSON.parse(dbData))}</pre>
+        </div>
       {:else}
         <p class="text-center p-4">No data available for this key</p>
       {/if}
