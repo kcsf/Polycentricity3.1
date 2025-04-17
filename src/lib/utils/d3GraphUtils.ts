@@ -23,12 +23,7 @@ export const categoryColors = d3.scaleOrdinal([
   "#386F5B", // Deep sea green
 ]);
 
-// Add test logging for categoryColors 
-console.log("Testing d3GraphUtils categoryColors:", {
-  valuesColor: categoryColors("values"), 
-  capabilitiesColor: categoryColors("capabilities"),
-  goalsColor: categoryColors("goals")
-});
+// Color scheme for categories (no debug logging needed)
 
 /**
  * Interface for nodes in the D3 force simulation
@@ -149,16 +144,8 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
-  console.log("addDonutRings called with", {
-    nodeElementsExists: !!nodeElements,
-    activeCardId,
-    valueCacheSize: valueCache?.size,
-    capabilityCacheSize: capabilityCache?.size
-  });
-  
-  // Get all card nodes
+  // Get all card nodes that are actors (not agreements)
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
-  console.log(`Found ${cardNodes.size()} card nodes to process`);
   
   // Process each card node to add complete donut rings with interactive segments
   cardNodes.each(function(nodeData) {
@@ -187,15 +174,9 @@ export function addDonutRings(
     // to hide the icon properly when hovering on wedges
     const foreignObjects = centerIcon.selectAll("foreignObject");
     
-    console.log(`Processing node ${nodeData.name} for donut rings:`, {
-      _valueNames: nodeData._valueNames,
-      _capabilityNames: nodeData._capabilityNames
-    });
-    
     // Early exit if we have neither values nor capabilities
     if ((!nodeData._valueNames || nodeData._valueNames.length === 0) && 
         (!nodeData._capabilityNames || nodeData._capabilityNames.length === 0)) {
-      console.log(`No values or capabilities found for ${nodeData.name}, skipping donut rings`);
       return;
     }
     
@@ -694,10 +675,8 @@ export function createCardIcon(
     
     // Add the SVG to the container
     container.appendChild(svg);
-    
-    console.log(`Successfully created icon component for ${cardTitle}`);
   } catch (err) {
-    console.error(`Error creating icon component: ${err}`);
+    // Silent failure - let caller handle the error
   }
 }
 
