@@ -368,8 +368,9 @@ export function addDonutRings(
       if (category.items && category.items.length > 0) {
         const itemCount = category.items.length;
         
-        // FIX #1: Ensure consistent angle calculations across all categories
-        // This is particularly important for Rivalrous Resources
+        // FIX #1: Add debug logging for item contents
+        // Log the actual contents of category.items to debug why only 1 item is showing
+        console.log("Category:", category.name, "Items:", category.items);
         
         // Calculate exact angle per item using the size of the current category's wedge
         // Use precise calculations to avoid floating point errors
@@ -430,37 +431,53 @@ export function addDonutRings(
             console.log(`Rivalrous Resources label angle: ${angleDeg} degrees`);
           }
           
-          // FIX #2: Improved logic for text orientation to handle all quadrants properly
+          // FIX #2: Updated left-side (90-270) text orientation logic per requirements
           // For text labels, we need to ensure readability by:
           // 1. Using the correct text-anchor (start/end) based on which half of the circle
           // 2. Flipping text that would otherwise be upside down
           
-          // Determine text anchor based on hemisphere (0-180 vs 180-360)
-          // This ensures text is anchored on the correct side relative to the label's position
-          const isRightHalf = angleDeg <= 90 || angleDeg >= 270;
-          const isLeftHalf = !isRightHalf;
-          const textAnchor = isLeftHalf ? "end" : "start";
+          // Fix for angles: normalize to 0-360 range to handle negative angles correctly
+          const normalizedAngleDeg = ((angleDeg % 360) + 360) % 360;
+          
+          // Determine if text is on the left-hand side (between 90-270 degrees)
+          // This is the critical area where text orientation needs special handling
+          // Note: Need to handle the exact boundary case of 90 degrees as isLeftSide
+          const isLeftSide = normalizedAngleDeg >= 90 && normalizedAngleDeg <= 270;
+          
+          // Set text-anchor based on which side of the circle the label is on
+          // "end" for left side (90-270), "start" for right side (0-90, 270-360)
+          const textAnchor = isLeftSide ? "end" : "start";
           
           // Determine if we need to flip text to avoid upside-down orientation
-          // Text between 180-360 degrees needs to be flipped (subtracted from 180, not added)
-          const needsFlip = angleDeg > 180 && angleDeg < 360;
+          // For angles 90-270 degrees, we need to flip the text (+180 rotation)
+          const needsFlip = isLeftSide;
           
-          // Apply rotation with correct orientation
-          // For angles 180-360, we subtract from 180 instead of adding 180
-          // This ensures consistent orientation across all quadrants
+          // Apply rotation based on position
           let rotationDeg;
           if (needsFlip) {
-            // For 180-360 range, subtract from 180 to make text readable
-            rotationDeg = angleDeg - 180;
+            // For left side (90-270 degrees), add 180 to make text readable
+            rotationDeg = angleDeg + 180;
           } else {
-            // For 0-180 range, use as-is
+            // For right side (0-90, 270-360 degrees), use angle as-is
             rotationDeg = angleDeg;
           }
-           
-          // Clean up the item name by removing prefixes
-          let displayName = item;
+          
+          // Clean up the item name for display
+          let logName = ""; // Just for logging
+          let displayName = ""; // For display in SVG
+          
           if (typeof item === 'string') {
-            // Remove 'value_' or 'capability_' prefixes for display
+            // First create a basic version for logging
+            logName = item;
+            if (item.startsWith('value_')) {
+              logName = item.substring(6);
+            } else if (item.startsWith('capability_')) {
+              logName = item.substring(11);
+            }
+            logName = logName.replace(/-/g, ' ');
+            
+            // Then create the formatted version for display
+            displayName = item;
             if (item.startsWith('value_')) {
               displayName = item.substring(6);
             } else if (item.startsWith('capability_')) {
@@ -474,7 +491,14 @@ export function addDonutRings(
             displayName = displayName.split(' ')
               .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
               .join(' ');
+          } else {
+            // Handle non-string items
+            logName = String(item);
+            displayName = String(item);
           }
+          
+          // Log orientation values for debugging
+          console.log(`Label: ${logName}, angleDeg: ${angleDeg.toFixed(1)}, isLeftSide: ${isLeftSide}, needsFlip: ${needsFlip}, rotationDeg: ${rotationDeg.toFixed(1)}, textAnchor: ${textAnchor}`);
           
           // Add the text label with radial orientation (like in reference image)
           // Create a text element that will follow the radial line from center
