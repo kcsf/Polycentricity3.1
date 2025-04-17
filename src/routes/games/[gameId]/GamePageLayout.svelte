@@ -29,6 +29,7 @@
   import ChatBox from '$lib/components/ChatBox.svelte';
   import PlayersList from '$lib/components/game/PlayersList.svelte';
   import RoleCard from '$lib/components/RoleCard.svelte';
+  import SampleAgreementGenerator from '$lib/components/game/SampleAgreementGenerator.svelte';
 
   // Props
   export let game: Game;
@@ -572,6 +573,24 @@
               >
                 Card View
               </button>
+              
+              <!-- Sample Agreement Generator -->
+              <div class="col-span-2 mt-3">
+                <SampleAgreementGenerator 
+                  {gameId} 
+                  refreshBoard={() => {
+                    if (viewMode === 'cards') {
+                      // Find CardBoard component and call its refreshBoard method
+                      const cardBoardEl = document.querySelector('main > div');
+                      if (cardBoardEl && cardBoardEl.__svelte) {
+                        if (cardBoardEl.__svelte.refreshBoard) {
+                          cardBoardEl.__svelte.refreshBoard();
+                        }
+                      }
+                    }
+                  }} 
+                />
+              </div>
             </div>
           {/if}
         </div>

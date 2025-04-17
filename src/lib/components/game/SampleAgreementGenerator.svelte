@@ -1,9 +1,6 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
   import { addSampleAgreementsToGame } from '$lib/services/sampleAgreementService';
-  import { Spinner } from '$lib/components/ui/spinner';
-  import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
-  import { InfoCircle, CheckCircle, AlertCircle, RefreshCw } from 'lucide-svelte';
+  import { RefreshCw } from 'lucide-svelte';
   import { onDestroy } from 'svelte';
   
   // Props
@@ -76,38 +73,45 @@
 </script>
 
 <div class="w-full">
-  <Button 
-    variant="outline" 
-    class="w-full flex items-center justify-center gap-2"
+  <button 
+    class="btn btn-sm variant-outline w-full flex items-center justify-center gap-2"
     disabled={isLoading}
-    on:click={generateAgreements}
+    onclick={generateAgreements}
   >
     {#if isLoading}
-      <Spinner class="h-4 w-4" />
+      <div class="spinner-border animate-spin h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full"></div>
     {:else}
       <RefreshCw class="h-4 w-4" />
     {/if}
     Generate Sample Agreements
-  </Button>
+  </button>
   
   {#if showAlert && result}
     <div class="mt-2">
       {#if result.success}
-        <Alert variant="success" class="border-emerald-500 bg-emerald-50 dark:bg-emerald-950">
-          <CheckCircle class="h-4 w-4 text-emerald-500" />
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>
-            Created {result.count} sample agreement{result.count !== 1 ? 's' : ''}.
-          </AlertDescription>
-        </Alert>
+        <div class="alert variant-filled-success">
+          <div class="flex items-center gap-2">
+            <div class="h-4 w-4 text-success-500">✓</div>
+            <div>
+              <h4 class="h5">Success</h4>
+              <p class="text-sm">
+                Created {result.count} sample agreement{result.count !== 1 ? 's' : ''}.
+              </p>
+            </div>
+          </div>
+        </div>
       {:else}
-        <Alert variant="destructive">
-          <AlertCircle class="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {result.error || "Failed to create sample agreements"}
-          </AlertDescription>
-        </Alert>
+        <div class="alert variant-filled-error">
+          <div class="flex items-center gap-2">
+            <div class="h-4 w-4">⚠️</div>
+            <div>
+              <h4 class="h5">Error</h4>
+              <p class="text-sm">
+                {result.error || "Failed to create sample agreements"}
+              </p>
+            </div>
+          </div>
+        </div>
       {/if}
     </div>
   {/if}
