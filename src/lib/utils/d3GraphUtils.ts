@@ -359,15 +359,18 @@ export function addDonutRings(
           // This is the key part that makes the labels align correctly
           const adjustedAngle = itemMidAngle - Math.PI / 2;
           
-          // SIMPLIFIED APPROACH: Position labels directly on the wedge at the outer edge
+          // UPDATED APPROACH: Position labels with 10% gap from the outer edge of the ring
           // with proper rotation so they're easier to read
           
           // Get the outer radius of the donut ring
           const outerRingRadius = DIMENSIONS.donutRadius;
           
-          // Position the text directly on the outer edge with slight offset (5px)
-          const textX = Math.cos(adjustedAngle) * (outerRingRadius + 5);
-          const textY = Math.sin(adjustedAngle) * (outerRingRadius + 5);
+          // Calculate 10% additional distance from the outer ring
+          const textDistanceFromRing = outerRingRadius * 0.1;
+          
+          // Position the text with exact 10% gap from the outer edge
+          const textX = Math.cos(adjustedAngle) * (outerRingRadius + textDistanceFromRing);
+          const textY = Math.sin(adjustedAngle) * (outerRingRadius + textDistanceFromRing);
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
