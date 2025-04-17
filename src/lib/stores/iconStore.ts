@@ -54,7 +54,6 @@ export async function loadIcons(iconNames: string[]) {
   for (const name of iconNames) {
     // Skip if this icon is already loaded
     if (newIcons.has(name)) {
-      console.log(`Icon ${name} already loaded, skipping`);
       continue;
     }
     
@@ -94,7 +93,6 @@ export async function loadIcons(iconNames: string[]) {
   
   // Only update if we loaded new icons
   if (newIcons.size > existingIcons.size) {
-    console.log("Icon store updated with:", [...newIcons.keys()]);
     iconStore.set(newIcons);
   }
 }
