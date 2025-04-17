@@ -1614,20 +1614,29 @@
               // Get the icon name from the card data with fallback
               const iconName = card.icon || 'user';
               
+              // Determine size based on active status
+              const isActive = node.id === activeCardId;
+              const iconSize = isActive ? 36 : 24;
+              const offset = isActive ? -18 : -12;
+              
               // Create the icon using our utility function
               try {
-                createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
+                // Use larger icons for active nodes
+                createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
                 console.log(`Successfully rendered icon for ${card.role_title || 'Card'}`);
               } catch (iconError) {
                 console.error("D3CardBoard: Failed to create icon:", iconError);
               }
               
-              // Convert the div container to a foreignObject in the SVG
+              // Convert the div container to a foreignObject in the SVG with proper positioning
+              // Position exactly in the center of the node
               const foreignObject = centerGroup.append('foreignObject')
-                .attr('width', 24)
-                .attr('height', 24)
-                .attr('x', -12)
-                .attr('y', -12);
+                .attr('width', iconSize)
+                .attr('height', iconSize)
+                .attr('x', offset)
+                .attr('y', offset)
+                .attr('class', 'icon-container')
+                .style('pointer-events', 'none');
                 
               // Append the icon container to the foreignObject
               if (foreignObject.node()) {
