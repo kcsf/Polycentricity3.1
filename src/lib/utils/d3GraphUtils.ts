@@ -161,8 +161,8 @@ export function addDonutRings(
       centerRadius: BASE_SIZE * 0.9,       // Inner circle radius
       donutRadius: BASE_SIZE * 1.15,       // Outer donut radius (the ring)
       subWedgeRadius: BASE_SIZE * 1.35,    // Sub-wedge radius (slightly larger than donut)
-      labelRadius: BASE_SIZE * 2.5,        // Label distance from center - much further out
-      textSize: BASE_SIZE * 0.2,           // MUCH smaller text size for better readability
+      labelRadius: BASE_SIZE * 2.0,        // Label distance from center
+      textSize: BASE_SIZE * 0.15,          // TINY text size for better readability (8px)
       centerTextSize: BASE_SIZE * 0.25,    // Center category text
       countTextSize: BASE_SIZE * 0.2       // Count text size
     };
@@ -416,19 +416,21 @@ export function addDonutRings(
             .attr("stroke-width", 0.5)
             .attr("stroke-opacity", 0.4);
           
-          // Add the text label
-          labelGroup.append("text")
-            .attr("x", labelX)
-            .attr("y", labelY)
+          // Add the text label - EXPLICITLY using absolute smallest size (8px) and positioned from the outer ring
+          const textElement = labelGroup.append("text")
+            .attr("x", startX) // USE THE START POINT (10% away from outer ring)
+            .attr("y", startY) // USE THE START POINT (10% away from outer ring) 
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "8px") // Even smaller font for better readability
+            .attr("font-size", "8px") // FIXED at exactly 8px 
             .attr("fill", category.color)
-            .attr("font-weight", "400") // Slightly lighter weight
-            .attr("class", "text-xs text-opacity-80") // Using Tailwind classes for styling
-            // Apply rotation exactly as in the original implementation
-            .attr("transform", `rotate(${rotationDeg},${labelX},${labelY})`)
+            .attr("font-weight", "400") // Lighter weight
+            .attr("opacity", 0.8) // Add opacity directly
+            .attr("transform", `rotate(${rotationDeg},${startX},${startY})`) // Rotate around start point
             .text(displayName);
+            
+          // Explicitly set inline style to ensure 8px font size is applied
+          textElement.node()?.setAttribute("style", "font-size: 8px; font-family: sans-serif;");
           
           // Create sub-wedge for this item
           const subArc = d3.arc<any>()
