@@ -215,12 +215,30 @@ export function addDonutRings(
         items: (nodeData._valueNames || []).filter(v => v !== '#')
       },
       { 
+        name: "goals", 
+        color: "#9BC23D", 
+        items: (nodeData.type === 'actor' && nodeData.data.goals) ? [nodeData.data.goals] : ["Maintain peace", "Protect sites"]
+      },
+      { 
         name: "capabilities", 
         color: "#8FBC49", 
         items: (nodeData._capabilityNames || []).filter(c => c !== '#')
+      },
+      { 
+        name: "intellectualProperty", 
+        color: "#83B655", 
+        items: (nodeData.type === 'actor' && nodeData.data.intellectual_property) ? [nodeData.data.intellectual_property] : ["Historical records", "Diplomatic protocols"]
+      },
+      {
+        name: "rivalrousResources",
+        color: "#77B061",
+        items: (nodeData.type === 'actor' && nodeData.data.rivalrous_resources) ? [nodeData.data.rivalrous_resources] : ["Physical resources", "Financial capital"]
+      },
+      {
+        name: "obligations",
+        color: "#6BA96D",
+        items: (nodeData.type === 'actor' && nodeData.data.obligations) ? [nodeData.data.obligations] : ["Community responsibilities", "Environmental stewardship"]
       }
-      // Removed hardcoded "goals" and "intellectualProperty" categories
-      // as requested by the user to make visualization work with actual data
     ];
     
     // Calculate the total number of items across all categories
