@@ -346,11 +346,12 @@ export function addDonutRings(
         .text(displayCategoryName);
       
       // Create label container for the radiating labels
+      // Apply same fix as subWedgesContainer - use visibility:visible initially
       const labelContainer = categoryGroup.append("g")
         .attr("class", "label-container")
         .attr("opacity", 0)
         .attr("pointer-events", "none")
-        .style("visibility", "hidden");
+        .style("visibility", "visible"); // Set to visible for DOM loading, opacity controls actual visibility
       
       // Create sub-wedges container - add to overlay group with higher z-index
       // Use a separate group that renders on top of the main wedges
@@ -359,13 +360,14 @@ export function addDonutRings(
       const overlayGroup = node.select(".overlay-group") || 
                            node.append("g").attr("class", "overlay-group");
       
-      // FIXED: Set initial visibility to visible for debugging sub-wedge creation
-      // Once verified, we can restore the opacity/visibility settings for hover effects
+      // FIX #2: Add debug logging to confirm sub-wedges are being created
+      // For visibility, use visibility:visible but opacity:0 to ensure they're in the DOM
+      // but not visible until hover
       const subWedgesContainer = overlayGroup.append("g")
         .attr("class", `sub-wedges-${category.name}`)
-        .attr("opacity", 0) // Keep this at 0 initially, but show when debugging
+        .attr("opacity", 0)
         .attr("pointer-events", "none")
-        .style("visibility", "hidden"); // Hidden until hover
+        .style("visibility", "visible"); // Set to visible so DOM has them, opacity controls actual visibility
       
       // Add items with their labels and sub-wedges
       if (category.items && category.items.length > 0) {
@@ -550,6 +552,11 @@ export function addDonutRings(
             .endAngle(itemEndAngle);
           
           // Add the sub-wedge path
+          // FIX #2: Add debug logging to confirm sub-wedges are being created
+          if (category.debug || category.name === "rivalrousResources") {
+            console.log(`Creating sub-wedge for item: "${logName}" in category: ${category.name}`);
+          }
+          
           subWedgesContainer.append("path")
             .attr("class", "sub-wedge")
             .attr("d", subArc({}) as string)
