@@ -2356,6 +2356,12 @@
       
       let graphState;
       try {
+        // Log the actor-card map we'll be passing to initializeD3Graph
+        console.log("D3CardBoard: Passing actor-card map to initializeD3Graph:", {
+          mapSize: actorCardMap.size,
+          entries: Array.from(actorCardMap.entries())
+        });
+
         graphState = initializeD3Graph(
           svgRef,
           cardsWithPosition,
@@ -2363,7 +2369,8 @@
           width,
           height,
           activeCardId,
-          handleNodeClick
+          handleNodeClick,
+          actorCardMap // Pass the actor-card map to the initializer
         );
         console.log("D3CardBoard: D3 graph initialized successfully");
       } catch (initError) {

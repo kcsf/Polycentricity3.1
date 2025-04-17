@@ -1082,7 +1082,8 @@ export function initializeD3Graph(
   width: number,
   height: number,
   activeCardId: string | null = null,
-  handleNodeClick: (node: D3Node) => void
+  handleNodeClick: (node: D3Node) => void,
+  externalActorCardMap?: Map<string, string>
 ) {
   console.log("d3GraphUtils: initializeD3Graph called with:", {
     svgElementExists: !!svgElement,
@@ -1097,13 +1098,37 @@ export function initializeD3Graph(
     const svg = d3.select(svgElement);
     svg.selectAll("*").remove();
     
-    // Create a map of actor IDs to card IDs
-    const actorCardMap = new Map<string, string>();
-    cards.forEach(card => {
-      if (card.actor_id) {
-        actorCardMap.set(card.actor_id, card.card_id);
+    // Create a map of actor IDs to card IDs - use external map if provided
+    let actorCardMap: Map<string, string>;
+    
+    if (externalActorCardMap && externalActorCardMap.size > 0) {
+      // Use the provided map
+      console.log("d3GraphUtils: Using external actor-card map:", 
+        { size: externalActorCardMap.size, entries: Array.from(externalActorCardMap.entries()) });
+      actorCardMap = new Map(externalActorCardMap);
+    } else {
+      // Build the map from the card data
+      actorCardMap = new Map<string, string>();
+      cards.forEach(card => {
+        if (card.actor_id) {
+          actorCardMap.set(card.actor_id, card.card_id);
+          console.log(`d3GraphUtils: Mapping actor ${card.actor_id} to card ${card.card_id}`);
+        }
+      });
+      
+      // If map is still empty and we have agreement data, create synthetic mappings
+      if (actorCardMap.size === 0 && agreements.length > 0 && cards.length > 0) {
+        console.log("d3GraphUtils: Creating synthetic actor-card mappings as fallback");
+        
+        cards.forEach(card => {
+          const syntheticActorId = `actor_${card.card_id}`;
+          actorCardMap.set(syntheticActorId, card.card_id);
+          console.log(`d3GraphUtils: Created synthetic mapping: ${syntheticActorId} -> ${card.card_id}`);
+        });
       }
-    });
+    }
+    
+    console.log("d3GraphUtils: Final actor-card map size:", actorCardMap.size);
     
     // Create nodes and links
     const nodes = createNodes(cards, agreements, width, height);
