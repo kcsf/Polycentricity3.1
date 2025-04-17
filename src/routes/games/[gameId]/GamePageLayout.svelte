@@ -325,7 +325,17 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            onclick={() => gameInfoExpanded = !gameInfoExpanded}
+            on:click={() => gameInfoExpanded = !gameInfoExpanded}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); 
+                gameInfoExpanded = !gameInfoExpanded;
+              }
+            }} 
+            role="button"
+            tabindex="0"
+            aria-expanded={gameInfoExpanded}
+            aria-controls="gameInfoContent"
           >
             <h3 class="h4 flex items-center">
               <Info size={16} class="mr-2" />
@@ -372,7 +382,17 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            onclick={() => yourRoleExpanded = !yourRoleExpanded}
+            on:click={() => yourRoleExpanded = !yourRoleExpanded}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); 
+                yourRoleExpanded = !yourRoleExpanded;
+              }
+            }} 
+            role="button"
+            tabindex="0"
+            aria-expanded={yourRoleExpanded}
+            aria-controls="yourRoleContent"
           >
             <h3 class="h4 flex items-center">
               <User size={16} class="mr-2" />
@@ -546,7 +566,17 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            onclick={() => boardViewExpanded = !boardViewExpanded}
+            on:click={() => boardViewExpanded = !boardViewExpanded}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); 
+                boardViewExpanded = !boardViewExpanded;
+              }
+            }} 
+            role="button"
+            tabindex="0"
+            aria-expanded={boardViewExpanded}
+            aria-controls="boardViewContent"
           >
             <h3 class="h4">Board View</h3>
             <div class="text-xl">
@@ -598,7 +628,17 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            onclick={() => playersExpanded = !playersExpanded}
+            on:click={() => playersExpanded = !playersExpanded}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); 
+                playersExpanded = !playersExpanded;
+              }
+            }} 
+            role="button"
+            tabindex="0"
+            aria-expanded={playersExpanded}
+            aria-controls="playersContent"
           >
             <h3 class="h4 flex items-center">
               <Users size={16} class="mr-2" />
@@ -629,7 +669,17 @@
         <div class="card p-3 flex-1 flex flex-col">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            onclick={() => chatExpanded = !chatExpanded}
+            on:click={() => chatExpanded = !chatExpanded}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); 
+                chatExpanded = !chatExpanded;
+              }
+            }} 
+            role="button"
+            tabindex="0"
+            aria-expanded={chatExpanded}
+            aria-controls="chatContent"
           >
             <h3 class="h4 flex items-center">
               <MessageSquare size={16} class="mr-2" />

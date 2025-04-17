@@ -205,8 +205,8 @@
         
         <!-- Parties Selection -->
         <div class="form-group">
-          <label class="form-label">Parties</label>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label id="parties-group-label" class="form-label">Parties</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2" role="group" aria-labelledby="parties-group-label">
             {#each actors as actor}
               <label class="flex items-center space-x-2 p-2 border rounded hover:bg-surface-100 dark:hover:bg-surface-700">
                 <input
@@ -222,8 +222,8 @@
         
         <!-- Terms -->
         <div class="form-group">
-          <label class="form-label">Terms</label>
-          <div class="space-y-2">
+          <label id="terms-group-label" class="form-label">Terms</label>
+          <div class="space-y-2" role="group" aria-labelledby="terms-group-label">
             {#each terms as term, index}
               <div class="flex space-x-2">
                 <input
@@ -232,12 +232,14 @@
                   on:input={(e) => updateTerm(index, e.currentTarget.value)}
                   placeholder="Enter a term of the agreement"
                   class="input flex-grow"
+                  aria-label={`Term ${index + 1}`}
                 />
                 <button
                   type="button"
                   class="btn btn-sm btn-icon variant-ghost-error"
                   on:click={() => removeTerm(index)}
                   disabled={terms.length === 1}
+                  aria-label={`Remove term ${index + 1}`}
                 >
                   <svelte:component this={icons.X} class="w-4 h-4" />
                 </button>
@@ -256,9 +258,9 @@
         
         <!-- Obligations -->
         <div class="form-group">
-          <label class="form-label">Obligations</label>
+          <label id="obligations-group-label" class="form-label">Obligations</label>
           
-          <div class="space-y-4">
+          <div class="space-y-4" role="group" aria-labelledby="obligations-group-label">
             {#each Object.entries(selectedParties).filter(([_, selected]) => selected) as [actorId, _]}
               <div class="p-3 border rounded">
                 <h4 class="font-semibold mb-2">{getActorName(actorId)}'s Obligations</h4>
@@ -270,11 +272,13 @@
                     bind:value={newObligations[actorId]}
                     placeholder="Add an obligation..."
                     class="input flex-grow"
+                    aria-label={`New obligation for ${getActorName(actorId)}`}
                   />
                   <button
                     type="button"
                     class="btn btn-sm variant-filled-primary"
                     on:click={() => addObligation(actorId)}
+                    aria-label={`Add obligation for ${getActorName(actorId)}`}
                   >
                     Add
                   </button>
@@ -289,6 +293,7 @@
                         type="button"
                         class="btn btn-sm btn-icon variant-ghost-error"
                         on:click={() => removeObligation(index)}
+                        aria-label={`Remove obligation ${index + 1}`}
                       >
                         <svelte:component this={icons.X} class="w-3 h-3" />
                       </button>
@@ -302,9 +307,9 @@
         
         <!-- Benefits -->
         <div class="form-group">
-          <label class="form-label">Benefits</label>
+          <label id="benefits-group-label" class="form-label">Benefits</label>
           
-          <div class="space-y-4">
+          <div class="space-y-4" role="group" aria-labelledby="benefits-group-label">
             {#each Object.entries(selectedParties).filter(([_, selected]) => selected) as [actorId, _]}
               <div class="p-3 border rounded">
                 <h4 class="font-semibold mb-2">{getActorName(actorId)}'s Benefits</h4>
@@ -316,11 +321,13 @@
                     bind:value={newBenefits[actorId]}
                     placeholder="Add a benefit..."
                     class="input flex-grow"
+                    aria-label={`New benefit for ${getActorName(actorId)}`}
                   />
                   <button
                     type="button"
                     class="btn btn-sm variant-filled-primary"
                     on:click={() => addBenefit(actorId)}
+                    aria-label={`Add benefit for ${getActorName(actorId)}`}
                   >
                     Add
                   </button>
@@ -335,6 +342,7 @@
                         type="button"
                         class="btn btn-sm btn-icon variant-ghost-error"
                         on:click={() => removeBenefit(index)}
+                        aria-label={`Remove benefit ${index + 1}`}
                       >
                         <svelte:component this={icons.X} class="w-3 h-3" />
                       </button>
