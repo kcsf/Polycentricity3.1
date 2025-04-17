@@ -193,14 +193,19 @@ export function subscribeToAgreements(gameId: string) {
             // Transform to AgreementWithPosition
             const agreementWithPos: AgreementWithPosition = {
                 id: agreementId,
+                agreement_id: agreementId, // For compatibility
                 game_id: agreement.game_id,
                 title: agreement.title || '',
+                summary: agreement.summary || '',
+                type: agreement.type || 'symmetric',
                 parties: agreement.parties || {},
                 status: agreement.status || 'proposed',
                 created_at: agreement.created_at || Date.now(),
                 updated_at: agreement.updated_at || Date.now(),
+                created_by: agreement.created_by || '',
                 description: agreement.description || '',
                 terms: agreement.terms || '',
+                votes: agreement.votes || {},
                 position,
                 obligations: [], // We'll load these separately
                 benefits: []     // We'll load these separately
@@ -361,14 +366,19 @@ export async function createAgreement(agreement: Omit<AgreementWithPosition, 'id
     // Save to Gun.js
     gunInstance.get(nodes.agreements).get(agreementId).put({
         id: agreementId,
+        agreement_id: agreementId, // For compatibility
         game_id: gameId,
         title: newAgreement.title,
+        summary: newAgreement.summary || '',
+        type: newAgreement.type || 'symmetric',
         description: newAgreement.description,
         parties: newAgreement.parties,
         terms: newAgreement.terms,
         status: newAgreement.status,
         created_at: timestamp,
-        updated_at: timestamp
+        updated_at: timestamp,
+        created_by: newAgreement.created_by || '',
+        votes: newAgreement.votes || {}
     });
     
     // Save obligations

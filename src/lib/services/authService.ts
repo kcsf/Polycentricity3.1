@@ -120,8 +120,8 @@ export async function loginUser(email: string, password: string): Promise<User |
                         };
                         
                         // Update the data in Gun to ensure consistency
-                        gun.get(nodes.users).get(userId).put(bjornData, (ack) => {
-                            if (ack.err) {
+                        gun.get(nodes.users).get(userId).put(bjornData, (ack: any) => {
+                            if (ack && ack.err) {
                                 console.error('Error updating Bjorn data:', ack.err);
                             } else {
                                 console.log('Updated Bjorn data in database');
@@ -322,7 +322,7 @@ export async function createUserDirectly(email: string, name: string, role: 'Gue
         return new Promise((resolve) => {
             // Save the user data
             gun.get(nodes.users).get(userId).put(userData, (ack: any) => {
-                if (ack.err) {
+                if (ack && ack.err) {
                     console.error('Error creating user:', ack.err);
                     resolve({ success: false });
                 } else {
@@ -358,7 +358,7 @@ export async function updateUserToAdmin(email: string): Promise<boolean> {
                 gun.get(nodes.users).get(userId).put({
                     role: 'Admin' as 'Admin'
                 }, (ack: any) => {
-                    if (ack.err) {
+                    if (ack && ack.err) {
                         console.error('Error updating user role:', ack.err);
                         resolve(false);
                     } else {
