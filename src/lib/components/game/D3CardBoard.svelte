@@ -957,8 +957,13 @@
           _capabilityNames?: string[]
         };
         
-        cardWithDetails._valueNames = valueNames;
-        cardWithDetails._capabilityNames = capabilityNames;
+        // Filter out any GunDB metadata like "#" from the arrays
+        cardWithDetails._valueNames = valueNames.filter(v => v !== '#');
+        cardWithDetails._capabilityNames = capabilityNames.filter(c => c !== '#');
+        
+        console.log(`Filtered values for ${card.role_title || 'card'}:`, 
+                    cardWithDetails._valueNames, 
+                    cardWithDetails._capabilityNames);
         
         // Create values object based on the names we got
         if (valueNames && valueNames.length > 0) {
@@ -1072,8 +1077,13 @@
         _capabilityNames?: string[]
       };
       
-      cardWithDetails._valueNames = valueNames;
-      cardWithDetails._capabilityNames = capabilityNames;
+      // Filter out any GunDB metadata like "#" from the arrays
+      cardWithDetails._valueNames = valueNames.filter(v => v !== '#');
+      cardWithDetails._capabilityNames = capabilityNames.filter(c => c !== '#');
+      
+      console.log(`Filtered legacy values for ${card.role_title || 'card'}:`, 
+                  cardWithDetails._valueNames, 
+                  cardWithDetails._capabilityNames);
       
       // IMPORTANT: Update the card with the values and capabilities
       if (valueNames && valueNames.length > 0) {
@@ -1172,8 +1182,9 @@
         _capabilityNames?: string[];
       };
       
-      cardWithExtras._valueNames = valueNames;
-      cardWithExtras._capabilityNames = capabilityNames;
+      // Filter out any GunDB metadata like "#" from the arrays
+      cardWithExtras._valueNames = valueNames.filter(v => v !== '#');
+      cardWithExtras._capabilityNames = capabilityNames.filter(c => c !== '#');
       
       // Reconstruct the values object with direct references to ensure 
       // we don't trigger Gun.js reference traversal

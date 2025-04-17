@@ -212,12 +212,12 @@ export function addDonutRings(
       { 
         name: "values", 
         color: "#A7C731",
-        items: nodeData._valueNames || []
+        items: (nodeData._valueNames || []).filter(v => v !== '#')
       },
       { 
         name: "capabilities", 
         color: "#8FBC49", 
-        items: nodeData._capabilityNames || []
+        items: (nodeData._capabilityNames || []).filter(c => c !== '#')
       }
       // Removed hardcoded "goals" and "intellectualProperty" categories
       // as requested by the user to make visualization work with actual data
