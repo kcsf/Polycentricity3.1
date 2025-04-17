@@ -231,15 +231,42 @@ export function addDonutRings(
       }
     ];
     
-    // Calculate angles for 4 equal segments using radians
-    const TOTAL_CATEGORIES = 4; 
-    const ANGLE_PER_CATEGORY = (2 * Math.PI) / TOTAL_CATEGORIES;
+    // Calculate the total number of items across all categories
+    const totalItems = categories.reduce((sum, category) => sum + category.items.length, 0);
+    
+    // Calculate start angles for each category based on item count proportion
+    interface CategoryAngle {
+      start: number;
+      end: number;
+      size: number;
+    }
+    
+    const categoryAngles: CategoryAngle[] = [];
+    let runningAngle = -Math.PI/2; // Start at the top
+    
+    categories.forEach(category => {
+      // If category has items, calculate its proportion of the circle
+      // Otherwise, assign a minimal angle
+      const proportion = totalItems > 0 
+        ? category.items.length / totalItems 
+        : 0.25; // Fallback to equal parts if no items
+        
+      const angleSize = proportion * (2 * Math.PI);
+      
+      categoryAngles.push({
+        start: runningAngle,
+        end: runningAngle + angleSize,
+        size: angleSize
+      });
+      
+      runningAngle += angleSize;
+    });
     
     // 3. RENDER EACH CATEGORY 
     categories.forEach((category, categoryIndex) => {
-      // Calculate angles for this category
-      const startAngle = -Math.PI/2 + (categoryIndex * ANGLE_PER_CATEGORY);
-      const endAngle = startAngle + ANGLE_PER_CATEGORY;
+      // Get the precalculated angles for this category
+      const startAngle = categoryAngles[categoryIndex].start;
+      const endAngle = categoryAngles[categoryIndex].end;
       
       // Create category group
       const categoryGroup = node.append("g")
@@ -318,7 +345,8 @@ export function addDonutRings(
       // Add items with their labels and sub-wedges
       if (category.items && category.items.length > 0) {
         const itemCount = category.items.length;
-        const anglePerItem = ANGLE_PER_CATEGORY / itemCount;
+        // Calculate angle per item using the size of the current category's wedge
+        const anglePerItem = (endAngle - startAngle) / itemCount;
         
         // Process each item in this category
         category.items.forEach((item, itemIndex) => {
