@@ -475,6 +475,22 @@
       
       console.log("D3CardBoard: Adding center icons to nodes");
       
+      // First, preload all icons we need from cards
+      try {
+        // Get all unique icon names from cards
+        const iconNames = cardsWithPosition
+          .map(card => card.icon || 'user')
+          .filter((value, index, self) => self.indexOf(value) === index); // Get unique values
+        
+        console.log("D3CardBoard: Preloading icons:", iconNames);
+        
+        // Preload all icons before rendering
+        await loadIcons(iconNames);
+        console.log("D3CardBoard: Icons preloaded successfully");
+      } catch (preloadError) {
+        console.error("D3CardBoard: Failed to preload icons:", preloadError);
+      }
+      
       // Add center icons to the nodes
       try {
         nodeElements.each(function(node) {
@@ -506,9 +522,9 @@
               try {
                 // Use larger icons for active nodes
                 createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
-                console.log(`Successfully rendered icon for ${card.role_title || 'Card'}`);
+                console.log(`Successfully rendered icon for ${card.role_title || 'Card'} with icon ${iconName}`);
               } catch (iconError) {
-                console.error("D3CardBoard: Failed to create icon:", iconError);
+                console.error(`D3CardBoard: Failed to create icon for ${card.role_title || 'Card'} with icon ${iconName}:`, iconError);
               }
               
               // Convert the div container to a foreignObject in the SVG with proper positioning
