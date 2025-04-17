@@ -873,7 +873,27 @@
         if (agreements.length === 0 && cardsWithPosition.length >= 3) {
           console.log("D3CardBoard: Adding demo agreements for visualization");
           createDemoAgreements();
+          
+          // Log the actor-card mapping for debugging
+          console.log("D3CardBoard: Actor-Card map after creating demo agreements:", {
+            actorCardMapSize: actorCardMap.size,
+            actorCardMap: Array.from(actorCardMap.entries())
+          });
         }
+        
+        // Ensure all cards have actor_id field populated
+        cardsWithPosition.forEach(card => {
+          if (!card.actor_id) {
+            // See if we can find an actor that references this card
+            for (const [actorId, cardId] of actorCardMap.entries()) {
+              if (cardId === card.card_id) {
+                card.actor_id = actorId;
+                console.log(`D3CardBoard: Assigned actor_id ${actorId} to card ${card.card_id}`);
+                break;
+              }
+            }
+          }
+        });
         
         // Initialize graph once after all data is loaded
         console.log("D3CardBoard: Initializing graph after loading all details");
@@ -2282,6 +2302,34 @@
         cardWithNames._capabilityNames || "none");
     });
     
+    // Make sure we have actor <-> card mapping before creating links
+    if (actorCardMap.size === 0) {
+      console.log("D3CardBoard: Rebuilding actor-card mapping before initializing graph");
+      
+      // If we have cards with actor_id fields, rebuild the map from that
+      cardsWithPosition.forEach(card => {
+        if (card.actor_id) {
+          console.log(`D3CardBoard: Mapping card ${card.card_id} to actor ${card.actor_id}`);
+          actorCardMap.set(card.actor_id, card.card_id);
+        }
+      });
+      
+      // If using demo data, we might need to create synthetic mapping
+      if (actorCardMap.size === 0 && agreements.length > 0) {
+        console.log("D3CardBoard: Creating synthetic actor-card mapping for demo data");
+        
+        // Create synthetic actor IDs based on card IDs
+        cardsWithPosition.forEach(card => {
+          const syntheticActorId = `actor_${card.card_id}`;
+          card.actor_id = syntheticActorId;
+          actorCardMap.set(syntheticActorId, card.card_id);
+          console.log(`D3CardBoard: Created synthetic mapping: ${syntheticActorId} -> ${card.card_id}`);
+        });
+      }
+      
+      console.log("D3CardBoard: Finished rebuilding actor-card map, size:", actorCardMap.size);
+    }
+    
     // Use our utility function to initialize the D3 graph
     try {
       console.log("D3CardBoard: Starting D3 graph initialization");
@@ -2302,7 +2350,8 @@
         agreementsCount: agreements.length,
         width,
         height,
-        activeCardId
+        activeCardId,
+        actorCardMapSize: actorCardMap.size
       });
       
       let graphState;

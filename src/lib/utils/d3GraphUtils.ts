@@ -841,6 +841,13 @@ export function createLinks(
   agreements.forEach(agreement => {
     if (!agreement.parties) return;
     
+    // Debug current agreement
+    console.log(`Creating links for agreement: ${agreement.agreement_id}`, {
+      obligations: agreement.obligations,
+      benefits: agreement.benefits,
+      parties: agreement.parties
+    });
+    
     // Process obligations: from source actor to agreement
     if (agreement.obligations && agreement.obligations.length > 0) {
       agreement.obligations.forEach(obligation => {
@@ -849,15 +856,36 @@ export function createLinks(
         // Skip if no source actor ID
         if (!fromActorId) return;
         
+        // Try to get card ID from actor ID map
         const fromCardId = actorCardMap.get(fromActorId);
         
+        // If we found a valid card ID, create a link
         if (fromCardId) {
+          console.log(`Creating obligation link: ${fromCardId} -> ${agreement.agreement_id}`);
           links.push({
             source: fromCardId,
             target: agreement.agreement_id,
             type: "obligation",
             id: `${fromCardId}_to_${agreement.agreement_id}_${obligation.id || 'ob'}`
           });
+        } else {
+          // Check if this is a demo actor ID (format: "actor_cardId") 
+          if (fromActorId.startsWith('actor_')) {
+            // Extract the card ID part
+            const cardIdFromActor = fromActorId.substring(6); // Remove "actor_" prefix
+            // Check if a node with this ID exists
+            const cardExists = nodes.some(n => n.id === cardIdFromActor);
+            
+            if (cardExists) {
+              console.log(`Creating obligation link using extracted ID: ${cardIdFromActor} -> ${agreement.agreement_id}`);
+              links.push({
+                source: cardIdFromActor,
+                target: agreement.agreement_id,
+                type: "obligation",
+                id: `${cardIdFromActor}_to_${agreement.agreement_id}_${obligation.id || 'ob'}`
+              });
+            }
+          }
         }
       });
     }
@@ -870,15 +898,36 @@ export function createLinks(
         // Skip if no target actor ID
         if (!toActorId) return;
         
+        // Try to get card ID from actor ID map
         const toCardId = actorCardMap.get(toActorId);
         
+        // If we found a valid card ID, create a link
         if (toCardId) {
+          console.log(`Creating benefit link: ${agreement.agreement_id} -> ${toCardId}`);
           links.push({
             source: agreement.agreement_id,
             target: toCardId,
             type: "benefit",
             id: `${agreement.agreement_id}_to_${toCardId}_${benefit.id || 'ben'}`
           });
+        } else {
+          // Check if this is a demo actor ID (format: "actor_cardId")
+          if (toActorId.startsWith('actor_')) {
+            // Extract the card ID part
+            const cardIdFromActor = toActorId.substring(6); // Remove "actor_" prefix
+            // Check if a node with this ID exists
+            const cardExists = nodes.some(n => n.id === cardIdFromActor);
+            
+            if (cardExists) {
+              console.log(`Creating benefit link using extracted ID: ${agreement.agreement_id} -> ${cardIdFromActor}`);
+              links.push({
+                source: agreement.agreement_id,
+                target: cardIdFromActor,
+                type: "benefit",
+                id: `${agreement.agreement_id}_to_${cardIdFromActor}_${benefit.id || 'ben'}`
+              });
+            }
+          }
         }
       });
     }
