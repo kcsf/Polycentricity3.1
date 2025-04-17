@@ -325,8 +325,8 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            on:click={() => gameInfoExpanded = !gameInfoExpanded}
-            on:keydown={(e) => {
+            onclick={() => gameInfoExpanded = !gameInfoExpanded}
+            onkeydown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault(); 
                 gameInfoExpanded = !gameInfoExpanded;
@@ -382,8 +382,8 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            on:click={() => yourRoleExpanded = !yourRoleExpanded}
-            on:keydown={(e) => {
+            onclick={() => yourRoleExpanded = !yourRoleExpanded}
+            onkeydown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault(); 
                 yourRoleExpanded = !yourRoleExpanded;
@@ -566,8 +566,8 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            on:click={() => boardViewExpanded = !boardViewExpanded}
-            on:keydown={(e) => {
+            onclick={() => boardViewExpanded = !boardViewExpanded}
+            onkeydown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault(); 
                 boardViewExpanded = !boardViewExpanded;
@@ -628,8 +628,8 @@
         <div class="card p-3">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            on:click={() => playersExpanded = !playersExpanded}
-            on:keydown={(e) => {
+            onclick={() => playersExpanded = !playersExpanded}
+            onkeydown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault(); 
                 playersExpanded = !playersExpanded;
@@ -669,8 +669,8 @@
         <div class="card p-3 flex-1 flex flex-col">
           <div 
             class="flex justify-between items-center cursor-pointer" 
-            on:click={() => chatExpanded = !chatExpanded}
-            on:keydown={(e) => {
+            onclick={() => chatExpanded = !chatExpanded}
+            onkeydown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault(); 
                 chatExpanded = !chatExpanded;
