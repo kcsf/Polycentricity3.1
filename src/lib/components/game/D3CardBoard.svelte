@@ -67,9 +67,10 @@
   let height = 600;
   let hoveredNode: string | null = null;
   let hoveredCategory: string | null = null;
+  let simulation: d3.Simulation<D3Node, undefined> | null = null;
+  let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
   // All UI elements are now handled directly with D3
   let categoryCount = 0;
-  let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
   
   // Dataset
   let cardsWithPosition: CardWithPosition[] = [];
@@ -1477,6 +1478,11 @@
       const svg = d3.select(svgRef);
       svg.selectAll("*").remove();
       
+      // Make sure to stop the existing simulation if it exists
+      if (simulation) {
+        simulation.stop();
+      }
+      
       // Reinitialize the graph with latest data
       initializeGraph();
       
@@ -1670,6 +1676,13 @@
       console.log("D3 graph fully initialized with utility function");
     } catch (error) {
       console.error("Error initializing D3 graph:", error);
+      // Show more detailed error information
+      if (error instanceof ReferenceError) {
+        console.error("Reference error details:", error.message, error.stack);
+      }
+      if (error instanceof TypeError) {
+        console.error("Type error details:", error.message, error.stack);
+      }
     }
     
     // The rest of the initialization is handled by utility functions above
