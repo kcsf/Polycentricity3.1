@@ -286,7 +286,26 @@ export function addDonutRings(
           // Text anchor based on position - match reference behavior
           const textAnchor = (itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5) 
             ? "end" : "start";
+           
+          // Clean up the item name by removing prefixes
+          let displayName = item;
+          if (typeof item === 'string') {
+            // Remove 'value_' or 'capability_' prefixes for display
+            if (item.startsWith('value_')) {
+              displayName = item.substring(6);
+            } else if (item.startsWith('capability_')) {
+              displayName = item.substring(11);
+            }
             
+            // Replace hyphens with spaces for readability
+            displayName = displayName.replace(/-/g, ' ');
+            
+            // Capitalize first letter of each word
+            displayName = displayName.split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+          }
+          
           labelGroup.append("text")
             .attr("x", labelX)
             .attr("y", labelY)
@@ -295,8 +314,27 @@ export function addDonutRings(
             .attr("font-size", "11px")
             .attr("fill", category.color)
             .attr("font-weight", "500")
-            .attr("transform", `rotate(${(itemMidAngle * 180/Math.PI)},${labelX},${labelY})`)
-            .text(item);
+            // Apply a proper rotation angle for text labels:
+            // For left side: rotate counterclockwise (-90 to 0 degrees)
+            // For right side: rotate clockwise (0 to 90 degrees)
+            .attr("transform", function() {
+              let rotationAngle;
+              
+              // Convert to degrees and normalize to 0-360 range
+              const degrees = (itemMidAngle * 180/Math.PI) % 360;
+              
+              // Determine rotation based on position in the circle
+              if (degrees >= 90 && degrees <= 270) {
+                // Left side of the circle - make text readable from left to right
+                rotationAngle = degrees + 180;
+              } else {
+                // Right side of the circle - normal orientation
+                rotationAngle = degrees;
+              }
+              
+              return `rotate(${rotationAngle},${labelX},${labelY})`;
+            })
+            .text(displayName);
           
           // Create sub-wedge for this item
           const subArc = d3.arc<any>()
