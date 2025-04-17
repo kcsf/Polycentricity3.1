@@ -1249,35 +1249,186 @@
         }
       }
       
-      // If we couldn't find in the cache, use the provided values from the network view
-      // This is the network view data showing our connections
-      console.log(`Using network view data for card ${card.card_id || 'unknown'}`);
-      
-      // For the "DAO of the Green Veil" card, we know from your screenshot it has these values:
-      if (card.role_title === 'DAO of the Green Veil') {
-        return ['Sustainability', 'Community Resilience', 'Transparency', 'Project Management', 'Permaculture Design', 'Smart Contract Development'];
-      }
-      
-      // For the "Luminos Funder" card (if present)
-      if (card.role_title === 'Luminos Funder') {
-        return ['Sustainability', 'Community Resilience'];
-      }
-      
-      // Extract values from card name for fallback
-      if (card.role_title) {
-        const nameParts = card.role_title.split(/\s+/);
-        if (nameParts.length > 1) {
-          // Create a value based on the last word of the card name
-          const lastWord = nameParts[nameParts.length - 1];
-          return ['Sustainability', lastWord];
+      // If we got here, we need to properly fetch values from the Gun database
+      try {
+        // Get a fresh Gun instance to ensure we have a valid connection
+        const gunInstance = getGun();
+        if (!gunInstance) {
+          console.error('Gun database not available');
+          return [];
         }
+        
+        console.log(`Fetching values from reference path: ${refPath}`);
+        
+        // Properly resolve the reference path using Gun
+        const values = await new Promise<string[]>((resolve) => {
+          // Set a timeout to prevent hanging
+          const timeoutId = setTimeout(() => {
+            console.warn(`Timeout fetching values for ${refPath}`);
+            resolve([]);
+          }, 3000);
+          
+          try {
+            gunInstance.get(refPath).once((data: any) => {
+              clearTimeout(timeoutId);
+              
+              if (!data) {
+                console.warn(`No values data found at ${refPath}`);
+                resolve([]);
+                return;
+              }
+              
+              console.log(`Values data from Gun:`, data);
+              
+              // Filter out Gun metadata and get value IDs
+              const valueIds = Object.keys(data)
+                .filter(key => key !== '_' && key !== '#' && data[key] === true);
+              
+              console.log(`Extracted value IDs:`, valueIds);
+              
+              // Resolve all these values to get their names
+              if (valueIds.length === 0) {
+                resolve([]);
+                return;
+              }
+              
+              // For each value ID, get the actual value name
+              const valuePromises = valueIds.map(valueId => 
+                new Promise<string>((resolveValue) => {
+                  // First check the value cache
+                  if (valueCache.has(valueId)) {
+                    const cachedValue = valueCache.get(valueId);
+                    resolveValue(cachedValue?.name || valueId);
+                    return;
+                  }
+                  
+                  // Try to fetch the value from the database
+                  gunInstance.get('values').get(valueId).once((valueData: any) => {
+                    if (valueData && valueData.name) {
+                      // Add to cache for future use
+                      valueCache.set(valueId, valueData);
+                      resolveValue(valueData.name);
+                    } else {
+                      // If not found, derive from ID
+                      if (valueId.startsWith('value_')) {
+                        const derivedName = valueId.replace('value_', '')
+                          .split('-')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                        resolveValue(derivedName);
+                      } else {
+                        resolveValue(valueId);
+                      }
+                    }
+                  });
+                })
+              );
+              
+              // Resolve all value promises
+              Promise.all(valuePromises)
+                .then(valueNames => {
+                  console.log(`Resolved value names:`, valueNames);
+                  resolve(valueNames.filter(Boolean));
+                })
+                .catch(error => {
+                  console.error('Error resolving value names:', error);
+                  resolve([]);
+                });
+            });
+          } catch (error) {
+            clearTimeout(timeoutId);
+            console.error(`Error fetching values from Gun:`, error);
+            resolve([]);
+          }
+        });
+        
+        // If we got any values, return them
+        if (values.length > 0) {
+          return values;
+        }
+        
+        // If we still have no values, try a different approach with the card ID
+        if (card.card_id) {
+          console.log(`Trying alternate path for values with card_id: ${card.card_id}`);
+          
+          const alternateValues = await new Promise<string[]>((resolve) => {
+            const timeoutId = setTimeout(() => resolve([]), 2000);
+            
+            try {
+              gunInstance.get('cards').get(card.card_id).get('values').once((valuesData: any) => {
+                clearTimeout(timeoutId);
+                
+                if (!valuesData) {
+                  resolve([]);
+                  return;
+                }
+                
+                // Similar processing as above
+                const valueIds = Object.keys(valuesData)
+                  .filter(key => key !== '_' && key !== '#' && valuesData[key] === true);
+                
+                if (valueIds.length === 0) {
+                  resolve([]);
+                  return;
+                }
+                
+                // Use the same value resolution logic as above
+                const valuePromises = valueIds.map(valueId => 
+                  new Promise<string>((resolveValue) => {
+                    // First check the value cache
+                    if (valueCache.has(valueId)) {
+                      const cachedValue = valueCache.get(valueId);
+                      resolveValue(cachedValue?.name || valueId);
+                      return;
+                    }
+                    
+                    // Try to fetch the value from the database
+                    gunInstance.get('values').get(valueId).once((valueData: any) => {
+                      if (valueData && valueData.name) {
+                        // Add to cache for future use
+                        valueCache.set(valueId, valueData);
+                        resolveValue(valueData.name);
+                      } else {
+                        // If not found, derive from ID
+                        if (valueId.startsWith('value_')) {
+                          const derivedName = valueId.replace('value_', '')
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                          resolveValue(derivedName);
+                        } else {
+                          resolveValue(valueId);
+                        }
+                      }
+                    });
+                  })
+                );
+                
+                Promise.all(valuePromises)
+                  .then(valueNames => resolve(valueNames.filter(Boolean)))
+                  .catch(error => {
+                    console.error('Error in alternate value resolution:', error);
+                    resolve([]);
+                  });
+              });
+            } catch (error) {
+              clearTimeout(timeoutId);
+              console.error('Error in alternate value fetching:', error);
+              resolve([]);
+            }
+          });
+          
+          // If we got any values, return them
+          if (alternateValues.length > 0) {
+            return alternateValues;
+          }
+        }
+      } catch (error) {
+        console.error('Error in value retrieval process:', error);
       }
       
-      // Default to these standard values if we can't determine specific ones
-      return ['Sustainability', 'Community Resilience'];
-      
-      // If we got here, we couldn't fetch the referenced values
-      console.log(`No values found for card with values reference: ${refPath}`);
+      // If we got here, we couldn't fetch values from the database
+      console.warn(`Failed to retrieve values for card: ${card.card_id || 'unknown'}`);
       return [];
     }
     
@@ -1363,35 +1514,186 @@
         }
       }
       
-      // If we couldn't find in the cache, use the provided capabilities from the network view
-      // This is the network view data showing our connections
-      console.log(`Using network view data for card capability: ${card.card_id || 'unknown'}`);
-      
-      // For the "DAO of the Green Veil" card, we need specific capabilities:
-      if (card.role_title === 'DAO of the Green Veil') {
-        return ['Blockchain Development', 'Smart Contract Management', 'Community Governance', 'Distributed Finance'];
-      }
-      
-      // For the "Luminos Funder" card (if present)
-      if (card.role_title === 'Luminos Funder') {
-        return ['Project Management', 'Financial Analysis'];
-      }
-      
-      // Extract capabilities from card name for fallback
-      if (card.role_title) {
-        const nameParts = card.role_title.split(/\s+/);
-        if (nameParts.length > 1) {
-          // Create a capability based on the first word of the card name
-          const firstWord = nameParts[0];
-          return ['Networking', firstWord + ' Management'];
+      // If we got here, we need to properly fetch capabilities from the Gun database
+      try {
+        // Get a fresh Gun instance to ensure we have a valid connection
+        const gunInstance = getGun();
+        if (!gunInstance) {
+          console.error('Gun database not available');
+          return [];
         }
+        
+        console.log(`Fetching capabilities from reference path: ${refPath}`);
+        
+        // Properly resolve the reference path using Gun
+        const capabilities = await new Promise<string[]>((resolve) => {
+          // Set a timeout to prevent hanging
+          const timeoutId = setTimeout(() => {
+            console.warn(`Timeout fetching capabilities for ${refPath}`);
+            resolve([]);
+          }, 3000);
+          
+          try {
+            gunInstance.get(refPath).once((data: any) => {
+              clearTimeout(timeoutId);
+              
+              if (!data) {
+                console.warn(`No capability data found at ${refPath}`);
+                resolve([]);
+                return;
+              }
+              
+              console.log(`Capability data from Gun:`, data);
+              
+              // Filter out Gun metadata and get capability IDs
+              const capabilityIds = Object.keys(data)
+                .filter(key => key !== '_' && key !== '#' && data[key] === true);
+              
+              console.log(`Extracted capability IDs:`, capabilityIds);
+              
+              // Resolve all these capabilities to get their names
+              if (capabilityIds.length === 0) {
+                resolve([]);
+                return;
+              }
+              
+              // For each capability ID, get the actual capability name
+              const capabilityPromises = capabilityIds.map(capabilityId => 
+                new Promise<string>((resolveCapability) => {
+                  // First check the capability cache
+                  if (capabilityCache.has(capabilityId)) {
+                    const cachedCapability = capabilityCache.get(capabilityId);
+                    resolveCapability(cachedCapability?.name || capabilityId);
+                    return;
+                  }
+                  
+                  // Try to fetch the capability from the database
+                  gunInstance.get('capabilities').get(capabilityId).once((capabilityData: any) => {
+                    if (capabilityData && capabilityData.name) {
+                      // Add to cache for future use
+                      capabilityCache.set(capabilityId, capabilityData);
+                      resolveCapability(capabilityData.name);
+                    } else {
+                      // If not found, derive from ID
+                      if (capabilityId.startsWith('capability_')) {
+                        const derivedName = capabilityId.replace('capability_', '')
+                          .split('-')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                        resolveCapability(derivedName);
+                      } else {
+                        resolveCapability(capabilityId);
+                      }
+                    }
+                  });
+                })
+              );
+              
+              // Resolve all capability promises
+              Promise.all(capabilityPromises)
+                .then(capabilityNames => {
+                  console.log(`Resolved capability names:`, capabilityNames);
+                  resolve(capabilityNames.filter(Boolean));
+                })
+                .catch(error => {
+                  console.error('Error resolving capability names:', error);
+                  resolve([]);
+                });
+            });
+          } catch (error) {
+            clearTimeout(timeoutId);
+            console.error(`Error fetching capabilities from Gun:`, error);
+            resolve([]);
+          }
+        });
+        
+        // If we got any capabilities, return them
+        if (capabilities.length > 0) {
+          return capabilities;
+        }
+        
+        // If we still have no capabilities, try a different approach with the card ID
+        if (card.card_id) {
+          console.log(`Trying alternate path for capabilities with card_id: ${card.card_id}`);
+          
+          const alternateCapabilities = await new Promise<string[]>((resolve) => {
+            const timeoutId = setTimeout(() => resolve([]), 2000);
+            
+            try {
+              gunInstance.get('cards').get(card.card_id).get('capabilities').once((capabilitiesData: any) => {
+                clearTimeout(timeoutId);
+                
+                if (!capabilitiesData) {
+                  resolve([]);
+                  return;
+                }
+                
+                // Similar processing as above
+                const capabilityIds = Object.keys(capabilitiesData)
+                  .filter(key => key !== '_' && key !== '#' && capabilitiesData[key] === true);
+                
+                if (capabilityIds.length === 0) {
+                  resolve([]);
+                  return;
+                }
+                
+                // Use the same capability resolution logic as above
+                const capabilityPromises = capabilityIds.map(capabilityId => 
+                  new Promise<string>((resolveCapability) => {
+                    // First check the capability cache
+                    if (capabilityCache.has(capabilityId)) {
+                      const cachedCapability = capabilityCache.get(capabilityId);
+                      resolveCapability(cachedCapability?.name || capabilityId);
+                      return;
+                    }
+                    
+                    // Try to fetch the capability from the database
+                    gunInstance.get('capabilities').get(capabilityId).once((capabilityData: any) => {
+                      if (capabilityData && capabilityData.name) {
+                        // Add to cache for future use
+                        capabilityCache.set(capabilityId, capabilityData);
+                        resolveCapability(capabilityData.name);
+                      } else {
+                        // If not found, derive from ID
+                        if (capabilityId.startsWith('capability_')) {
+                          const derivedName = capabilityId.replace('capability_', '')
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                          resolveCapability(derivedName);
+                        } else {
+                          resolveCapability(capabilityId);
+                        }
+                      }
+                    });
+                  })
+                );
+                
+                Promise.all(capabilityPromises)
+                  .then(capabilityNames => resolve(capabilityNames.filter(Boolean)))
+                  .catch(error => {
+                    console.error('Error in alternate capability resolution:', error);
+                    resolve([]);
+                  });
+              });
+            } catch (error) {
+              clearTimeout(timeoutId);
+              console.error('Error in alternate capability fetching:', error);
+              resolve([]);
+            }
+          });
+          
+          // If we got any capabilities, return them
+          if (alternateCapabilities.length > 0) {
+            return alternateCapabilities;
+          }
+        }
+      } catch (error) {
+        console.error('Error in capability retrieval process:', error);
       }
       
-      // Default to these standard capabilities if we can't determine specific ones
-      return ['Networking', 'Problem Solving'];
-      
-      // If we got here, we couldn't fetch the referenced capabilities
-      console.log(`No capabilities found for card with capabilities reference: ${refPath}`);
+      // If we got here, we couldn't fetch capabilities from the database
+      console.warn(`Failed to retrieve capabilities for card: ${card.card_id || 'unknown'}`);
       return [];
     }
     
