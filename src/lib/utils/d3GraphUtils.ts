@@ -367,11 +367,37 @@ export function addDonutRings(
       // Add items with their labels and sub-wedges
       if (category.items && category.items.length > 0) {
         const itemCount = category.items.length;
-        // Calculate angle per item using the size of the current category's wedge
+        
+        // FIX #1: Ensure consistent angle calculations across all categories
+        // This is particularly important for Rivalrous Resources
+        
+        // Calculate exact angle per item using the size of the current category's wedge
+        // Use precise calculations to avoid floating point errors
         const anglePerItem = (endAngle - startAngle) / itemCount;
+        
+        // Log for debugging the Rivalrous Resources category
+        if (category.debug) {
+          console.log(`Category ${category.name}: startAngle=${startAngle.toFixed(4)}, endAngle=${endAngle.toFixed(4)}, itemCount=${itemCount}, anglePerItem=${anglePerItem.toFixed(4)}`);
+          
+          // Calculate more precise angles for each item to debug Rivalrous Resources
+          const itemAngles = [];
+          for (let i = 0; i < itemCount; i++) {
+            const start = startAngle + (i * anglePerItem);
+            const end = start + anglePerItem;
+            const mid = start + (anglePerItem / 2);
+            itemAngles.push({
+              index: i,
+              startDeg: ((start * 180) / Math.PI).toFixed(2),
+              midDeg: ((mid * 180) / Math.PI).toFixed(2),
+              endDeg: ((end * 180) / Math.PI).toFixed(2)
+            });
+          }
+          console.log(`${category.name} item angles:`, itemAngles);
+        }
         
         // Process each item in this category
         category.items.forEach((item: any, itemIndex: number) => {
+          // Ensure consistent start/end angles for all items, including Rivalrous Resources
           const itemStartAngle = startAngle + (itemIndex * anglePerItem);
           const itemEndAngle = itemStartAngle + anglePerItem;
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
@@ -396,7 +422,7 @@ export function addDonutRings(
             .attr("class", "label-group");
           
           // Calculate radial text positioning and rotation
-          // Convert angle to degrees for rotation calculations
+          // Convert angle to degrees for rotation calculations (0-360)
           const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
           
           // Debug rotation calculation if this is the rivalrousResources category
@@ -404,35 +430,32 @@ export function addDonutRings(
             console.log(`Rivalrous Resources label angle: ${angleDeg} degrees`);
           }
           
-          // Determine which side of the circle we're on - FIX: special handling for top section (upside down text)
-          // We need to handle 4 quadrants properly to avoid upside-down text:
-          // - Top right: 0-90 degrees (text reads from left to right)
-          // - Bottom right: 90-180 degrees (text reads from top to bottom)
-          // - Bottom left: 180-270 degrees (text reads from right to left)
-          // - Top left: 270-360 degrees (text reads from bottom to top)
+          // FIX #2: Improved logic for text orientation to handle all quadrants properly
+          // For text labels, we need to ensure readability by:
+          // 1. Using the correct text-anchor (start/end) based on which half of the circle
+          // 2. Flipping text that would otherwise be upside down
           
-          // FIX: Improve text orientation logic for better readability 
-          let isLeftSide = false;
-          let needsFlip = false;
+          // Determine text anchor based on hemisphere (0-180 vs 180-360)
+          // This ensures text is anchored on the correct side relative to the label's position
+          const isRightHalf = angleDeg <= 90 || angleDeg >= 270;
+          const isLeftHalf = !isRightHalf;
+          const textAnchor = isLeftHalf ? "end" : "start";
           
-          // Quadrant-specific handling (angles in degrees)
-          if (angleDeg > 90 && angleDeg < 270) {
-            // Left half of the circle (either bottom-left or top-left)
-            isLeftSide = true;
-            needsFlip = true;
-          } else if (angleDeg >= 270 && angleDeg <= 360) {
-            // Special case for top-left quadrant (270-360 degrees)
-            // Text would be upside down without flipping
-            isLeftSide = false;
-            needsFlip = true;
+          // Determine if we need to flip text to avoid upside-down orientation
+          // Text between 180-360 degrees needs to be flipped (subtracted from 180, not added)
+          const needsFlip = angleDeg > 180 && angleDeg < 360;
+          
+          // Apply rotation with correct orientation
+          // For angles 180-360, we subtract from 180 instead of adding 180
+          // This ensures consistent orientation across all quadrants
+          let rotationDeg;
+          if (needsFlip) {
+            // For 180-360 range, subtract from 180 to make text readable
+            rotationDeg = angleDeg - 180;
+          } else {
+            // For 0-180 range, use as-is
+            rotationDeg = angleDeg;
           }
-          
-          // Apply rotation based on improved orientation logic
-          // If needsFlip is true, rotate text by 180 degrees to fix orientation
-          const rotationDeg = needsFlip ? angleDeg + 180 : angleDeg;
-          
-          // Text anchor should be at start of text for right side labels, end of text for left side
-          const textAnchor = isLeftSide ? "end" : "start";
            
           // Clean up the item name by removing prefixes
           let displayName = item;

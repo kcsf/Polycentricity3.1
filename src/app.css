@@ -8,10 +8,10 @@
 
 /* Custom styles */
 :root {
-  /* Game Node size variables */
+  /* Game Node size variables 
   --actor-node-radius: 35px;
   --agreement-node-radius: 17px;
-  --donut-thickness: 15px;
+  --donut-thickness: 15px; */
 
   /* Game colors */
   --node-bg-color: rgba(255, 255, 255, 0.9);
@@ -154,13 +154,13 @@ html[class~="dark"] {
   stroke-dasharray: 4, 2;
 }
 
-/* Node styling */
+/* Node styling 
 .node text {
   font-family: var(--theme-font-family-base);
   fill: var(--color-surface-900);
   font-size: 0.75rem;
   text-anchor: middle;
-}
+} */
 
 /* Override for radial labels - these need to use their own text-anchor values */
 .radial-label {
