@@ -16,8 +16,6 @@
     setupInteractions, 
     createCardIcon, 
     updateForces,
-    initializeD3Graph,
-    addDonutRings,
     type D3Node,
     type D3Link,
     type SubItem,
@@ -28,18 +26,8 @@
     type D3NodeWithRelationships
   } from '$lib/utils/d3GraphUtils';
   // Removed import of getCardValueNames, getCardCapabilityNames to eliminate Gun.js queries
-  // Using centralized cache utilities instead
+  // Using internal cache-only implementations instead
   import RoleCard from '$lib/components/RoleCard.svelte';
-  import {
-    initializeCaches,
-    getCachedValue,
-    getCachedCapability,
-    getCachedActorCardMap,
-    loadCardDetails, 
-    processCardDetailsFromCache,
-    getCardValueNamesFromCacheOnly,
-    getCardCapabilityNamesFromCacheOnly
-  } from '$lib/utils/cacheUtils';
   
   // Helper for rendering Svelte components into the DOM with Svelte 5 compatibility
   function getCardIcon(iconName = 'default') {
@@ -78,24 +66,14 @@
   let hoveredCategory: string | null = null;
   // All UI elements are now handled directly with D3
   let categoryCount = 0;
-  
-  // Track card positions for both D3 and fallback SVG rings
-  let cardsWithPosition: CardWithPosition[] = [];
-  let fallbackCardPositions: CardWithPosition[] = [];
   let nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>; // Store node elements for access in multiple functions
-  let simulation: d3.Simulation<D3Node, d3.SimulationLinkDatum<D3Node>>; // Store simulation for access in multiple functions
   
-  // Dataset (agreements and actors)
+  // Dataset
+  let cardsWithPosition: CardWithPosition[] = [];
   let agreements: AgreementWithPosition[] = [];
   let actors: Actor[] = [];
-  // Using centralized cache management from cacheUtils.ts
-  // Import getAllCachedValues and getAllCachedCapabilities
-  import { 
-    getAllCachedValues,
-    getAllCachedCapabilities,
-    addValueToCache,
-    addCapabilityToCache
-  } from '$lib/utils/cacheUtils';
+  let valueCache: Map<string, Value> = new Map();
+  let capabilityCache: Map<string, Capability> = new Map();
   let actorCardMap: Map<string, string> = new Map(); // Maps actor_id to card_id
   
   // Active actor/card IDs
@@ -127,179 +105,6 @@
     popoverNodeType = node.type;
     popoverPosition = { x: node.x, y: node.y };
     popoverOpen = true;
-  }
-  
-  // Function to update radial menu with enhanced visualization
-  function updateRadialMenu(node: D3Node) {
-    if (!node || node.type !== 'actor') return;
-    
-    console.log("Updating radial menu for node:", node.id);
-    
-    // Clear existing radial menu
-    const menuSvg = d3.select(svgRef);
-    menuSvg.selectAll(".radial-menu").remove();
-    
-    // Create radial menu group
-    const menuGroup = menuSvg.append("g")
-      .attr("class", "radial-menu")
-      .attr("transform", `translate(${node.x}, ${node.y})`);
-    
-    // Add a semi-transparent overlay for the menu background
-    menuGroup.append("circle")
-      .attr("r", 100)
-      .attr("fill", "rgba(0,0,0,0.1)")
-      .attr("stroke", "none")
-      .attr("class", "radial-menu-backdrop")
-      .style("pointer-events", "none"); // Allow clicks to pass through
-    
-    // Define action buttons with icons and labels
-    const actions = [
-      { id: "view", label: "View", icon: "eye", angle: -45, color: "#4C9AFF", secondaryColor: "#00C7E6" },
-      { id: "edit", label: "Edit", icon: "edit", angle: 45, color: "#36B37E", secondaryColor: "#57D9A3" },
-      { id: "connect", label: "Connect", icon: "link", angle: 135, color: "#FF991F", secondaryColor: "#FFC400" },
-      { id: "delete", label: "Delete", icon: "trash", angle: 225, color: "#FF5630", secondaryColor: "#FF8F73" }
-    ];
-    
-    // Calculate positions
-    const radius = 70; // Distance from center
-    
-    // Add dashed connection lines from center to each button
-    actions.forEach(action => {
-      const angleRad = (action.angle * Math.PI) / 180;
-      const x = radius * Math.cos(angleRad);
-      const y = radius * Math.sin(angleRad);
-      
-      // Draw dashed line connecting center to button
-      menuGroup.append("line")
-        .attr("x1", 0)
-        .attr("y1", 0)
-        .attr("x2", x * 0.9) // Make line slightly shorter than full distance
-        .attr("y2", y * 0.9)
-        .attr("stroke", action.color)
-        .attr("stroke-width", 1.5)
-        .attr("stroke-dasharray", "3,3")
-        .attr("opacity", 0.6)
-        .attr("class", "radial-connector");
-    });
-    
-    // Add action buttons
-    actions.forEach(action => {
-      const angleRad = (action.angle * Math.PI) / 180;
-      const x = radius * Math.cos(angleRad);
-      const y = radius * Math.sin(angleRad);
-      
-      // Create action button group
-      const actionButton = menuGroup.append("g")
-        .attr("class", `radial-action ${action.id}`)
-        .attr("transform", `translate(${x}, ${y})`)
-        .style("cursor", "pointer")
-        .on("click", (event) => {
-          event.stopPropagation();
-          console.log(`Action ${action.id} clicked for node ${node.id}`);
-          
-          // Handle various actions
-          if (action.id === "view") {
-            // Toggle popover to view card details
-            popoverNode = node.data;
-            popoverNodeType = 'actor';
-            popoverPosition = { x: node.x, y: node.y };
-            popoverOpen = true;
-          }
-          else if (action.id === "edit") {
-            // Open edit modal - if implemented
-            console.log("Edit not implemented yet");
-          }
-          else if (action.id === "connect") {
-            // Start connection flow - if implemented
-            console.log("Connect not implemented yet");
-          }
-          else if (action.id === "delete") {
-            // Delete confirmation - if implemented
-            console.log("Delete not implemented yet");
-          }
-        });
-      
-      // Add outer circle with gradient effect
-      const gradientId = `radial-gradient-${action.id}-${node.id}`;
-      
-      // Create gradient definition
-      const gradient = menuSvg.select("defs").append("radialGradient")
-        .attr("id", gradientId)
-        .attr("cx", "50%")
-        .attr("cy", "50%")
-        .attr("r", "50%");
-        
-      // Add gradient stops
-      gradient.append("stop")
-        .attr("offset", "0%")
-        .attr("stop-color", action.secondaryColor)
-        .attr("stop-opacity", 1);
-        
-      gradient.append("stop")
-        .attr("offset", "80%")
-        .attr("stop-color", action.color)
-        .attr("stop-opacity", 1);
-        
-      gradient.append("stop")
-        .attr("offset", "100%")
-        .attr("stop-color", action.color)
-        .attr("stop-opacity", 0.9);
-      
-      // Add button outer circle with gradient
-      actionButton.append("circle")
-        .attr("r", 24)
-        .attr("fill", `url(#${gradientId})`)
-        .attr("stroke", "white")
-        .attr("stroke-width", 2)
-        .attr("class", "radial-button-outer");
-      
-      // Add inner circle
-      actionButton.append("circle")
-        .attr("r", 20)
-        .attr("fill", "white")
-        .attr("opacity", 0.9)
-        .attr("stroke", action.color)
-        .attr("stroke-width", 1.5)
-        .attr("class", "radial-button-inner");
-      
-      // Add label text
-      const textElement = actionButton.append("text")
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "middle")
-        .attr("fill", action.color)
-        .attr("font-size", "10px")
-        .attr("font-weight", "bold")
-        .attr("class", "radial-button-text")
-        .text(action.label);
-      
-      // Add hover effects
-      actionButton.on("mouseover", function() {
-        d3.select(this).select(".radial-button-outer")
-          .attr("r", 26)
-          .attr("stroke-width", 2.5);
-          
-        d3.select(this).select(".radial-button-inner")
-          .attr("r", 22)
-          .attr("opacity", 1);
-          
-        textElement
-          .attr("font-size", "11px")
-          .attr("font-weight", "bolder");
-      })
-      .on("mouseout", function() {
-        d3.select(this).select(".radial-button-outer")
-          .attr("r", 24)
-          .attr("stroke-width", 2);
-          
-        d3.select(this).select(".radial-button-inner")
-          .attr("r", 20)
-          .attr("opacity", 0.9);
-          
-        textElement
-          .attr("font-size", "10px")
-          .attr("font-weight", "bold");
-      });
-    });
   }
   
   // Get Lucide icon component using direct import
@@ -479,17 +284,6 @@
   // Load data on mount
   onMount(async () => {
     try {
-      console.log("D3CardBoard: Initializing with gameId:", gameId);
-      
-      // CRITICAL FIX: Initialize caches before anything else
-      // This ensures all values and capabilities are loaded first
-      await initializeCaches(gameId);
-      
-      console.log("Caches initialized:", { 
-        values: getAllCachedValues().size, 
-        capabilities: getAllCachedCapabilities().size 
-      });
-      
       // First, use any cards passed directly from the parent component
       if (cards && cards.length > 0) {
         // Create a new array with position data
@@ -521,23 +315,6 @@
         }
       }
       
-      // Verify that the cards have values and capabilities before visualization
-      console.log("D3CardBoard: Cards with value and capability names before visualization:");
-      cardsWithPosition.forEach(card => {
-        const cardWithExtras = card as CardWithPosition & {
-          _valueNames?: string[];
-          _capabilityNames?: string[];
-        };
-        
-        // Log the actual values and capabilities counts
-        console.log(`Card ${card.role_title} has:`, {
-          valueNames: cardWithExtras._valueNames || [],
-          valueCount: cardWithExtras._valueNames?.length || 0,
-          capabilityNames: cardWithExtras._capabilityNames || [],
-          capabilityCount: cardWithExtras._capabilityNames?.length || 0
-        });
-      });
-      
       // Initialize the graph visualization
       if (cardsWithPosition.length > 0) {
         // Add demo agreements for testing if no real agreements yet
@@ -546,7 +323,6 @@
         }
         
         // Initialize the graph once, after all data is loaded
-        console.log("D3CardBoard: Initializing graph with fully processed cards");
         initializeGraph();
       }
       
@@ -668,8 +444,7 @@
                 const capabilityData = await get<any>(`${nodes.capabilities}/${capabilityId}`);
                 if (capabilityData) {
                   // Store in cache to avoid future lookups
-                  // Use addCapabilityToCache from centralized cacheUtils.ts
-                  addCapabilityToCache(capabilityId, {
+                  capabilityCache.set(capabilityId, {
                     capability_id: capabilityId,
                     name: capabilityData.name || (capabilityId.startsWith('capability_') 
                       ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -680,8 +455,8 @@
                 }
               } catch (e) {
                 console.log(`Failed to resolve capability reference: ${capabilityId}`, e);
-                // Create fallback cache entry regardless using centralized cache
-                addCapabilityToCache(capabilityId, {
+                // Create fallback cache entry regardless
+                capabilityCache.set(capabilityId, {
                   capability_id: capabilityId,
                   name: capabilityId.startsWith('capability_')
                     ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -699,12 +474,10 @@
             'Social Justice', 'Ecological Wisdom', 'Nonviolence', 'Grassroots Democracy'
           ];
           
-          // Use centralized caches for common values
-          const centralizedValues = getAllCachedValues();
           commonValues.forEach(valueName => {
             const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
-            if (!centralizedValues.has(valueId)) {
-              addValueToCache(valueId, {
+            if (!valueCache.has(valueId)) {
+              valueCache.set(valueId, {
                 value_id: valueId,
                 name: valueName,
                 description: `Core value: ${valueName}`,
@@ -718,12 +491,10 @@
             'Grant-writing expertise', 'Impact Assessment', 'Community Organizing'
           ];
           
-          // Use centralized caches for common capabilities
-          const centralizedCapabilities = getAllCachedCapabilities();
           commonCapabilities.forEach(capName => {
             const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
-            if (!centralizedCapabilities.has(capabilityId)) {
-              addCapabilityToCache(capabilityId, {
+            if (!capabilityCache.has(capabilityId)) {
+              capabilityCache.set(capabilityId, {
                 capability_id: capabilityId,
                 name: capName,
                 description: `Core capability: ${capName}`,
@@ -732,7 +503,7 @@
             }
           });
           
-          console.log(`D3CardBoard: Preloaded ${getAllCachedValues().size} values and ${getAllCachedCapabilities().size} capabilities (using centralized caches)`);
+          console.log(`D3CardBoard: Preloaded ${valueCache.size} values and ${capabilityCache.size} capabilities`);
         } catch (e) {
           console.error("Error loading deck metadata:", e);
         }
@@ -843,12 +614,11 @@
                 .filter(key => key !== '_' && key !== '#' && valuesData[key] === true)
                 .forEach(async (valueId) => {
                   // Resolve actual value data if not in cache
-                  const centralizedValuesChecked = getAllCachedValues();
-                  if (!centralizedValuesChecked.has(valueId)) {
+                  if (!valueCache.has(valueId)) {
                     try {
                       const valueData = await get<any>(`${nodes.values}/${valueId}`);
                       if (valueData) {
-                        addValueToCache(valueId, {
+                        valueCache.set(valueId, {
                           value_id: valueId,
                           name: valueData.name || (valueId.startsWith('value_')
                             ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -858,8 +628,8 @@
                         });
                       }
                     } catch (e) {
-                      // Create fallback entry for centralized cache
-                      addValueToCache(valueId, {
+                      // Create fallback entry for cache
+                      valueCache.set(valueId, {
                         value_id: valueId,
                         name: valueId.startsWith('value_')
                           ? valueId.replace('value_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -888,12 +658,11 @@
                 .filter(key => key !== '_' && key !== '#' && capabilitiesData[key] === true)
                 .forEach(async (capabilityId) => {
                   // Resolve actual capability data if not in cache
-                  const centralizedCapabilitiesChecked = getAllCachedCapabilities();
-                  if (!centralizedCapabilitiesChecked.has(capabilityId)) {
+                  if (!capabilityCache.has(capabilityId)) {
                     try {
                       const capabilityData = await get<any>(`${nodes.capabilities}/${capabilityId}`);
                       if (capabilityData) {
-                        addCapabilityToCache(capabilityId, {
+                        capabilityCache.set(capabilityId, {
                           capability_id: capabilityId,
                           name: capabilityData.name || (capabilityId.startsWith('capability_')
                             ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -903,8 +672,8 @@
                         });
                       }
                     } catch (e) {
-                      // Create fallback entry for centralized cache
-                      addCapabilityToCache(capabilityId, {
+                      // Create fallback entry for cache
+                      capabilityCache.set(capabilityId, {
                         capability_id: capabilityId,
                         name: capabilityId.startsWith('capability_')
                           ? capabilityId.replace('capability_', '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -924,17 +693,10 @@
           await Promise.all([...valueResolvePromises, ...capabilityResolvePromises]);
           
           console.log(`D3CardBoard: Card loading complete with ${tempCards.length} cards`);
-          console.log(`D3CardBoard: Centralized caches have ${getAllCachedValues().size} values and ${getAllCachedCapabilities().size} capabilities`);
+          console.log(`D3CardBoard: Value cache has ${valueCache.size} entries, capability cache has ${capabilityCache.size} entries`);
           
-          // Update our global cards array using loadCardDetails (as requested)
-          cardsWithPosition = await loadCardDetails(tempCards);
-          
-          // Log the processed cards with values and capabilities
-          console.log("Processed cards:", cardsWithPosition.map(c => ({ 
-            id: c.card_id, 
-            values: c._valueNames, 
-            capabilities: c._capabilityNames 
-          })));
+          // Update our global cards array
+          cardsWithPosition = tempCards;
         } catch (e) {
           console.error("Error in card and reference loading:", e);
         }
@@ -1103,10 +865,6 @@
    * Optimized batch loading function that efficiently loads all card details at once
    * and populates the caches to prevent redundant GunDB queries
    */
-  /**
-   * Bulk load card details for multiple cards
-   * Now uses centralized cache utility functions from cacheUtils.ts
-   */
   async function loadAllCardDetails(cards: CardWithPosition[]): Promise<void> {
     try {
       const gun = getGun();
@@ -1122,22 +880,155 @@
       
       console.log(`Loading details for ${cards.length} cards in batch mode`);
       
-      // Use the centralized cache utilities instead of manually processing cards
-      console.log(`Using centralized cache utility: loadCardDetails`);
+      // Step 1: Pre-populate value and capability caches with values from cards
+      // This ensures we have local representations of all values/capabilities
+      // before making any Gun queries
+      cards.forEach(card => {
+        // Pre-cache values
+        if (card.values && typeof card.values === 'object' && !Array.isArray(card.values)) {
+          Object.keys(card.values).forEach(valueId => {
+            if (!valueCache.has(valueId) && valueId !== '_' && valueId !== '#') {
+              // Convert ID to readable name
+              let valueName = valueId;
+              if (valueId.startsWith('value_')) {
+                valueName = valueId.replace('value_', '')
+                  .split('-')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+              }
+              
+              // Add to cache
+              valueCache.set(valueId, {
+                value_id: valueId,
+                name: valueName,
+                description: `${valueName} for ${card.role_title || 'card'}`,
+                created_at: Date.now()
+              });
+            }
+          });
+        }
+        
+        // Pre-cache capabilities
+        if (card.capabilities && typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
+          Object.keys(card.capabilities).forEach(capabilityId => {
+            if (!capabilityCache.has(capabilityId) && capabilityId !== '_' && capabilityId !== '#') {
+              // Convert ID to readable name
+              let capabilityName = capabilityId;
+              if (capabilityId.startsWith('capability_')) {
+                capabilityName = capabilityId.replace('capability_', '')
+                  .split('-')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+              }
+              
+              // Add to cache
+              capabilityCache.set(capabilityId, {
+                capability_id: capabilityId,
+                name: capabilityName,
+                description: `${capabilityName} for ${card.role_title || 'card'}`,
+                created_at: Date.now()
+              });
+            }
+          });
+        }
+      });
       
-      // This single function call processes the cards and returns them with updated details
-      // UPDATED: Assign directly to cardsWithPosition as requested
-      cardsWithPosition = await loadCardDetails(cards);
+      // Step 2: Create promises for loading values and capabilities for all cards
+      // But use our cached versions if possible to avoid redundant Gun queries
+      const loadPromises = cards.map(async (card) => {
+        if (!card || !card.card_id) {
+          console.error("D3CardBoard: Invalid card object or missing card_id", card);
+          return null;
+        }
+        
+        // Use our cache-first functions to get values and capabilities
+        const valueNames = await getCardValueNamesFromCacheOnly(card);
+        const capabilityNames = await getCardCapabilityNamesFromCacheOnly(card);
+        
+        console.log(`Loaded for card ${card.card_id}: Values: ${valueNames.length}, Capabilities: ${capabilityNames.length}`);
+        
+        // Add the value names and capability names to the card for visualization
+        const cardWithDetails = card as CardWithPosition & {
+          _valueNames?: string[],
+          _capabilityNames?: string[]
+        };
+        
+        cardWithDetails._valueNames = valueNames;
+        cardWithDetails._capabilityNames = capabilityNames;
+        
+        // Create values object based on the names we got
+        if (valueNames && valueNames.length > 0) {
+          const valuesObj: Record<string, boolean> = {};
+          valueNames.forEach(valueName => {
+            const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+            valuesObj[valueId] = true;
+            
+            // Add to value cache if not already there
+            if (!valueCache.has(valueId)) {
+              valueCache.set(valueId, {
+                value_id: valueId,
+                name: valueName,
+                description: `${valueName} for ${card.role_title || 'card'}`,
+                created_at: Date.now()
+              });
+            }
+          });
+          
+          // Update the card's values
+          card.values = valuesObj;
+        }
+        
+        // Do the same for capabilities
+        if (capabilityNames && capabilityNames.length > 0) {
+          const capabilitiesObj: Record<string, boolean> = {};
+          capabilityNames.forEach(capName => {
+            const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+            capabilitiesObj[capabilityId] = true;
+            
+            // Add to capability cache if not already there
+            if (!capabilityCache.has(capabilityId)) {
+              capabilityCache.set(capabilityId, {
+                capability_id: capabilityId,
+                name: capName,
+                description: `${capName} for ${card.role_title || 'card'}`,
+                created_at: Date.now()
+              });
+            }
+          });
+          
+          // Update the card's capabilities
+          card.capabilities = capabilitiesObj;
+        }
+        
+        return {
+          card_id: card.card_id,
+          values: card.values,
+          capabilities: card.capabilities,
+          _valueNames: cardWithDetails._valueNames,
+          _capabilityNames: cardWithDetails._capabilityNames
+        };
+      });
       
-      // Log the cards to verify they have the required properties with updated format
-      console.log("Processed cards:", cardsWithPosition.map(c => ({ 
-        id: c.card_id, 
-        values: c._valueNames, 
-        capabilities: c._capabilityNames 
-      })));
+      // Wait for all promises to resolve
+      const results = await Promise.all(loadPromises);
       
-      console.log("Finished loading all card details using centralized cache utilities");
-      console.log("Cache status updated through centralized cache management");
+      // Update cardsWithPosition with all the loaded details at once
+      cardsWithPosition = cardsWithPosition.map(c => {
+        const updatedCard = results.find(r => r && r.card_id === c.card_id);
+        if (updatedCard) {
+          return {
+            ...c,
+            values: updatedCard.values,
+            capabilities: updatedCard.capabilities,
+            _valueNames: updatedCard._valueNames,
+            _capabilityNames: updatedCard._capabilityNames
+          };
+        }
+        return c;
+      });
+      
+      console.log("Finished loading all card details in batch mode");
+      console.log("Cache status - Values:", valueCache.size, "Capabilities:", capabilityCache.size);
       // No need to call initializeGraph() here - that will happen after this function returns
       
     } catch (error) {
@@ -1149,7 +1040,7 @@
    * Legacy function for single card detail loading
    * Updated to use cache-first functions and avoid redundant Gun queries
    */
-  async function loadSingleCardDetails(card: Card): Promise<void> {
+  async function loadCardDetails(card: Card): Promise<void> {
     try {
       const gun = getGun();
       if (!gun) {
@@ -1188,10 +1079,9 @@
           const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
           valuesObj[valueId] = true;
           
-          // Add to centralized value cache if not already there
-          const centralizedValues = getAllCachedValues();
-          if (!centralizedValues.has(valueId)) {
-            addValueToCache(valueId, {
+          // Add to value cache if not already there
+          if (!valueCache.has(valueId)) {
+            valueCache.set(valueId, {
               value_id: valueId,
               name: valueName,
               description: `${valueName} for ${card.role_title || 'Unnamed Card'}`,
@@ -1212,10 +1102,9 @@
           const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
           capabilitiesObj[capabilityId] = true;
           
-          // Add to centralized capability cache if not already there
-          const centralizedCapabilities = getAllCachedCapabilities();
-          if (!centralizedCapabilities.has(capabilityId)) {
-            addCapabilityToCache(capabilityId, {
+          // Add to capability cache if not already there
+          if (!capabilityCache.has(capabilityId)) {
+            capabilityCache.set(capabilityId, {
               capability_id: capabilityId,
               name: capName,
               description: `${capName} for ${card.role_title || 'Unnamed Card'}`,
@@ -1247,16 +1136,234 @@
       
       console.log(`Finished loading details for card ${card.card_id} using cache-first approach`);
     } catch (error) {
-      console.error("D3CardBoard: Unexpected error in loadSingleCardDetails:", error);
+      console.error("D3CardBoard: Unexpected error in loadCardDetails:", error);
     }
   }
 
-  // Note: processCardDetailsFromCache has been moved to cacheUtils.ts
-  // This is now a centralized utility function
+  /**
+   * Process card details using ONLY cached values and capabilities
+   * This completely eliminates redundant GunDB queries
+   */
+  async function processCardDetailsFromCache(cards: CardWithPosition[]): Promise<void> {
+    if (!cards || cards.length === 0) {
+      console.log("No cards to process details for");
+      return;
+    }
+    
+    console.log(`Processing details for ${cards.length} cards using cached values only (no Gun queries)`);
+    
+    // Process all cards in parallel with zero Gun queries
+    await Promise.all(cards.map(async (card) => {
+      if (!card || !card.card_id) return;
+      
+      // Process values
+      const valueNames: string[] = await getCardValueNamesFromCacheOnly(card);
+      
+      // Process capabilities
+      const capabilityNames: string[] = await getCardCapabilityNamesFromCacheOnly(card);
+      
+      // Store the resolved names directly on the card
+      const cardWithExtras = card as CardWithPosition & {
+        _valueNames?: string[];
+        _capabilityNames?: string[];
+      };
+      
+      cardWithExtras._valueNames = valueNames;
+      cardWithExtras._capabilityNames = capabilityNames;
+      
+      // Reconstruct the values object with direct references to ensure 
+      // we don't trigger Gun.js reference traversal
+      if (valueNames && valueNames.length > 0) {
+        const valuesObj: Record<string, boolean> = {};
+        valueNames.forEach(valueName => {
+          // Normalize the value name to an ID format
+          const valueId = `value_${valueName.toLowerCase().replace(/\s+/g, '-')}`;
+          valuesObj[valueId] = true;
+        });
+        card.values = valuesObj;
+      }
+      
+      // Do the same for capabilities
+      if (capabilityNames && capabilityNames.length > 0) {
+        const capabilitiesObj: Record<string, boolean> = {};
+        capabilityNames.forEach(capName => {
+          // Normalize the capability name to an ID format
+          const capabilityId = `capability_${capName.toLowerCase().replace(/\s+/g, '-')}`;
+          capabilitiesObj[capabilityId] = true;
+        });
+        card.capabilities = capabilitiesObj;
+      }
+    }));
+    
+    console.log("Completed processing card details from cache only");
+  }
   
-  // Note: getCardValueNamesFromCacheOnly and getCardCapabilityNamesFromCacheOnly
-  // have been moved to cacheUtils.ts
-  // We are now importing them from there instead of defining them here
+  /**
+   * Get value names using ONLY cache - never falling back to Gun
+   */
+  async function getCardValueNamesFromCacheOnly(card: Card): Promise<string[]> {
+    if (!card || !card.values) return [];
+    
+    // If we have pre-loaded value names, use them directly
+    const cardWithExtras = card as Card & { _valueNames?: string[] };
+    if (cardWithExtras._valueNames && cardWithExtras._valueNames.length > 0) {
+      return cardWithExtras._valueNames;
+    }
+    
+    // For GunDB references, extract the referenced values and look them up in our cache
+    if (typeof card.values === 'object' && '#' in card.values) {
+      const refPath = (card.values as any)['#'];
+      // The refPath will be something like "cards/card_123/values"
+      // Extract just the card_id from this path to find the card in our cardsWithPosition array
+      
+      // For efficiency, instead of querying Gun, we'll try to find a matching card that already
+      // has processed values in our cardsWithPosition array
+      if (refPath.includes('/values')) {
+        const cardIdMatch = refPath.match(/cards\/([^\/]+)\/values/);
+        if (cardIdMatch && cardIdMatch[1]) {
+          const referencedCardId = cardIdMatch[1];
+          // Look for this card in our cardsWithPosition array
+          const referencedCard = cardsWithPosition.find(c => c.card_id === referencedCardId);
+          if (referencedCard) {
+            const referencedCardWithExtras = referencedCard as Card & { _valueNames?: string[] };
+            if (referencedCardWithExtras._valueNames && referencedCardWithExtras._valueNames.length > 0) {
+              // Use the already resolved value names from the referenced card
+              return referencedCardWithExtras._valueNames;
+            }
+          }
+        }
+      }
+      
+      // If we got here, we couldn't find a match in our cardsWithPosition array
+      // Fall back to default values instead of making a Gun query
+      return ["Sustainability", "Community Resilience"];
+    }
+    
+    // For direct object mapping (most common case)
+    if (typeof card.values === 'object' && !Array.isArray(card.values)) {
+      // Get all value IDs from the object
+      const valueIds = Object.keys(card.values)
+        .filter(key => key !== '_' && key !== '#' && (card.values as Record<string, any>)[key] === true);
+      
+      // Map each ID to a name using ONLY our cache
+      return valueIds.map(valueId => {
+        // Check cache first
+        if (valueCache.has(valueId)) {
+          const cachedValue = valueCache.get(valueId);
+          return cachedValue?.name || "";
+        }
+        
+        // If not in cache, derive from ID
+        if (valueId.startsWith('value_')) {
+          return valueId.replace('value_', '')
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+        
+        // Fallback for hardcoded IDs
+        if (valueId === 'c1') return 'Sustainability';
+        if (valueId === 'c2') return 'Community Resilience';
+        if (valueId === 'c3') return 'Regeneration';
+        if (valueId === 'c4') return 'Equity';
+        
+        return valueId; // Last resort
+      }).filter(Boolean);
+    }
+    
+    // For array format
+    if (Array.isArray(card.values)) {
+      return card.values.map(v => typeof v === 'string' ? v : "").filter(Boolean);
+    }
+    
+    // For string format (comma-separated)
+    if (typeof card.values === 'string') {
+      return card.values.split(',').map(v => v.trim()).filter(Boolean);
+    }
+    
+    // Default fallback values
+    return ["Sustainability", "Community Resilience"];
+  }
+  
+  /**
+   * Get capability names using ONLY cache - never falling back to Gun
+   */
+  async function getCardCapabilityNamesFromCacheOnly(card: Card): Promise<string[]> {
+    if (!card || !card.capabilities) return [];
+    
+    // If we have pre-loaded capability names, use them directly
+    const cardWithExtras = card as Card & { _capabilityNames?: string[] };
+    if (cardWithExtras._capabilityNames && cardWithExtras._capabilityNames.length > 0) {
+      return cardWithExtras._capabilityNames;
+    }
+    
+    // For GunDB references, extract the referenced capabilities and look them up in our cache
+    if (typeof card.capabilities === 'object' && '#' in card.capabilities) {
+      const refPath = (card.capabilities as any)['#'];
+      // The refPath will be something like "cards/card_123/capabilities"
+      
+      // For efficiency, instead of querying Gun, we'll try to find a matching card that already
+      // has processed capabilities in our cardsWithPosition array
+      if (refPath.includes('/capabilities')) {
+        const cardIdMatch = refPath.match(/cards\/([^\/]+)\/capabilities/);
+        if (cardIdMatch && cardIdMatch[1]) {
+          const referencedCardId = cardIdMatch[1];
+          // Look for this card in our cardsWithPosition array
+          const referencedCard = cardsWithPosition.find(c => c.card_id === referencedCardId);
+          if (referencedCard) {
+            const referencedCardWithExtras = referencedCard as Card & { _capabilityNames?: string[] };
+            if (referencedCardWithExtras._capabilityNames && referencedCardWithExtras._capabilityNames.length > 0) {
+              // Use the already resolved capability names from the referenced card
+              return referencedCardWithExtras._capabilityNames;
+            }
+          }
+        }
+      }
+      
+      // If we got here, we couldn't find a match in our cardsWithPosition array
+      // Fall back to default capabilities instead of making a Gun query
+      return ["Problem Solving", "Communication"];
+    }
+    
+    // For direct object mapping (most common case)
+    if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
+      // Get all capability IDs from the object
+      const capabilityIds = Object.keys(card.capabilities)
+        .filter(key => key !== '_' && key !== '#' && (card.capabilities as Record<string, any>)[key] === true);
+      
+      // Map each ID to a name using ONLY our cache
+      return capabilityIds.map(capabilityId => {
+        // Check cache first
+        if (capabilityCache.has(capabilityId)) {
+          const cachedCapability = capabilityCache.get(capabilityId);
+          return cachedCapability?.name || "";
+        }
+        
+        // If not in cache, derive from ID
+        if (capabilityId.startsWith('capability_')) {
+          return capabilityId.replace('capability_', '')
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+        
+        return capabilityId; // Last resort
+      }).filter(Boolean);
+    }
+    
+    // For array format
+    if (Array.isArray(card.capabilities)) {
+      return card.capabilities.map(c => typeof c === 'string' ? c : "").filter(Boolean);
+    }
+    
+    // For string format (comma-separated)
+    if (typeof card.capabilities === 'string') {
+      return card.capabilities.split(',').map(c => c.trim()).filter(Boolean);
+    }
+    
+    // Default fallback capabilities
+    return ["Problem Solving", "Communication"];
+  }
 
   /**
    * Helper function to get the optimized card data for popover display
@@ -1378,7 +1485,6 @@
     if (svgRef) {
       // Clear any existing visualization
       const svg = d3.select(svgRef);
-      console.log("CRITICAL: Clearing SVG content in updateVisualization at line ~1208");
       svg.selectAll("*").remove();
       
       // Reinitialize the graph with latest data
@@ -1392,81 +1498,6 @@
   // Function to initialize D3 visualization using our utility function
   async function initializeGraph() {
     if (!svgRef) return;
-    
-    // DIRECT FIX: Force load some default values and capabilities into the cache
-    // This ensures the visualization always has something to display
-    const defaultValues = [
-      { id: "value_sustainability", name: "Sustainability", description: "Ecological sustainability value" },
-      { id: "value_community-resilience", name: "Community Resilience", description: "Building stronger communities" },
-      { id: "value_food-security", name: "Food Security", description: "Access to healthy food" },
-      { id: "value_local-economy", name: "Local Economy", description: "Supporting local businesses" }
-    ];
-    
-    const defaultCapabilities = [
-      { id: "capability_communication", name: "Communication", description: "Effective information sharing" },
-      { id: "capability_impact-assessment", name: "Impact Assessment", description: "Measuring ecological impact" },
-      { id: "capability_resource-sharing", name: "Resource Sharing", description: "Collaborative resource management" },
-      { id: "capability_knowledge-transfer", name: "Knowledge Transfer", description: "Sharing expertise across communities" }
-    ];
-    
-    // Add defaults to cache
-    defaultValues.forEach(v => {
-      addValueToCache(v.id, {
-        value_id: v.id,
-        name: v.name,
-        description: v.description,
-        created_at: Date.now()
-      });
-    });
-    
-    defaultCapabilities.forEach(c => {
-      addCapabilityToCache(c.id, {
-        capability_id: c.id,
-        name: c.name,
-        description: c.description,
-        created_at: Date.now()
-      });
-    });
-    
-    // Manually assign values and capabilities to each card for visualization
-    // This ensures donut rings will display regardless of database state
-    cardsWithPosition.forEach((card, index) => {
-      // Assign 2 random values and 2 random capabilities to each card
-      const cardValues: Record<string, boolean> = {};
-      const cardCapabilities: Record<string, boolean> = {};
-      
-      // Select different values for each card based on index
-      const value1 = defaultValues[index % defaultValues.length];
-      const value2 = defaultValues[(index + 1) % defaultValues.length];
-      cardValues[value1.id] = true;
-      cardValues[value2.id] = true;
-      
-      // Select different capabilities for each card based on index
-      const cap1 = defaultCapabilities[index % defaultCapabilities.length];
-      const cap2 = defaultCapabilities[(index + 1) % defaultCapabilities.length];
-      cardCapabilities[cap1.id] = true;
-      cardCapabilities[cap2.id] = true;
-      
-      // Update card with the assigned values and capabilities
-      card.values = cardValues;
-      card.capabilities = cardCapabilities;
-      
-      // Add the names directly to the card for D3 visualization
-      card._valueNames = [value1.name, value2.name];
-      card._capabilityNames = [cap1.name, cap2.name];
-      
-      console.log(`Manually assigned values and capabilities to card ${card.role_title || card.card_id}:`, {
-        values: card._valueNames,
-        capabilities: card._capabilityNames
-      });
-    });
-    
-    // IMPORTANT: Only use the centralized caches from cacheUtils.ts, not local variables
-    // This is critical for the donut rings visualization to work correctly
-    console.log('Using centralized caches at initialization (after manual assignments):', {
-      valueCount: getAllCachedValues().size,
-      capabilityCount: getAllCachedCapabilities().size
-    });
     
     // Set up dimensions based on container size
     const boundingRect = svgRef.parentElement?.getBoundingClientRect();
@@ -1503,277 +1534,58 @@
     
     // Use our utility function to initialize the D3 graph
     try {
-      // Debug: Check parameters before initializing
-      console.log('D3 Initialization params:', {
-        svgExists: !!svgRef,
-        cardsCount: cardsWithPosition?.length || 0,
-        agreementsCount: agreements?.length || 0,
-        width,
-        height
-      });
-      
-      // Verify cards data first to avoid initialization issues
-      if (!svgRef) {
-        console.error('Cannot initialize D3 graph: SVG reference is undefined');
-        return; 
-      }
-      
-      if (!cardsWithPosition || cardsWithPosition.length === 0) {
-        console.warn('No cards available to visualize, skipping graph initialization');
-        return;
-      }
-      
-      // Create a simple, manually created SVG structure first if we need a fallback
-      const svg = d3.select(svgRef);
-      
-      // Manual approach - create a base structure as a safety net
-      if (!svg.select('.links').node()) {
-        svg.append('g').attr('class', 'links');
-      }
-      
-      if (!svg.select('.nodes').node()) {
-        svg.append('g').attr('class', 'nodes');
-      }
-      
       // Initialize the graph using our utility function
-      console.log('Initializing D3 graph with data...');
-      
-      // Handle potential ReferenceError by wrapping the function call
-      let graphState;
-      try {
-        // Debug all arguments before passing them to the function
-        const args = {
-          svgRefExists: !!svgRef,
-          cardsWithPositionLength: cardsWithPosition?.length,
-          agreementsLength: agreements?.length,
-          width,
-          height,
-          activeCardId,
-          handleNodeClickIsDefined: !!handleNodeClick
-        };
-        console.log('D3 initialization arguments:', args);
-        
-        graphState = initializeD3Graph(
-          svgRef,
-          cardsWithPosition, 
-          agreements,
-          width,
-          height,
-          activeCardId,
-          handleNodeClick
-        );
-      } catch (initError) {
-        console.error('Direct error in initializeD3Graph call:', initError);
-        
-        // Create a basic fallback graph state
-        graphState = {
-          simulation: d3.forceSimulation<D3Node>([]),
-          nodeElements: d3.select(svgRef).select('.nodes').selectAll('g'),
-          linkElements: d3.select(svgRef).select('.links').selectAll('g'),
-          nodes: [],
-          links: []
-        };
-      }
-      
-      // Verify we received a valid graph state
-      if (!graphState) {
-        console.error('Graph state is undefined after initialization');
-        return;
-      }
-      
-      // Log what we received from the graph initialization
-      console.log('Graph initialized. Received:', {
-        hasSimulation: !!graphState.simulation,
-        hasNodeElements: !!graphState.nodeElements,
-        nodeElementsEmpty: graphState.nodeElements?.empty?.() || true,
-        nodesCount: graphState.nodes?.length || 0
-      });
+      const graphState = initializeD3Graph(
+        svgRef,
+        cardsWithPosition,
+        agreements,
+        width,
+        height,
+        activeCardId,
+        handleNodeClick
+      );
       
       // Store references to the graph elements for later use
       simulation = graphState.simulation;
       nodeElements = graphState.nodeElements;
       
-      // Set up simulation tick handler for guaranteed rings
-      if (simulation) {
-        // Make the rings update with the simulation ticks
-        simulation.on("tick", () => {
-          // This directly updates the guaranteed rings in real-time
-          if (graphState && graphState.nodes) {
-            updateGuaranteedRings();
-          }
-        });
-      }
-      
-      // We've already set up a simulation tick handler above
-      
-      // IMPORTANT: This is a critical section that causes errors
-      // We need to be extremely cautious about how we handle nodeElements
-      // Remove the donut rings logic from this function completely
-      
-      // Instead of trying to add donut rings here, just store the nodeElements for later use
-      if (graphState?.nodeElements) {
-        nodeElements = graphState.nodeElements;
-        console.log('Node elements assigned from graph state');
-        
-        // Manual debug check - see if the selection is really empty
-        try {
-          const isEmpty = nodeElements.empty();
-          const count = nodeElements.size();
-          console.log(`DEBUG: nodeElements empty: ${isEmpty}, count: ${count}`);
-          
-          // Try to manually select nodes to ensure they exist
-          const manualNodeSelection = d3.select(svgRef).selectAll('.nodes g');
-          console.log(`DEBUG: Manual node selection empty: ${manualNodeSelection.empty()}, count: ${manualNodeSelection.size()}`);
-        } catch (err) {
-          console.error('Error inspecting nodeElements:', err);
-        }
-      } else {
-        console.warn('No node elements available from graph state');
-      }
-      
-      // Add donut rings to the nodes with detailed debug information
-      try {
-        console.log('Adding rings with:', { 
-          nodes: nodeElements?.size() || 0, 
-          values: getAllCachedValues().size, 
-          capabilities: getAllCachedCapabilities().size 
-        });
-        
-        // IMPORTANT: Always use getAllCachedValues() and getAllCachedCapabilities() 
-        // directly to ensure we're using the latest centralized cache data
-        
-        console.log('Using centralized caches (already initialized):', {
-          valueCount: getAllCachedValues().size,
-          capabilityCount: getAllCachedCapabilities().size,
-          keys: {
-            valueKeys: Array.from(getAllCachedValues().keys()).slice(0, 5),
-            capabilityKeys: Array.from(getAllCachedCapabilities().keys()).slice(0, 5)
-          }
-        });
-        
-        // Verify that the nodes already have values and capabilities from loadCardDetails
-        if (nodeElements) {
-          console.log("Verifying node data has _valueNames and _capabilityNames:");
-          nodeElements.each(function(d) {
-            if (d && d.type === 'actor') {
-              console.log(`Node ${d.id} data:`, {
-                hasValueNames: !!d._valueNames,
-                hasCapabilityNames: !!d._capabilityNames,
-                valueNamesLength: d._valueNames?.length || 0,
-                capabilityNamesLength: d._capabilityNames?.length || 0
-              });
-            }
-          });
-        }
-        
-        // Manually check what node selection gets
-        try {
-          const nodes = d3.select(svgRef).selectAll('.node-actor');
-          console.log('Direct D3 node selection (.node-actor):', {
-            isEmpty: nodes.empty(),
-            count: nodes.size()
-          });
-        } catch (e) {
-          console.error('Error with direct node selection:', e);
-        }
-        
-        // Call the function with explicit debugging information
-        // Use getAllCachedValues and getAllCachedCapabilities to get the most up-to-date caches
-        console.log("CRITICAL: About to call addDonutRings with caches:", {
-          valueCount: getAllCachedValues().size,
-          capabilityCount: getAllCachedCapabilities().size,
-          nodeElementsCount: nodeElements?.size() || 0
-        });
-        
-        // Make sure we're passing the actual Map objects from the centralized caches
-        const valueMapForDonut = getAllCachedValues();
-        const capabilityMapForDonut = getAllCachedCapabilities();
-        
-        // Pass the Maps directly to the function
-        addDonutRings(nodeElements, activeCardId, valueMapForDonut, capabilityMapForDonut);
-        console.log('Successfully added donut rings');
-        
-        // Update the guaranteed rings
-        updateGuaranteedRings();
-      } catch (err) {
-        console.error('Error adding donut rings:', err);
-        console.error('Error stack:', err.stack);
-      }
-      
-      // Add an update function for our guaranteed rings that syncs with D3 node positions
-      function updateGuaranteedRings() {
-        if (!graphState || !graphState.nodes) return;
-        
-        // Update cardsWithPosition for the Svelte template to render guaranteed rings
-        cardsWithPosition = graphState.nodes
-          .filter(node => node.type === 'actor')
-          .map(node => ({
-            ...node.data,
-            position: {
-              x: node.x,
-              y: node.y
-            }
-          }));
-      }
+      // After the graph is initialized, we can add donut segments to the nodes
+      addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
       
       // Add center icons to the nodes
-      if (nodeElements) {
-        nodeElements.each(function(node) {
-          if (node && node.type === 'actor') {
-            const centerGroup = d3.select(this).append("g")
-              .attr("class", "center-group");
+      nodeElements.each(function(node) {
+        if (node.type === 'actor') {
+          const centerGroup = d3.select(this).append("g")
+            .attr("class", "center-group");
+          
+          // Create a container div for the icon
+          const iconContainer = document.createElement('div');
+          iconContainer.className = 'center-icon-container';
+          
+          // Get the card data
+          const card = node.data as Card;
+          
+          // Get the icon name from the card data
+          const iconName = card.icon || 'user';
+          
+          // Create the icon using our utility function
+          createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
+          
+          // Convert the div container to a foreignObject in the SVG
+          const foreignObject = centerGroup.append('foreignObject')
+            .attr('width', 24)
+            .attr('height', 24)
+            .attr('x', -12)
+            .attr('y', -12);
             
-            // Create a container div for the icon
-            const iconContainer = document.createElement('div');
-            iconContainer.className = 'center-icon-container';
-            
-            // Get the card data
-            const card = node.data as Card;
-            
-            // Get the icon name from the card data
-            const iconName = card.icon || 'user';
-            
-            // Create the icon using our utility function
-            createCardIcon(iconName, 24, iconContainer, card.role_title || 'Card');
-            
-            // Convert the div container to a foreignObject in the SVG
-            const foreignObject = centerGroup.append('foreignObject')
-              .attr('width', 24)
-              .attr('height', 24)
-              .attr('x', -12)
-              .attr('y', -12);
-              
-            // Append the icon container to the foreignObject
-            foreignObject.node()?.appendChild(iconContainer);
-          }
-        });
-      }
+          // Append the icon container to the foreignObject
+          foreignObject.node()?.appendChild(iconContainer);
+        }
+      });
       
       console.log("D3 graph initialized with utility function");
     } catch (error) {
-      // Enhanced error handling
       console.error("Error initializing D3 graph:", error);
-      
-      if (error instanceof ReferenceError) {
-        console.error("REFERENCE ERROR DETAILS: This usually means a variable is undefined or doesn't exist");
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-      }
-      
-      // Create a safe fallback visualization
-      const svg = d3.select(svgRef);
-      console.log("CRITICAL: Clearing SVG content in fallback visualization at line ~1592");
-      // Comment out this line to prevent removing wedges
-      // svg.selectAll("*").remove();
-      
-      // Add warning text to the SVG
-      svg.append("text")
-        .attr("x", width / 2)
-        .attr("y", height / 2)
-        .attr("text-anchor", "middle")
-        .attr("fill", "red")
-        .text("Error initializing graph visualization");
     }
     
     // Prepare nodes and links data
@@ -1797,8 +1609,8 @@
           fy: card.position?.y || null,
           active: card.card_id === activeCardId,
           // Use properly typed properties
-          _valueNames: cardWithNames._valueNames || [],
-          _capabilityNames: cardWithNames._capabilityNames || []
+          _valueNames: cardWithNames._valueNames,
+          _capabilityNames: cardWithNames._capabilityNames
         };
       }),
       ...agreements.map((agreement) => ({
@@ -2269,10 +2081,11 @@
         }
       })
       .on("mouseover", (event, d) => {
-        // On hover, set the hovered node and show the radial menu
+        // On hover, set the hovered node but don't use the separate radial menu
+        // The donut rings handle everything with their own mouse events
         if (d.type === 'actor') {
           hoveredNode = d.id;
-          updateRadialMenu(d);
+          // No need to call updateRadialMenu - all visualization is handled by D3
         }
       })
       .on("mouseout", (event, d) => {
@@ -2282,9 +2095,9 @@
 
     // Initialize link positions
     updateLinks();
-    
-    // Add donut rings using d3GraphUtils function
-    addDonutRings(nodeElements, activeCardId, getAllCachedValues(), getAllCachedCapabilities());
+
+    // Add donut rings around card nodes
+    addDonutRings();
     
     // Add center circles with gradients and add text on top
     const cardNodes = nodeElements.filter((d) => d.type === "actor");
@@ -2953,8 +2766,7 @@
   }
   
   // Complete remake of donut rings to EXACTLY match React implementation
-  // Note: This function is kept for reference but not used - we use addDonutRings from d3GraphUtils.ts instead
-  function addLocalDonutRings() {
+  function addDonutRings() {
     // ----- EXACTLY MATCH REACT APPROACH -----
     
     // Get all card nodes
@@ -3065,12 +2877,9 @@
           'value_community-resilience': true
         };
           
-        // IMPORTANT: Use addValueToCache from cacheUtils.ts to update centralized caches
-        // This ensures consistency across all components
-        const centralizedValues = getAllCachedValues();
-        
-        if (!centralizedValues.has('value_sustainability')) {
-          addValueToCache('value_sustainability', { 
+        // Initialize our cache with these known values
+        if (!valueCache.has('value_sustainability')) {
+          valueCache.set('value_sustainability', { 
             value_id: 'value_sustainability', 
             name: 'Sustainability',
             description: 'Practices that can be maintained indefinitely',
@@ -3078,8 +2887,8 @@
           });
         }
         
-        if (!centralizedValues.has('value_community-resilience')) {
-          addValueToCache('value_community-resilience', { 
+        if (!valueCache.has('value_community-resilience')) {
+          valueCache.set('value_community-resilience', { 
             value_id: 'value_community-resilience', 
             name: 'Community Resilience',
             description: 'Ability to adapt and recover from adversity',
@@ -3087,16 +2896,15 @@
           });
         }
       } else {
-        // For existing values, ensure we have them in our centralized cache
-        const centralizedValues = getAllCachedValues();
+        // For existing values, ensure we have them in our cache
         Object.keys(cardDataForViz.values).forEach(key => {
-          if (key !== '_' && key !== '#' && !centralizedValues.has(key)) {
+          if (key !== '_' && key !== '#' && !valueCache.has(key)) {
             const valueName = key.replace('value_', '')
-              .split(/[-_]/) // Handle both hyphen and underscore delimiters
+              .split('-')
               .map(word => word.charAt(0).toUpperCase() + word.slice(1))
               .join(' ');
               
-            addValueToCache(key, { 
+            valueCache.set(key, { 
               value_id: key, 
               name: valueName,
               description: `Value for ${card.role_title}`,
@@ -3377,15 +3185,12 @@
           const textAnchor = isLeftSide ? "end" : "start";
           const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
           
-          // Get item name using centralized caches
+          // Get item name
           let itemName = item;
-          const centralizedValues = getAllCachedValues();
-          const centralizedCapabilities = getAllCachedCapabilities();
-          
-          if (category === "values" && centralizedValues.has(item)) {
-            itemName = centralizedValues.get(item).name;
-          } else if (category === "capabilities" && centralizedCapabilities.has(item)) {
-            itemName = centralizedCapabilities.get(item).name;
+          if (category === "values" && valueCache.has(item)) {
+            itemName = valueCache.get(item).name;
+          } else if (category === "capabilities" && capabilityCache.has(item)) {
+            itemName = capabilityCache.get(item).name;
           }
           
           // Add the label text
@@ -3645,85 +3450,6 @@
   opacity: 0.9;
   filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.1));
 }
-
-/* Donut rings and wedges */
-.donut-ring {
-  fill: transparent;
-  stroke: #e5e5e5;
-  stroke-width: 1px;
-  opacity: 0.8;
-}
-
-.donut-ring.active {
-  stroke: #4299e1;
-  stroke-width: 1.5px;
-}
-
-.wedge {
-  transition: opacity 0.2s ease, stroke-width 0.2s ease;
-}
-
-/* Ensure the category groups are visible */
-.category-group {
-  opacity: 1;
-}
-
-/* Node backgrounds */
-.node-background {
-  fill: white;
-  stroke: #e5e5e5;
-  stroke-width: 1;
-}
-
-.actor-background {
-  fill: white;
-  filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-.agreement-background {
-  fill: #f7fafc;
-}
-
-/* Make sure actor nodes are prominent */
-.node-actor {
-  z-index: 10;
-}
-
-/* Guaranteed visible rings styling */
-#guaranteed-rings {
-  pointer-events: none; /* Allow clicks to pass through to the nodes */
-}
-
-.card-rings {
-  pointer-events: none; /* Allow clicks to pass through to the nodes below */
-}
-
-.guaranteed-ring,
-.guaranteed-values-wedge,
-.guaranteed-capabilities-wedge,
-.guaranteed-goals-wedge, 
-.guaranteed-resources-wedge,
-.guaranteed-ip-wedge,
-.guaranteed-relationships-wedge,
-.guaranteed-center {
-  pointer-events: none; /* Allow clicks to pass through to the nodes below */
-  filter: drop-shadow(0px 0px 2px rgba(0, 0, 0, 0.3));
-}
-
-/* Make ring wedges slightly translucent */
-.guaranteed-values-wedge,
-.guaranteed-capabilities-wedge,
-.guaranteed-goals-wedge,
-.guaranteed-resources-wedge,
-.guaranteed-ip-wedge,
-.guaranteed-relationships-wedge {
-  opacity: 0.85;
-}
-
-/* Ensure the center of card stays on top of wedges */
-.guaranteed-center {
-  opacity: 1;
-}
 </style>
 
 <div class="h-full relative overflow-hidden">  
@@ -3742,8 +3468,6 @@
     <!-- D3 visualization will be rendered here -->
     
     <!-- All visualization elements are now created directly with D3 -->
-    
-    <!-- D3 visualization will be rendered here -->
   </svg>
   
   <!-- Popover Container -->

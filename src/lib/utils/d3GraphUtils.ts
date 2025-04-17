@@ -22,13 +22,6 @@ export interface D3Node {
   fy?: number | null;
   active?: boolean;
   _valueNames?: string[];  // Store value names for card nodes
-  _capabilityNames?: string[];  // Store capability names for card nodes
-  // Allow any additional category data
-  values?: any;
-  capabilities?: any;
-  intellectualProperty?: any;
-  resources?: any;
-  goals?: any;
 }
 
 /**
@@ -222,8 +215,8 @@ export function createLinks(
       const fromActorId = benefit.fromActorId;
       const toActorId = benefit.toActorId;
       
-      // Get card IDs from actor IDs - ensure we handle undefined
-      const recipientCardId = toActorId ? actorCardMap.get(toActorId) : undefined;
+      // Get card IDs from actor IDs
+      const recipientCardId = actorCardMap.get(toActorId);
       
       if (recipientCardId) {
         // Create link from agreement to recipient card
@@ -489,38 +482,6 @@ export function updateForces(
 }
 
 /**
- * Utility function to help debug and fix node selectors
- * between React and Svelte implementations
- */
-export function fixNodeSelectors() {
-  // Check if we need to modify the node class
-  const allNodes = document.querySelectorAll('.node-card');
-  const allActorNodes = document.querySelectorAll('.node-actor');
-  
-  console.log('Node selector debug:', {
-    nodeCardCount: allNodes.length,
-    nodeActorCount: allActorNodes.length
-  });
-  
-  // If we have node-card elements but no node-actor elements,
-  // we need to add the node-actor class to them
-  if (allNodes.length > 0 && allActorNodes.length === 0) {
-    console.log('Fixing node selectors: Adding node-actor class to node-card elements');
-    allNodes.forEach(node => {
-      node.classList.add('node-actor');
-    });
-  }
-  
-  // Also check the reverse
-  if (allActorNodes.length > 0 && allNodes.length === 0) {
-    console.log('Fixing node selectors: Adding node-card class to node-actor elements');
-    allActorNodes.forEach(node => {
-      node.classList.add('node-card');
-    });
-  }
-}
-
-/**
  * Add donut ring segments to card nodes based on their values, capabilities, etc.
  * 
  * @param nodeElements - D3 Selection of node elements
@@ -534,297 +495,42 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
-  // Run the node selector fixer first to ensure we have the right selectors
-  fixNodeSelectors();
-  
-  // Guard against undefined nodeElements
-  if (!nodeElements) {
-    console.error("Cannot add donut rings: nodeElements is undefined");
-    return;
-  }
-  
-  // CRITICAL FIX: Ensure we have valid caches
-  if (!valueCache) {
-    console.error("ValueCache is missing - donut rings cannot be created!");
-    return;
-  }
-  
-  if (!capabilityCache) {
-    console.error("CapabilityCache is missing - donut rings cannot be created!");
-    return;
-  }
-  
-  // Log the cache inputs to help with debugging
-  console.log("addDonutRings received these cache values:", {
-    valueCacheProvided: !!valueCache,
-    valueCacheSize: valueCache?.size || 0,
-    capabilityCacheProvided: !!capabilityCache,
-    capabilityCacheSize: capabilityCache?.size || 0,
-    sampleValueKeys: Array.from(valueCache?.keys() || []).slice(0, 3),
-    sampleCapabilityKeys: Array.from(capabilityCache?.keys() || []).slice(0, 3)
-  });
-  
-  // DIRECT DEBUG: Check what nodes we have
-  console.log("CRITICAL NODE CHECK:", { 
-    selectionValid: !!nodeElements,
-    selectionEmpty: nodeElements.empty(),
-    nodeCount: nodeElements.size(),
-    selection: nodeElements.nodes().length,
-    firstFewNodes: nodeElements.data().slice(0, 2)
-  });
-  
-  // Also check if the selection is empty
-  try {
-    if (nodeElements.empty()) {
-      console.warn("Cannot add donut rings: nodeElements selection is empty");
-      return;
-    }
-    
-    // Debug the node elements data
-    console.log("D3 nodeElements debug:", {
-      size: nodeElements.size(),
-      data: nodeElements.data(),
-      types: nodeElements.data().map(d => d.type)
-    });
-  } catch (err) {
-    console.error("Error checking nodeElements:", err);
-    return;
-  }
-  
-  // CRITICAL DEBUG: Check if node classes are correctly set
-  console.log("NODE CLASS DEBUG:", {
-    nodeElementsClasses: nodeElements.nodes().map((n: any) => n.className?.baseVal || "no-class").join(', '),
-    actorNodeCount: d3.selectAll('.node-actor').size(),
-    agreementNodeCount: d3.selectAll('.node-agreement').size()
-  });
-  
-  // CRITICAL FIX: Adding a forced class to ensure all actor nodes have the node-actor class
-  try {
-    nodeElements.each(function(d: any) {
-      if (d && d.type === 'actor') {
-        const element = d3.select(this);
-        const currentClass = element.attr('class') || '';
-        
-        // Only add if not already present
-        if (!currentClass.includes('node-actor')) {
-          element.classed('node-actor', true);
-          console.log(`Added node-actor class to node ${d.id}`);
-        }
-      }
-    });
-    
-    // Re-check after fixing
-    console.log("After class fix, node count:", {
-      actorNodeCount: d3.selectAll('.node-actor').size(),
-    });
-  } catch (err) {
-    console.error("Error fixing node classes:", err);
-  }
-  
-  // Get all card nodes - Try two different approaches and use the one that works
-  let cardNodes;
-  try {
-    // First try direct D3 global selector (more reliable when classes are set)
-    cardNodes = d3.selectAll('.node-actor');
-    console.log(`Using global selector: Found ${cardNodes.size()} nodes`);
-    
-    // If that fails, fall back to filtering the nodeElements
-    if (cardNodes.empty()) {
-      console.log("Global selector returned empty selection, trying filter approach");
-      cardNodes = nodeElements.filter((d: any) => d && d.type === "actor");
-      console.log(`Using filter approach: Found ${cardNodes.size()} nodes`);
-    }
-  } catch (err) {
-    console.error("Error selecting card nodes:", err);
-    // Last resort fallback
-    console.log("Using last resort filter approach");
-    cardNodes = nodeElements.filter((d: any) => d && d.type === "actor");
-  }
-  
-  // Debug the filtered card nodes
-  console.log("Filtered card nodes debug:", {
-    count: cardNodes.size(),
-    data: cardNodes.data()
-  });
-  
-  // DIRECT FIX: If we still don't have any card nodes, try another selector
-  if (cardNodes.empty() || cardNodes.size() === 0) {
-    console.log("No card nodes found with .node-actor selector. Trying alternative approach.");
-    // Fall back to using all nodes and checking type
-    const allNodes = nodeElements;
-    console.log("All nodes:", {
-      count: allNodes.size(),
-      data: allNodes.data()
-    });
-  }
-  
-  // Process each card node to check data
-  cardNodes.each(function(d: any) {
-    if (!d || !d.id) {
-      console.warn("Invalid node data in cardNodes.each:", d);
-      return;
-    }
-    
-    console.log("Preparing to add real donut segments to node:", d.id);
-    
-    // Extract values and capabilities from node data
-    const cardNode = d as D3Node;
-    
-    // If _valueNames and _capabilityNames aren't set, try to extract from cached values
-    if (!cardNode._valueNames || cardNode._valueNames.length === 0) {
-      console.log(`Node ${d.id} has no _valueNames property, attempting to find from card data`);
-      
-      // Extract from card data if available
-      const card = cardNode.data as Card;
-      if (card && card.values) {
-        try {
-          // Try to extract values from card data
-          if (typeof card.values === 'object' && !Array.isArray(card.values)) {
-            const valueIds = Object.keys(card.values)
-              .filter(key => key !== '_' && key !== '#' && (card.values as Record<string, any>)[key] === true);
-            
-            if (valueIds.length > 0) {
-              cardNode._valueNames = valueIds;
-              console.log(`Found ${valueIds.length} value names from card data:`, valueIds);
-            } else {
-              // CRITICAL FIX: If no values found, assign default values
-              console.log(`Cache miss: No values found in cache for card ${d.id}, returning defaults.`);
-              const defaultValueIds = ["value_sustainability", "value_community-resilience"];
-              cardNode._valueNames = defaultValueIds;
-              
-              // Ensure values object exists and has these values
-              if (!card.values) card.values = {};
-              defaultValueIds.forEach(id => (card.values as Record<string, boolean>)[id] = true);
-            }
-          }
-        } catch (err) {
-          console.error("Error extracting values from card data:", err);
-          // Fallback to defaults on error
-          cardNode._valueNames = ["value_sustainability", "value_community-resilience"];
-        }
-      } else {
-        // No values at all - create defaults
-        console.log(`Card ${d.id} has no values object, creating default values`);
-        cardNode._valueNames = ["value_sustainability", "value_community-resilience"];
-        
-        // Add to card data
-        if (card) {
-          card.values = {
-            "value_sustainability": true,
-            "value_community-resilience": true
-          };
-        }
-      }
-    }
-    
-    // Same for capabilities
-    if (!cardNode._capabilityNames || cardNode._capabilityNames.length === 0) {
-      console.log(`Node ${d.id} has no _capabilityNames property, attempting to find from card data`);
-      
-      // Extract from card data if available
-      const card = cardNode.data as Card;
-      if (card && card.capabilities) {
-        try {
-          // Try to extract capabilities from card data
-          if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
-            const capabilityIds = Object.keys(card.capabilities)
-              .filter(key => key !== '_' && key !== '#' && (card.capabilities as Record<string, any>)[key] === true);
-            
-            if (capabilityIds.length > 0) {
-              cardNode._capabilityNames = capabilityIds;
-              console.log(`Found ${capabilityIds.length} capability names from card data:`, capabilityIds);
-            } else {
-              // CRITICAL FIX: If no capabilities found, assign default capabilities
-              console.log(`Cache miss: No capabilities found in cache for referenced card ${d.id}, returning defaults.`);
-              const defaultCapabilityIds = ["capability_impact-assessment", "capability_resource-sharing"];
-              cardNode._capabilityNames = defaultCapabilityIds;
-              
-              // Ensure capabilities object exists and has these values
-              if (!card.capabilities) card.capabilities = {};
-              defaultCapabilityIds.forEach(id => (card.capabilities as Record<string, boolean>)[id] = true);
-            }
-          }
-        } catch (err) {
-          console.error("Error extracting capabilities from card data:", err);
-          // Fallback to defaults on error
-          cardNode._capabilityNames = ["capability_impact-assessment", "capability_resource-sharing"];
-        }
-      } else {
-        // No capabilities at all - create defaults
-        console.log(`Card ${d.id} has no capabilities object, creating default capabilities`);
-        cardNode._capabilityNames = ["capability_impact-assessment", "capability_resource-sharing"];
-        
-        // Add to card data
-        if (card) {
-          card.capabilities = {
-            "capability_impact-assessment": true,
-            "capability_resource-sharing": true
-          };
-        }
-      }
-    }
-    
-    // Log data for debugging
-    console.log(`Node ${d.id} ready for donut rings with:`, {
-      hasValueNames: !!cardNode._valueNames,
-      hasCapabilityNames: !!cardNode._capabilityNames,
-      valueNames: cardNode._valueNames || [],
-      capabilityNames: cardNode._capabilityNames || []
-    });
-  });
+  // Get all card nodes
+  const cardNodes = nodeElements.filter((d) => d.type === "actor");
   
   // Fixed values for radii
   const baseActorRadius = 35; 
   const baseDonutThickness = 15;
 
   // Helper function to ensure array format for properties
-  const ensureArray = (field: any): string[] => {
+  const ensureArray = (field: Record<string, boolean | any> | string[] | string | undefined | null): string[] => {
     if (!field) return [];
     if (Array.isArray(field)) return field;
     if (typeof field === 'object') {
       // Handle Gun.js objects and references
-      try {
-        return Object.keys(field).filter(id => id !== '_' && id !== '#');
-      } catch (err) {
-        console.error('Error processing object keys:', err);
-        return [];
-      }
+      return Object.keys(field).filter(id => id !== '_' && id !== '#');
     }
     if (typeof field === 'string') {
       return field.split(',').map(item => item.trim());
     }
-    if (typeof field === 'number') {
-      return [field.toString()];
-    }
-    console.warn('Unexpected field type:', typeof field, field);
     return [];
   };
   
   // Step 1: Add outer donut rings to all card nodes first
-  cardNodes.each(function(d: any) {
-    if (!d || !d.id) {
-      console.warn("Invalid node data in outer donut rings:", d);
-      return;
-    }
-    
+  cardNodes.each(function(d) {
     const isActive = d.id === activeCardId;
     const scaleFactor = isActive ? 1.5 : 1;
     const scaledNodeRadius = baseActorRadius * scaleFactor;
     const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
     
-    // Add a more visible donut ring
+    // Add a donut ring
     d3.select(this)
       .append("circle")
       .attr("r", donutRadius)
       .attr("class", `donut-ring${isActive ? " active" : ""}`)
-      .attr("fill", "var(--color-surface-100)")
-      .attr("stroke", "var(--color-primary-500)")
-      .attr("stroke-width", 2)
-      .attr("opacity", 0.4)  // Make it translucent
-      .style("visibility", "visible")
-      .style("display", "block")
-      // Make sure it's on the right layer but below other elements
-      .style("z-index", "50");
+      .attr("fill", "transparent")
+      .attr("stroke", "var(--border)")
+      .attr("stroke-width", 1);
   });
 
   // Available categories for visualization
@@ -838,33 +544,19 @@ export function addDonutRings(
       .trim();
   };
   
-  // Color scale for categories - matching exactly the original React implementation
+  // Color scale for categories - using same colors as original React implementation
   const colorScale = d3.scaleOrdinal<string>()
     .domain(categories)
     .range([
-      "#4C9AFF", // bright blue for values
-      "#36B37E", // emerald green for capabilities
-      "#FF991F", // bright orange for intellectual property 
-      "#998DD9", // purple for resources
-      "#FF5630"  // bright red for goals
+      "#3B82F6", // blue for values
+      "#10B981", // green for capabilities
+      "#F59E0B", // amber for intellectual property
+      "#6366F1", // indigo for resources
+      "#EC4899"  // pink for goals
     ]);
-    
-  // Create secondary color variants for hover states and sub-wedges
-  const secondaryColors: { [key: string]: string } = {
-    "values": "#00C7E6",      // cyan variant for values
-    "capabilities": "#57D9A3", // light green variant
-    "intellectualProperty": "#FFC400", // yellow variant
-    "resources": "#C0B6F2",   // light purple variant
-    "goals": "#FF8F73"        // light red variant
-  };
   
   // Process each card node to add wedges
-  cardNodes.each(function(nodeData: any) {
-    if (!nodeData || !nodeData.id) {
-      console.warn("Invalid node data in wedge creation:", nodeData);
-      return;
-    }
-    
+  cardNodes.each(function(nodeData) {
     // Basic setup for this node
     const node = d3.select(this);
     const card = nodeData.data as Card;
@@ -875,174 +567,87 @@ export function addDonutRings(
     
     // Process each category
     categories.forEach(category => {
-      // Handle special cases for values and capabilities, using the _valueNames and _capabilityNames
-      // properties that were set earlier
-      let categoryItems: string[] = [];
+      const categoryData = nodeData[category as keyof D3Node] || card[category as keyof Card];
+      const categoryItems = ensureArray(categoryData);
       
-      if (category === 'values' && nodeData._valueNames && nodeData._valueNames.length > 0) {
-        // Use cached value names that were already processed
-        categoryItems = nodeData._valueNames;
-        console.log(`Using _valueNames for node ${nodeData.id}:`, categoryItems);
-      } else if (category === 'capabilities' && nodeData._capabilityNames && nodeData._capabilityNames.length > 0) {
-        // Use cached capability names that were already processed
-        categoryItems = nodeData._capabilityNames;
-        console.log(`Using _capabilityNames for node ${nodeData.id}:`, categoryItems);
-      } else {
-        // For other categories, use standard approach
-        let categoryData: any = nodeData[category as keyof D3Node] || card[category as keyof Card];
-        // Safely convert numerical values if they exist
-        if (typeof categoryData === 'number') {
-          categoryData = categoryData.toString();
-        }
-        categoryItems = ensureArray(categoryData);
-      }
-      
-      // Log all categories for this node with detailed information
-      console.log(`Category ${category} for node ${nodeData.id}:`, {
-        count: categoryItems.length,
-        items: categoryItems,
-        hasData: categoryItems.length > 0
-      });
-      
-      // Debug log specifically for rendering wedges
-      console.log("Rendering wedges for category:", category, "with items:", categoryItems);
+      if (categoryItems.length > 0) {
+        // Calculate angles for wedges based on number of items
+        const isActive = nodeData.id === activeCardId;
+        const scaleFactor = isActive ? 1.5 : 1;
+        const scaledNodeRadius = baseActorRadius * scaleFactor;
+        const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
         
-      // Skip rendering if the category has no items
-      if (categoryItems.length === 0) {
-        console.log(`Skipping rendering for empty category ${category} in node ${nodeData.id}`);
-        return; // Skip to next category
-      }
-      
-      // Now proceed with creating wedges
-      const isActive = nodeData.id === activeCardId;
-      const scaleFactor = isActive ? 1.5 : 1;
-      const scaledNodeRadius = baseActorRadius * scaleFactor;
-      const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
-      
-      // Calculate angles and create wedge paths
-      const itemCount = categoryItems.length;
-      const categoryColor = colorScale(category);
-      const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
-      const startAngle = totalOffset;
-      const anglePerItem = totalAngle / itemCount;
-      
-      // Create a group for this category - ensure it's on top with .raise()
-      const categoryGroup = node.append("g")
-        .attr("class", `category-group ${category}`)
-        .raise();
-      
-      // Add each wedge for this category
-      categoryItems.forEach((itemId, i) => {
-        const itemAngle = startAngle + (i * anglePerItem);
-        const wedgeStartAngle = (itemAngle * Math.PI) / 180;
-        const wedgeEndAngle = ((itemAngle + anglePerItem) * Math.PI) / 180;
+        // Calculate angles and create wedge paths
+        const itemCount = categoryItems.length;
+        const categoryColor = colorScale(category);
+        const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
+        const startAngle = totalOffset;
+        const anglePerItem = totalAngle / itemCount;
         
-        // Create SVG arc path
-        const arc = d3.arc<any>()
-          .innerRadius(scaledNodeRadius)
-          .outerRadius(donutRadius)
-          .startAngle(wedgeStartAngle)
-          .endAngle(wedgeEndAngle)
-          .padAngle(0.01);
+        // Create a group for this category
+        const categoryGroup = node.append("g")
+          .attr("class", `category-group ${category}`);
         
-        // Create the outer wedge with primary color
-        const wedgePath = categoryGroup.append("path")
-          .attr("d", arc({} as any))
-          .attr("fill", categoryColor)
-          .attr("opacity", 0.9) // Slightly transparent for layered effect
-          .attr("stroke", "white")
-          .attr("stroke-width", 1.5)
-          .attr("class", `wedge ${category} category-wedge`)
-          .style("z-index", "10") // Set explicit z-index
-          .style("visibility", "visible")
-          .style("display", "block")
-          .style("pointer-events", "all"); // Ensure clickable
+        // Add each wedge for this category
+        categoryItems.forEach((itemId, i) => {
+          const itemAngle = startAngle + (i * anglePerItem);
+          const wedgeStartAngle = (itemAngle * Math.PI) / 180;
+          const wedgeEndAngle = ((itemAngle + anglePerItem) * Math.PI) / 180;
           
-        // Add inner wedge with gradient or secondary color for depth
-        // Create smaller inner arc for nested visual effect
-        const innerArc = d3.arc<any>()
-          .innerRadius(scaledNodeRadius + (baseDonutThickness * 0.4)) // Inner radius is larger
-          .outerRadius(donutRadius - (baseDonutThickness * 0.2)) // Outer radius is smaller
-          .startAngle(wedgeStartAngle)
-          .endAngle(wedgeEndAngle)
-          .padAngle(0.01);
+          // Create SVG arc path
+          const arc = d3.arc<any>()
+            .innerRadius(scaledNodeRadius)
+            .outerRadius(donutRadius)
+            .startAngle(wedgeStartAngle)
+            .endAngle(wedgeEndAngle)
+            .padAngle(0.01);
           
-        // Get secondary color for this category
-        const secondaryColor = secondaryColors[category] || d3.color(categoryColor)?.brighter(0.5)?.toString() || categoryColor;
-        
-        // Add inner wedge with secondary color
-        const innerWedge = categoryGroup.append("path")
-          .attr("d", innerArc({} as any))
-          .attr("fill", secondaryColor)
-          .attr("opacity", 0.7) // More transparent for layered effect
-          .attr("stroke", "white")
-          .attr("stroke-width", 0.5)
-          .attr("class", `inner-wedge ${category}`)
-          .style("z-index", "11") // Higher z-index to appear on top
-          .style("visibility", "visible");
-        
-        // Add event handlers to both paths for consistent interaction
-        const handleMouseOver = function() {
-          wedgePath
-            .attr("opacity", 1)
-            .attr("stroke-width", 2)
-            .attr("fill", categoryColor);
-            
-          innerWedge
-            .attr("opacity", 0.9)
-            .attr("stroke-width", 1)
-            .attr("fill", secondaryColor);
-        };
-        
-        const handleMouseOut = function() {
-          wedgePath
-            .attr("opacity", 0.9)
-            .attr("stroke-width", 1.5)
-            .attr("fill", categoryColor);
-            
-          innerWedge
-            .attr("opacity", 0.7)
+          // Add wedge path
+          categoryGroup.append("path")
+            .attr("d", arc({} as any))
+            .attr("fill", categoryColor)
+            .attr("opacity", 0.8)
+            .attr("stroke", "white")
             .attr("stroke-width", 0.5)
-            .attr("fill", secondaryColor);
-        };
-        
-        // Apply event handlers to both paths
-        wedgePath
-          .on("mouseover", handleMouseOver)
-          .on("mouseout", handleMouseOut);
+            .attr("class", `wedge ${category}`)
+            .on("mouseover", function() {
+              // Highlight this wedge
+              d3.select(this)
+                .attr("opacity", 1)
+                .attr("stroke-width", 1);
+            })
+            .on("mouseout", function() {
+              // Reset appearance
+              d3.select(this)
+                .attr("opacity", 0.8)
+                .attr("stroke-width", 0.5);
+            });
+            
+          // Add tooltip or label if needed
+          let itemName = itemId;
           
-        innerWedge
-          .on("mouseover", handleMouseOver)
-          .on("mouseout", handleMouseOut);
+          // Try to get a friendly name from cache
+          if (category === "values" && valueCache && valueCache.has(itemId)) {
+            itemName = valueCache.get(itemId).name;
+          } else if (category === "capabilities" && capabilityCache && capabilityCache.has(itemId)) {
+            itemName = capabilityCache.get(itemId).name;
+          } else {
+            // Extract name from the ID if no cache is available
+            itemName = itemId.replace(/^(value_|capability_|resource_|goal_)/, '')
+              .split(/[-_]/)
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+          }
           
-        // Log the SVG path for verification
-        console.log("Wedges added for node:", nodeData.id, "count:", categoryItems.length, 
-                    "SVG path:", wedgePath.attr("d"));
-          
-        // Add tooltip or label if needed
-        let itemName = itemId;
+          // Add title for tooltip
+          categoryGroup.append("title")
+            .text(`${formatCategoryName(category)}: ${itemName}`);
+        });
         
-        // Try to get a friendly name from cache
-        if (category === "values" && valueCache && valueCache.has(itemId)) {
-          itemName = valueCache.get(itemId).name;
-        } else if (category === "capabilities" && capabilityCache && capabilityCache.has(itemId)) {
-          itemName = capabilityCache.get(itemId).name;
-        } else {
-          // Extract name from the ID if no cache is available
-          itemName = itemId.replace(/^(value_|capability_|resource_|goal_)/, '')
-            .split(/[-_]/)
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(" ");
-        }
-        
-        // Add title for tooltip
-        categoryGroup.append("title")
-          .text(`${formatCategoryName(category)}: ${itemName}`);
-      });
-      
-      // Update offset for next category
-      totalOffset += totalAngle;
-      categoryIndex++;
+        // Update offset for next category
+        totalOffset += totalAngle;
+        categoryIndex++;
+      }
     });
   });
 }
@@ -1069,8 +674,8 @@ export function initializeD3Graph(
   handleNodeClick: (node: D3Node) => void
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
-  nodeElements: any,
-  linkElements: any,
+  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
+  linkElements: d3.Selection<SVGGElement, D3Link, null, undefined>,
   nodes: D3Node[],
   links: D3Link[]
 } {
@@ -1084,75 +689,9 @@ export function initializeD3Graph(
     }
   });
   
-  // Create D3 nodes and links with defensive coding
-  if (!cards || !Array.isArray(cards) || cards.length === 0) {
-    console.warn('No valid cards data provided for D3 graph initialization');
-    
-    // Create empty SVG structure
-    const svg = d3.select(svgElement);
-    svg.selectAll("*").remove();
-    
-    const nodeGroup = svg.append("g").attr("class", "nodes");
-    const linkGroup = svg.append("g").attr("class", "links");
-    
-    // Return an empty graph structure when no data exists
-    return {
-      simulation: d3.forceSimulation<D3Node>([]),
-      nodeElements: nodeGroup.selectAll("g") as any, // Empty selection
-      linkElements: linkGroup.selectAll("g") as any, // Empty selection
-      nodes: [],
-      links: []
-    };
-  }
-  
-  // Create nodes with safer approach
-  let nodes: D3Node[] = [];
-  try {
-    nodes = createNodes(cards, agreements || [], width, height);
-  } catch (err) {
-    console.error('Error creating nodes:', err);
-    
-    // Create empty SVG structure on error
-    const svg = d3.select(svgElement);
-    svg.selectAll("*").remove();
-    
-    const nodeGroup = svg.append("g").attr("class", "nodes");
-    const linkGroup = svg.append("g").attr("class", "links");
-    
-    // Return an empty graph structure
-    return {
-      simulation: d3.forceSimulation<D3Node>([]),
-      nodeElements: nodeGroup.selectAll("g") as any,
-      linkElements: linkGroup.selectAll("g") as any,
-      nodes: [],
-      links: []
-    };
-  }
-  
-  if (!nodes || nodes.length === 0) {
-    console.warn('No nodes created in D3 graph initialization');
-    
-    // Create empty SVG structure
-    const svg = d3.select(svgElement);
-    svg.selectAll("*").remove();
-    
-    const nodeGroup = svg.append("g").attr("class", "nodes");
-    const linkGroup = svg.append("g").attr("class", "links");
-    
-    // Return an empty graph structure when no nodes exist
-    return {
-      simulation: d3.forceSimulation<D3Node>([]),
-      nodeElements: nodeGroup.selectAll("g") as any,
-      linkElements: linkGroup.selectAll("g") as any,
-      nodes: [],
-      links: []
-    };
-  }
-  
-  const links = nodes && agreements ? createLinks(nodes, agreements, actorCardMap) : [];
-  if (!links || links.length === 0) {
-    console.warn('No links created in D3 graph initialization');
-  }
+  // Create D3 nodes and links
+  const nodes = createNodes(cards, agreements, width, height);
+  const links = createLinks(nodes, agreements, actorCardMap);
   
   // Clear existing SVG content
   const svg = d3.select(svgElement);
@@ -1185,66 +724,26 @@ export function initializeD3Graph(
     .attr("class", d => `link-path ${d.type}`)
     .attr("marker-end", d => `url(#arrow-${d.type})`);
   
-  // Create node elements with defensive coding
-  // Use a type assertion for now to satisfy the type checker
-  let nodeElements: any;
-  try {
-    nodeElements = nodeGroup
-      .selectAll("g")
-      .data(nodes)
-      .enter()
-      .append("g")
-      .attr("class", (d: D3Node) => {
-        // IMPORTANT: We need to use BOTH node-card AND node-actor classes
-        // This ensures compatibility with both React and Svelte implementations
-        if (d.type === 'actor') {
-          return `node node-card node-actor ${d.id === activeCardId ? 'active' : ''}`;
-        } else {
-          return `node node-agreement ${d.id === activeCardId ? 'active' : ''}`;
-        }
-      })
-      // CRITICAL PATCH: Force add classes to ensure they're correctly set
-      .each(function(d) {
-        if (d.type === 'actor') {
-          d3.select(this).classed('node-actor', true).classed('node-card', true);
-        } else {
-          d3.select(this).classed('node-agreement', true);
-        }
-      })
-      .on("click", (_: any, d: D3Node) => handleNodeClick(d))
-      .call(dragBehavior as any);
-    
-    // Call fixNodeSelectors to ensure classes are set correctly
-    fixNodeSelectors();
-    
-    // Verify that nodeElements is created correctly
-    if (!nodeElements || nodeElements.empty()) {
-      console.warn("Node elements selection is empty after creation");
-      
-      // Create an empty selection that can be safely returned
-      nodeElements = nodeGroup.selectAll("g");
-    }
-  } catch (err) {
-    console.error("Error creating node elements:", err);
-    
-    // Create an empty selection that can be safely returned
-    nodeElements = nodeGroup.selectAll("g");
-  }
+  // Create node elements
+  const nodeElements = nodeGroup
+    .selectAll("g")
+    .data(nodes)
+    .enter()
+    .append("g")
+    .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+    .on("click", (_, d) => handleNodeClick(d))
+    .call(dragBehavior as any);
   
-  // Add background circles for nodes - with proper type annotations
-  try {
-    nodeElements.append("circle")
-      .attr("class", (d: D3Node) => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
-      .attr("r", (d: D3Node) => d.type === 'actor' ? 35 : 17);
-  } catch (err) {
-    console.error("Error adding background circles to nodes:", err);
-  }
+  // Add background circles for nodes
+  nodeElements.append("circle")
+    .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
+    .attr("r", d => d.type === 'actor' ? 35 : 17);
   
   // Setup visualization update on tick
   simulation.on("tick", () => {
-    // Update link positions with type assertions to handle D3 typing issues
+    // Update link positions
     linkElements.selectAll(".link-path")
-      .attr("d", (d: any) => {
+      .attr("d", (d) => {
         // Handle string sources that haven't been replaced with objects yet
         const source = typeof d.source === 'string' 
           ? nodes.find(n => n.id === d.source) 
@@ -1260,9 +759,7 @@ export function initializeD3Graph(
       });
     
     // Update node positions
-    nodeElements.attr("transform", (d: any) => {
-      return `translate(${d.x}, ${d.y})`;
-    });
+    nodeElements.attr("transform", d => `translate(${d.x}, ${d.y})`);
   });
   
   return {
