@@ -366,16 +366,14 @@ export function addDonutRings(
           const outerRingRadius = DIMENSIONS.donutRadius;
           const gapDistance = outerRingRadius * 0.1; // 10% of the outer ring radius
           
-          // Use the ring radius plus the gap as starting point for labels
-          const labelDistance = DIMENSIONS.labelRadius;
-          
+          // CRITICAL FIX: Position labels right at 10% from the outer ring, not at center distance
           // Calculate the exact starting position that is 10% away from the outer ring
           const startX = Math.cos(adjustedAngle) * (outerRingRadius + gapDistance);
           const startY = Math.sin(adjustedAngle) * (outerRingRadius + gapDistance);
           
-          // This will be the final label position
-          const labelX = Math.cos(adjustedAngle) * labelDistance;
-          const labelY = Math.sin(adjustedAngle) * labelDistance;
+          // These are the same as startX/Y - we want labels at the start of the line, 10% from ring
+          const labelX = startX;
+          const labelY = startY;
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
