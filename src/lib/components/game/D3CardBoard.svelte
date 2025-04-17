@@ -2162,7 +2162,7 @@
     updateLinks();
 
     // Add donut rings around card nodes
-    addDonutRings();
+    addDonutRingsLocal();
     
     // Add center circles with gradients and add text on top
     const cardNodes = nodeElements.filter((d) => d.type === "actor");
@@ -2831,7 +2831,7 @@
   }
   
   // Complete remake of donut rings to EXACTLY match React implementation
-  function addDonutRings() {
+  function addDonutRingsLocal() {
     // ----- EXACTLY MATCH REACT APPROACH -----
     
     // Get all card nodes
