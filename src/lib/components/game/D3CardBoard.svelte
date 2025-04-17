@@ -1467,6 +1467,7 @@
   }
 
   // Use the imported categoryColors from d3GraphUtils.ts
+  console.log("D3CardBoard: Imported categoryColors test:", categoryColors("values"), categoryColors("capabilities"));
 
   // Function to update the visualization after data changes
   function updateVisualization() {

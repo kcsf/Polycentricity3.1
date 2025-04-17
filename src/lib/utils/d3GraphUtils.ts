@@ -23,6 +23,13 @@ export const categoryColors = d3.scaleOrdinal([
   "#386F5B", // Deep sea green
 ]);
 
+// Add test logging for categoryColors 
+console.log("Testing d3GraphUtils categoryColors:", {
+  valuesColor: categoryColors("values"), 
+  capabilitiesColor: categoryColors("capabilities"),
+  goalsColor: categoryColors("goals")
+});
+
 /**
  * Interface for nodes in the D3 force simulation
  */
@@ -555,9 +562,17 @@ export function addDonutRings(
   valueCache?: Map<string, any>,
   capabilityCache?: Map<string, any>
 ): void {
+  console.log("addDonutRings called with", {
+    nodeElementsExists: !!nodeElements,
+    activeCardId,
+    valueCacheSize: valueCache?.size,
+    capabilityCacheSize: capabilityCache?.size
+  });
+  
   // Get all card nodes
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
-  
+  console.log(`Found ${cardNodes.size()} card nodes to process`);
+
   // Fixed values for radii
   const baseActorRadius = 35; 
   const baseDonutThickness = 15;
@@ -844,7 +859,10 @@ export function initializeD3Graph(
     // Add background circles for nodes
     nodeElements.append("circle")
       .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
-      .attr("r", d => d.type === 'actor' ? 35 : 17);
+      .attr("r", d => d.type === 'actor' ? 35 : 17)
+      .attr("fill", d => d.type === 'actor' ? '#FFFFFF' : '#F9F9F9')
+      .attr("stroke", "#e5e5e5")
+      .attr("stroke-width", 1);
     
     // Setup visualization update on tick
     simulation.on("tick", () => {
