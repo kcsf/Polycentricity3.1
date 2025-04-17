@@ -127,51 +127,79 @@ export function createNodes(
   width: number,
   height: number
 ): D3Node[] {
+  try {
+    console.log("d3GraphUtils: Creating nodes from", { 
+      cardsCount: cards.length, 
+      agreementsCount: agreements.length 
+    });
   const nodes: D3Node[] = [];
   
   // Add card nodes
   cards.forEach(card => {
-    // Determine initial position
-    let x = card.position?.x ?? Math.random() * width;
-    let y = card.position?.y ?? Math.random() * height;
-    
-    // Ensure position is within bounds
-    x = Math.max(50, Math.min(width - 50, x));
-    y = Math.max(50, Math.min(height - 50, y));
-    
-    // Create node
-    nodes.push({
-      id: card.card_id,
-      name: card.role_title,
-      type: "actor",
-      data: card,
-      x,
-      y
-    });
+    try {
+      if (!card || !card.card_id) {
+        console.warn("d3GraphUtils: Skipping invalid card without card_id", card);
+        return; // Skip this card
+      }
+      
+      // Determine initial position
+      let x = card.position?.x ?? Math.random() * width;
+      let y = card.position?.y ?? Math.random() * height;
+      
+      // Ensure position is within bounds
+      x = Math.max(50, Math.min(width - 50, x));
+      y = Math.max(50, Math.min(height - 50, y));
+      
+      // Create node
+      nodes.push({
+        id: card.card_id,
+        name: card.role_title || "Unnamed Card",
+        type: "actor",
+        data: card,
+        x,
+        y
+      });
+    } catch (error) {
+      console.error("d3GraphUtils: Error creating card node:", error, card);
+    }
   });
   
   // Add agreement nodes
   agreements.forEach(agreement => {
-    // Determine initial position
-    let x = agreement.position?.x ?? Math.random() * width;
-    let y = agreement.position?.y ?? Math.random() * height;
-    
-    // Ensure position is within bounds
-    x = Math.max(50, Math.min(width - 50, x));
-    y = Math.max(50, Math.min(height - 50, y));
-    
-    // Create node
-    nodes.push({
-      id: agreement.agreement_id,
-      name: agreement.title,
-      type: "agreement",
-      data: agreement,
-      x,
-      y
-    });
+    try {
+      if (!agreement || !agreement.agreement_id) {
+        console.warn("d3GraphUtils: Skipping invalid agreement without agreement_id", agreement);
+        return; // Skip this agreement
+      }
+      
+      // Determine initial position
+      let x = agreement.position?.x ?? Math.random() * width;
+      let y = agreement.position?.y ?? Math.random() * height;
+      
+      // Ensure position is within bounds
+      x = Math.max(50, Math.min(width - 50, x));
+      y = Math.max(50, Math.min(height - 50, y));
+      
+      // Create node
+      nodes.push({
+        id: agreement.agreement_id,
+        name: agreement.title || "Unnamed Agreement",
+        type: "agreement",
+        data: agreement,
+        x,
+        y
+      });
+    } catch (error) {
+      console.error("d3GraphUtils: Error creating agreement node:", error, agreement);
+    }
   });
   
+  console.log("d3GraphUtils: Created nodes successfully", { nodeCount: nodes.length });
   return nodes;
+  } catch (error) {
+    console.error("d3GraphUtils: Error in createNodes function:", error);
+    return []; // Return empty array to prevent crashes
+  }
 }
 
 /**
@@ -187,7 +215,14 @@ export function createLinks(
   agreements: AgreementWithPosition[],
   actorCardMap: Map<string, string>
 ): D3Link[] {
-  const links: D3Link[] = [];
+  try {
+    console.log("d3GraphUtils: Creating links from", { 
+      nodesCount: nodes.length, 
+      agreementsCount: agreements.length,
+      actorCardMapSize: actorCardMap.size
+    });
+    
+    const links: D3Link[] = [];
   
   // Process each agreement
   agreements.forEach(agreement => {
@@ -235,7 +270,12 @@ export function createLinks(
     });
   });
   
+  console.log("d3GraphUtils: Created links successfully", { linkCount: links.length });
   return links;
+  } catch (error) {
+    console.error("d3GraphUtils: Error in createLinks function:", error);
+    return []; // Return empty array to prevent crashes
+  }
 }
 
 /**
@@ -686,7 +726,7 @@ export function initializeD3Graph(
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
   nodeElements: d3.Selection<SVGGElement, D3Node, any, any>,
-  linkElements: d3.Selection<SVGLineElement, D3Link, any, any>,
+  linkElements: d3.Selection<any, D3Link, any, any>,
   nodes: D3Node[],
   links: D3Link[]
 } {
