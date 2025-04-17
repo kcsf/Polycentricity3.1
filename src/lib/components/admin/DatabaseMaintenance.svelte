@@ -162,7 +162,7 @@
   }
   
   // Cleanup functions
-  import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards } from '$lib/services/cleanupService';
+  import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards, enhanceCardValuesAndCapabilities } from '$lib/services/cleanupService';
   
   let cleanupLoading = $state(false);
   let cleanupError = $state<string | null>(null);
@@ -304,6 +304,41 @@
     }
   }
   
+  // Variables for card enhancement function
+  let isEnhancingCards = $state(false);
+  let cardEnhanceError = $state<string | null>(null);
+  let cardEnhanceSuccess = $state(false);
+  let cardEnhanceResult = $state<{ success: boolean; cardsUpdated: number } | null>(null);
+  
+  // Enhance cards with values and capabilities function
+  async function enhanceCardValues() {
+    if (!confirm('Are you sure you want to enhance all cards with additional values and capabilities? This will ensure each card has at least 3 values and 3 capabilities.')) {
+      return;
+    }
+    
+    isEnhancingCards = true;
+    cardEnhanceError = null;
+    cardEnhanceSuccess = false;
+    
+    try {
+      console.log('Starting card value and capability enhancement...');
+      cardEnhanceResult = await enhanceCardValuesAndCapabilities();
+      console.log('Card enhancement complete', cardEnhanceResult);
+      cardEnhanceSuccess = cardEnhanceResult.success;
+      
+      // Refresh statistics after enhancement
+      await getRelationshipStats();
+      
+      // Dispatch a custom event for parent components
+      dispatch('cardsEnhanced', cardEnhanceResult);
+    } catch (err) {
+      console.error('Error enhancing cards:', err);
+      cardEnhanceError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      isEnhancingCards = false;
+    }
+  }
+
   // Initialize sample data function
   async function initializeSampleDataFunction() {
     if (!confirm('Are you sure you want to initialize sample data? This will add new sample users, cards, decks, games, actors, agreements, and node positions.')) {
