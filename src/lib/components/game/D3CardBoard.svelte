@@ -1590,7 +1590,9 @@
       
       // Create a safe fallback visualization
       const svg = d3.select(svgRef);
-      svg.selectAll("*").remove();
+      console.log("CRITICAL: Clearing SVG content in fallback visualization at line ~1592");
+      // Comment out this line to prevent removing wedges
+      // svg.selectAll("*").remove();
       
       // Add warning text to the SVG
       svg.append("text")
