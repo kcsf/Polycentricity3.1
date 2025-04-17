@@ -161,10 +161,10 @@ export function addDonutRings(
       centerRadius: BASE_SIZE * 0.9,       // Inner circle radius
       donutRadius: BASE_SIZE * 1.15,       // Outer donut radius (the ring)
       subWedgeRadius: BASE_SIZE * 1.35,    // Sub-wedge radius (slightly larger than donut)
-      labelRadius: BASE_SIZE * 2.0,        // Label distance from center (moved further out)
-      textSize: BASE_SIZE * 0.25,          // Smaller text size for better readability
-      centerTextSize: BASE_SIZE * 0.3,     // Center category text
-      countTextSize: BASE_SIZE * 0.25      // Count text size
+      labelRadius: BASE_SIZE * 2.5,        // Label distance from center - much further out
+      textSize: BASE_SIZE * 0.2,           // MUCH smaller text size for better readability
+      centerTextSize: BASE_SIZE * 0.25,    // Center category text
+      countTextSize: BASE_SIZE * 0.2       // Count text size
     };
     
     // Store references to center elements for visibility control on hover
@@ -359,12 +359,21 @@ export function addDonutRings(
           // This is the key part that makes the labels align correctly
           const adjustedAngle = itemMidAngle - Math.PI / 2;
           
-          // Calculate label position with gap - starting 10% away from outer donut ring
-          // This ensures labels don't start from center but from the outer edge
-          const gapPercentage = 0.3; // Increased gap for better spacing
-          const labelDistance = DIMENSIONS.labelRadius; // Use the farther radius for labels
+          // Calculate label position with gap - starting EXACTLY 10% away from outer donut ring
+          // This ensures labels are positioned correctly and don't overlap with node rings
           
-          // Calculate label coordinates using the adjusted angle
+          // Calculate 10% gap from the outer donut ring
+          const outerRingRadius = DIMENSIONS.donutRadius;
+          const gapDistance = outerRingRadius * 0.1; // 10% of the outer ring radius
+          
+          // Use the ring radius plus the gap as starting point for labels
+          const labelDistance = DIMENSIONS.labelRadius;
+          
+          // Calculate the exact starting position that is 10% away from the outer ring
+          const startX = Math.cos(adjustedAngle) * (outerRingRadius + gapDistance);
+          const startY = Math.sin(adjustedAngle) * (outerRingRadius + gapDistance);
+          
+          // This will be the final label position
           const labelX = Math.cos(adjustedAngle) * labelDistance;
           const labelY = Math.sin(adjustedAngle) * labelDistance;
           
@@ -397,16 +406,26 @@ export function addDonutRings(
               .join(' ');
           }
           
+          // Add a visible line showing the exact 10% gap from the outer ring to text
+          labelGroup.append("line")
+            .attr("x1", startX)
+            .attr("y1", startY)
+            .attr("x2", labelX)
+            .attr("y2", labelY)
+            .attr("stroke", category.color)
+            .attr("stroke-width", 0.5)
+            .attr("stroke-opacity", 0.4);
+          
           // Add the text label
           labelGroup.append("text")
             .attr("x", labelX)
             .attr("y", labelY)
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "10px") // Smaller font for better readability
+            .attr("font-size", "8px") // Even smaller font for better readability
             .attr("fill", category.color)
-            .attr("font-weight", "500")
-            .attr("class", "text-xs") // Add Tailwind class
+            .attr("font-weight", "400") // Slightly lighter weight
+            .attr("class", "text-xs text-opacity-80") // Using Tailwind classes for styling
             // Apply rotation exactly as in the original implementation
             .attr("transform", `rotate(${rotationDeg},${labelX},${labelY})`)
             .text(displayName);
