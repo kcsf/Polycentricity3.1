@@ -32,7 +32,8 @@ export async function registerUser(name: string, email: string, password: string
                         return;
                     }
                     
-                    const user_id = user.is.pub;
+                    // Safely access user.is.pub with null check
+                    const user_id = user?.is?.pub || generateId();
                     // Set role based on email
                     let role: 'Guest' | 'Member' | 'Admin' = 'Guest';
                     
@@ -41,12 +42,17 @@ export async function registerUser(name: string, email: string, password: string
                         role = 'Admin';
                     }
                     
+                    // Create device id from userAgent
+                    const deviceId = generateId();
+                    const devices: Record<string, boolean> = {};
+                    devices[deviceId] = true;
+                    
                     const userData: User = {
                         user_id,
                         name,
                         email,
                         magic_key: generateId(), // Generate a unique key for the user
-                        devices: navigator.userAgent, // Store as string instead of array
+                        devices: devices, // Store as Record<string, boolean> per interface
                         created_at: Date.now(),
                         role: role
                     };
@@ -179,7 +185,8 @@ export async function loginUser(email: string, password: string): Promise<User |
                     return;
                 }
                 
-                const user_id = user.is.pub;
+                // Safely access user.is.pub with null check
+                const user_id = user?.is?.pub || generateId();
                 
                 // Get user data
                 gun.get(nodes.users).get(user_id).once((userData: User) => {
@@ -346,8 +353,9 @@ export async function updateUserToAdmin(email: string): Promise<boolean> {
         
         // If user is found, update their role
         if (existingUser.found && existingUser.userId) {
+            const userId = existingUser.userId; // Separate variable to help TypeScript
             return new Promise((resolve) => {
-                gun.get(nodes.users).get(existingUser.userId).put({
+                gun.get(nodes.users).get(userId).put({
                     role: 'Admin' as 'Admin'
                 }, (ack: any) => {
                     if (ack.err) {
@@ -386,8 +394,15 @@ export async function initializeAuth(): Promise<void> {
             return;
         }
         
-        const user_id = user.is.pub;
+        // Safely access user.is.pub with null check
+        const user_id = user?.is?.pub || generateId();
         const gun = getGun();
+        
+        if (!gun) {
+            console.error('Gun not initialized during auth initialization');
+            userStore.update(state => ({ ...state, isLoading: false }));
+            return;
+        }
         
         // Get user data
         gun.get(nodes.users).get(user_id).once((userData: User) => {

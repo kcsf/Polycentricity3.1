@@ -305,7 +305,8 @@ export const communityGardenDeck: ActorTemplate[] = [
 ];
 
 // Function to get a predefined deck based on deck type
-export function getPredefinedDeck(deckType: string): Actor[] {
+// We return ActorTemplate[] which will be processed into proper Actor objects when added to a game
+export function getPredefinedDeck(deckType: string): ActorTemplate[] {
     switch (deckType) {
         case 'eco-village':
             return ecoVillageDeck;
