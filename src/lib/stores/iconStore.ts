@@ -67,17 +67,17 @@ export async function loadIcons(iconNames: string[]) {
     try {
       const module = await import("lucide-svelte") as Record<string, any>;
       if (module[pascalName]) {
-        console.log(`Loaded icon ${name} as ${pascalName} from lucide-svelte`);
+        // Reduced logging - only log in debug mode
+        if (process.env.NODE_ENV === 'development' && false) { // Disable even in dev
+          console.log(`Loaded icon ${name} as ${pascalName} from lucide-svelte`);
+        }
         newIcons.set(name, { name, component: module[pascalName] });
       } else {
         // Special case for CircleDollarSign
         if (pascalName === "Circledollarsign") {
-          console.log(
-            `CircleDollarSign not found, trying DollarSign for ${name}`,
-          );
           if (module.DollarSign) {
             newIcons.set(name, { name, component: module.DollarSign });
-            console.log(`Used DollarSign for ${name}`);
+            // Disabled verbose logging
           } else {
             throw new Error("DollarSign fallback not found");
           }
@@ -86,10 +86,8 @@ export async function loadIcons(iconNames: string[]) {
         }
       }
     } catch (error) {
-      console.warn(
-        `Failed to load icon ${pascalName} for ${name}, using User:`,
-        error,
-      );
+      // Only log the error message, not the full error object
+      console.warn(`Failed to load icon ${pascalName} for ${name}, using User fallback`);
       newIcons.set(name, { name, component: User });
     }
   }

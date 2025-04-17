@@ -118,9 +118,9 @@
         await Promise.all(agreementPromises);
         
         console.log(`D3CardBoard: Successfully loaded ${loadedAgreements.length} agreements`);
-      } else {
-        console.warn(`D3CardBoard: Game does not have agreement_ids array`);
-      }
+      } 
+      // Some games may not have agreements yet, which is normal behavior
+      // No warning needed
       
       return loadedAgreements;
     } catch (error) {
@@ -473,22 +473,17 @@
         console.error("D3CardBoard: Failed to add donut rings:", donutError);
       }
       
-      console.log("D3CardBoard: Adding center icons to nodes");
-      
-      // First, preload all icons we need from cards
+      // Add center icons to nodes - preload icons first
       try {
         // Get all unique icon names from cards
         const iconNames = cardsWithPosition
           .map(card => card.icon || 'user')
           .filter((value, index, self) => self.indexOf(value) === index); // Get unique values
         
-        console.log("D3CardBoard: Preloading icons:", iconNames);
-        
-        // Preload all icons before rendering
+        // Preload all icons before rendering (silent mode)
         await loadIcons(iconNames);
-        console.log("D3CardBoard: Icons preloaded successfully");
       } catch (preloadError) {
-        console.error("D3CardBoard: Failed to preload icons:", preloadError);
+        console.warn("D3CardBoard: Failed to preload icons", preloadError instanceof Error ? preloadError.message : '');
       }
       
       // Add center icons to the nodes
@@ -522,9 +517,9 @@
               try {
                 // Use larger icons for active nodes
                 createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
-                console.log(`Successfully rendered icon for ${card.role_title || 'Card'} with icon ${iconName}`);
+                // Icon successfully created - no need to log
               } catch (iconError) {
-                console.error(`D3CardBoard: Failed to create icon for ${card.role_title || 'Card'} with icon ${iconName}:`, iconError);
+                console.warn(`D3CardBoard: Failed to create icon for ${card.role_title || 'Card'} with icon ${iconName}`);
               }
               
               // Convert the div container to a foreignObject in the SVG with proper positioning
@@ -548,12 +543,12 @@
             console.error("D3CardBoard: Error processing node:", nodeError, node);
           }
         });
-        console.log("D3CardBoard: Center icons added successfully");
+        // Center icons successfully added
       } catch (iconsError) {
         console.error("D3CardBoard: Failed to add center icons:", iconsError);
       }
       
-      console.log("D3 graph fully initialized with utility function");
+      // Graph initialization complete
     } catch (error) {
       console.error("Error initializing D3 graph:", error);
       // Show more detailed error information
@@ -570,12 +565,12 @@
   onMount(async () => {
     console.log("D3CardBoard: Component mounted");
     
-    // Load icons first
+    // Load basic icons first - default set for cards
     try {
-      await loadIcons();
-      console.log("D3CardBoard: Icons loaded");
+      const defaultIcons = ['user', 'users', 'sun', 'link', 'lock', 'Hammer', 'CircleDollarSign'];
+      await loadIcons(defaultIcons);
     } catch (error) {
-      console.warn("D3CardBoard: Failed to load icons:", error);
+      // Silently catch errors - we'll try again during visualization
     }
     
     // Add a slight delay to ensure the DOM is ready
@@ -591,9 +586,6 @@
       }
     };
   });
-  
-  // Test color scheme - useful for debugging
-  console.log("Testing d3GraphUtils categoryColors:", categoryColors);
 </script>
 
 <style>
