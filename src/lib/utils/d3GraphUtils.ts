@@ -586,20 +586,6 @@ export function addDonutRings(
   // Fixed values for radii
   const baseActorRadius = 35; 
   const baseDonutThickness = 15;
-
-  // Helper function to ensure array format for properties
-  const ensureArray = (field: Record<string, boolean | any> | string[] | string | undefined | null): string[] => {
-    if (!field) return [];
-    if (Array.isArray(field)) return field;
-    if (typeof field === 'object') {
-      // Handle Gun.js objects and references
-      return Object.keys(field).filter(id => id !== '_' && id !== '#');
-    }
-    if (typeof field === 'string') {
-      return field.split(',').map(item => item.trim());
-    }
-    return [];
-  };
   
   // Step 1: Add outer donut rings to all card nodes first
   cardNodes.each(function(d) {
@@ -617,121 +603,120 @@ export function addDonutRings(
       .attr("stroke", "var(--border)")
       .attr("stroke-width", 1);
   });
-
-  // Available categories for visualization
-  const categories = ["values", "capabilities", "intellectualProperty", "resources", "goals"];
-  
-  // Format category name nicely (shared helper function)
-  const formatCategoryName = (cat: string) => {
-    return cat
-      .replace(/([A-Z])/g, " $1") // Add space before capital letters
-      .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
-      .trim();
-  };
-  
-  // Use the same categoryColors that was defined globally
-  // This ensures consistency between different visualization components
   
   // Process each card node to add wedges
   cardNodes.each(function(nodeData) {
     // Basic setup for this node
     const node = d3.select(this);
-    const card = nodeData.data as Card;
     
-    // Create wedges for each category that has data
-    let totalOffset = 0;
-    let categoryIndex = 0;
-    
-    // Process each category
-    categories.forEach(category => {
-      // Access data safely with type checks
-      let categoryData: any;
-      if (typeof nodeData === 'object' && nodeData !== null) {
-        categoryData = (nodeData as any)[category] || 
-                      (card && typeof card === 'object' ? (card as any)[category] : undefined);
-      }
-      
-      const categoryItems = ensureArray(categoryData);
-      
-      if (categoryItems.length > 0) {
-        // Calculate angles for wedges based on number of items
-        const isActive = nodeData.id === activeCardId;
-        const scaleFactor = isActive ? 1.5 : 1;
-        const scaledNodeRadius = baseActorRadius * scaleFactor;
-        const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
-        
-        // Calculate angles and create wedge paths
-        const itemCount = categoryItems.length;
-        const categoryColor = categoryColors(category);
-        const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
-        const startAngle = totalOffset;
-        const anglePerItem = totalAngle / itemCount;
-        
-        // Create a group for this category
-        const categoryGroup = node.append("g")
-          .attr("class", `category-group ${category}`);
-        
-        // Add each wedge for this category
-        categoryItems.forEach((itemId, i) => {
-          const itemAngle = startAngle + (i * anglePerItem);
-          const wedgeStartAngle = (itemAngle * Math.PI) / 180;
-          const wedgeEndAngle = ((itemAngle + anglePerItem) * Math.PI) / 180;
-          
-          // Create SVG arc path
-          const arc = d3.arc<any>()
-            .innerRadius(scaledNodeRadius)
-            .outerRadius(donutRadius)
-            .startAngle(wedgeStartAngle)
-            .endAngle(wedgeEndAngle)
-            .padAngle(0.01);
-          
-          // Add wedge path
-          categoryGroup.append("path")
-            .attr("d", arc({} as any))
-            .attr("fill", categoryColor)
-            .attr("opacity", 0.8)
-            .attr("stroke", "white")
-            .attr("stroke-width", 0.5)
-            .attr("class", `wedge ${category}`)
-            .on("mouseover", function() {
-              // Highlight this wedge
-              d3.select(this)
-                .attr("opacity", 1)
-                .attr("stroke-width", 1);
-            })
-            .on("mouseout", function() {
-              // Reset appearance
-              d3.select(this)
-                .attr("opacity", 0.8)
-                .attr("stroke-width", 0.5);
-            });
-            
-          // Add tooltip or label if needed
-          let itemName = itemId;
-          
-          // Try to get a friendly name from cache
-          if (category === "values" && valueCache && valueCache.has(itemId)) {
-            itemName = valueCache.get(itemId).name;
-          } else if (category === "capabilities" && capabilityCache && capabilityCache.has(itemId)) {
-            itemName = capabilityCache.get(itemId).name;
-          } else {
-            // Extract name from the ID if no cache is available
-            itemName = itemId.replace(/^(value_|capability_|resource_|goal_)/, '')
-              .split(/[-_]/)
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(" ");
-          }
-          
-          // Add title for tooltip
-          categoryGroup.append("title")
-            .text(`${formatCategoryName(category)}: ${itemName}`);
-        });
-        
-        // Update offset for next category
-        totalOffset += totalAngle;
-        categoryIndex++;
-      }
+    console.log(`Processing node ${nodeData.name} for donut rings:`, {
+      _valueNames: nodeData._valueNames,
+      _capabilityNames: nodeData._capabilityNames
     });
+    
+    // Early exit if we have neither values nor capabilities
+    if ((!nodeData._valueNames || nodeData._valueNames.length === 0) && 
+        (!nodeData._capabilityNames || nodeData._capabilityNames.length === 0)) {
+      console.log(`No values or capabilities found for ${nodeData.name}, skipping donut rings`);
+      return;
+    }
+    
+    // Create wedges for values and capabilities
+    let totalItems = 0;
+    
+    // Count total items for angle calculations
+    if (nodeData._valueNames) totalItems += nodeData._valueNames.length;
+    if (nodeData._capabilityNames) totalItems += nodeData._capabilityNames.length;
+    
+    // Exit if no items to show
+    if (totalItems === 0) return;
+    
+    // Calculate base parameters
+    const isActive = nodeData.id === activeCardId;
+    const scaleFactor = isActive ? 1.5 : 1;
+    const scaledNodeRadius = baseActorRadius * scaleFactor;
+    const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
+    
+    // Create donut group
+    const donutGroup = node.append("g").attr("class", "donut-group");
+    
+    // Variables to track current angle
+    let currentAngle = 0; // Start at top (will convert to radians later)
+    const totalAngle = 360; // Full circle in degrees
+    
+    // 1. ADD VALUES SEGMENTS
+    if (nodeData._valueNames && nodeData._valueNames.length > 0) {
+      // Calculate angles for value segments
+      const values = nodeData._valueNames;
+      const valueAngleTotal = (values.length / totalItems) * totalAngle;
+      const valueAnglePerItem = valueAngleTotal / values.length;
+      
+      console.log(`Adding ${values.length} value segments for ${nodeData.name}, each ${valueAnglePerItem.toFixed(2)} degrees`);
+      
+      values.forEach((valueName, index) => {
+        // Calculate start and end angles in radians
+        const startAngleRad = (currentAngle * Math.PI) / 180;
+        const endAngleRad = ((currentAngle + valueAnglePerItem) * Math.PI) / 180;
+        
+        // Create arc path for this value
+        const arc = d3.arc<any>()
+          .innerRadius(scaledNodeRadius)
+          .outerRadius(donutRadius)
+          .startAngle(startAngleRad)
+          .endAngle(endAngleRad)
+          .padAngle(0.01);
+          
+        // Add the wedge
+        donutGroup.append("path")
+          .attr("d", arc({}))
+          .attr("fill", categoryColors("values"))
+          .attr("stroke", "white")
+          .attr("stroke-width", 0.5)
+          .attr("class", "value-segment")
+          .append("title")
+          .text(`Value: ${valueName}`);
+          
+        // Update current angle for next segment
+        currentAngle += valueAnglePerItem;
+      });
+    }
+    
+    // 2. ADD CAPABILITY SEGMENTS
+    if (nodeData._capabilityNames && nodeData._capabilityNames.length > 0) {
+      // Calculate angles for capability segments
+      const capabilities = nodeData._capabilityNames;
+      const capabilityAngleTotal = (capabilities.length / totalItems) * totalAngle;
+      const capabilityAnglePerItem = capabilityAngleTotal / capabilities.length;
+      
+      console.log(`Adding ${capabilities.length} capability segments for ${nodeData.name}, each ${capabilityAnglePerItem.toFixed(2)} degrees`);
+      
+      capabilities.forEach((capabilityName, index) => {
+        // Calculate start and end angles in radians
+        const startAngleRad = (currentAngle * Math.PI) / 180;
+        const endAngleRad = ((currentAngle + capabilityAnglePerItem) * Math.PI) / 180;
+        
+        // Create arc path for this capability
+        const arc = d3.arc<any>()
+          .innerRadius(scaledNodeRadius)
+          .outerRadius(donutRadius)
+          .startAngle(startAngleRad)
+          .endAngle(endAngleRad)
+          .padAngle(0.01);
+          
+        // Add the wedge
+        donutGroup.append("path")
+          .attr("d", arc({}))
+          .attr("fill", categoryColors("capabilities"))
+          .attr("stroke", "white")
+          .attr("stroke-width", 0.5)
+          .attr("class", "capability-segment")
+          .append("title")
+          .text(`Capability: ${capabilityName}`);
+          
+        // Update current angle for next segment
+        currentAngle += capabilityAnglePerItem;
+      });
+    }
   });
 }
 
