@@ -837,38 +837,84 @@ export function createLinks(
   
   const links: D3Link[] = [];
   
-  // For each agreement, create links between participating actors
+  // For each agreement, create links based on obligations and benefits
   agreements.forEach(agreement => {
     if (!agreement.parties) return;
     
-    const partyActorIds = Object.keys(agreement.parties);
-    if (partyActorIds.length < 2) return;
-    
-    // Get card IDs for all actors involved
-    const involvedCardIds = partyActorIds
-      .map(actorId => actorCardMap.get(actorId))
-      .filter(Boolean) as string[];
-    
-    if (involvedCardIds.length < 2) return;
-    
-    // Create links between all cards through the agreement node
-    for (let i = 0; i < involvedCardIds.length; i++) {
-      for (let j = i + 1; j < involvedCardIds.length; j++) {
-        // Source card to agreement
-        links.push({
-          source: involvedCardIds[i],
-          target: agreement.agreement_id,
-          type: "obligation",
-          id: `${involvedCardIds[i]}_to_${agreement.agreement_id}`
-        });
+    // Process obligations: from source actor to agreement
+    if (agreement.obligations && agreement.obligations.length > 0) {
+      agreement.obligations.forEach(obligation => {
+        const fromActorId = obligation.fromActorId;
         
-        // Agreement to target card
-        links.push({
-          source: agreement.agreement_id,
-          target: involvedCardIds[j],
-          type: "benefit",
-          id: `${agreement.agreement_id}_to_${involvedCardIds[j]}`
-        });
+        // Skip if no source actor ID
+        if (!fromActorId) return;
+        
+        const fromCardId = actorCardMap.get(fromActorId);
+        
+        if (fromCardId) {
+          links.push({
+            source: fromCardId,
+            target: agreement.agreement_id,
+            type: "obligation",
+            id: `${fromCardId}_to_${agreement.agreement_id}_${obligation.id || 'ob'}`
+          });
+        }
+      });
+    }
+    
+    // Process benefits: from agreement to beneficiary actor
+    if (agreement.benefits && agreement.benefits.length > 0) {
+      agreement.benefits.forEach(benefit => {
+        const toActorId = benefit.toActorId;
+        
+        // Skip if no target actor ID
+        if (!toActorId) return;
+        
+        const toCardId = actorCardMap.get(toActorId);
+        
+        if (toCardId) {
+          links.push({
+            source: agreement.agreement_id,
+            target: toCardId,
+            type: "benefit",
+            id: `${agreement.agreement_id}_to_${toCardId}_${benefit.id || 'ben'}`
+          });
+        }
+      });
+    }
+    
+    // If no specific obligations/benefits are defined, create generic links
+    if ((!agreement.obligations || agreement.obligations.length === 0) &&
+        (!agreement.benefits || agreement.benefits.length === 0)) {
+      const partyActorIds = Object.keys(agreement.parties);
+      if (partyActorIds.length < 2) return;
+      
+      // Get card IDs for all actors involved
+      const involvedCardIds = partyActorIds
+        .map(actorId => actorCardMap.get(actorId))
+        .filter(Boolean) as string[];
+      
+      if (involvedCardIds.length < 2) return;
+      
+      // Create links between all cards through the agreement node
+      for (let i = 0; i < involvedCardIds.length; i++) {
+        for (let j = i + 1; j < involvedCardIds.length; j++) {
+          // Source card to agreement
+          links.push({
+            source: involvedCardIds[i],
+            target: agreement.agreement_id,
+            type: "obligation",
+            id: `${involvedCardIds[i]}_to_${agreement.agreement_id}`
+          });
+          
+          // Agreement to target card
+          links.push({
+            source: agreement.agreement_id,
+            target: involvedCardIds[j],
+            type: "benefit",
+            id: `${agreement.agreement_id}_to_${involvedCardIds[j]}`
+          });
+        }
       }
     }
   });
@@ -1014,11 +1060,12 @@ export function initializeD3Graph(
     const nodes = createNodes(cards, agreements, width, height);
     const links = createLinks(nodes, agreements, actorCardMap);
     
-    // Define a marker for arrows
+    // Define markers for arrows - different for obligation and benefit
     const defs = svg.append("defs");
     
+    // Obligation arrow (from actor to agreement)
     defs.append("marker")
-      .attr("id", "arrowhead")
+      .attr("id", "arrow-obligation")
       .attr("viewBox", "0 -5 10 10")
       .attr("refX", 15)
       .attr("refY", 0)
@@ -1027,22 +1074,37 @@ export function initializeD3Graph(
       .attr("markerHeight", 6)
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#999");
+      .attr("fill", "#6366F1"); // Indigo color for obligation
+    
+    // Benefit arrow (from agreement to actor)  
+    defs.append("marker")
+      .attr("id", "arrow-benefit")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 15)
+      .attr("refY", 0)
+      .attr("orient", "auto")
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "#10B981"); // Emerald color for benefit
     
     // Create groups for links and nodes
     const linkGroup = svg.append("g").attr("class", "links");
     const nodeGroup = svg.append("g").attr("class", "nodes");
     
-    // Create links
+    // Create links with distinguished styles for obligation vs benefit
     const linkElements = linkGroup
       .selectAll("line")
       .data(links)
       .enter()
       .append("line")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 1)
-      .attr("marker-end", "url(#arrowhead)");
+      .attr("class", d => `link link-${d.type}`)
+      .attr("stroke", d => d.type === "obligation" ? "#6366F1" : "#10B981") // Different colors for obligations vs benefits
+      .attr("stroke-opacity", 0.7)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", d => d.type === "obligation" ? "none" : "4,2") // Dashed lines for benefits
+      .attr("marker-end", d => `url(#arrow-${d.type})`); // Use the appropriate marker
     
     // Create nodes
     const nodeElements = nodeGroup
@@ -1057,13 +1119,34 @@ export function initializeD3Graph(
         handleNodeClick(d);
       });
     
-    // Add circle for each node
+    // Add circle for each node with different styles for actors vs agreements
     nodeElements
       .append("circle")
-      .attr("r", d => d.type === "actor" ? (d.id === activeCardId ? 45 : 30) : 25)
-      .attr("fill", d => d.type === "actor" ? "#fff" : "#f0f0f0")
-      .attr("stroke", "#e5e5e5")
-      .attr("stroke-width", 1)
+      .attr("r", d => {
+        // Actor nodes are larger than agreement nodes
+        if (d.type === "actor") {
+          return d.id === activeCardId ? 45 : 30; // Larger if active
+        } else {
+          return 17; // Agreement nodes are smaller
+        }
+      })
+      .attr("fill", d => {
+        // Different fill colors for each type
+        if (d.type === "actor") {
+          return "#fff"; // White for actors
+        } else {
+          return "#f9fafb"; // Slightly off-white for agreements
+        }
+      })
+      .attr("stroke", d => {
+        // Different stroke colors
+        if (d.type === "actor") {
+          return d.id === activeCardId ? "#2563EB" : "#e5e5e5"; // Blue highlight for active actor
+        } else {
+          return "#d1d5db"; // Gray for agreements
+        }
+      })
+      .attr("stroke-width", d => d.id === activeCardId ? 2 : 1) // Thicker stroke for active nodes
       .attr("class", d => d.type === "actor" ? "actor-circle" : "agreement-circle");
     
     // Add labels to nodes
