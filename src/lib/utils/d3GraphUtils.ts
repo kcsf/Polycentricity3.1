@@ -136,254 +136,218 @@ export interface D3NodeWithRelationships extends D3Node {
 }
 
 /**
- * Creates D3 nodes from cards and agreements
+ * Add donut ring segments to card nodes based on their values, capabilities, etc.
  * 
- * @param cards - Array of cards with position information
- * @param agreements - Array of agreements with position information
- * @param width - Width of the container
- * @param height - Height of the container
- * @returns Array of D3Node objects
+ * @param nodeElements - D3 Selection of node elements
+ * @param activeCardId - ID of the active card (if any) for highlighting
+ * @param valueCache - Map of value IDs to Value objects
+ * @param capabilityCache - Map of capability IDs to Capability objects
  */
-export function createNodes(
-  cards: CardWithPosition[],
-  agreements: AgreementWithPosition[],
-  width: number,
-  height: number
-): D3Node[] {
-  try {
-    console.log("d3GraphUtils: Creating nodes from", { 
-      cardsCount: cards.length, 
-      agreementsCount: agreements.length 
-    });
-  const nodes: D3Node[] = [];
-  
-  // Add card nodes
-  cards.forEach(card => {
-    try {
-      if (!card || !card.card_id) {
-        console.warn("d3GraphUtils: Skipping invalid card without card_id", card);
-        return; // Skip this card
-      }
-      
-      // Determine initial position
-      let x = card.position?.x ?? Math.random() * width;
-      let y = card.position?.y ?? Math.random() * height;
-      
-      // Ensure position is within bounds
-      x = Math.max(50, Math.min(width - 50, x));
-      y = Math.max(50, Math.min(height - 50, y));
-      
-      // Process card with extended properties
-      const cardWithExtensions = card as CardWithPosition & {
-        _valueNames?: string[];
-        _capabilityNames?: string[];
-      };
-      
-      // Create node with extended properties
-      nodes.push({
-        id: card.card_id,
-        name: card.role_title || "Unnamed Card",
-        type: "actor",
-        data: card,
-        x,
-        y,
-        // Preserve special properties needed for donut visualization
-        _valueNames: cardWithExtensions._valueNames || [],
-        _capabilityNames: cardWithExtensions._capabilityNames || []
-      });
-    } catch (error) {
-      console.error("d3GraphUtils: Error creating card node:", error, card);
-    }
+export function addDonutRings(
+  nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
+  activeCardId?: string | null,
+  valueCache?: Map<string, any>,
+  capabilityCache?: Map<string, any>
+): void {
+  console.log("addDonutRings called with", {
+    nodeElementsExists: !!nodeElements,
+    activeCardId,
+    valueCacheSize: valueCache?.size,
+    capabilityCacheSize: capabilityCache?.size
   });
   
-  // Add agreement nodes
-  agreements.forEach(agreement => {
-    try {
-      if (!agreement || !agreement.agreement_id) {
-        console.warn("d3GraphUtils: Skipping invalid agreement without agreement_id", agreement);
-        return; // Skip this agreement
-      }
-      
-      // Determine initial position
-      let x = agreement.position?.x ?? Math.random() * width;
-      let y = agreement.position?.y ?? Math.random() * height;
-      
-      // Ensure position is within bounds
-      x = Math.max(50, Math.min(width - 50, x));
-      y = Math.max(50, Math.min(height - 50, y));
-      
-      // Create node
-      nodes.push({
-        id: agreement.agreement_id,
-        name: agreement.title || "Unnamed Agreement",
-        type: "agreement",
-        data: agreement,
-        x,
-        y
-      });
-    } catch (error) {
-      console.error("d3GraphUtils: Error creating agreement node:", error, agreement);
-    }
-  });
+  // Get all card nodes
+  const cardNodes = nodeElements.filter((d) => d.type === "actor");
+  console.log(`Found ${cardNodes.size()} card nodes to process`);
   
-  console.log("d3GraphUtils: Created nodes successfully", { nodeCount: nodes.length });
-  return nodes;
-  } catch (error) {
-    console.error("d3GraphUtils: Error in createNodes function:", error);
-    return []; // Return empty array to prevent crashes
-  }
-}
-
-/**
- * Creates D3 links between nodes based on agreement relationships
- * 
- * @param nodes - Array of D3Node objects
- * @param agreements - Array of agreements with position information
- * @param actorCardMap - Map of actor IDs to card IDs
- * @returns Array of D3Link objects
- */
-export function createLinks(
-  nodes: D3Node[],
-  agreements: AgreementWithPosition[],
-  actorCardMap: Map<string, string>
-): D3Link[] {
-  try {
-    console.log("d3GraphUtils: Creating links from", { 
-      nodesCount: nodes.length, 
-      agreementsCount: agreements.length,
-      actorCardMapSize: actorCardMap.size
+  // Process each card node to add complete donut rings with interactive segments
+  cardNodes.each(function(nodeData) {
+    // Basic setup for this node
+    const node = d3.select(this);
+    const isActive = nodeData.id === activeCardId;
+    
+    // Exact sizes from reference HTML
+    const centerRadius = isActive ? 52.5 : 35; // 52.5px for active nodes (reference)
+    const donutRadius = 75; // 75px from reference
+    
+    console.log(`Processing node ${nodeData.name} for donut rings:`, {
+      _valueNames: nodeData._valueNames,
+      _capabilityNames: nodeData._capabilityNames
     });
     
-    const links: D3Link[] = [];
-  
-  // Process each agreement
-  agreements.forEach(agreement => {
-    // Process obligations (fromActor -> agreement)
-    agreement.obligations.forEach(obligation => {
-      const fromActorId = obligation.fromActorId;
-      
-      // Only proceed if fromActorId is defined
-      if (fromActorId) {
-        // Get card IDs from actor IDs
-        const creatorCardId = actorCardMap.get(fromActorId);
-        
-        if (creatorCardId) {
-          // Create link from creator card to agreement
-          links.push({
-            source: creatorCardId,
-            target: agreement.agreement_id,
-            type: "obligation",
-            id: `ob_${obligation.id}`,
-          });
-        }
-      }
-    });
+    // Early exit if we have neither values nor capabilities
+    if ((!nodeData._valueNames || nodeData._valueNames.length === 0) && 
+        (!nodeData._capabilityNames || nodeData._capabilityNames.length === 0)) {
+      console.log(`No values or capabilities found for ${nodeData.name}, skipping donut rings`);
+      return;
+    }
     
-    // Process benefits (agreement -> toActor)
-    agreement.benefits.forEach(benefit => {
-      const fromActorId = benefit.fromActorId;
-      const toActorId = benefit.toActorId;
+    // 1. Create a surrounding donut ring exactly matching reference
+    node.append("circle")
+      .attr("r", donutRadius)
+      .attr("class", `donut-ring ${isActive ? "active" : ""}`)
+      .attr("fill", "transparent")
+      .attr("stroke", "var(--border)")
+      .attr("stroke-width", 1);
       
-      // Only proceed if toActorId is defined
-      if (toActorId) {
-        // Get card IDs from actor IDs
-        const recipientCardId = actorCardMap.get(toActorId);
-        
-        if (recipientCardId) {
-          // Create link from agreement to recipient card
-          links.push({
-            source: agreement.agreement_id,
-            target: recipientCardId,
-            type: "benefit",
-            id: `be_${benefit.id}`,
-          });
-        }
+    // 2. CATEGORIES SETUP - EXACTLY matching reference
+    const categories = [
+      { 
+        name: "values", 
+        color: "#A7C731",
+        items: nodeData._valueNames || []
+      },
+      { 
+        name: "goals", 
+        color: "#9BC23D", 
+        items: ["Maintain peace", "Protect sites"]
+      },
+      { 
+        name: "capabilities", 
+        color: "#8FBC49", 
+        items: nodeData._capabilityNames || []
+      },
+      { 
+        name: "intellectualProperty", 
+        color: "#83B655", 
+        items: ["Historical records", "Diplomatic protocols"]
       }
+    ];
+    
+    // Calculate angles for 4 equal segments (exactly like reference)
+    const totalCategories = 4; // Always 4 sections
+    const anglePerCategory = (2 * Math.PI) / totalCategories;
+    
+    // 3. RENDER EACH CATEGORY (Processing all 4 categories)
+    categories.forEach((category, categoryIndex) => {
+      // Calculate angles for this category
+      const startAngle = -Math.PI/2 + (categoryIndex * anglePerCategory);
+      const endAngle = startAngle + anglePerCategory;
+      
+      // Create category group - exact class from reference
+      const categoryGroup = node.append("g")
+        .attr("class", "category-group")
+        .attr("data-category", category.name);
+      
+      // Create the wedge exactly like reference
+      const arc = d3.arc<any>()
+        .innerRadius(centerRadius)
+        .outerRadius(donutRadius)
+        .startAngle(startAngle)
+        .endAngle(endAngle);
+        
+      // Add the wedge - match reference classes and attributes
+      const wedge = categoryGroup.append("path")
+        .attr("class", "category-wedge")
+        .attr("d", arc({}) as string)
+        .attr("fill", category.color)
+        .attr("stroke", "white")
+        .attr("stroke-width", 1)
+        .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
+        .attr("data-category", category.name)
+        .attr("pointer-events", "all")
+        .style("cursor", "pointer");
+      
+      // Create label container - hidden by default (exact match to reference)
+      const labelContainer = categoryGroup.append("g")
+        .attr("class", "label-container")
+        .attr("opacity", 0)
+        .attr("pointer-events", "none")
+        .style("visibility", "hidden");
+      
+      // Create sub-wedges container - hidden by default (exact match to reference)
+      const subWedgesContainer = categoryGroup.append("g")
+        .attr("class", "sub-wedges")
+        .attr("opacity", 0)
+        .attr("pointer-events", "none")
+        .style("visibility", "hidden");
+      
+      // Add items with their labels and sub-wedges
+      if (category.items && category.items.length > 0) {
+        const itemCount = category.items.length;
+        const anglePerItem = anglePerCategory / itemCount;
+        
+        // Process each item in this category
+        category.items.forEach((item, itemIndex) => {
+          const itemStartAngle = startAngle + (itemIndex * anglePerItem);
+          const itemEndAngle = itemStartAngle + anglePerItem;
+          const itemMidAngle = itemStartAngle + (anglePerItem / 2);
+          
+          // Calculate label position - exact radiating pattern
+          const labelRadius = donutRadius * 1.5; // Labels outside the wheel
+          const labelX = Math.cos(itemMidAngle) * labelRadius;
+          const labelY = Math.sin(itemMidAngle) * labelRadius;
+          
+          // Create label group for this item
+          const labelGroup = labelContainer.append("g")
+            .attr("class", "label-group");
+          
+          // Add text with correct positioning and angle
+          // Text anchor based on position - match reference behavior
+          const textAnchor = (itemMidAngle > Math.PI/2 && itemMidAngle < Math.PI*1.5) 
+            ? "end" : "start";
+            
+          labelGroup.append("text")
+            .attr("x", labelX)
+            .attr("y", labelY)
+            .attr("text-anchor", textAnchor)
+            .attr("dominant-baseline", "middle")
+            .attr("font-size", "11px")
+            .attr("fill", category.color)
+            .attr("font-weight", "500")
+            .attr("transform", `rotate(${(itemMidAngle * 180/Math.PI)},${labelX},${labelY})`)
+            .text(item);
+          
+          // Create sub-wedge for this item
+          const subArc = d3.arc<any>()
+            .innerRadius(donutRadius)
+            .outerRadius(donutRadius * 1.3)
+            .startAngle(itemStartAngle)
+            .endAngle(itemEndAngle);
+          
+          // Add the sub-wedge path
+          subWedgesContainer.append("path")
+            .attr("class", "sub-wedge")
+            .attr("d", subArc({}) as string)
+            .attr("fill", category.color)
+            .attr("stroke", "white")
+            .attr("stroke-width", 0.5)
+            .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
+            .attr("pointer-events", "none");
+        });
+      }
+      
+      // Add hover interactions exactly like reference
+      wedge.on("mouseenter", function() {
+        // Show labels and sub-wedges on hover
+        labelContainer
+          .style("visibility", "visible")
+          .transition().duration(200)
+          .attr("opacity", 1);
+        
+        subWedgesContainer
+          .style("visibility", "visible")
+          .transition().duration(200)
+          .attr("opacity", 1);
+      })
+      .on("mouseleave", function() {
+        // Hide on mouse leave
+        labelContainer
+          .transition().duration(200)
+          .attr("opacity", 0)
+          .on("end", function() {
+            d3.select(this).style("visibility", "hidden");
+          });
+        
+        subWedgesContainer
+          .transition().duration(200)
+          .attr("opacity", 0)
+          .on("end", function() {
+            d3.select(this).style("visibility", "hidden");
+          });
+      });
     });
   });
-  
-  console.log("d3GraphUtils: Created links successfully", { linkCount: links.length });
-  return links;
-  } catch (error) {
-    console.error("d3GraphUtils: Error in createLinks function:", error);
-    return []; // Return empty array to prevent crashes
-  }
-}
-
-/**
- * Sets up interactions for nodes and links
- * 
- * @param svg - D3 selection of the SVG element
- * @param nodeGroup - D3 selection of the node group
- * @param linkGroup - D3 selection of the link group
- * @param simulation - D3 force simulation
- * @param width - Width of the container
- * @param height - Height of the container
- */
-export function setupInteractions(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  nodeGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
-  linkGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
-  simulation: d3.Simulation<D3Node, D3Link>,
-  width: number,
-  height: number
-): d3.DragBehavior<SVGGElement, D3Node, D3Node | d3.SubjectPosition> {
-  // Set up zoom behavior
-  const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-    .scaleExtent([0.25, 3])
-    .on("zoom", (event) => {
-      // Update transform for all groups
-      nodeGroup.attr("transform", event.transform);
-      linkGroup.attr("transform", event.transform);
-    });
-  
-  // Apply zoom behavior
-  svg.call(zoomBehavior)
-    // Prevent standard mousewheel behavior
-    .on("wheel", (event) => {
-      if (event.ctrlKey || event.metaKey) return; // Allow browser zoom with Ctrl/Cmd key
-      event.preventDefault();
-    });
-  
-  // Set up drag behavior for nodes
-  const dragBehavior = d3.drag<SVGGElement, D3Node>()
-    .on("start", (event, d) => {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
-    })
-    .on("drag", (event, d) => {
-      d.fx = Math.max(50, Math.min(width - 50, event.x));
-      d.fy = Math.max(50, Math.min(height - 50, event.y));
-    })
-    .on("end", (event, d) => {
-      if (!event.active) simulation.alphaTarget(0);
-      
-      // Save the position
-      if (d.type === "actor") {
-        const card = d.data as CardWithPosition;
-        if (card.position) {
-          card.position.x = d.x;
-          card.position.y = d.y;
-        } else {
-          card.position = { x: d.x, y: d.y };
-        }
-      } else if (d.type === "agreement") {
-        const agreement = d.data as AgreementWithPosition;
-        if (agreement.position) {
-          agreement.position.x = d.x;
-          agreement.position.y = d.y;
-        } else {
-          agreement.position = { x: d.x, y: d.y };
-        }
-      }
-      
-      // Release the fixed position if not dragging
-      d.fx = null;
-      d.fy = null;
-    });
-  
-  return dragBehavior;
 }
 
 /**
@@ -415,99 +379,124 @@ export function createCardIcon(
     svg.setAttribute("height", iconSize.toString());
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("stroke", "#555555");
-    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-width", "1.5"); // Reduced stroke-width to match reference
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
     svg.setAttribute("fill", "none");
     svg.setAttribute("class", "lucide-icon");
     
-    // Set icon path data based on icon variable instead of iconName
-    if (icon === 'sun') {
-      // Sun icon path data
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle.setAttribute("cx", "12");
-      circle.setAttribute("cy", "12");
-      circle.setAttribute("r", "4");
-      svg.appendChild(circle);
-      
-      // Sun rays
-      for (let i = 0; i < 8; i++) {
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        const angle = (i * Math.PI) / 4;
-        const innerRadius = 4; // Radius of the central circle
-        const outerRadius = 8; // Length of rays
+    // Set icon path data based on icon variable
+    switch(icon.toLowerCase()) {
+      case 'sun':
+        // Sun icon path data
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", "12");
+        circle.setAttribute("cy", "12");
+        circle.setAttribute("r", "4");
+        svg.appendChild(circle);
         
-        const x1 = 12 + innerRadius * Math.cos(angle);
-        const y1 = 12 + innerRadius * Math.sin(angle);
-        const x2 = 12 + outerRadius * Math.cos(angle);
-        const y2 = 12 + outerRadius * Math.sin(angle);
+        const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line1.setAttribute("x1", "12");
+        line1.setAttribute("y1", "2");
+        line1.setAttribute("x2", "12");
+        line1.setAttribute("y2", "6");
+        svg.appendChild(line1);
         
-        line.setAttribute("x1", x1.toString());
-        line.setAttribute("y1", y1.toString());
-        line.setAttribute("x2", x2.toString());
-        line.setAttribute("y2", y2.toString());
+        const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line2.setAttribute("x1", "12");
+        line2.setAttribute("y1", "18");
+        line2.setAttribute("x2", "12");
+        line2.setAttribute("y2", "22");
+        svg.appendChild(line2);
         
-        svg.appendChild(line);
-      }
-    } else if (icon === 'link') {
-      // Link icon
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71");
-      svg.appendChild(path);
+        const line3 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line3.setAttribute("x1", "4.93");
+        line3.setAttribute("y1", "4.93");
+        line3.setAttribute("x2", "7.76");
+        line3.setAttribute("y2", "7.76");
+        svg.appendChild(line3);
+        
+        const line4 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line4.setAttribute("x1", "16.24");
+        line4.setAttribute("y1", "16.24");
+        line4.setAttribute("x2", "19.07");
+        line4.setAttribute("y2", "19.07");
+        svg.appendChild(line4);
+        
+        const line5 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line5.setAttribute("x1", "2");
+        line5.setAttribute("y1", "12");
+        line5.setAttribute("x2", "6");
+        line5.setAttribute("y2", "12");
+        svg.appendChild(line5);
+        
+        const line6 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line6.setAttribute("x1", "18");
+        line6.setAttribute("y1", "12");
+        line6.setAttribute("x2", "22");
+        line6.setAttribute("y2", "12");
+        svg.appendChild(line6);
+        
+        const line7 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line7.setAttribute("x1", "4.93");
+        line7.setAttribute("y1", "19.07");
+        line7.setAttribute("x2", "7.76");
+        line7.setAttribute("y2", "16.24");
+        svg.appendChild(line7);
+        
+        const line8 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line8.setAttribute("x1", "16.24");
+        line8.setAttribute("y1", "7.76");
+        line8.setAttribute("x2", "19.07");
+        line8.setAttribute("y2", "4.93");
+        svg.appendChild(line8);
+        break;
       
-      const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path2.setAttribute("d", "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71");
-      svg.appendChild(path2);
-    } else if (icon === 'lock') {
-      // Lock icon
-      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      rect.setAttribute("width", "16");
-      rect.setAttribute("height", "10");
-      rect.setAttribute("x", "4");
-      rect.setAttribute("y", "9");
-      rect.setAttribute("rx", "2");
-      rect.setAttribute("ry", "2");
-      svg.appendChild(rect);
-      
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M8 9V7a4 4 0 0 1 8 0v2");
-      svg.appendChild(path);
-    } else if (icon === 'users') {
-      // Users icon
-      const circle1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle1.setAttribute("cx", "16");
-      circle1.setAttribute("cy", "7");
-      circle1.setAttribute("r", "3");
-      svg.appendChild(circle1);
-      
-      const circle2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle2.setAttribute("cx", "8");
-      circle2.setAttribute("cy", "7");
-      circle2.setAttribute("r", "3");
-      svg.appendChild(circle2);
-      
-      const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path1.setAttribute("d", "M3 21v-2a4 4 0 0 1 4-4h2");
-      svg.appendChild(path1);
-      
-      const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path2.setAttribute("d", "M15 13h2a4 4 0 0 1 4 4v2");
-      svg.appendChild(path2);
-      
-      const path3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path3.setAttribute("d", "M16 21h-8a4 4 0 0 1-4-4v-2");
-      svg.appendChild(path3);
-    } else {
-      // Default user icon as fallback
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle.setAttribute("cx", "12");
-      circle.setAttribute("cy", "8");
-      circle.setAttribute("r", "4");
-      svg.appendChild(circle);
-      
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M20 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
-      svg.appendChild(path);
+      case 'user':
+        // User icon path data
+        const userCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        userCircle.setAttribute("cx", "12");
+        userCircle.setAttribute("cy", "8");
+        userCircle.setAttribute("r", "4");
+        svg.appendChild(userCircle);
+        
+        const userPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        userPath.setAttribute("d", "M20 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
+        svg.appendChild(userPath);
+        break;
+        
+      case 'lock':
+        // Lock icon path data
+        const lockRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        lockRect.setAttribute("x", "3");
+        lockRect.setAttribute("y", "11");
+        lockRect.setAttribute("width", "18");
+        lockRect.setAttribute("height", "11");
+        lockRect.setAttribute("rx", "2");
+        lockRect.setAttribute("ry", "2");
+        svg.appendChild(lockRect);
+        
+        const lockPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        lockPath.setAttribute("d", "M7 11V7a5 5 0 0 1 10 0v4");
+        svg.appendChild(lockPath);
+        break;
+        
+      default:
+        // Default box icon for unknown icons
+        const boxPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        boxPath.setAttribute("d", "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z");
+        svg.appendChild(boxPath);
+        
+        const boxLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        boxLine.setAttribute("points", "3.27 6.96 12 12.01 20.73 6.96");
+        svg.appendChild(boxLine);
+        
+        const boxLine2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        boxLine2.setAttribute("x1", "12");
+        boxLine2.setAttribute("y1", "22.08");
+        boxLine2.setAttribute("x2", "12");
+        boxLine2.setAttribute("y2", "12");
+        svg.appendChild(boxLine2);
     }
     
     // Add the SVG to the container
@@ -520,6 +509,182 @@ export function createCardIcon(
 }
 
 /**
+ * Creates D3 nodes from cards and agreements
+ * 
+ * @param cards - Array of cards with position information
+ * @param agreements - Array of agreements with position information
+ * @param width - Width of the container
+ * @param height - Height of the container
+ * @returns Array of D3Node objects
+ */
+export function createNodes(
+  cards: CardWithPosition[],
+  agreements: AgreementWithPosition[],
+  width: number,
+  height: number
+): D3Node[] {
+  console.log("d3GraphUtils: Creating nodes from", {
+    cardsCount: cards.length,
+    agreementsCount: agreements.length
+  });
+  
+  const nodes: D3Node[] = [
+    ...cards.map((card) => ({
+      id: card.card_id,
+      name: card.role_title || "Unknown Card",
+      type: "actor" as const,
+      data: card,
+      x: card.position?.x || Math.random() * width,
+      y: card.position?.y || Math.random() * height,
+      fx: card.position?.x || null,
+      fy: card.position?.y || null,
+      _valueNames: card.values ? Object.keys(card.values) : [],
+      _capabilityNames: card.capabilities ? Object.keys(card.capabilities).map(key => {
+        // Strip the 'capability_' prefix if present
+        return key.startsWith('capability_') ? key.substring(11) : key;
+      }) : []
+    })),
+    ...agreements.map((agreement) => ({
+      id: agreement.agreement_id,
+      name: agreement.title || "Unknown Agreement",
+      type: "agreement" as const,
+      data: agreement,
+      x: agreement.position?.x || Math.random() * width,
+      y: agreement.position?.y || Math.random() * height,
+      fx: agreement.position?.x || null,
+      fy: agreement.position?.y || null
+    }))
+  ];
+  
+  console.log("d3GraphUtils: Created nodes successfully", {
+    nodeCount: nodes.length
+  });
+  
+  return nodes;
+}
+
+/**
+ * Creates D3 links between nodes based on agreement relationships
+ * 
+ * @param nodes - Array of D3Node objects
+ * @param agreements - Array of agreements with position information
+ * @param actorCardMap - Map of actor IDs to card IDs
+ * @returns Array of D3Link objects
+ */
+export function createLinks(
+  nodes: D3Node[],
+  agreements: AgreementWithPosition[],
+  actorCardMap: Map<string, string>
+): D3Link[] {
+  console.log("d3GraphUtils: Creating links from", {
+    nodesCount: nodes.length,
+    agreementsCount: agreements.length,
+    actorCardMapSize: actorCardMap.size
+  });
+  
+  const links: D3Link[] = [];
+  
+  // For each agreement, create links between participating actors
+  agreements.forEach(agreement => {
+    if (!agreement.parties) return;
+    
+    const partyActorIds = Object.keys(agreement.parties);
+    if (partyActorIds.length < 2) return;
+    
+    // Get card IDs for all actors involved
+    const involvedCardIds = partyActorIds
+      .map(actorId => actorCardMap.get(actorId))
+      .filter(Boolean) as string[];
+    
+    if (involvedCardIds.length < 2) return;
+    
+    // Create links between all cards through the agreement node
+    for (let i = 0; i < involvedCardIds.length; i++) {
+      for (let j = i + 1; j < involvedCardIds.length; j++) {
+        // Source card to agreement
+        links.push({
+          source: involvedCardIds[i],
+          target: agreement.agreement_id,
+          type: "obligation",
+          id: `${involvedCardIds[i]}_to_${agreement.agreement_id}`
+        });
+        
+        // Agreement to target card
+        links.push({
+          source: agreement.agreement_id,
+          target: involvedCardIds[j],
+          type: "benefit",
+          id: `${agreement.agreement_id}_to_${involvedCardIds[j]}`
+        });
+      }
+    }
+  });
+  
+  console.log("d3GraphUtils: Created links successfully", {
+    linkCount: links.length
+  });
+  
+  return links;
+}
+
+/**
+ * Sets up interactions for nodes and links
+ * 
+ * @param svg - D3 selection of the SVG element
+ * @param nodeGroup - D3 selection of the node group
+ * @param linkGroup - D3 selection of the link group
+ * @param simulation - D3 force simulation
+ * @param width - Width of the container
+ * @param height - Height of the container
+ */
+export function setupInteractions(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  nodeGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
+  linkGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
+  simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>,
+  width: number,
+  height: number
+): void {
+  // Add zoom behavior
+  const zoom = d3.zoom<SVGSVGElement, unknown>()
+    .scaleExtent([0.1, 3])
+    .on("zoom", (event) => {
+      nodeGroup.attr("transform", event.transform);
+      linkGroup.attr("transform", event.transform);
+    });
+  
+  svg.call(zoom);
+  
+  // Add drag behavior for nodes
+  const drag = d3.drag<SVGGElement, D3Node>()
+    .on("start", (event, d) => {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    })
+    .on("drag", (event, d) => {
+      d.fx = event.x;
+      d.fy = event.y;
+    })
+    .on("end", (event, d) => {
+      if (!event.active) simulation.alphaTarget(0);
+      // Keep the node fixed at its new position
+      d.fx = event.x;
+      d.fy = event.y;
+      
+      // Update the position in the data
+      if (d.data && d.data.position) {
+        d.data.position.x = event.x;
+        d.data.position.y = event.y;
+      } else if (d.data) {
+        d.data.position = { x: event.x, y: event.y };
+      }
+    });
+  
+  nodeGroup.selectAll<SVGGElement, D3Node>(".node").call(drag);
+}
+
+/**
  * Updates forces in the simulation based on current data
  * 
  * @param simulation - D3 force simulation
@@ -529,43 +694,26 @@ export function createCardIcon(
  * @param height - Height of the container
  */
 export function updateForces(
-  simulation: d3.Simulation<D3Node, D3Link>,
+  simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>,
   nodes: D3Node[],
   links: D3Link[],
-  width: number,
+  width: number, 
   height: number
 ): void {
-  // Update nodes in simulation
-  simulation.nodes(nodes);
-  
-  // Update link force with new links
-  simulation.force("link", d3.forceLink<D3Node, D3Link>(links)
-    .id(d => d.id)
-    .distance(100)
-    .strength(0.7)
-  );
-  
-  // Update center force
-  simulation.force("center", d3.forceCenter(width / 2, height / 2));
-  
-  // Update collision force
-  simulation.force("collide", d3.forceCollide<D3Node>().radius(50));
-  
-  // Update charge force
-  simulation.force("charge", d3.forceManyBody().strength(-300));
-  
-  // Restart simulation
-  simulation.alpha(0.3).restart();
+  simulation
+    .nodes(nodes as d3.SimulationNodeDatum[])
+    .force("link", d3.forceLink<d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>(links as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[])
+      .id(d => (d as D3Node).id)
+      .distance(150)
+    )
+    .force("charge", d3.forceManyBody().strength(-400))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("x", d3.forceX(width / 2).strength(0.05))
+    .force("y", d3.forceY(height / 2).strength(0.05))
+    .force("collision", d3.forceCollide().radius(75).strength(0.5))
+    .alpha(0.3)
+    .restart();
 }
-
-/**
- * Add donut ring segments to card nodes based on their values, capabilities, etc.
- * 
- * @param nodeElements - D3 Selection of node elements
- * @param activeCardId - ID of the active card (if any) for highlighting
- * @param valueCache - Map of value IDs to Value objects
- * @param capabilityCache - Map of capability IDs to Capability objects
- */
 
 /**
  * Initializes the D3 graph with nodes and links
@@ -585,199 +733,141 @@ export function initializeD3Graph(
   agreements: AgreementWithPosition[],
   width: number,
   height: number,
-  activeCardId: string | null,
+  activeCardId: string | null = null,
   handleNodeClick: (node: D3Node) => void
-): {
-  simulation: d3.Simulation<D3Node, D3Link>,
-  nodeElements: d3.Selection<SVGGElement, D3Node, any, any>,
-  linkElements: d3.Selection<any, D3Link, any, any>,
-  nodes: D3Node[],
-  links: D3Link[]
-} {
+) {
   console.log("d3GraphUtils: initializeD3Graph called with:", {
     svgElementExists: !!svgElement,
     cardsCount: cards.length,
     agreementsCount: agreements.length,
     width,
-    height,
+    height
   });
   
-  // Initialize default variables
-  let simulation: d3.Simulation<D3Node, D3Link>;
-  let nodeElements: d3.Selection<SVGGElement, D3Node, any, any>;
-  let linkElements: d3.Selection<any, D3Link, any, any>;
-  let nodes: D3Node[] = [];
-  let links: D3Link[] = [];
-  
   try {
-    // Create actorCardMap
+    // Clear the SVG
+    const svg = d3.select(svgElement);
+    svg.selectAll("*").remove();
+    
+    // Create a map of actor IDs to card IDs
     const actorCardMap = new Map<string, string>();
-  
-    // Map actor_id to card_id for lookup during link creation
     cards.forEach(card => {
       if (card.actor_id) {
         actorCardMap.set(card.actor_id, card.card_id);
       }
     });
     
-    // Create D3 nodes and links
-    nodes = createNodes(cards, agreements, width, height);
-    links = createLinks(nodes, agreements, actorCardMap);
+    // Create nodes and links
+    const nodes = createNodes(cards, agreements, width, height);
+    const links = createLinks(nodes, agreements, actorCardMap);
     
-    // Clear existing SVG content
-    const svg = d3.select(svgElement);
-    svg.selectAll("*").remove();
+    // Define a marker for arrows
+    const defs = svg.append("defs");
     
-    // Create groups for links and nodes (links should be created first so they're behind nodes)
+    defs.append("marker")
+      .attr("id", "arrowhead")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 15)
+      .attr("refY", 0)
+      .attr("orient", "auto")
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "#999");
+    
+    // Create groups for links and nodes
     const linkGroup = svg.append("g").attr("class", "links");
     const nodeGroup = svg.append("g").attr("class", "nodes");
     
-    // Create the force simulation
-    simulation = d3.forceSimulation<D3Node>(nodes)
-      .force("link", d3.forceLink<D3Node, D3Link>(links).id(d => d.id).distance(100).strength(0.7))
-      .force("charge", d3.forceManyBody().strength(-300))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collide", d3.forceCollide<D3Node>().radius(50));
-    
-    // Set up interactions (zoom, drag)
-    const dragBehavior = setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
-    
-    // Create arrow markers for each type of link
-    const defs = svg.append("defs");
-    
-    // Create obligation arrow marker
-    defs.append("marker")
-      .attr("id", "arrow-obligation")
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 15)
-      .attr("refY", 0)
-      .attr("markerWidth", 4)
-      .attr("markerHeight", 4)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("fill", "#BBBBBB")
-      .attr("d", "M0,-5L10,0L0,5");
-      
-    // Create benefit arrow marker
-    defs.append("marker")
-      .attr("id", "arrow-benefit")
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 15)
-      .attr("refY", 0)
-      .attr("markerWidth", 4)
-      .attr("markerHeight", 4)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("fill", "#BBBBBB")
-      .attr("d", "M0,-5L10,0L0,5");
-  
-    // Create link elements
-    linkElements = linkGroup
-      .selectAll("g")
+    // Create links
+    const linkElements = linkGroup
+      .selectAll("line")
       .data(links)
       .enter()
-      .append("g")
-      .attr("class", d => `link ${d.type}`);
-    
-    // Add path for each link
-    linkElements.append("path")
-      .attr("class", d => `link-path ${d.type}`)
-      .attr("stroke", "#e5e5e5")
+      .append("line")
+      .attr("stroke", "#999")
+      .attr("stroke-opacity", 0.6)
       .attr("stroke-width", 1)
-      .attr("stroke-opacity", 0.8)
-      .attr("fill", "none")
-      .attr("marker-end", d => `url(#arrow-${d.type})`);
+      .attr("marker-end", "url(#arrowhead)");
     
-    // Create node elements
-    nodeElements = nodeGroup
-      .selectAll("g")
+    // Create nodes
+    const nodeElements = nodeGroup
+      .selectAll(".node")
       .data(nodes)
       .enter()
       .append("g")
       .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
-      .on("click", (_, d) => handleNodeClick(d))
-      .call(dragBehavior as any);
+      .attr("id", d => `node-${d.id}`)
+      .on("click", (event, d) => {
+        // Call the click handler with the node data
+        handleNodeClick(d);
+      });
     
-    // Add background circles for nodes with proper styling and gradients
-    // Define gradients for each node
-    nodes.forEach(node => {
-      if (node.type === 'actor') {
-        // Create a unique gradient ID for this node
-        const gradientId = `center-gradient-${node.id}`;
-        
-        // Add gradient definition
-        defs.append("linearGradient")
-          .attr("id", gradientId)
-          .attr("x1", "0%")
-          .attr("y1", "0%")
-          .attr("x2", "0%")
-          .attr("y2", "100%")
-          .html(`
-            <stop offset="0%" stop-color="#FFFFFF" />
-            <stop offset="100%" stop-color="#F8F8F8" />
-          `);
-      }
-    });
-    
-    // Add the background circles with gradients and styling
-    nodeElements.append("circle")
-      .attr("class", d => {
-        const baseClass = d.type === 'actor' ? 'center-circle actor-center-circle' : 'center-circle agreement-center-circle';
-        return `${baseClass} ${d.id === activeCardId ? 'active' : ''}`;
-      })
-      .attr("r", d => d.type === 'actor' ? 35 : 17)
-      .attr("fill", d => d.type === 'actor' ? `url(#center-gradient-${d.id})` : '#F9F9F9')
+    // Add circle for each node
+    nodeElements
+      .append("circle")
+      .attr("r", d => d.type === "actor" ? (d.id === activeCardId ? 45 : 30) : 25)
+      .attr("fill", d => d.type === "actor" ? "#fff" : "#f0f0f0")
       .attr("stroke", "#e5e5e5")
       .attr("stroke-width", 1)
-      .attr("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.08))");
+      .attr("class", d => d.type === "actor" ? "actor-circle" : "agreement-circle");
     
-    // Setup visualization update on tick
-    simulation.on("tick", () => {
-      // Update link positions
-      linkElements.selectAll(".link-path")
-        .attr("d", (d: any) => {
-          // Handle string sources that haven't been replaced with objects yet
-          const sourceObj = typeof d.source === 'string' 
-            ? nodes.find(n => n.id === d.source) 
-            : d.source;
-          
-          const targetObj = typeof d.target === 'string'
-            ? nodes.find(n => n.id === d.target)
-            : d.target;
-          
-          if (!sourceObj || !targetObj) return '';
-          
-          // Safe access coordinates
-          const sourceX = sourceObj.x ?? 0;
-          const sourceY = sourceObj.y ?? 0;
-          const targetX = targetObj.x ?? 0;
-          const targetY = targetObj.y ?? 0;
-          
-          return `M${sourceX},${sourceY} L${targetX},${targetY}`;
-        });
-      
-      // Update node positions
-      nodeElements.attr("transform", (d: any) => `translate(${d.x ?? 0}, ${d.y ?? 0})`);
-    });
+    // Add labels to nodes
+    nodeElements
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", d => d.type === "actor" ? 55 : 35) // Position below the circle
+      .attr("font-size", 12)
+      .attr("fill", "#333")
+      .text(d => d.name);
+    
+    // Create simulation
+    const simulation = d3.forceSimulation<D3Node>()
+      .nodes(nodes)
+      .force("link", d3.forceLink<D3Node, D3Link>(links).id(d => d.id).distance(150))
+      .force("charge", d3.forceManyBody().strength(-400))
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("x", d3.forceX(width / 2).strength(0.05))
+      .force("y", d3.forceY(height / 2).strength(0.05))
+      .force("collision", d3.forceCollide().radius(60).strength(0.5))
+      .on("tick", () => {
+        // Update link positions
+        linkElements
+          .attr("x1", d => {
+            const source = typeof d.source === 'string' ? nodes.find(n => n.id === d.source) : d.source;
+            return source ? source.x : 0;
+          })
+          .attr("y1", d => {
+            const source = typeof d.source === 'string' ? nodes.find(n => n.id === d.source) : d.source;
+            return source ? source.y : 0;
+          })
+          .attr("x2", d => {
+            const target = typeof d.target === 'string' ? nodes.find(n => n.id === d.target) : d.target;
+            return target ? target.x : 0;
+          })
+          .attr("y2", d => {
+            const target = typeof d.target === 'string' ? nodes.find(n => n.id === d.target) : d.target;
+            return target ? target.y : 0;
+          });
+        
+        // Update node positions
+        nodeElements.attr("transform", d => `translate(${d.x},${d.y})`);
+      });
+    
+    // Add interactions
+    setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
     
     console.log("d3GraphUtils: Successfully initialized D3 graph");
     
+    // Return simulation and selections for further use
     return {
       simulation,
       nodeElements,
-      linkElements,
-      nodes,
-      links
+      linkElements
     };
   } catch (error) {
     console.error("d3GraphUtils: Error initializing D3 graph:", error);
-    // Return empty graph elements to prevent crashes
-    return {
-      simulation: d3.forceSimulation<D3Node>([]),
-      nodeElements: d3.select(svgElement).append("g").attr("class", "nodes").selectAll("g"),
-      linkElements: d3.select(svgElement).append("g").attr("class", "links").selectAll("line"),
-      nodes: [],
-      links: []
-    };
+    throw error;
   }
 }
