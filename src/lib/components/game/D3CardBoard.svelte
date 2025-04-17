@@ -279,6 +279,62 @@
         };
       });
       
+      // Check if we have agreements - if not, create test agreements between cards
+      if (agreements.length === 0 && cardsWithPosition.length >= 2) {
+        console.log("D3CardBoard: No agreements found in game, creating test agreements for visualization");
+        
+        // Create test agreements between cards
+        for (let i = 0; i < Math.min(3, cardsWithPosition.length - 1); i++) {
+          const card1 = cardsWithPosition[i];
+          const card2 = cardsWithPosition[(i + 1) % cardsWithPosition.length];
+          
+          // Create synthetic actor IDs if cards don't have them
+          const actorId1 = card1.actor_id || `actor_${card1.card_id}`;
+          const actorId2 = card2.actor_id || `actor_${card2.card_id}`;
+          
+          // Add to actor-card map if not already there
+          if (!actorCardMap.has(actorId1)) {
+            actorCardMap.set(actorId1, card1.card_id);
+          }
+          if (!actorCardMap.has(actorId2)) {
+            actorCardMap.set(actorId2, card2.card_id);
+          }
+          
+          // Create a test agreement
+          const testAgreement: AgreementWithPosition = {
+            agreement_id: `agreement_${i + 1}`,
+            title: `Agreement ${i + 1}`,
+            description: "Test agreement for visualization",
+            obligations: [
+              {
+                id: `ob${i + 1}`,
+                fromActorId: actorId1,
+                toActorId: actorId2,
+                text: `Obligation from ${card1.role_title} to ${card2.role_title}`
+              }
+            ],
+            benefits: [
+              {
+                id: `ben${i + 1}`,
+                fromActorId: actorId2,
+                toActorId: actorId1,
+                text: `Benefit from ${card2.role_title} to ${card1.role_title}`
+              }
+            ],
+            parties: {
+              [actorId1]: true,
+              [actorId2]: true
+            },
+            position: {
+              x: ((card1.position?.x || 0) + (card2.position?.x || 0)) / 2,
+              y: ((card1.position?.y || 0) + (card2.position?.y || 0)) / 2
+            }
+          };
+          
+          agreements.push(testAgreement);
+        }
+      }
+      
       console.log("D3CardBoard: Setup data", {
         cardsCount: cardsWithPosition.length,
         agreementsCount: agreements.length,
