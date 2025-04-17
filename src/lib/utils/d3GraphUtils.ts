@@ -138,14 +138,6 @@ export interface D3NodeWithRelationships extends D3Node {
  * @param valueCache - Map of value IDs to Value objects
  * @param capabilityCache - Map of capability IDs to Capability objects
  */
-// Import the optimized addDonutRings function from external file
-import { addDonutRings as optimizedAddDonutRings } from '../../../new-donut-rings';
-
-// Re-export the optimized version
-export const addDonutRings = optimizedAddDonutRings;
-
-// Original function kept for reference - COMPLETELY COMMENTED OUT
-/*
 export function addDonutRings(
   nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
   activeCardId?: string | null,
@@ -167,39 +159,12 @@ export function addDonutRings(
     // Define all sizes as proportions of BASE_SIZE
     const DIMENSIONS = {
       centerRadius: BASE_SIZE * 0.9,       // Inner circle radius
-      donutRadius: BASE_SIZE * 1.15,       // Outer donut radius (the ring)
-      subWedgeRadius: BASE_SIZE * 1.35,    // Sub-wedge radius (slightly larger than donut)
-      labelRadius: BASE_SIZE * 2.0,        // Label distance from center
-      textSize: BASE_SIZE * 0.15,          // TINY text size for better readability (8px)
-      centerTextSize: BASE_SIZE * 0.25,    // Center category text
-      countTextSize: BASE_SIZE * 0.2       // Count text size
-    };
-    
-    // And so on with the rest of the function...
-  });
-}
-*/
-  // Get all card nodes that are actors (not agreements)
-  const cardNodes = nodeElements.filter((d) => d.type === "actor");
-  
-  // Process each card node to add complete donut rings with interactive segments
-  cardNodes.each(function(nodeData) {
-    // Basic setup for this node
-    const node = d3.select(this);
-    const isActive = nodeData.id === activeCardId;
-    
-    // Calculate responsive dimensions based on base size
-    const BASE_SIZE = isActive ? 40 : 35; // Base size in pixels
-    
-    // Define all sizes as proportions of BASE_SIZE
-    const DIMENSIONS = {
-      centerRadius: BASE_SIZE * 0.9,       // Inner circle radius
-      donutRadius: BASE_SIZE * 1.15,       // Outer donut radius (the ring)
-      subWedgeRadius: BASE_SIZE * 1.35,    // Sub-wedge radius (slightly larger than donut)
-      labelRadius: BASE_SIZE * 2.0,        // Label distance from center
-      textSize: BASE_SIZE * 0.15,          // TINY text size for better readability (8px)
-      centerTextSize: BASE_SIZE * 0.25,    // Center category text
-      countTextSize: BASE_SIZE * 0.2       // Count text size
+      donutRadius: BASE_SIZE * 1.15,       // Outer donut radius
+      subWedgeRadius: BASE_SIZE * 1.25,    // Sub-wedge radius
+      labelRadius: BASE_SIZE * 1.8,        // Label distance from center
+      textSize: BASE_SIZE * 0.3,           // Text size
+      centerTextSize: BASE_SIZE * 0.35,    // Center category text
+      countTextSize: BASE_SIZE * 0.3       // Count text size
     };
     
     // Store references to center elements for visibility control on hover
@@ -394,32 +359,22 @@ export function addDonutRings(
           // This is the key part that makes the labels align correctly
           const adjustedAngle = itemMidAngle - Math.PI / 2;
           
-          // UPDATED APPROACH: Position labels with 10% gap from the outer edge of the ring
-          // with proper rotation so they're easier to read
+          // Calculate label position with gap - exactly as in original
+          const gapPercentage = 0.15;
+          const labelDistance = DIMENSIONS.subWedgeRadius * (1 + gapPercentage);
           
-          // Get the outer radius of the donut ring
-          const outerRingRadius = DIMENSIONS.donutRadius;
-          
-          // Calculate EXACTLY 10% additional distance from the outer ring as requested
-          const textDistanceFromRing = outerRingRadius * 0.1;
-          
-          // Position the text with precise 10% gap from the outer edge of the ring
-          const textX = Math.cos(adjustedAngle) * (outerRingRadius + textDistanceFromRing);
-          const textY = Math.sin(adjustedAngle) * (outerRingRadius + textDistanceFromRing);
+          // Calculate label coordinates using the adjusted angle
+          const labelX = Math.cos(adjustedAngle) * labelDistance;
+          const labelY = Math.sin(adjustedAngle) * labelDistance;
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Determine if we're on the left or right half of the circle
+          // Determine text anchor and rotation - exactly as in original
           const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
           const isLeftSide = angleDeg > 90 && angleDeg < 270;
-          
-          // Set text anchor based on position (end for left side, start for right side)
           const textAnchor = isLeftSide ? "end" : "start";
-          
-          // Calculate rotation angle to make text readable
-          // When on left side, rotate 180 degrees more to flip text
           const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
            
           // Clean up the item name by removing prefixes
@@ -441,23 +396,18 @@ export function addDonutRings(
               .join(' ');
           }
           
-          // REMOVED line indicators - placed text directly at the position
-          
-          // Add the text label - place directly on the donut ring
-          const textElement = labelGroup.append("text")
-            .attr("x", textX) // Position directly on the outer edge
-            .attr("y", textY) // Position directly on the outer edge
+          // Add the text label
+          labelGroup.append("text")
+            .attr("x", labelX)
+            .attr("y", labelY)
             .attr("text-anchor", textAnchor)
             .attr("dominant-baseline", "middle")
-            .attr("font-size", "8px") // FIXED at exactly 8px
+            .attr("font-size", "11px") // Match original exactly
             .attr("fill", category.color)
-            .attr("font-weight", "400") // Lighter weight
-            .attr("opacity", 0.8) // Add opacity directly
-            .attr("transform", `rotate(${rotationDeg},${textX},${textY})`) // Rotate around text position
+            .attr("font-weight", "500")
+            // Apply rotation exactly as in the original implementation
+            .attr("transform", `rotate(${rotationDeg},${labelX},${labelY})`)
             .text(displayName);
-            
-          // Explicitly set inline style to ensure 8px font size is applied
-          textElement.node()?.setAttribute("style", "font-size: 8px; font-family: sans-serif;");
           
           // Create sub-wedge for this item
           const subArc = d3.arc<any>()
@@ -572,6 +522,7 @@ export function addDonutRings(
       });
     });
   });
+}
 
 /**
  * Creates SVG icon for card based on icon name
@@ -743,63 +694,30 @@ export function createCardIcon(
  * Adds additional values from a predefined list if needed
  */
 function augmentCardValues(card: Card): string[] {
-  // Check if values are already set in the card
-  if ((card as any)._valueNames && Array.isArray((card as any)._valueNames) && (card as any)._valueNames.length > 0) {
-    console.log(`Using existing _valueNames for card ${card.card_id}:`, (card as any)._valueNames);
-    return (card as any)._valueNames;
+  // First extract existing values
+  const existingValues = card.values ? Object.keys(card.values).map(key => {
+    // Strip the 'value_' prefix if present and convert to readable format
+    return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
+  }) : [];
+  
+  // If we already have at least 3 values, return them
+  if (existingValues.length >= 3) {
+    return existingValues;
   }
   
-  console.log(`DEBUG: Looking for values in card ${card.card_id}:`, card.values);
+  // Add additional values based on card ID 
+  const additionalValues = [
+    'ecological thinking',
+    'self reliance',
+    'social justice'
+  ];
   
-  // Extract existing values from Gun.js structure
-  let existingValues: string[] = [];
+  // Calculate a consistent index based on card_id
+  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const additionalValue = additionalValues[cardIdSum % additionalValues.length];
   
-  if (card.values) {
-    // Check for Gun.js object with records
-    if (typeof card.values === 'object' && !Array.isArray(card.values)) {
-      existingValues = Object.keys(card.values)
-        .filter(key => key !== '_' && key !== '#') // Filter out Gun.js metadata
-        .map(key => {
-          // Strip the 'value_' prefix if present and convert to readable format
-          return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
-        });
-      console.log(`Found ${existingValues.length} values in card.values object:`, existingValues);
-    } 
-    // Check for string values (comma separated)
-    else if (typeof card.values === 'string') {
-      existingValues = (card.values as string).split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-      console.log(`Found ${existingValues.length} values in card.values string:`, existingValues);
-    }
-    // Check for array values
-    else if (Array.isArray(card.values)) {
-      existingValues = card.values.map(v => typeof v === 'string' ? v : '').filter(Boolean);
-      console.log(`Found ${existingValues.length} values in card.values array:`, existingValues);
-    }
-  }
-  
-  // If we don't have any values, add 3 default ones based on card ID
-  if (existingValues.length === 0) {
-    // Don't hard-code - use a consistent algorithm based on the card_id
-    const defaultValues = [
-      'ecological thinking',
-      'self reliance',
-      'social justice'
-    ];
-    
-    // Calculate a consistent index based on card_id to ensure
-    // a card always gets the same values when visualized
-    const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    
-    // Select 3 values deterministically based on the card ID sum
-    for (let i = 0; i < 3; i++) {
-      const idx = (cardIdSum + i) % defaultValues.length;
-      existingValues.push(defaultValues[idx]);
-    }
-    
-    console.log(`Generated values deterministically for card ${card.card_id}:`, existingValues);
-  }
-  
-  return existingValues;
+  // Return the augmented list with at least one more value
+  return [...existingValues, additionalValue];
 }
 
 /**
@@ -807,63 +725,31 @@ function augmentCardValues(card: Card): string[] {
  * Adds additional capabilities from a predefined list if needed
  */
 function augmentCardCapabilities(card: Card): string[] {
-  // Check if capabilities are already set in the card
-  if ((card as any)._capabilityNames && Array.isArray((card as any)._capabilityNames) && (card as any)._capabilityNames.length > 0) {
-    console.log(`Using existing _capabilityNames for card ${card.card_id}:`, (card as any)._capabilityNames);
-    return (card as any)._capabilityNames;
+  // First extract existing capabilities
+  const existingCapabilities = card.capabilities ? Object.keys(card.capabilities).map(key => {
+    // Strip the 'capability_' prefix if present and convert to readable format
+    return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
+  }) : [];
+  
+  // If we already have at least 3 capabilities, return them
+  if (existingCapabilities.length >= 3) {
+    return existingCapabilities;
   }
   
-  console.log(`DEBUG: Looking for capabilities in card ${card.card_id}:`, card.capabilities);
+  // Add additional capabilities
+  const additionalCapabilities = [
+    'networking',
+    'facilitation',
+    'technical expertise'
+  ];
   
-  // Extract existing capabilities from Gun.js structure
-  let existingCapabilities: string[] = [];
+  // Calculate a consistent index based on card_id to ensure
+  // a card always gets the same capability when visualized
+  const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const additionalCapability = additionalCapabilities[cardIdSum % additionalCapabilities.length];
   
-  if (card.capabilities) {
-    // Check for Gun.js object with records
-    if (typeof card.capabilities === 'object' && !Array.isArray(card.capabilities)) {
-      existingCapabilities = Object.keys(card.capabilities)
-        .filter(key => key !== '_' && key !== '#') // Filter out Gun.js metadata
-        .map(key => {
-          // Strip the 'capability_' prefix if present and convert to readable format
-          return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
-        });
-      console.log(`Found ${existingCapabilities.length} capabilities in card.capabilities object:`, existingCapabilities);
-    } 
-    // Check for string values (comma separated)
-    else if (typeof card.capabilities === 'string') {
-      existingCapabilities = (card.capabilities as string).split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-      console.log(`Found ${existingCapabilities.length} capabilities in card.capabilities string:`, existingCapabilities);
-    }
-    // Check for array values
-    else if (Array.isArray(card.capabilities)) {
-      existingCapabilities = card.capabilities.map(c => typeof c === 'string' ? c : '').filter(Boolean);
-      console.log(`Found ${existingCapabilities.length} capabilities in card.capabilities array:`, existingCapabilities);
-    }
-  }
-  
-  // If we don't have any capabilities, add 3 default ones based on card ID
-  if (existingCapabilities.length === 0) {
-    // Don't hard-code - use a consistent algorithm based on the card_id
-    const defaultCapabilities = [
-      'networking',
-      'facilitation',
-      'technical expertise'
-    ];
-    
-    // Calculate a consistent index based on card_id to ensure
-    // a card always gets the same capabilities when visualized
-    const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    
-    // Select 3 capabilities deterministically based on the card ID sum
-    for (let i = 0; i < 3; i++) {
-      const idx = (cardIdSum + i) % defaultCapabilities.length;
-      existingCapabilities.push(defaultCapabilities[idx]);
-    }
-    
-    console.log(`Generated capabilities deterministically for card ${card.card_id}:`, existingCapabilities);
-  }
-  
-  return existingCapabilities;
+  // Return the augmented list with at least one more capability
+  return [...existingCapabilities, additionalCapability];
 }
 
 export function createNodes(

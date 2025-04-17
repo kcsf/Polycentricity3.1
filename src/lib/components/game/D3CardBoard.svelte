@@ -10,7 +10,6 @@
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
   import { getGame } from '$lib/services/gameService';
   import { userStore } from '$lib/stores/userStore';
-  import { fixDonutRingLabels } from '$lib/utils/radialLabelFix';
   import { 
     createNodes, 
     createLinks, 
@@ -472,10 +471,6 @@
         // Use our utility function to add the donut rings
         addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
         console.log("D3CardBoard: Donut rings added successfully");
-        
-        // Apply our label fix to position text correctly with 10% gap and 8px font
-        fixDonutRingLabels();
-        console.log("D3CardBoard: Applied donut ring label fixes");
       } catch (donutError) {
         console.error("D3CardBoard: Failed to add donut rings:", donutError);
       }
