@@ -837,135 +837,106 @@ export function createLinks(
   
   const links: D3Link[] = [];
   
-  // For each agreement, create links based on obligations and benefits
+  // For each agreement, create links to connect all participating cards
   agreements.forEach(agreement => {
     if (!agreement.parties) return;
     
+    const agreementId = agreement.agreement_id;
+    
     // Debug current agreement
-    console.log(`Creating links for agreement: ${agreement.agreement_id}`, {
+    console.log(`Creating links for agreement: ${agreementId}`, {
       obligations: agreement.obligations,
       benefits: agreement.benefits,
       parties: agreement.parties
     });
     
-    // Process obligations: from source actor to agreement
+    // Get all party actor IDs
+    const partyActorIds = Object.keys(agreement.parties);
+    
+    // Convert actor IDs to card IDs
+    const participatingCardIds: string[] = [];
+    
+    partyActorIds.forEach(actorId => {
+      // First try to find from the actor-card map
+      let cardId = actorCardMap.get(actorId);
+      
+      // If not found, check if it's a demo actor ID (format: "actor_cardId")
+      if (!cardId && actorId.startsWith('actor_')) {
+        const extractedCardId = actorId.substring(6); // Remove "actor_" prefix
+        if (nodes.some(n => n.id === extractedCardId)) {
+          cardId = extractedCardId;
+        }
+      }
+      
+      if (cardId) {
+        participatingCardIds.push(cardId);
+      }
+    });
+    
+    console.log(`Found ${participatingCardIds.length} participating cards for agreement ${agreementId}:`, participatingCardIds);
+    
+    // Ensure we have at least 2 cards to create meaningful connections
+    if (participatingCardIds.length < 2) {
+      console.warn(`Agreement ${agreementId} has fewer than 2 cards, skipping link creation`);
+      return;
+    }
+    
+    // IMPLEMENTATION PATTERN:
+    // 1. Identify the "creator" card - the one with obligation to the agreement
+    // 2. Create obligation link: creator card → agreement node
+    // 3. Create benefit links: agreement node → all other cards
+    
+    // Determine the creator card - use the first card in obligations if available
+    let creatorCardId = participatingCardIds[0]; // Default to first card
+    
+    // If we have explicit obligations, use the actor with obligations as creator
     if (agreement.obligations && agreement.obligations.length > 0) {
-      agreement.obligations.forEach(obligation => {
-        const fromActorId = obligation.fromActorId;
+      // Get all unique fromActorIds from obligations
+      const obligationActorIds = [...new Set(agreement.obligations.map(o => o.fromActorId))];
+      
+      // Find the first actor that has a corresponding card
+      for (const actorId of obligationActorIds) {
+        if (!actorId) continue;
         
-        // Skip if no source actor ID
-        if (!fromActorId) return;
-        
-        // Try to get card ID from actor ID map
-        const fromCardId = actorCardMap.get(fromActorId);
-        
-        // If we found a valid card ID, create a link
-        if (fromCardId) {
-          console.log(`Creating obligation link: ${fromCardId} -> ${agreement.agreement_id}`);
-          links.push({
-            source: fromCardId,
-            target: agreement.agreement_id,
-            type: "obligation",
-            id: `${fromCardId}_to_${agreement.agreement_id}_${obligation.id || 'ob'}`
-          });
-        } else {
-          // Check if this is a demo actor ID (format: "actor_cardId") 
-          if (fromActorId.startsWith('actor_')) {
-            // Extract the card ID part
-            const cardIdFromActor = fromActorId.substring(6); // Remove "actor_" prefix
-            // Check if a node with this ID exists
-            const cardExists = nodes.some(n => n.id === cardIdFromActor);
-            
-            if (cardExists) {
-              console.log(`Creating obligation link using extracted ID: ${cardIdFromActor} -> ${agreement.agreement_id}`);
-              links.push({
-                source: cardIdFromActor,
-                target: agreement.agreement_id,
-                type: "obligation",
-                id: `${cardIdFromActor}_to_${agreement.agreement_id}_${obligation.id || 'ob'}`
-              });
-            }
-          }
+        // Check actor-card map
+        const cardId = actorCardMap.get(actorId);
+        if (cardId) {
+          creatorCardId = cardId;
+          break;
         }
-      });
-    }
-    
-    // Process benefits: from agreement to beneficiary actor
-    if (agreement.benefits && agreement.benefits.length > 0) {
-      agreement.benefits.forEach(benefit => {
-        const toActorId = benefit.toActorId;
         
-        // Skip if no target actor ID
-        if (!toActorId) return;
-        
-        // Try to get card ID from actor ID map
-        const toCardId = actorCardMap.get(toActorId);
-        
-        // If we found a valid card ID, create a link
-        if (toCardId) {
-          console.log(`Creating benefit link: ${agreement.agreement_id} -> ${toCardId}`);
-          links.push({
-            source: agreement.agreement_id,
-            target: toCardId,
-            type: "benefit",
-            id: `${agreement.agreement_id}_to_${toCardId}_${benefit.id || 'ben'}`
-          });
-        } else {
-          // Check if this is a demo actor ID (format: "actor_cardId")
-          if (toActorId.startsWith('actor_')) {
-            // Extract the card ID part
-            const cardIdFromActor = toActorId.substring(6); // Remove "actor_" prefix
-            // Check if a node with this ID exists
-            const cardExists = nodes.some(n => n.id === cardIdFromActor);
-            
-            if (cardExists) {
-              console.log(`Creating benefit link using extracted ID: ${agreement.agreement_id} -> ${cardIdFromActor}`);
-              links.push({
-                source: agreement.agreement_id,
-                target: cardIdFromActor,
-                type: "benefit",
-                id: `${agreement.agreement_id}_to_${cardIdFromActor}_${benefit.id || 'ben'}`
-              });
-            }
+        // Try extracted ID if it's a demo actor
+        if (actorId.startsWith('actor_')) {
+          const extractedCardId = actorId.substring(6);
+          if (nodes.some(n => n.id === extractedCardId)) {
+            creatorCardId = extractedCardId;
+            break;
           }
-        }
-      });
-    }
-    
-    // If no specific obligations/benefits are defined, create generic links
-    if ((!agreement.obligations || agreement.obligations.length === 0) &&
-        (!agreement.benefits || agreement.benefits.length === 0)) {
-      const partyActorIds = Object.keys(agreement.parties);
-      if (partyActorIds.length < 2) return;
-      
-      // Get card IDs for all actors involved
-      const involvedCardIds = partyActorIds
-        .map(actorId => actorCardMap.get(actorId))
-        .filter(Boolean) as string[];
-      
-      if (involvedCardIds.length < 2) return;
-      
-      // Create links between all cards through the agreement node
-      for (let i = 0; i < involvedCardIds.length; i++) {
-        for (let j = i + 1; j < involvedCardIds.length; j++) {
-          // Source card to agreement
-          links.push({
-            source: involvedCardIds[i],
-            target: agreement.agreement_id,
-            type: "obligation",
-            id: `${involvedCardIds[i]}_to_${agreement.agreement_id}`
-          });
-          
-          // Agreement to target card
-          links.push({
-            source: agreement.agreement_id,
-            target: involvedCardIds[j],
-            type: "benefit",
-            id: `${agreement.agreement_id}_to_${involvedCardIds[j]}`
-          });
         }
       }
     }
+    
+    // 1. Create obligation link: creator card → agreement node
+    console.log(`Creating PRIMARY obligation link: ${creatorCardId} → ${agreementId}`);
+    links.push({
+      source: creatorCardId,
+      target: agreementId,
+      type: "obligation",
+      id: `${creatorCardId}_to_${agreementId}_primary`
+    });
+    
+    // 2. Create benefit links: agreement → all OTHER participating cards
+    const otherCardIds = participatingCardIds.filter(cardId => cardId !== creatorCardId);
+    
+    otherCardIds.forEach(cardId => {
+      console.log(`Creating benefit link: ${agreementId} → ${cardId}`);
+      links.push({
+        source: agreementId,
+        target: cardId,
+        type: "benefit", 
+        id: `${agreementId}_to_${cardId}_benefit`
+      });
+    });
   });
   
   console.log("d3GraphUtils: Created links successfully", {
