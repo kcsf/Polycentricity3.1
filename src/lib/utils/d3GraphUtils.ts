@@ -710,58 +710,69 @@ export function createCardIcon(
  */
 /**
  * Helper function to ensure each card has at least 3 values
- * Adds additional values from a predefined list if needed
+ * First attempts to load values from Gun.js database using the valueService
+ * If fewer than 3 values are found, adds additional values from a predefined list
  */
 function augmentCardValues(card: Card): string[] {
-  // Debug log for inspection
-  console.log("Augmenting values for card:", card.card_id, card.values);
+  // Cache to store database values when they arrive
+  let valueNames: string[] = [];
   
-  // First extract existing values
-  const existingValues = card.values ? Object.keys(card.values)
-    .filter(key => key !== '#')  // Filter out the '#' key explicitly
+  // Debug log for inspection
+  console.log("[augmentCardValues] Processing card:", card.card_id);
+  
+  // Request values from database (this happens asynchronously)
+  getCardValueNames(card).then(fetchedValues => {
+    // Update our cached values with what came from the database
+    valueNames = fetchedValues;
+    console.log(`[augmentCardValues] Fetched ${valueNames.length} values from database for card ${card.card_id}:`, valueNames);
+  }).catch(error => {
+    console.error(`[augmentCardValues] Error fetching values for card ${card.card_id}:`, error);
+  });
+  
+  // Create a provisional list - we'll use this until the db query completes
+  // First extract existing values from the card object (for initial rendering)
+  let result = card.values ? Object.keys(card.values)
+    .filter(key => key !== '#' && key !== '_')  // Filter out special Gun.js keys
     .map(key => {
-      // Strip the 'value_' prefix if present and convert to readable format
+      // Make readable names from IDs
       return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
     }) : [];
   
-  console.log("Existing values after filtering:", existingValues);
+  console.log("[augmentCardValues] Extracted values from card object:", result);
   
-  // If we already have at least 3 values, return them
-  if (existingValues.length >= 3) {
-    return existingValues;
+  // If we already have at least 3 values from the card object, return them
+  if (result.length >= 3) {
+    return result;
   }
   
-  // Add additional values based on card ID 
-  const additionalValues = [
-    'ecological thinking',
-    'self reliance',
-    'social justice',
-    'preservation',
-    'wisdom',
-    'balance of power',
-    'community resilience',
-    'sustainability'
+  // Otherwise, supplement with default values
+  const defaultValues = [
+    'Ecological Thinking',
+    'Self Reliance',
+    'Social Justice',
+    'Preservation',
+    'Wisdom',
+    'Balance of Power',
+    'Community Resilience',
+    'Sustainability'
   ];
-  
-  // Add values until we have at least 3
-  const result = [...existingValues];
   
   // Calculate a consistent starting index based on card_id
   const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  let currentIndex = cardIdSum % additionalValues.length;
+  let currentIndex = cardIdSum % defaultValues.length;
   
   // Add values until we reach at least 3
   while (result.length < 3) {
-    const valueToAdd = additionalValues[currentIndex];
+    const valueToAdd = defaultValues[currentIndex];
     // Only add if not already in the list
     if (!result.includes(valueToAdd)) {
       result.push(valueToAdd);
     }
-    // Move to next value in the list (wrap around if needed)
-    currentIndex = (currentIndex + 1) % additionalValues.length;
+    // Move to next value (with wrapping)
+    currentIndex = (currentIndex + 1) % defaultValues.length;
   }
   
-  console.log("Augmented values result:", result);
+  console.log("[augmentCardValues] Final provisioned values:", result);
   
   // Return the augmented list with at least 3 values
   return result;
@@ -769,58 +780,69 @@ function augmentCardValues(card: Card): string[] {
 
 /**
  * Helper function to ensure each card has at least 3 capabilities
- * Adds additional capabilities from a predefined list if needed
+ * First attempts to load capabilities from Gun.js database using the capabilityService
+ * If fewer than 3 capabilities are found, adds additional capabilities from a predefined list
  */
 function augmentCardCapabilities(card: Card): string[] {
-  // Debug log for inspection
-  console.log("Augmenting capabilities for card:", card.card_id, card.capabilities);
+  // Cache to store database capabilities when they arrive
+  let capabilityNames: string[] = [];
   
-  // First extract existing capabilities
-  const existingCapabilities = card.capabilities ? Object.keys(card.capabilities)
-    .filter(key => key !== '#')  // Filter out the '#' key explicitly
+  // Debug log for inspection
+  console.log("[augmentCardCapabilities] Processing card:", card.card_id);
+  
+  // Request capabilities from database (this happens asynchronously)
+  getCardCapabilityNames(card).then(fetchedCapabilities => {
+    // Update our cached capabilities with what came from the database
+    capabilityNames = fetchedCapabilities;
+    console.log(`[augmentCardCapabilities] Fetched ${capabilityNames.length} capabilities from database for card ${card.card_id}:`, capabilityNames);
+  }).catch(error => {
+    console.error(`[augmentCardCapabilities] Error fetching capabilities for card ${card.card_id}:`, error);
+  });
+  
+  // Create a provisional list - we'll use this until the db query completes
+  // First extract existing capabilities from the card object (for initial rendering)
+  let result = card.capabilities ? Object.keys(card.capabilities)
+    .filter(key => key !== '#' && key !== '_')  // Filter out special Gun.js keys
     .map(key => {
-      // Strip the 'capability_' prefix if present and convert to readable format
+      // Make readable names from IDs
       return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
     }) : [];
   
-  console.log("Existing capabilities after filtering:", existingCapabilities);
+  console.log("[augmentCardCapabilities] Extracted capabilities from card object:", result);
   
-  // If we already have at least 3 capabilities, return them
-  if (existingCapabilities.length >= 3) {
-    return existingCapabilities;
+  // If we already have at least 3 capabilities from the card object, return them
+  if (result.length >= 3) {
+    return result;
   }
   
-  // Add additional capabilities
-  const additionalCapabilities = [
-    'networking',
-    'facilitation',
-    'technical expertise',
-    'project management',
-    'fundraising',
-    'sustainable agriculture',
-    'renewable energy',
-    'community organizing'
+  // Otherwise, supplement with default capabilities
+  const defaultCapabilities = [
+    'Networking',
+    'Facilitation',
+    'Technical Expertise',
+    'Project Management',
+    'Fundraising',
+    'Sustainable Agriculture',
+    'Renewable Energy',
+    'Community Organizing'
   ];
-  
-  // Add capabilities until we have at least 3
-  const result = [...existingCapabilities];
   
   // Calculate a consistent starting index based on card_id
   const cardIdSum = card.card_id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  let currentIndex = cardIdSum % additionalCapabilities.length;
+  let currentIndex = cardIdSum % defaultCapabilities.length;
   
   // Add capabilities until we reach at least 3
   while (result.length < 3) {
-    const capabilityToAdd = additionalCapabilities[currentIndex];
+    const capabilityToAdd = defaultCapabilities[currentIndex];
     // Only add if not already in the list
     if (!result.includes(capabilityToAdd)) {
       result.push(capabilityToAdd);
     }
-    // Move to next capability in the list (wrap around if needed)
-    currentIndex = (currentIndex + 1) % additionalCapabilities.length;
+    // Move to next capability (with wrapping)
+    currentIndex = (currentIndex + 1) % defaultCapabilities.length;
   }
   
-  console.log("Augmented capabilities result:", result);
+  console.log("[augmentCardCapabilities] Final provisioned capabilities:", result);
   
   // Return the augmented list with at least 3 capabilities
   return result;
