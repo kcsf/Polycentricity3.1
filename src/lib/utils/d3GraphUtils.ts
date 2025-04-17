@@ -367,7 +367,7 @@ export function addDonutRings(
         const anglePerItem = (endAngle - startAngle) / itemCount;
         
         // Process each item in this category
-        category.items.forEach((item, itemIndex) => {
+        category.items.forEach((item: any, itemIndex: number) => {
           const itemStartAngle = startAngle + (itemIndex * anglePerItem);
           const itemEndAngle = itemStartAngle + anglePerItem;
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
@@ -411,7 +411,7 @@ export function addDonutRings(
             
             // Capitalize first letter of each word
             displayName = displayName.split(' ')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
               .join(' ');
           }
           
