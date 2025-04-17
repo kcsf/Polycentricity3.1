@@ -1576,39 +1576,14 @@
       
       // After the graph is initialized, we can add donut segments to the nodes
       try {
-        console.log("About to add donut rings with:", {
+        console.log("D3CardBoard: Adding donut rings with:", {
           nodeElementsCount: nodeElements.size(),
           activeCardId,
           valueCacheSize: valueCache?.size,
           capabilityCacheSize: capabilityCache?.size
         });
         
-        // Let's add a manual donut ring for testing
-        nodeElements.filter(d => d.type === "actor").each(function(node) {
-          try {
-            console.log("Processing node for donut:", node.name);
-            const donutGroup = d3.select(this).append("g").attr("class", "donut-group");
-            
-            // Add donut arc for values
-            const arc = d3.arc<any>()
-              .innerRadius(35)  // Base radius
-              .outerRadius(50)  // Base radius + thickness
-              .startAngle(0)    // Start at top
-              .endAngle(Math.PI * 0.5); // Quarter circle
-              
-            donutGroup.append("path")
-              .attr("d", arc({}))
-              .attr("fill", "#A7C731")  // Hard-coded lime green for testing
-              .attr("stroke", "white")
-              .attr("stroke-width", 0.5);
-              
-            console.log("Added test donut segment to", node.name);
-          } catch (err) {
-            console.error("Error adding test donut to", node.name, err);
-          }
-        });
-        
-        // Then try the regular function
+        // Use our utility function to add the donut rings
         addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
         console.log("D3CardBoard: Donut rings added successfully");
       } catch (donutError) {
