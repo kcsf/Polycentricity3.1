@@ -2096,11 +2096,10 @@
         }
       })
       .on("mouseover", (event, d) => {
-        // On hover, set the hovered node but don't use the separate radial menu
-        // The donut rings handle everything with their own mouse events
+        // On hover, set the hovered node and show the radial menu
         if (d.type === 'actor') {
           hoveredNode = d.id;
-          // No need to call updateRadialMenu - all visualization is handled by D3
+          updateRadialMenu(d);
         }
       })
       .on("mouseout", (event, d) => {

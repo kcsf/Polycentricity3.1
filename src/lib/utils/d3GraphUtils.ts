@@ -838,15 +838,15 @@ export function addDonutRings(
       .trim();
   };
   
-  // Color scale for categories - using same colors as original React implementation
+  // Color scale for categories - using vibrant colors that match the original design
   const colorScale = d3.scaleOrdinal<string>()
     .domain(categories)
     .range([
-      "#3B82F6", // blue for values
-      "#10B981", // green for capabilities
-      "#F59E0B", // amber for intellectual property
-      "#6366F1", // indigo for resources
-      "#EC4899"  // pink for goals
+      "#4C9AFF", // bright blue for values
+      "#36B37E", // emerald green for capabilities
+      "#FF991F", // bright orange for intellectual property
+      "#998DD9", // purple for resources
+      "#FF5630"  // bright red for goals
     ]);
   
   // Process each card node to add wedges
