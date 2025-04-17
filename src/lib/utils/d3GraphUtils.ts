@@ -583,31 +583,18 @@ export function addDonutRings(
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
   console.log(`Found ${cardNodes.size()} card nodes to process`);
 
-  // Fixed values for radii
+  // Fixed values for radii - match the React code exactly
   const baseActorRadius = 35; 
   const baseDonutThickness = 15;
   
-  // Step 1: Add outer donut rings to all card nodes first
-  cardNodes.each(function(d) {
-    const isActive = d.id === activeCardId;
-    const scaleFactor = isActive ? 1.5 : 1;
-    const scaledNodeRadius = baseActorRadius * scaleFactor;
-    const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
-    
-    // Add a donut ring
-    d3.select(this)
-      .append("circle")
-      .attr("r", donutRadius)
-      .attr("class", `donut-ring${isActive ? " active" : ""}`)
-      .attr("fill", "transparent")
-      .attr("stroke", "var(--border)")
-      .attr("stroke-width", 1);
-  });
-  
-  // Process each card node to add wedges
+  // Process each card node to add complete donut rings with interactive segments
   cardNodes.each(function(nodeData) {
     // Basic setup for this node
     const node = d3.select(this);
+    const isActive = nodeData.id === activeCardId;
+    const scaleFactor = isActive ? 1.5 : 1;
+    const scaledNodeRadius = baseActorRadius * scaleFactor;
+    const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
     
     console.log(`Processing node ${nodeData.name} for donut rings:`, {
       _valueNames: nodeData._valueNames,
@@ -621,101 +608,197 @@ export function addDonutRings(
       return;
     }
     
-    // Create wedges for values and capabilities
-    let totalItems = 0;
-    
     // Count total items for angle calculations
+    let totalItems = 0;
     if (nodeData._valueNames) totalItems += nodeData._valueNames.length;
     if (nodeData._capabilityNames) totalItems += nodeData._capabilityNames.length;
     
     // Exit if no items to show
     if (totalItems === 0) return;
     
-    // Calculate base parameters
-    const isActive = nodeData.id === activeCardId;
-    const scaleFactor = isActive ? 1.5 : 1;
-    const scaledNodeRadius = baseActorRadius * scaleFactor;
-    const donutRadius = scaledNodeRadius + baseDonutThickness * scaleFactor;
+    // 1. Create a surrounding donut ring
+    node.append("circle")
+      .attr("r", donutRadius)
+      .attr("class", `donut-ring ${isActive ? "active" : ""}`)
+      .attr("fill", "none")
+      .attr("stroke", "#e5e5e5")
+      .attr("stroke-width", 1);
     
-    // Create donut group
-    const donutGroup = node.append("g").attr("class", "donut-group");
-    
-    // Variables to track current angle
-    let currentAngle = 0; // Start at top (will convert to radians later)
-    const totalAngle = 360; // Full circle in degrees
-    
-    // 1. ADD VALUES SEGMENTS
-    if (nodeData._valueNames && nodeData._valueNames.length > 0) {
-      // Calculate angles for value segments
-      const values = nodeData._valueNames;
-      const valueAngleTotal = (values.length / totalItems) * totalAngle;
-      const valueAnglePerItem = valueAngleTotal / values.length;
+    // 2. Create main categories group
+    const categoriesGroup = node.append("g")
+      .attr("class", "categories-group");
       
-      console.log(`Adding ${values.length} value segments for ${nodeData.name}, each ${valueAnglePerItem.toFixed(2)} degrees`);
+    // Track current angle for segment positioning
+    let currentAngle = -Math.PI / 2; // Start at top
+    
+    // 3. PREPARE CATEGORY DATA
+    // Create structure similar to React reference
+    const categories = [
+      {
+        id: "values",
+        color: categoryColors("values"),
+        items: nodeData._valueNames || []
+      },
+      {
+        id: "capabilities",
+        color: categoryColors("capabilities"),
+        items: nodeData._capabilityNames || []
+      }
+    ];
+    
+    // 4. RENDER CATEGORIES AND SEGMENTS
+    categories.forEach(category => {
+      if (!category.items || category.items.length === 0) return;
       
-      values.forEach((valueName, index) => {
-        // Calculate start and end angles in radians
-        const startAngleRad = (currentAngle * Math.PI) / 180;
-        const endAngleRad = ((currentAngle + valueAnglePerItem) * Math.PI) / 180;
+      // Create a group for this category
+      const categoryGroup = categoriesGroup.append("g")
+        .attr("class", `category-group ${category.id}`);
+      
+      // Calculate total angle for this category based on item count
+      const categoryItemCount = category.items.length;
+      const categoryAngle = (categoryItemCount / totalItems) * (2 * Math.PI);
+      const itemAngle = categoryAngle / categoryItemCount;
+      
+      // Add each item as a wedge/segment
+      category.items.forEach((itemName, itemIndex) => {
+        // Calculate angles for this segment
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + itemAngle;
         
-        // Create arc path for this value
+        // Create the segment/wedge
+        const segment = categoryGroup.append("g")
+          .attr("class", `segment ${category.id}-segment`)
+          .attr("data-category", category.id)
+          .attr("data-item", itemName);
+        
+        // Create segment shape using arc
         const arc = d3.arc<any>()
           .innerRadius(scaledNodeRadius)
           .outerRadius(donutRadius)
-          .startAngle(startAngleRad)
-          .endAngle(endAngleRad)
+          .startAngle(startAngle)
+          .endAngle(endAngle)
           .padAngle(0.01);
           
-        // Add the wedge
-        donutGroup.append("path")
+        // Create the main segment path
+        const segmentPath = segment.append("path")
           .attr("d", arc({}))
-          .attr("fill", categoryColors("values"))
+          .attr("fill", category.color)
           .attr("stroke", "white")
           .attr("stroke-width", 0.5)
-          .attr("class", "value-segment")
-          .append("title")
-          .text(`Value: ${valueName}`);
-          
-        // Update current angle for next segment
-        currentAngle += valueAnglePerItem;
-      });
-    }
-    
-    // 2. ADD CAPABILITY SEGMENTS
-    if (nodeData._capabilityNames && nodeData._capabilityNames.length > 0) {
-      // Calculate angles for capability segments
-      const capabilities = nodeData._capabilityNames;
-      const capabilityAngleTotal = (capabilities.length / totalItems) * totalAngle;
-      const capabilityAnglePerItem = capabilityAngleTotal / capabilities.length;
-      
-      console.log(`Adding ${capabilities.length} capability segments for ${nodeData.name}, each ${capabilityAnglePerItem.toFixed(2)} degrees`);
-      
-      capabilities.forEach((capabilityName, index) => {
-        // Calculate start and end angles in radians
-        const startAngleRad = (currentAngle * Math.PI) / 180;
-        const endAngleRad = ((currentAngle + capabilityAnglePerItem) * Math.PI) / 180;
+          .attr("class", `segment-path ${category.id}-path`)
+          .style("cursor", "pointer");
         
-        // Create arc path for this capability
-        const arc = d3.arc<any>()
-          .innerRadius(scaledNodeRadius)
-          .outerRadius(donutRadius)
-          .startAngle(startAngleRad)
-          .endAngle(endAngleRad)
-          .padAngle(0.01);
-          
-        // Add the wedge
-        donutGroup.append("path")
-          .attr("d", arc({}))
-          .attr("fill", categoryColors("capabilities"))
-          .attr("stroke", "white")
-          .attr("stroke-width", 0.5)
-          .attr("class", "capability-segment")
-          .append("title")
-          .text(`Capability: ${capabilityName}`);
-          
+        // Create label position for potential subwedge
+        const midAngle = startAngle + (endAngle - startAngle) / 2;
+        const labelRadius = donutRadius + 20; // Position label outside the ring
+        const labelX = Math.cos(midAngle) * labelRadius;
+        const labelY = Math.sin(midAngle) * labelRadius;
+        
+        // Save these data for use in hover effects
+        segment.datum({
+          midAngle,
+          labelX,
+          labelY,
+          startAngle,
+          endAngle,
+          outerRadius: donutRadius,
+          innerRadius: scaledNodeRadius,
+          itemName,
+          categoryId: category.id,
+          categoryColor: category.color
+        });
+        
+        // Add hover effects with subwedges
+        segment
+          .on("mouseover", function(event, d: any) {
+            // Highlight the main segment
+            d3.select(this).select("path")
+              .attr("opacity", 1)
+              .attr("stroke-width", 1.5)
+              .attr("filter", "brightness(1.1)");
+            
+            // Create a group for the subwedge
+            const subwedgeGroup = d3.select(this.parentNode.parentNode.parentNode)
+              .append("g")
+              .attr("class", "subwedge-group")
+              .attr("pointer-events", "none");
+            
+            // Create extended arc for subwedge
+            const subwedgeArc = d3.arc<any>()
+              .innerRadius(d.outerRadius)
+              .outerRadius(d.outerRadius + 10)
+              .startAngle(d.startAngle)
+              .endAngle(d.endAngle)
+              .padAngle(0.02);
+            
+            // Add subwedge path
+            subwedgeGroup.append("path")
+              .attr("d", subwedgeArc({}))
+              .attr("fill", d.categoryColor)
+              .attr("opacity", 0.7)
+              .attr("stroke", "white")
+              .attr("stroke-width", 0.5)
+              .attr("class", "subwedge-path");
+              
+            // Add label on the subwedge
+            subwedgeGroup.append("text")
+              .attr("x", d.labelX)
+              .attr("y", d.labelY)
+              .attr("text-anchor", "middle")
+              .attr("dy", "0.3em")
+              .attr("font-size", "10px")
+              .attr("fill", "#333")
+              .attr("class", "subwedge-label")
+              .text(d.itemName);
+              
+            // Show tooltip
+            d3.select(this).append("title")
+              .text(`${d.categoryId.charAt(0).toUpperCase() + d.categoryId.slice(1)}: ${d.itemName}`);
+          })
+          .on("mouseout", function() {
+            // Remove subwedge group on mouseout
+            d3.select(this.parentNode.parentNode.parentNode)
+              .select(".subwedge-group")
+              .remove();
+            
+            // Reset main segment appearance
+            d3.select(this).select("path")
+              .attr("opacity", 0.9)
+              .attr("stroke-width", 0.5)
+              .attr("filter", null);
+            
+            // Remove tooltip
+            d3.select(this).select("title").remove();
+          });
+        
         // Update current angle for next segment
-        currentAngle += capabilityAnglePerItem;
+        currentAngle = endAngle;
       });
+    });
+    
+    // 5. ADD CENTRAL TEXT (matching the React reference)
+    const centralTextGroup = node.append("g")
+      .attr("class", "central-text-group")
+      .attr("pointer-events", "none");
+    
+    // Add count text if active
+    if (isActive) {
+      centralTextGroup.append("text")
+        .attr("class", "count-text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "0em")
+        .attr("font-size", "22px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#333333")
+        .text(totalItems.toString());
+      
+      centralTextGroup.append("text")
+        .attr("class", "count-label")
+        .attr("text-anchor", "middle")
+        .attr("dy", "1.2em")
+        .attr("font-size", "12px")
+        .attr("fill", "#666666")
+        .text("items");
     }
   });
 }
@@ -851,13 +934,38 @@ export function initializeD3Graph(
       .on("click", (_, d) => handleNodeClick(d))
       .call(dragBehavior as any);
     
-    // Add background circles for nodes
+    // Add background circles for nodes with proper styling and gradients
+    // Define gradients for each node
+    nodes.forEach(node => {
+      if (node.type === 'actor') {
+        // Create a unique gradient ID for this node
+        const gradientId = `center-gradient-${node.id}`;
+        
+        // Add gradient definition
+        defs.append("linearGradient")
+          .attr("id", gradientId)
+          .attr("x1", "0%")
+          .attr("y1", "0%")
+          .attr("x2", "0%")
+          .attr("y2", "100%")
+          .html(`
+            <stop offset="0%" stop-color="#FFFFFF" />
+            <stop offset="100%" stop-color="#F8F8F8" />
+          `);
+      }
+    });
+    
+    // Add the background circles with gradients and styling
     nodeElements.append("circle")
-      .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
+      .attr("class", d => {
+        const baseClass = d.type === 'actor' ? 'center-circle actor-center-circle' : 'center-circle agreement-center-circle';
+        return `${baseClass} ${d.id === activeCardId ? 'active' : ''}`;
+      })
       .attr("r", d => d.type === 'actor' ? 35 : 17)
-      .attr("fill", d => d.type === 'actor' ? '#FFFFFF' : '#F9F9F9')
+      .attr("fill", d => d.type === 'actor' ? `url(#center-gradient-${d.id})` : '#F9F9F9')
       .attr("stroke", "#e5e5e5")
-      .attr("stroke-width", 1);
+      .attr("stroke-width", 1)
+      .attr("filter", "drop-shadow(0px 1px 2px rgba(0,0,0,0.08))");
     
     // Setup visualization update on tick
     simulation.on("tick", () => {
