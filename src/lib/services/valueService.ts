@@ -9,6 +9,9 @@ import {
 } from "./gunService";
 import type { Value, Card } from "$lib/types";
 
+// Simple in-memory cache for values to reduce database lookups
+const valueCache = new Map<string, Value>();
+
 // Create a new value
 export async function createValue(name: string): Promise<Value | null> {
     console.log(`[createValue] Processing: ${name}`);
@@ -41,22 +44,39 @@ export async function createValue(name: string): Promise<Value | null> {
     }
 }
 
-// Get a value by ID
+// Get a value by ID (with caching)
 export async function getValue(valueId: string): Promise<Value | null> {
     console.log(`[getValue] Fetching: ${valueId}`);
+    
+    // Check cache first for better performance
+    if (valueCache.has(valueId)) {
+        console.log(`[getValue] Cache hit for: ${valueId}`);
+        return valueCache.get(valueId) || null;
+    }
+    
     const gun = getGun();
     if (!gun) {
         console.error("[getValue] Gun not initialized");
         return null;
     }
 
-    const valueData = await get(`${nodes.values}/${valueId}`);
-    if (!valueData) {
-        console.log(`[getValue] Not found: ${valueId}`);
+    try {
+        const valueData = await get(`${nodes.values}/${valueId}`);
+        if (!valueData) {
+            console.log(`[getValue] Not found: ${valueId}`);
+            return null;
+        }
+        
+        // Store in cache for future lookups
+        const value = valueData as Value;
+        valueCache.set(valueId, value);
+        
+        console.log(`[getValue] Found and cached: ${valueId}`);
+        return value;
+    } catch (error) {
+        console.error(`[getValue] Error fetching ${valueId}:`, error);
         return null;
     }
-    console.log(`[getValue] Found: ${valueId}`);
-    return valueData as Value;
 }
 
 // Get all values
@@ -96,18 +116,49 @@ export async function deleteValue(valueId: string): Promise<boolean> {
     }
 }
 
-// Create or get values from an array of names
+// Create or get values from an array of names with parallel processing
 export async function createOrGetValues(
     valueNames: string[],
 ): Promise<Record<string, boolean>> {
     console.log(`[createOrGetValues] Processing ${valueNames.length} values`);
     const valueMap: Record<string, boolean> = {};
-
-    for (const name of valueNames.filter(Boolean)) {
-        const value = await createValue(name.trim());
-        if (value) {
-            valueMap[value.value_id] = true;
-            console.log(`[createOrGetValues] Added: ${value.value_id}`);
+    
+    // Filter out empty names and trim whitespace
+    const filteredNames = valueNames.filter(Boolean).map(name => name.trim());
+    
+    if (filteredNames.length === 0) {
+        return valueMap;
+    }
+    
+    try {
+        // Process values in parallel for better performance
+        const results = await Promise.all(
+            filteredNames.map(name => createValue(name))
+        );
+        
+        // Add successful results to the valueMap
+        results.forEach(value => {
+            if (value) {
+                valueMap[value.value_id] = true;
+                // Cache the value for future lookups
+                valueCache.set(value.value_id, value);
+                console.log(`[createOrGetValues] Added: ${value.value_id}`);
+            }
+        });
+    } catch (error) {
+        console.error('[createOrGetValues] Error processing values in parallel:', error);
+        // Fall back to sequential processing if parallel fails
+        for (const name of filteredNames) {
+            try {
+                const value = await createValue(name);
+                if (value) {
+                    valueMap[value.value_id] = true;
+                    valueCache.set(value.value_id, value);
+                    console.log(`[createOrGetValues] Added via fallback: ${value.value_id}`);
+                }
+            } catch (innerError) {
+                console.error(`[createOrGetValues] Error processing value "${name}":`, innerError);
+            }
         }
     }
 
@@ -186,30 +237,36 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         // Process each value ID in parallel
         await Promise.all(valueIds.map(async (valueId) => {
             try {
+                // Check cache first for better performance
+                if (valueCache.has(valueId)) {
+                    const cachedValue = valueCache.get(valueId);
+                    if (cachedValue && cachedValue.name) {
+                        console.log(`[getCardValueNames] Cache hit for ${valueId}: ${cachedValue.name}`);
+                        valueNamesMap.set(valueId, cachedValue.name);
+                        return;
+                    }
+                }
+                
                 // Handle standard value IDs (starting with 'value_')
                 if (valueId.startsWith('value_')) {
-                    const valueData = await get(`${nodes.values}/${valueId}`);
-                    if (valueData?.name) {
-                        valueNamesMap.set(valueId, valueData.name);
+                    // Use getValue to take advantage of its caching logic
+                    const value = await getValue(valueId);
+                    if (value?.name) {
+                        valueNamesMap.set(valueId, value.name);
                         return;
                     }
                 }
                 
                 // Handle hardcoded legacy ID mappings (c1, c2, etc.)
-                if (valueId === 'c1') {
-                    valueNamesMap.set(valueId, 'Sustainability');
-                    return;
-                }
-                if (valueId === 'c2') {
-                    valueNamesMap.set(valueId, 'Community Resilience');
-                    return;
-                }
-                if (valueId === 'c3') {
-                    valueNamesMap.set(valueId, 'Regeneration');
-                    return;
-                }
-                if (valueId === 'c4') {
-                    valueNamesMap.set(valueId, 'Equity');
+                const legacyMappings: Record<string, string> = {
+                    'c1': 'Sustainability',
+                    'c2': 'Community Resilience',
+                    'c3': 'Regeneration',
+                    'c4': 'Equity'
+                };
+                
+                if (valueId in legacyMappings) {
+                    valueNamesMap.set(valueId, legacyMappings[valueId]);
                     return;
                 }
                 

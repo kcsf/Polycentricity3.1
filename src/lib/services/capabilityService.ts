@@ -9,6 +9,9 @@ import {
 } from "./gunService";
 import type { Capability, Card } from "$lib/types";
 
+// Simple in-memory cache for capabilities to reduce database lookups
+const capabilityCache = new Map<string, Capability>();
+
 // Create a new capability
 export async function createCapability(
     name: string,
@@ -43,24 +46,41 @@ export async function createCapability(
     }
 }
 
-// Get a capability by ID
+// Get a capability by ID (with caching)
 export async function getCapability(
     capabilityId: string,
 ): Promise<Capability | null> {
     console.log(`[getCapability] Fetching: ${capabilityId}`);
+    
+    // Check cache first for better performance
+    if (capabilityCache.has(capabilityId)) {
+        console.log(`[getCapability] Cache hit for: ${capabilityId}`);
+        return capabilityCache.get(capabilityId) || null;
+    }
+    
     const gun = getGun();
     if (!gun) {
         console.error("[getCapability] Gun not initialized");
         return null;
     }
 
-    const capData = await get(`${nodes.capabilities}/${capabilityId}`);
-    if (!capData) {
-        console.log(`[getCapability] Not found: ${capabilityId}`);
+    try {
+        const capData = await get(`${nodes.capabilities}/${capabilityId}`);
+        if (!capData) {
+            console.log(`[getCapability] Not found: ${capabilityId}`);
+            return null;
+        }
+        
+        // Store in cache for future lookups
+        const capability = capData as Capability;
+        capabilityCache.set(capabilityId, capability);
+        
+        console.log(`[getCapability] Found and cached: ${capabilityId}`);
+        return capability;
+    } catch (error) {
+        console.error(`[getCapability] Error fetching ${capabilityId}:`, error);
         return null;
     }
-    console.log(`[getCapability] Found: ${capabilityId}`);
-    return capData as Capability;
 }
 
 // Get all capabilities
@@ -110,21 +130,47 @@ export function parseCapabilitiesText(capabilitiesText: string): string[] {
         : [];
 }
 
-// Create or get capabilities from a text string
+// Create or get capabilities from a text string with parallel processing
 export async function createOrGetCapabilities(
     capabilitiesText: string,
 ): Promise<Record<string, boolean>> {
     console.log(`[createOrGetCapabilities] Processing: ${capabilitiesText}`);
     const capabilityNames = parseCapabilitiesText(capabilitiesText);
     const capabilityMap: Record<string, boolean> = {};
-
-    for (const name of capabilityNames) {
-        const cap = await createCapability(name);
-        if (cap) {
-            capabilityMap[cap.capability_id] = true;
-            console.log(
-                `[createOrGetCapabilities] Added: ${cap.capability_id}`,
-            );
+    
+    if (capabilityNames.length === 0) {
+        return capabilityMap;
+    }
+    
+    try {
+        // Process capabilities in parallel for better performance
+        const results = await Promise.all(
+            capabilityNames.map(name => createCapability(name))
+        );
+        
+        // Add successful results to the capabilityMap
+        results.forEach(cap => {
+            if (cap) {
+                capabilityMap[cap.capability_id] = true;
+                // Cache the capability for future lookups
+                capabilityCache.set(cap.capability_id, cap);
+                console.log(`[createOrGetCapabilities] Added: ${cap.capability_id}`);
+            }
+        });
+    } catch (error) {
+        console.error('[createOrGetCapabilities] Error processing capabilities in parallel:', error);
+        // Fall back to sequential processing if parallel fails
+        for (const name of capabilityNames) {
+            try {
+                const cap = await createCapability(name);
+                if (cap) {
+                    capabilityMap[cap.capability_id] = true;
+                    capabilityCache.set(cap.capability_id, cap);
+                    console.log(`[createOrGetCapabilities] Added via fallback: ${cap.capability_id}`);
+                }
+            } catch (innerError) {
+                console.error(`[createOrGetCapabilities] Error processing capability "${name}":`, innerError);
+            }
         }
     }
 
