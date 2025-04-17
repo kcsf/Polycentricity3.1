@@ -368,9 +368,10 @@ export function addDonutRings(
       if (category.items && category.items.length > 0) {
         const itemCount = category.items.length;
         
-        // FIX #1: Add debug logging for item contents
-        // Log the actual contents of category.items to debug why only 1 item is showing
-        console.log("Category:", category.name, "Items:", category.items);
+        // Only log items for specific debugging categories to reduce console noise
+        if (category.name === "rivalrousResources" || category.debug) {
+          console.log("Category:", category.name, "Items:", category.items);
+        }
         
         // Calculate exact angle per item using the size of the current category's wedge
         // Use precise calculations to avoid floating point errors
@@ -497,8 +498,10 @@ export function addDonutRings(
             displayName = String(item);
           }
           
-          // Log orientation values for debugging
-          console.log(`Label: ${logName}, angleDeg: ${angleDeg.toFixed(1)}, isLeftSide: ${isLeftSide}, needsFlip: ${needsFlip}, rotationDeg: ${rotationDeg.toFixed(1)}, textAnchor: ${textAnchor}`);
+          // Log orientation values for debugging (only for specific categories or items)
+          if (category.debug || category.name === "rivalrousResources") {
+            console.log(`Label: ${logName}, angleDeg: ${angleDeg.toFixed(1)}, isLeftSide: ${isLeftSide}, needsFlip: ${needsFlip}, rotationDeg: ${rotationDeg.toFixed(1)}, textAnchor: ${textAnchor}`);
+          }
           
           // Add the text label with radial orientation (like in reference image)
           // Create a text element that will follow the radial line from center
