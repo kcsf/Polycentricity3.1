@@ -604,16 +604,8 @@ export function addDonutRings(
       .trim();
   };
   
-  // Color scale for categories - using same colors as original React implementation
-  const colorScale = d3.scaleOrdinal<string>()
-    .domain(categories)
-    .range([
-      "#3B82F6", // blue for values
-      "#10B981", // green for capabilities
-      "#F59E0B", // amber for intellectual property
-      "#6366F1", // indigo for resources
-      "#EC4899"  // pink for goals
-    ]);
+  // Use the same categoryColors that was defined globally
+  // This ensures consistency between different visualization components
   
   // Process each card node to add wedges
   cardNodes.each(function(nodeData) {
@@ -645,7 +637,7 @@ export function addDonutRings(
         
         // Calculate angles and create wedge paths
         const itemCount = categoryItems.length;
-        const categoryColor = colorScale(category);
+        const categoryColor = categoryColors(category);
         const totalAngle = Math.min(300, 360 / categories.length); // Max 300 degrees per category
         const startAngle = totalOffset;
         const anglePerItem = totalAngle / itemCount;
