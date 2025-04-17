@@ -1466,21 +1466,7 @@
     actorUnsubscribe = () => {};
   }
 
-  // Define color scale for categories
-  const categoryColors = d3.scaleOrdinal([
-    "#A7C731", // Bright lime
-    "#9BC23D", // Lime green
-    "#8FBC49", // Fresh green
-    "#83B655", // Pea green
-    "#77B061", // Medium green
-    "#6BA96D", // Forest green
-    "#5FA279", // Pine green
-    "#539B85", // Deep seafoam
-    "#479491", // Teal
-    "#3B8D9D", // Blue-teal
-    "#2F86A9", // Ocean blue
-    "#237FB5", // Deep blue
-  ]);
+  // Use the imported categoryColors from d3GraphUtils.ts
 
   // Function to update the visualization after data changes
   function updateVisualization() {
