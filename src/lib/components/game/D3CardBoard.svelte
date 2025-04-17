@@ -52,6 +52,9 @@
   // Actor to card mapping
   let actorCardMap: Map<string, string> = new Map();
   
+  // Selected node for detail view
+  let selectedNode: D3Node | null = null;
+  
   /**
    * Load agreement data from a Gun.js reference
    * @param agreementId - The agreement ID to load
