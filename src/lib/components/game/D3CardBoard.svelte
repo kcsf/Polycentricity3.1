@@ -1645,12 +1645,14 @@
       // since we're now using the utility functions from d3GraphUtils.ts
       
       console.log("D3 graph fully initialized with utility function");
-      return;
     } catch (error) {
       console.error("Error initializing D3 graph:", error);
     }
     
-    // Prepare nodes and links data
+    // The rest of the initialization is handled by utility functions above
+    return; // Prevent duplicate initialization
+
+    // LEGACY CODE BELOW - NOT USED ANYMORE
     let nodes: D3Node[] = [
       ...cardsWithPosition.map((card) => {
         // Handle extended card properties with proper typing

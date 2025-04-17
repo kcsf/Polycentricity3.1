@@ -686,137 +686,166 @@ export function initializeD3Graph(
 ): {
   simulation: d3.Simulation<D3Node, D3Link>,
   nodeElements: d3.Selection<SVGGElement, D3Node, any, any>,
-  linkElements: d3.Selection<SVGGElement, D3Link, any, any>,
+  linkElements: d3.Selection<SVGLineElement, D3Link, any, any>,
   nodes: D3Node[],
   links: D3Link[]
 } {
-  // Create actorCardMap
-  const actorCardMap = new Map<string, string>();
-  
-  // Map actor_id to card_id for lookup during link creation
-  cards.forEach(card => {
-    if (card.actor_id) {
-      actorCardMap.set(card.actor_id, card.card_id);
-    }
+  console.log("d3GraphUtils: initializeD3Graph called with:", {
+    svgElementExists: !!svgElement,
+    cardsCount: cards.length,
+    agreementsCount: agreements.length,
+    width,
+    height,
   });
   
-  // Create D3 nodes and links
-  const nodes = createNodes(cards, agreements, width, height);
-  const links = createLinks(nodes, agreements, actorCardMap);
+  // Initialize default variables
+  let simulation: d3.Simulation<D3Node, D3Link>;
+  let nodeElements: d3.Selection<SVGGElement, D3Node, any, any>;
+  let linkElements: d3.Selection<any, D3Link, any, any>;
+  let nodes: D3Node[] = [];
+  let links: D3Link[] = [];
   
-  // Clear existing SVG content
-  const svg = d3.select(svgElement);
-  svg.selectAll("*").remove();
+  try {
+    // Create actorCardMap
+    const actorCardMap = new Map<string, string>();
   
-  // Create groups for links and nodes (links should be created first so they're behind nodes)
-  const linkGroup = svg.append("g").attr("class", "links");
-  const nodeGroup = svg.append("g").attr("class", "nodes");
-  
-  // Create the force simulation
-  const simulation = d3.forceSimulation<D3Node>(nodes)
-    .force("link", d3.forceLink<D3Node, D3Link>(links).id(d => d.id).distance(100).strength(0.7))
-    .force("charge", d3.forceManyBody().strength(-300))
-    .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collide", d3.forceCollide<D3Node>().radius(50));
-  
-  // Set up interactions (zoom, drag)
-  const dragBehavior = setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
-  
-  // Create arrow markers for each type of link
-  const defs = svg.append("defs");
-  
-  // Create obligation arrow marker
-  defs.append("marker")
-    .attr("id", "arrow-obligation")
-    .attr("viewBox", "0 -5 10 10")
-    .attr("refX", 15)
-    .attr("refY", 0)
-    .attr("markerWidth", 4)
-    .attr("markerHeight", 4)
-    .attr("orient", "auto")
-    .append("path")
-    .attr("fill", "#BBBBBB")
-    .attr("d", "M0,-5L10,0L0,5");
+    // Map actor_id to card_id for lookup during link creation
+    cards.forEach(card => {
+      if (card.actor_id) {
+        actorCardMap.set(card.actor_id, card.card_id);
+      }
+    });
     
-  // Create benefit arrow marker
-  defs.append("marker")
-    .attr("id", "arrow-benefit")
-    .attr("viewBox", "0 -5 10 10")
-    .attr("refX", 15)
-    .attr("refY", 0)
-    .attr("markerWidth", 4)
-    .attr("markerHeight", 4)
-    .attr("orient", "auto")
-    .append("path")
-    .attr("fill", "#BBBBBB")
-    .attr("d", "M0,-5L10,0L0,5");
-
-  // Create link elements
-  const linkElements = linkGroup
-    .selectAll("g")
-    .data(links)
-    .enter()
-    .append("g")
-    .attr("class", d => `link ${d.type}`);
-  
-  // Add path for each link
-  linkElements.append("path")
-    .attr("class", d => `link-path ${d.type}`)
-    .attr("stroke", "#e5e5e5")
-    .attr("stroke-width", 1)
-    .attr("stroke-opacity", 0.8)
-    .attr("fill", "none")
-    .attr("marker-end", d => `url(#arrow-${d.type})`);
-  
-  // Create node elements
-  const nodeElements = nodeGroup
-    .selectAll("g")
-    .data(nodes)
-    .enter()
-    .append("g")
-    .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
-    .on("click", (_, d) => handleNodeClick(d))
-    .call(dragBehavior as any);
-  
-  // Add background circles for nodes
-  nodeElements.append("circle")
-    .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
-    .attr("r", d => d.type === 'actor' ? 35 : 17);
-  
-  // Setup visualization update on tick
-  simulation.on("tick", () => {
-    // Update link positions
-    linkElements.selectAll(".link-path")
-      .attr("d", (d: any) => {
-        // Handle string sources that haven't been replaced with objects yet
-        const sourceObj = typeof d.source === 'string' 
-          ? nodes.find(n => n.id === d.source) 
-          : d.source;
-        
-        const targetObj = typeof d.target === 'string'
-          ? nodes.find(n => n.id === d.target)
-          : d.target;
-        
-        if (!sourceObj || !targetObj) return '';
-        
-        // Safe access coordinates
-        const sourceX = sourceObj.x ?? 0;
-        const sourceY = sourceObj.y ?? 0;
-        const targetX = targetObj.x ?? 0;
-        const targetY = targetObj.y ?? 0;
-        
-        return `M${sourceX},${sourceY} L${targetX},${targetY}`;
-      });
+    // Create D3 nodes and links
+    nodes = createNodes(cards, agreements, width, height);
+    links = createLinks(nodes, agreements, actorCardMap);
     
-    // Update node positions
-    nodeElements.attr("transform", (d: any) => `translate(${d.x ?? 0}, ${d.y ?? 0})`);
-  });
+    // Clear existing SVG content
+    const svg = d3.select(svgElement);
+    svg.selectAll("*").remove();
+    
+    // Create groups for links and nodes (links should be created first so they're behind nodes)
+    const linkGroup = svg.append("g").attr("class", "links");
+    const nodeGroup = svg.append("g").attr("class", "nodes");
+    
+    // Create the force simulation
+    simulation = d3.forceSimulation<D3Node>(nodes)
+      .force("link", d3.forceLink<D3Node, D3Link>(links).id(d => d.id).distance(100).strength(0.7))
+      .force("charge", d3.forceManyBody().strength(-300))
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("collide", d3.forceCollide<D3Node>().radius(50));
+    
+    // Set up interactions (zoom, drag)
+    const dragBehavior = setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
+    
+    // Create arrow markers for each type of link
+    const defs = svg.append("defs");
+    
+    // Create obligation arrow marker
+    defs.append("marker")
+      .attr("id", "arrow-obligation")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 15)
+      .attr("refY", 0)
+      .attr("markerWidth", 4)
+      .attr("markerHeight", 4)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("fill", "#BBBBBB")
+      .attr("d", "M0,-5L10,0L0,5");
+      
+    // Create benefit arrow marker
+    defs.append("marker")
+      .attr("id", "arrow-benefit")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 15)
+      .attr("refY", 0)
+      .attr("markerWidth", 4)
+      .attr("markerHeight", 4)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("fill", "#BBBBBB")
+      .attr("d", "M0,-5L10,0L0,5");
   
-  return {
-    simulation,
-    nodeElements,
-    linkElements,
-    nodes,
-    links
-  };
+    // Create link elements
+    linkElements = linkGroup
+      .selectAll("g")
+      .data(links)
+      .enter()
+      .append("g")
+      .attr("class", d => `link ${d.type}`);
+    
+    // Add path for each link
+    linkElements.append("path")
+      .attr("class", d => `link-path ${d.type}`)
+      .attr("stroke", "#e5e5e5")
+      .attr("stroke-width", 1)
+      .attr("stroke-opacity", 0.8)
+      .attr("fill", "none")
+      .attr("marker-end", d => `url(#arrow-${d.type})`);
+    
+    // Create node elements
+    nodeElements = nodeGroup
+      .selectAll("g")
+      .data(nodes)
+      .enter()
+      .append("g")
+      .attr("class", d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+      .on("click", (_, d) => handleNodeClick(d))
+      .call(dragBehavior as any);
+    
+    // Add background circles for nodes
+    nodeElements.append("circle")
+      .attr("class", d => `node-background ${d.type === 'actor' ? 'actor-background' : 'agreement-background'}`)
+      .attr("r", d => d.type === 'actor' ? 35 : 17);
+    
+    // Setup visualization update on tick
+    simulation.on("tick", () => {
+      // Update link positions
+      linkElements.selectAll(".link-path")
+        .attr("d", (d: any) => {
+          // Handle string sources that haven't been replaced with objects yet
+          const sourceObj = typeof d.source === 'string' 
+            ? nodes.find(n => n.id === d.source) 
+            : d.source;
+          
+          const targetObj = typeof d.target === 'string'
+            ? nodes.find(n => n.id === d.target)
+            : d.target;
+          
+          if (!sourceObj || !targetObj) return '';
+          
+          // Safe access coordinates
+          const sourceX = sourceObj.x ?? 0;
+          const sourceY = sourceObj.y ?? 0;
+          const targetX = targetObj.x ?? 0;
+          const targetY = targetObj.y ?? 0;
+          
+          return `M${sourceX},${sourceY} L${targetX},${targetY}`;
+        });
+      
+      // Update node positions
+      nodeElements.attr("transform", (d: any) => `translate(${d.x ?? 0}, ${d.y ?? 0})`);
+    });
+    
+    console.log("d3GraphUtils: Successfully initialized D3 graph");
+    
+    return {
+      simulation,
+      nodeElements,
+      linkElements,
+      nodes,
+      links
+    };
+  } catch (error) {
+    console.error("d3GraphUtils: Error initializing D3 graph:", error);
+    // Return empty graph elements to prevent crashes
+    return {
+      simulation: d3.forceSimulation<D3Node>([]),
+      nodeElements: d3.select(svgElement).append("g").attr("class", "nodes").selectAll("g"),
+      linkElements: d3.select(svgElement).append("g").attr("class", "links").selectAll("line"),
+      nodes: [],
+      links: []
+    };
+  }
 }
