@@ -28,15 +28,15 @@
     type AgreementWithPosition,
     type D3NodeWithRelationships
   } from '$lib/utils/d3GraphUtils';
+  import RoleCard from '$lib/components/RoleCard.svelte';
   
   // Props
   export let gameId: string;
   export let activeActorId: string | undefined = undefined;
   export let cards: Card[] = [];
   
-  // References and constants
+  // Local state variables
   let svgElement: SVGSVGElement;
-  let containerElement: HTMLDivElement;
   let width = 800;
   let height = 600;
   let simulation: d3.Simulation<D3Node, undefined> | null = null;
@@ -53,38 +53,168 @@
   
   // Selected node for detail display
   let selectedNode: D3Node | null = null;
-  
-  // Graph state
-  let graphState: {
-    svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
-    nodes: D3Node[];
-    links: D3Link[];
-    simulation: d3.Simulation<D3Node, undefined>;
-  } | null = null;
-  
-  // Track initialization status
-  let initialDataFetched = false;
-  let cardsData = cards;
-  
-  // Export a refresh method that can be called by parent components
-  export function refreshVisualization() {
-    console.log("D3CardBoard: Refreshing visualization");
+
+  // Icon helper function
+  async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
+    if (!iconName) return User;
     
-    // Clear existing visualization
-    if (graphState && graphState.svg) {
-      graphState.svg.selectAll("*").remove();
+    // Try to get from the iconStore first
+    const iconMap = get(iconStore);
+    const iconData = iconMap.get(iconName);
+    if (iconData && iconData.component) return iconData.component;
+    
+    // Normalize name for Lucide format
+    let normalizedName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
+    
+    // Common icon mappings
+    const iconMappings: Record<string, string> = {
+      'CircleDollarSign': 'DollarSign',
+      'Tree': 'PalmTree',
+      'Garden': 'Flower2',
+      'Plant': 'Sprout',
+      'Money': 'Coins',
+      'Default': 'Box',
+      'Farmer': 'Tractor',
+      'Funder': 'PiggyBank',
+      'Steward': 'Shield',
+      'Investor': 'TrendingUp',
+    };
+    
+    if (iconMappings[normalizedName]) {
+      normalizedName = iconMappings[normalizedName];
     }
     
-    // Reset state to force data reload
-    initialDataFetched = false;
-    cardsWithPosition = [];
-    agreements = [];
-    actorCardMap = new Map();
-    valueCache = new Map();
-    capabilityCache = new Map();
+    try {
+      const icons = await import('lucide-svelte');
+      if (icons[normalizedName]) {
+        return icons[normalizedName];
+      }
+    } catch (error) {
+      console.error(`Error loading icon: ${error}`);
+    }
     
-    // Restart the visualization
-    initializeVisualization();
+    console.log(`Using fallback icon for ${iconName}`);
+    return User;
+  }
+  
+  // Handle node click
+  function handleNodeClick(node: D3Node) {
+    console.log(`Node clicked: ${node.id}`, node);
+    selectedNode = node;
+  }
+  
+  // Get data for card values from Gun.js database
+  async function getValueForCard(valueId: string): Promise<Value | null> {
+    // First check our cache
+    if (valueCache.has(valueId)) {
+      return valueCache.get(valueId) || null;
+    }
+    
+    try {
+      return new Promise<Value | null>((resolve) => {
+        const gun = getGun();
+        gun.get(nodes.values).get(valueId).once((valueData: Value) => {
+          if (valueData) {
+            valueCache.set(valueId, valueData);
+            resolve(valueData);
+          } else {
+            resolve(null);
+          }
+        });
+      });
+    } catch (error) {
+      console.error(`Error fetching value ${valueId}:`, error);
+      return null;
+    }
+  }
+  
+  // Get data for capability from Gun.js database
+  async function getCapabilityForCard(capabilityId: string): Promise<Capability | null> {
+    // First check our cache
+    if (capabilityCache.has(capabilityId)) {
+      return capabilityCache.get(capabilityId) || null;
+    }
+    
+    try {
+      return new Promise<Capability | null>((resolve) => {
+        const gun = getGun();
+        gun.get(nodes.capabilities).get(capabilityId).once((capabilityData: Capability) => {
+          if (capabilityData) {
+            capabilityCache.set(capabilityId, capabilityData);
+            resolve(capabilityData);
+          } else {
+            resolve(null);
+          }
+        });
+      });
+    } catch (error) {
+      console.error(`Error fetching capability ${capabilityId}:`, error);
+      return null;
+    }
+  }
+  
+  // Getting value names for a card
+  async function getCardValueNamesLocal(card: Card): Promise<string[]> {
+    if (!card.values) return [];
+    
+    try {
+      // Extract value IDs from the card
+      const valueIds = Object.keys(card.values);
+      
+      // Map each value ID to its name by fetching from Gun
+      const valuePromises = valueIds.map(async (valueId) => {
+        // If it's a direct string rather than an ID reference
+        if (!valueId.startsWith('value_')) {
+          return valueId.replace(/-/g, ' ');
+        }
+        
+        const valueData = await getValueForCard(valueId);
+        if (valueData && valueData.name) {
+          return valueData.name;
+        }
+        // Just return the ID as a fallback
+        return valueId.replace('value_', '').replace(/-/g, ' ');
+      });
+      
+      // Wait for all promises to resolve
+      const valueNames = await Promise.all(valuePromises);
+      return valueNames;
+    } catch (error) {
+      console.warn(`Failed to retrieve values for card: ${card.card_id}`);
+      return [];
+    }
+  }
+  
+  // Getting capability names for a card
+  async function getCardCapabilityNamesLocal(card: Card): Promise<string[]> {
+    if (!card.capabilities) return [];
+    
+    try {
+      // Extract capability IDs from the card
+      const capabilityIds = Object.keys(card.capabilities);
+      
+      // Map each capability ID to its name by fetching from Gun
+      const capabilityPromises = capabilityIds.map(async (capabilityId) => {
+        // If it's a direct string rather than an ID reference
+        if (!capabilityId.startsWith('capability_')) {
+          return capabilityId.replace(/-/g, ' ');
+        }
+        
+        const capabilityData = await getCapabilityForCard(capabilityId);
+        if (capabilityData && capabilityData.name) {
+          return capabilityData.name;
+        }
+        // Just return the ID as a fallback
+        return capabilityId.replace('capability_', '').replace(/-/g, ' ');
+      });
+      
+      // Wait for all promises to resolve
+      const capabilityNames = await Promise.all(capabilityPromises);
+      return capabilityNames;
+    } catch (error) {
+      console.warn(`Failed to retrieve capabilities for card: ${card.card_id}`);
+      return [];
+    }
   }
   
   // Main function to initialize the D3 visualization
@@ -132,160 +262,76 @@
       });
       
       // Set up actor to card mapping
-      // Map actors to cards - this is critical for agreement links
       cardsWithPosition.forEach(card => {
-        // ALWAYS map the card ID to itself - this ensures we can reference cards directly in agreements
-        actorCardMap.set(card.card_id, card.card_id);
-        console.log(`D3CardBoard: Self-mapped card ${card.card_id} for direct references`);
-        
         if (card.actor_id) {
-          // Set the actor_id -> card_id mapping if available
           actorCardMap.set(card.actor_id, card.card_id);
-          console.log(`D3CardBoard: Mapped actor ${card.actor_id} to card ${card.card_id}`);
-        } else {
-          // Try to find the actor ID from the card properties
-          if (card.role_title) {
-            // First create a synthetic actor ID based on role title (slug-like)
-            const syntheticActorId = `actor_${card.card_id}`;
-            actorCardMap.set(syntheticActorId, card.card_id);
-            console.log(`D3CardBoard: Created synthetic actor mapping ${syntheticActorId} -> ${card.card_id}`);
-            
-            // Also try to find from the database based on title
-            getGun().get(nodes.actors).map().once((actorData) => {
-              if (actorData && actorData.name === card.role_title) {
-                const actorId = actorData?.actor_id;
-                if (actorId) {
-                  actorCardMap.set(actorId, card.card_id);
-                  console.log(`D3CardBoard: Mapped actor ${actorId} to card ${card.card_id} by role title`);
-                }
-              }
-            });
-          }
         }
       });
       
-      // Load agreements for this game
-      agreements = [];
-      
-      // Check if the game has agreements
-      if (game.agreements) {
-        console.log("D3CardBoard: Game has agreements, loading...");
-        
-        // Get agreement ids from the game's agreements object
-        const agreementIds = Object.keys(game.agreements);
-        console.log(`D3CardBoard: Found ${agreementIds.length} agreement IDs in game`);
-        
-        if (agreementIds.length > 0) {
-          // Create a promise for each agreement to load
-          const agreementPromises = agreementIds.map(agreementId => {
-            if (agreementId === '#') return Promise.resolve(null); // Skip Gun.js reference edges
-            
-            return new Promise<AgreementWithPosition>(resolve => {
-              // Query the agreement from Gun
-              getGun().get(nodes.agreements).get(agreementId).once((agreementData: Agreement) => {
-                if (agreementData && agreementData.agreement_id) {
-                  console.log(`D3CardBoard: Loaded agreement ${agreementId}:`, agreementData);
-                  
-                  // Add position for visualization
-                  const agreementWithPosition: AgreementWithPosition = {
-                    ...agreementData,
-                    position: {
-                      x: width / 2 + (Math.random() * 100 - 50),
-                      y: height / 2 + (Math.random() * 100 - 50)
-                    }
-                  };
-                  
-                  resolve(agreementWithPosition);
-                } else {
-                  console.warn(`D3CardBoard: Agreement ${agreementId} not found or invalid`);
-                  resolve(null);
-                }
-              });
-            });
-          });
-          
-          // Wait for all agreements to load
-          const loadedAgreements = await Promise.all(agreementPromises);
-          
-          // Filter out null values and add to agreements array
-          agreements = loadedAgreements.filter(a => a !== null);
-          console.log(`D3CardBoard: Successfully loaded ${agreements.length} agreements`);
-          
-          // If no agreements were loaded but we know they exist in the game,
-          // we'll force the creation of agreement nodes to ensure they're part of the visualization
-          if (agreements.length === 0 && agreementIds.length > 0) {
-            console.warn(`D3CardBoard: Failed to load any agreements, but game has ${agreementIds.length} agreement IDs.`);
-            
-            // Create cards map for easier reference
-            const cardsMap = new Map<string, CardWithPosition>();
-            cardsWithPosition.forEach(card => {
-              cardsMap.set(card.card_id, card);
-            });
-            
-            // Create fallback agreements with fixed ids for immediate display
-            for (const agreementId of agreementIds) {
-              if (agreementId === '#') continue;
-              
-              // Try direct load for debugging first
-              getGun().get(nodes.agreements).get(agreementId).once((data) => {
-                console.log(`DIRECT LOAD: Agreement ${agreementId}:`, data);
-                
-                if (data && data.agreement_id) {
-                  // We got an actual agreement - create a proper position
-                  const agrWithPos: AgreementWithPosition = {
-                    ...data,
-                    position: {
-                      x: width / 2 + (Math.random() * 200 - 100),
-                      y: height / 2 + (Math.random() * 200 - 100)
-                    }
-                  };
-                  agreements.push(agrWithPos);
-                  console.log(`D3CardBoard: Added real agreement for ${agreementId}`, agrWithPos);
-                  return;
-                }
-              });
-              
-              // Assign dummy actor IDs based on available cards
-              let actorId1 = "actor1";
-              let actorId2 = "actor2";
-              
-              // Use actual card IDs if available
-              if (cardsWithPosition.length >= 2) {
-                actorId1 = cardsWithPosition[0].card_id;
-                actorId2 = cardsWithPosition[1].card_id;
-              }
-              
-              // Create a basic fallback agreement
-              const fallbackAgreement: AgreementWithPosition = {
-                agreement_id: agreementId,
-                title: `Agreement ${agreementId}`,
-                summary: "Agreement details loading...",
-                parties: { 
-                  [actorId1]: true, 
-                  [actorId2]: true 
-                },
-                obligations: { 
-                  [actorId1]: "Obligation placeholder" 
-                },
-                benefits: { 
-                  [actorId2]: "Benefit placeholder" 
-                },
-                created_at: Date.now(),
-                created_by: "system",
-                game_id: gameId,
-                status: "accepted",
-                type: "symmetric",
-                position: {
-                  x: width / 2 + (Math.random() * 200 - 100),
-                  y: height / 2 + (Math.random() * 200 - 100)
-                }
-              };
-              
-              // Add to the agreements array
-              agreements.push(fallbackAgreement);
-              console.log(`D3CardBoard: Added fallback agreement for ${agreementId}`, fallbackAgreement);
-            }
+      // Load agreements from the game
+      agreements = (game.agreements || []).map(agreement => {
+        return {
+          ...agreement,
+          position: agreement.position || {
+            x: Math.random() * width,
+            y: Math.random() * height
           }
+        };
+      });
+      
+      // Check if we have agreements - if not, create test agreements between cards
+      if (agreements.length === 0 && cardsWithPosition.length >= 2) {
+        console.log("D3CardBoard: No agreements found in game, creating test agreements for visualization");
+        
+        // Create test agreements between cards
+        for (let i = 0; i < Math.min(3, cardsWithPosition.length - 1); i++) {
+          const card1 = cardsWithPosition[i];
+          const card2 = cardsWithPosition[(i + 1) % cardsWithPosition.length];
+          
+          // Create synthetic actor IDs if cards don't have them
+          const actorId1 = card1.actor_id || `actor_${card1.card_id}`;
+          const actorId2 = card2.actor_id || `actor_${card2.card_id}`;
+          
+          // Add to actor-card map if not already there
+          if (!actorCardMap.has(actorId1)) {
+            actorCardMap.set(actorId1, card1.card_id);
+          }
+          if (!actorCardMap.has(actorId2)) {
+            actorCardMap.set(actorId2, card2.card_id);
+          }
+          
+          // Create a test agreement
+          const testAgreement: AgreementWithPosition = {
+            agreement_id: `agreement_${i + 1}`,
+            title: `Agreement ${i + 1}`,
+            description: "Test agreement for visualization",
+            obligations: [
+              {
+                id: `ob${i + 1}`,
+                fromActorId: actorId1,
+                toActorId: actorId2,
+                text: `Obligation from ${card1.role_title} to ${card2.role_title}`
+              }
+            ],
+            benefits: [
+              {
+                id: `ben${i + 1}`,
+                fromActorId: actorId2,
+                toActorId: actorId1,
+                text: `Benefit from ${card2.role_title} to ${card1.role_title}`
+              }
+            ],
+            parties: {
+              [actorId1]: true,
+              [actorId2]: true
+            },
+            position: {
+              x: ((card1.position?.x || 0) + (card2.position?.x || 0)) / 2,
+              y: ((card1.position?.y || 0) + (card2.position?.y || 0)) / 2
+            }
+          };
+          
+          agreements.push(testAgreement);
         }
       }
       
@@ -295,325 +341,196 @@
         actorCardMapSize: actorCardMap.size
       });
       
-      // Get actor-card map size for logging
-      const actorCardMapEntries = Array.from(actorCardMap.entries());
-      console.log("D3CardBoard: Passing actor-card map to initializeD3Graph:", {
-        mapSize: actorCardMap.size,
-        entries: actorCardMapEntries
-      });
+      // Extend cards with value and capability names
+      for (const card of cardsWithPosition) {
+        try {
+          // Get value and capability names
+          const valueNames = await getCardValueNamesLocal(card);
+          const capabilityNames = await getCardCapabilityNamesLocal(card);
+          
+          // Store them on the card object for visualization
+          (card as any)._valueNames = valueNames;
+          (card as any)._capabilityNames = capabilityNames;
+        } catch (error) {
+          console.error(`Error getting names for card ${card.card_id}:`, error);
+        }
+      }
       
-      // Initialize the D3 graph with our data
-      graphState = initializeD3Graph(
-        svgElement,
-        cardsWithPosition,
-        agreements,
-        width,
-        height,
-        selectedNode,
-        handleNodeClick,
-        (newNode) => {
-          selectedNode = newNode;
-        },
-        activeCardId,
-        actorCardMap // Pass the actor-card map to the initializer
-      );
-      
-      if (graphState) {
+      // Initialize D3 graph
+      let graphState;
+      try {
+        // Log the actor-card map we'll be passing to initializeD3Graph
+        console.log("D3CardBoard: Passing actor-card map to initializeD3Graph:", {
+          mapSize: actorCardMap.size,
+          entries: Array.from(actorCardMap.entries())
+        });
+
+        graphState = initializeD3Graph(
+          svgElement,
+          cardsWithPosition,
+          agreements,
+          width,
+          height,
+          activeCardId,
+          handleNodeClick,
+          actorCardMap // Pass the actor-card map to the initializer
+        );
         console.log("D3CardBoard: D3 graph initialized successfully");
-        
-        // Add donut rings to show values and capabilities
-        console.log("D3CardBoard: Adding donut rings to nodes");
-        
-        // Get the node elements once they're created
-        nodeElements = d3.select(svgElement).selectAll<SVGGElement, D3Node>('.node');
-        
-        // Log some info about this operation
+      } catch (initError) {
+        console.error("D3CardBoard: Failed to initialize D3 graph:", initError);
+        throw initError;
+      }
+      
+      // Store references to the graph elements for later use
+      simulation = graphState.simulation;
+      nodeElements = graphState.nodeElements;
+      
+      console.log("D3CardBoard: Adding donut rings to nodes");
+      
+      // After the graph is initialized, we can add donut segments to the nodes
+      try {
         console.log("D3CardBoard: Adding donut rings with:", {
           nodeElementsCount: nodeElements.size(),
           activeCardId,
-          valueCacheSize: valueCache.size,
-          capabilityCacheSize: capabilityCache.size
+          valueCacheSize: valueCache?.size,
+          capabilityCacheSize: capabilityCache?.size
         });
         
-        // Add the donut rings to nodes
-        addDonutRings(
-          nodeElements,
-          activeCardId,
-          valueCache,
-          capabilityCache
-        );
+        // Use our utility function to add the donut rings
+        addDonutRings(nodeElements, activeCardId, valueCache, capabilityCache);
         console.log("D3CardBoard: Donut rings added successfully");
-        
-        // Add center icons to nodes
-        console.log("D3CardBoard: Adding center icons to nodes");
-        
-        // Find all actor nodes and add icons to them
-        const nodeActors = d3.select(svgElement).selectAll<SVGGElement, D3Node>('.node-actor');
-        
-        nodeActors.each(async function(d: D3Node) {
-          const node = d3.select(this);
-          const iconContainer = node.select('.icon-container');
-          
-          if (iconContainer.size() > 0) {
-            // Find card data for this node
-            const cardData = cardsWithPosition.find(c => c.card_id === d.id);
-            if (cardData) {
+      } catch (donutError) {
+        console.error("D3CardBoard: Failed to add donut rings:", donutError);
+      }
+      
+      console.log("D3CardBoard: Adding center icons to nodes");
+      
+      // Add center icons to the nodes
+      try {
+        nodeElements.each(function(node) {
+          try {
+            if (node.type === 'actor') {
+              const centerGroup = d3.select(this).append("g")
+                .attr("class", "center-group center-icon-container");
+              
+              // Create a container div for the icon
+              const iconContainer = document.createElement('div');
+              iconContainer.className = 'icon-container';
+              
+              // Get the card data
+              const card = node.data as Card;
+              if (!card) {
+                console.warn("D3CardBoard: Card data is missing for node:", node);
+                return;
+              }
+              
+              // Get the icon name from the card data with fallback
+              const iconName = card.icon || 'user';
+              
+              // Determine size based on active status
+              const isActive = node.id === activeCardId;
+              const iconSize = isActive ? 36 : 24;
+              const offset = isActive ? -18 : -12;
+              
+              // Create the icon using our utility function
               try {
-                const iconName = cardData.icon || cardData.type;
-                if (iconName) {
-                  const IconComponent = await getLucideIcon(iconName);
-                  console.log(`Successfully created icon component for ${cardData.role_title}`);
-                  
-                  // Create a new div for the icon and mount the component to it
-                  const iconDiv = document.createElement('div');
-                  iconContainer.node()?.appendChild(iconDiv);
-                  
-                  if (typeof IconComponent === 'function') {
-                    new IconComponent({
-                      target: iconDiv,
-                      props: {
-                        size: 16,
-                        strokeWidth: 2,
-                        class: "text-surface-700-200-token"
-                      }
-                    });
-                    console.log(`Successfully rendered icon for ${cardData.role_title}`);
-                  }
-                }
+                // Use larger icons for active nodes
+                createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
+                console.log(`Successfully rendered icon for ${card.role_title || 'Card'}`);
               } catch (iconError) {
-                console.error(`Failed to create icon for ${cardData.role_title}:`, iconError);
+                console.error("D3CardBoard: Failed to create icon:", iconError);
+              }
+              
+              // Convert the div container to a foreignObject in the SVG with proper positioning
+              // Position exactly in the center of the node
+              const foreignObject = centerGroup.append('foreignObject')
+                .attr('width', iconSize)
+                .attr('height', iconSize)
+                .attr('x', offset)
+                .attr('y', offset)
+                .attr('class', 'icon-container')
+                .style('pointer-events', 'none');
+                
+              // Append the icon container to the foreignObject
+              if (foreignObject.node()) {
+                foreignObject.node()?.appendChild(iconContainer);
+              } else {
+                console.warn("D3CardBoard: Foreign object node is null");
               }
             }
+          } catch (nodeError) {
+            console.error("D3CardBoard: Error processing node:", nodeError, node);
           }
         });
         console.log("D3CardBoard: Center icons added successfully");
-      } else {
-        console.error("D3CardBoard: Failed to initialize D3 graph:", initError);
+      } catch (iconsError) {
+        console.error("D3CardBoard: Failed to add center icons:", iconsError);
       }
       
-      // Update the state
-      initialDataFetched = true;
-      
-      // After the graph is initialized, we can add donut segments to the nodes
-      if (selectedNode) {
-        selectNode(selectedNode);
-      }
-      
+      console.log("D3 graph fully initialized with utility function");
     } catch (error) {
-      console.error("Error in initializeVisualization:", error);
-    }
-  }
-  
-  // Icon helper function
-  async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
-    if (!iconName) return User;
-    
-    // Try to get from the iconStore first
-    const iconMap = get(iconStore);
-    const iconData = iconMap.get(iconName);
-    if (iconData && iconData.component) return iconData.component;
-    
-    // Normalize name for Lucide format
-    let normalizedName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
-    
-    // Common icon mappings
-    const iconMappings: Record<string, string> = {
-      'CircleDollarSign': 'DollarSign',
-      'Tree': 'PalmTree',
-      'Garden': 'Flower2',
-      'Plant': 'Sprout',
-      'Money': 'Coins',
-      'Default': 'Box',
-      'Farmer': 'Tractor',
-      'Funder': 'PiggyBank',
-      'Steward': 'Shield',
-      'Investor': 'TrendingUp',
-    };
-    
-    if (iconMappings[normalizedName]) {
-      normalizedName = iconMappings[normalizedName];
-    }
-    
-    try {
-      const icons = await import('lucide-svelte');
-      if (icons[normalizedName]) {
-        return icons[normalizedName];
+      console.error("Error initializing D3 graph:", error);
+      // Show more detailed error information
+      if (error instanceof ReferenceError) {
+        console.error("Reference error details:", error.message, error.stack);
       }
-    } catch (error) {
-      console.error(`Error loading icon: ${error}`);
-    }
-    
-    console.log(`Using fallback icon for ${iconName}`);
-    return User;
-  }
-  
-  // Handle node click
-  function handleNodeClick(node: D3Node) {
-    console.log("Node clicked:", node);
-    selectedNode = node;
-    selectNode(node);
-  }
-  
-  // Handle node selection
-  function selectNode(node: D3Node) {
-    if (graphState && node) {
-      // Highlight the selected node
-      graphState.svg.selectAll('.node').classed('active', false);
-      graphState.svg.select(`.node[data-id="${node.id}"]`).classed('active', true);
+      if (error instanceof TypeError) {
+        console.error("Type error details:", error.message, error.stack);
+      }
     }
   }
   
-  // Highlight active node (based on activeActorId)
-  function highlightActiveNode(actorId: string) {
-    if (!graphState || !actorId) return;
-    
-    // Find the card ID for this actor
-    const cardId = actorCardMap.get(actorId);
-    if (!cardId) return;
-    
-    // Remove active class from all nodes first
-    graphState.svg.selectAll('.node').classed('active', false);
-    
-    // Add active class to the matching node
-    graphState.svg.select(`.node[data-id="${cardId}"]`).classed('active', true);
-  }
-  
-  // Reactive statements
-  $: if (cards && cards.length > 0 && !initialDataFetched) {
-    console.log(`D3CardBoard: Cards data changed - ${cards.length} cards available`);
-    cardsData = cards;
-  }
-  
-  // When active card changes, update the visualization
-  $: if (activeActorId && graphState) {
-    highlightActiveNode(activeActorId);
-  }
-  
+  // Initialize on mount
   onMount(async () => {
     console.log("D3CardBoard: Component mounted");
     
     // Load icons first
     try {
       await loadIcons();
-    } catch (iconError) {
-      console.warn("D3CardBoard: Failed to load icons:", iconError);
+      console.log("D3CardBoard: Icons loaded");
+    } catch (error) {
+      console.warn("D3CardBoard: Failed to load icons:", error);
     }
     
-    // Initialize the visualization
-    initializeVisualization();
+    // Add a slight delay to ensure the DOM is ready
+    // This helps with calculating dimensions correctly
+    setTimeout(() => {
+      initializeVisualization();
+    }, 100);
     
-    console.log("D3 graph fully initialized with utility function");
+    return () => {
+      // Clean up simulations on unmount
+      if (simulation) {
+        simulation.stop();
+      }
+    };
   });
   
-  onDestroy(() => {
-    // Clean up listeners
-    if (simulation) {
-      simulation.stop();
-    }
-  });
+  // Test color scheme - useful for debugging
+  console.log("Testing d3GraphUtils categoryColors:", categoryColors);
 </script>
 
-<div class="component-container w-full h-full" bind:this={containerElement}>
-  <svg class="w-full h-full" bind:this={svgElement}></svg>
-  
-  {#if selectedNode}
-    <div class="node-details absolute top-5 right-5 bg-surface-100 dark:bg-surface-800 p-4 rounded-lg shadow-lg max-w-72 z-10">
-      <h3 class="text-lg font-bold mb-2">{selectedNode.name}</h3>
-      <div class="flex gap-1 text-xs items-center mb-2">
-        <span class="badge bg-primary-500 text-white px-2 py-0.5 rounded-full">
-          {selectedNode.type.charAt(0).toUpperCase() + selectedNode.type.slice(1)}
-        </span>
-      </div>
-      <button class="btn btn-sm variant-soft-surface absolute top-2 right-2" onclick={() => selectedNode = null}>×</button>
-      
-      {#if selectedNode.type === 'actor'}
-        {#if selectedNode.data.backstory}
-          <div class="mb-2">
-            <h4 class="text-sm font-semibold">Backstory</h4>
-            <p class="text-xs">{selectedNode.data.backstory}</p>
-          </div>
-        {/if}
-        
-        {#if selectedNode.data.values && Object.keys(selectedNode.data.values).length > 0}
-          <div class="mb-2">
-            <h4 class="text-sm font-semibold flex items-center">
-              <span class="w-3 h-3 rounded-full bg-[var(--values-color)] mr-1"></span>
-              Values
-            </h4>
-            <ul class="text-xs list-disc pl-4">
-              {#each Object.keys(selectedNode.data.values) as valueId}
-                <li>{valueId}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-        
-        {#if selectedNode.data.capabilities && Object.keys(selectedNode.data.capabilities).length > 0}
-          <div class="mb-2">
-            <h4 class="text-sm font-semibold flex items-center">
-              <span class="w-3 h-3 rounded-full bg-[var(--capabilities-color)] mr-1"></span>
-              Capabilities
-            </h4>
-            <ul class="text-xs list-disc pl-4">
-              {#each Object.keys(selectedNode.data.capabilities) as capabilityId}
-                <li>{capabilityId}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-      {:else if selectedNode.type === 'agreement'}
-        <div class="mb-2">
-          <h4 class="text-sm font-semibold">Description</h4>
-          <p class="text-xs">{selectedNode.data.summary || 'No description'}</p>
-        </div>
-        
-        {#if selectedNode.data.parties && Object.keys(selectedNode.data.parties).length > 0}
-          <div class="mb-2">
-            <h4 class="text-sm font-semibold">Parties</h4>
-            <div class="grid grid-cols-2 gap-1 text-xs mt-1">
-              {#each Object.keys(selectedNode.data.parties) as partyId}
-                <div class="bg-surface-200 dark:bg-surface-700 rounded px-2 py-1">
-                  {partyId}
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/if}
-        
-        {#if selectedNode.data.obligations && Object.keys(selectedNode.data.obligations).length > 0}
-          <div class="mb-2">
-            <h4 class="text-sm font-semibold">Obligations</h4>
-            <ul class="text-xs list-disc pl-4">
-              {#each Object.entries(selectedNode.data.obligations) as [partyId, obligation]}
-                <li>
-                  <span class="font-semibold">{partyId}:</span> {obligation}
-                </li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-        
-        {#if selectedNode.data.benefits && Object.keys(selectedNode.data.benefits).length > 0}
-          <div class="mb-2">
-            <h4 class="text-sm font-semibold">Benefits</h4>
-            <ul class="text-xs list-disc pl-4">
-              {#each Object.entries(selectedNode.data.benefits) as [partyId, benefit]}
-                <li>
-                  <span class="font-semibold">{partyId}:</span> {benefit}
-                </li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-      {/if}
-    </div>
-  {/if}
-</div>
-
 <style>
-  .component-container {
-    position: relative;
-    overflow: hidden;
+  /* D3 graph styling */
+  :global(.nodes circle) {
+    fill: var(--color-surface-100);
+    stroke: var(--color-surface-300);
+    stroke-width: 1px;
+  }
+  
+  :global(.nodes circle.active) {
+    stroke: var(--color-primary-500);
+    stroke-width: 2px;
+  }
+  
+  /* Links styling */
+  :global(.link-obligation) {
+    stroke: var(--color-indigo-500);
+  }
+  
+  :global(.link-benefit) {
+    stroke: var(--color-emerald-500);
+    stroke-dasharray: 4, 2;
   }
   
   /* Node styling */
@@ -666,32 +583,69 @@
   :global(.segment-goals) {
     fill: var(--goals-color, #8FBC49);
   }
-  
-  /* Link styling */
-  :global(.link) {
-    stroke-width: 1.5px;
-    stroke-opacity: 0.6;
-  }
-  
-  :global(.link-obligation) {
-    stroke: #4f46e5; /* Indigo */
-  }
-  
-  :global(.link-benefit) {
-    stroke: #059669; /* Emerald */
-    stroke-dasharray: 5, 5;
-  }
-  
-  /* Node label styling */
-  :global(.node-label) {
-    font-size: 10px;
-    fill: #374151;
-    text-anchor: middle;
-    pointer-events: none;
-  }
-  
-  :global(.node-agreement .node-label) {
-    font-size: 8px;
-    fill: #4b5563;
-  }
 </style>
+
+<div class="w-full h-full relative overflow-hidden">
+  <svg bind:this={svgElement} width="100%" height="100%" class="d3-graph"></svg>
+  
+  {#if selectedNode}
+    <div class="absolute bottom-4 left-4 p-4 bg-surface-100 rounded-xl shadow-lg max-w-lg">
+      {#if selectedNode.type === 'actor'}
+        <h3 class="text-lg font-semibold mb-2">{selectedNode.name}</h3>
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {#if selectedNode._valueNames && selectedNode._valueNames.length > 0}
+            <div>
+              <h4 class="text-sm font-medium text-primary-700">Values</h4>
+              <ul class="list-disc pl-5 text-sm">
+                {#each selectedNode._valueNames as value}
+                  <li>{value}</li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+          
+          {#if selectedNode._capabilityNames && selectedNode._capabilityNames.length > 0}
+            <div>
+              <h4 class="text-sm font-medium text-primary-700">Capabilities</h4>
+              <ul class="list-disc pl-5 text-sm">
+                {#each selectedNode._capabilityNames as capability}
+                  <li>{capability}</li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+        </div>
+      {:else if selectedNode.type === 'agreement'}
+        <h3 class="text-lg font-semibold mb-2">{selectedNode.name}</h3>
+        <div class="grid grid-cols-1 gap-2">
+          {#if selectedNode.data?.obligations && selectedNode.data.obligations.length > 0}
+            <div>
+              <h4 class="text-sm font-medium text-indigo-700">Obligations</h4>
+              <ul class="list-disc pl-5 text-sm">
+                {#each selectedNode.data.obligations as obligation}
+                  <li>{obligation.text}</li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+          
+          {#if selectedNode.data?.benefits && selectedNode.data.benefits.length > 0}
+            <div>
+              <h4 class="text-sm font-medium text-emerald-700">Benefits</h4>
+              <ul class="list-disc pl-5 text-sm">
+                {#each selectedNode.data.benefits as benefit}
+                  <li>{benefit.text}</li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+        </div>
+      {/if}
+      <button 
+        class="mt-2 px-2 py-1 text-xs bg-surface-200 rounded hover:bg-surface-300"
+        on:click={() => selectedNode = null}>
+        Close
+      </button>
+    </div>
+  {/if}
+</div>

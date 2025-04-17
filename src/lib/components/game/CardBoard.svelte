@@ -10,33 +10,6 @@
   let isLoading = true;
   let error = '';
   let cards: Card[] = [];
-  let d3CardBoardComponent: D3CardBoard;
-  
-  // Function to refresh the board - called by parent or when new agreements are added
-  export async function refreshBoard() {
-    console.log(`CardBoard: Refreshing board for game ${gameId}`);
-    try {
-      // This is just for UI feedback, the actual card loading happens in D3CardBoard
-      isLoading = true;
-      
-      // Pre-load cards
-      const availableCards = await getAvailableCardsForGame(gameId);
-      console.log(`CardBoard: Loaded ${availableCards.length} cards for refresh`);
-      
-      // Set cards to pass to D3CardBoard
-      cards = availableCards;
-      
-      // Tell D3CardBoard to refresh its visualization
-      if (d3CardBoardComponent) {
-        d3CardBoardComponent.refreshVisualization();
-      }
-      
-      isLoading = false;
-    } catch (err) {
-      console.error('CardBoard: Error refreshing:', err);
-      isLoading = false;
-    }
-  }
   
   onMount(async () => {
     console.log(`CardBoard: Initializing for game ${gameId}`);
@@ -80,12 +53,7 @@
       </button>
     </div>
   {:else}
-    <D3CardBoard 
-      bind:this={d3CardBoardComponent} 
-      {gameId} 
-      {activeActorId} 
-      {cards} 
-    />
+    <D3CardBoard {gameId} {activeActorId} {cards} />
   {/if}
 </div>
 

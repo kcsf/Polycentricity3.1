@@ -29,7 +29,6 @@
   import ChatBox from '$lib/components/ChatBox.svelte';
   import PlayersList from '$lib/components/game/PlayersList.svelte';
   import RoleCard from '$lib/components/RoleCard.svelte';
-  import SampleAgreementGenerator from '$lib/components/game/SampleAgreementGenerator.svelte';
 
   // Props
   export let game: Game;
@@ -47,9 +46,6 @@
   let boardViewExpanded = false;
   let playersExpanded = false;
   let chatExpanded = true;
-  
-  // Component references
-  let cardBoardComponent: CardBoard;
   
   // Card data for the player role
   let playerCard: Card | null = null;
@@ -576,19 +572,6 @@
               >
                 Card View
               </button>
-              
-              <!-- Sample Agreement Generator -->
-              <div class="col-span-2 mt-3">
-                <SampleAgreementGenerator 
-                  {gameId} 
-                  refreshBoard={() => {
-                    if (viewMode === 'cards' && cardBoardComponent) {
-                      // Call the refreshBoard method directly via our binding
-                      cardBoardComponent.refreshBoard();
-                    }
-                  }} 
-                />
-              </div>
             </div>
           {/if}
         </div>
@@ -600,7 +583,7 @@
       {#if viewMode === 'actors'}
         <GameBoard {gameId} activeActorId={playerRole?.actor_id} />
       {:else}
-        <CardBoard bind:this={cardBoardComponent} {gameId} activeActorId={playerRole?.actor_id} />
+        <CardBoard {gameId} activeActorId={playerRole?.actor_id} />
       {/if}
     </main>
     

@@ -85,8 +85,7 @@ export interface CardWithPosition extends Card {
 }
 
 /**
- * Obligation items structure for agreements
- * In the DB it's stored as a Record<actorId, string> (object form), not array
+ * Obligation items extracted from agreements
  */
 export interface ObligationItem {
   id: string;
@@ -96,8 +95,7 @@ export interface ObligationItem {
 }
 
 /**
- * Benefit items structure for agreements
- * In the DB it's stored as a Record<actorId, string> (object form), not array
+ * Benefit items extracted from agreements
  */
 export interface BenefitItem {
   id: string;
@@ -121,9 +119,8 @@ export interface AgreementWithPosition {
   updated_at?: number;
   created_by?: string;
   parties: Record<string, boolean>;
-  // The actual DB format is Record<actorId, string> for both obligations and benefits
-  obligations: Record<string, string> | ObligationItem[];
-  benefits: Record<string, string> | BenefitItem[];
+  obligations: ObligationItem[];
+  benefits: BenefitItem[];
   position?: {
     x: number;
     y: number;
@@ -893,21 +890,9 @@ export function createLinks(
     let creatorCardId = participatingCardIds[0]; // Default to first card
     
     // If we have explicit obligations, use the actor with obligations as creator
-    if (agreement.obligations && typeof agreement.obligations === 'object') {
-      let obligationActorIds: string[] = [];
-      
-      // Handle both array or object format for obligations
-      if (Array.isArray(agreement.obligations)) {
-        // Extract actor IDs from array of obligation items
-        obligationActorIds = agreement.obligations
-          .filter(o => o && o.fromActorId)
-          .map(o => o.fromActorId);
-      } else {
-        // Extract actor IDs from object keys
-        obligationActorIds = Object.keys(agreement.obligations);
-      }
-      
-      console.log(`Found obligation actor IDs: ${JSON.stringify(obligationActorIds)}`);
+    if (agreement.obligations && agreement.obligations.length > 0) {
+      // Get all unique fromActorIds from obligations
+      const obligationActorIds = [...new Set(agreement.obligations.map(o => o.fromActorId))];
       
       // Find the first actor that has a corresponding card
       for (const actorId of obligationActorIds) {
