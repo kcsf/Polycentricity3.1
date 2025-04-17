@@ -162,16 +162,11 @@ html[class~="dark"] {
   text-anchor: middle;
 }
 
-/* CRITICAL FIX: Force radial labels to use 8px font size and proper positioning */
+/* Smaller font specifically for radial labels */
 .label-container text {
-  font-size: 8px !important;
-  font-weight: 400 !important;
-  opacity: 0.8 !important;
-}
-
-/* Force all SVG text elements to use small font size */
-svg text {
-  font-size: 8px !important;
+  font-size: 8px;
+  font-weight: 400;
+  opacity: 0.8;
 }
 
 .node-actor .actor-circle {
