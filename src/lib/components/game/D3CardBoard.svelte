@@ -16,6 +16,8 @@
     setupInteractions, 
     createCardIcon, 
     updateForces,
+    initializeD3Graph,
+    addDonutRings,
     type D3Node,
     type D3Link,
     type SubItem,
