@@ -48,11 +48,84 @@
   let actors: Actor[] = [];
   let valueCache: Map<string, Value> = new Map();
   let capabilityCache: Map<string, Capability> = new Map();
-  let actorCardMap: Map<string, string> = new Map(); // Maps actor_id to card_id
-  let activeCardId: string | null = null;
   
-  // Selected node for detail display
-  let selectedNode: D3Node | null = null;
+  // Actor to card mapping
+  let actorCardMap: Map<string, string> = new Map();
+  
+  /**
+   * Load agreement data from a Gun.js reference
+   * @param agreementId - The agreement ID to load
+   * @returns Promise with the agreement data
+   */
+  async function loadAgreementData(agreementId: string): Promise<Agreement | null> {
+    try {
+      console.log(`D3CardBoard: Loading agreement data for ${agreementId}`);
+      
+      return new Promise((resolve) => {
+        const gun = getGun();
+        
+        gun.get(nodes.agreements).get(agreementId).once((agreement: Agreement) => {
+          if (!agreement) {
+            console.warn(`D3CardBoard: No agreement data found for ${agreementId}`);
+            resolve(null);
+            return;
+          }
+          
+          console.log(`D3CardBoard: Loaded agreement data for ${agreementId}:`, agreement);
+          resolve(agreement);
+        });
+      });
+    } catch (error) {
+      console.error(`D3CardBoard: Error loading agreement data for ${agreementId}:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Load all agreements for a game
+   * @param game - The game object containing agreement references
+   * @returns Promise with array of agreements with position data
+   */
+  async function loadGameAgreements(game: any): Promise<AgreementWithPosition[]> {
+    try {
+      const loadedAgreements: AgreementWithPosition[] = [];
+      
+      // Check if game has agreement_ids field (expected format)
+      if (game.agreement_ids && Array.isArray(game.agreement_ids)) {
+        console.log(`D3CardBoard: Found ${game.agreement_ids.length} agreement IDs in game`);
+        
+        // Load each agreement in parallel
+        const agreementPromises = game.agreement_ids.map(async (agreementId: string) => {
+          const agreement = await loadAgreementData(agreementId);
+          
+          if (agreement) {
+            // Add position data for visualization
+            const agreementWithPosition: AgreementWithPosition = {
+              ...agreement,
+              position: {
+                x: Math.random() * width,
+                y: Math.random() * height
+              }
+            };
+            
+            loadedAgreements.push(agreementWithPosition);
+          }
+        });
+        
+        await Promise.all(agreementPromises);
+        
+        console.log(`D3CardBoard: Successfully loaded ${loadedAgreements.length} agreements`);
+      } else {
+        console.warn(`D3CardBoard: Game does not have agreement_ids array`);
+      }
+      
+      return loadedAgreements;
+    } catch (error) {
+      console.error(`D3CardBoard: Error loading game agreements:`, error);
+      return [];
+    }
+  }
+  let activeCardId: string | null = null;
 
   // Icon helper function
   async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
@@ -268,16 +341,10 @@
         }
       });
       
-      // Load agreements from the game
-      agreements = (game.agreements || []).map(agreement => {
-        return {
-          ...agreement,
-          position: agreement.position || {
-            x: Math.random() * width,
-            y: Math.random() * height
-          }
-        };
-      });
+      // Load agreements from the game using our helper method
+      console.log("D3CardBoard: Loading agreements for game:", gameId);
+      agreements = await loadGameAgreements(game);
+      console.log(`D3CardBoard: Loaded ${agreements.length} agreements for game:`, gameId);
       
       // Check if we have agreements - if not, create test agreements between cards
       if (agreements.length === 0 && cardsWithPosition.length >= 2) {

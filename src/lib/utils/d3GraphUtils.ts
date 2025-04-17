@@ -217,9 +217,9 @@ export function addDonutRings(
       { 
         name: "goals", 
         color: "#9BC23D", 
-        items: (nodeData.type === 'actor' && nodeData.data.goals) 
-          ? nodeData.data.goals.split(/[;,.]+/).map(s => s.trim()).filter(Boolean)
-          : ["Maintain peace", "Protect sites"]
+        items: (nodeData.type === 'actor' && (nodeData.data as Card).goals) 
+          ? ((nodeData.data as Card).goals as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
+          : []
       },
       { 
         name: "capabilities", 
@@ -229,23 +229,23 @@ export function addDonutRings(
       { 
         name: "intellectualProperty", 
         color: "#83B655", 
-        items: (nodeData.type === 'actor' && nodeData.data.intellectual_property) 
-          ? nodeData.data.intellectual_property.split(/[;,.]+/).map(s => s.trim()).filter(Boolean)
-          : ["Historical records", "Diplomatic protocols"]
+        items: (nodeData.type === 'actor' && (nodeData.data as Card).intellectual_property) 
+          ? ((nodeData.data as Card).intellectual_property as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
+          : []
       },
       {
         name: "rivalrousResources",
         color: "#77B061",
-        items: (nodeData.type === 'actor' && nodeData.data.rivalrous_resources)
-          ? nodeData.data.rivalrous_resources.split(/[;,.]+/).map(s => s.trim()).filter(Boolean)
-          : ["Physical resources", "Financial capital"]
+        items: (nodeData.type === 'actor' && (nodeData.data as Card).rivalrous_resources)
+          ? ((nodeData.data as Card).rivalrous_resources as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
+          : []
       },
       {
         name: "obligations",
         color: "#6BA96D",
-        items: (nodeData.type === 'actor' && nodeData.data.obligations)
-          ? nodeData.data.obligations.split(/[;,.]+/).map(s => s.trim()).filter(Boolean)
-          : ["Community responsibilities", "Environmental stewardship"]
+        items: (nodeData.type === 'agreement' && Array.isArray(nodeData.data.obligations))
+          ? nodeData.data.obligations.map((obligation: ObligationItem) => obligation.text || '').filter(Boolean)
+          : []
       }
     ];
     
