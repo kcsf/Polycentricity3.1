@@ -28,7 +28,7 @@ export const categoryColors = d3.scaleOrdinal([
 /**
  * Interface for nodes in the D3 force simulation
  */
-export interface D3Node {
+export interface D3Node extends d3.SimulationNodeDatum {
   id: string;
   name: string;
   type: "actor" | "agreement";
@@ -999,9 +999,9 @@ export function updateForces(
   height: number
 ): void {
   simulation
-    .nodes(nodes as d3.SimulationNodeDatum[])
-    .force("link", d3.forceLink<d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>(links as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[])
-      .id(d => (d as D3Node).id)
+    .nodes(nodes)
+    .force("link", d3.forceLink<D3Node, D3Link>(links)
+      .id(d => d.id)
       .distance(150)
     )
     .force("charge", d3.forceManyBody().strength(-400))

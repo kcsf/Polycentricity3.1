@@ -30,10 +30,12 @@
   } from '$lib/utils/d3GraphUtils';
   import RoleCard from '$lib/components/RoleCard.svelte';
   
-  // Props
-  export let gameId: string;
-  export let activeActorId: string | undefined = undefined;
-  export let cards: Card[] = [];
+  // Props using Svelte 5 RUNES syntax
+  const { gameId, activeActorId = undefined, cards = [] } = $props<{
+    gameId: string;
+    activeActorId?: string;
+    cards?: Card[];
+  }>();
   
   // Local state variables using Svelte 5 RUNES mode
   let svgElement: SVGSVGElement;
@@ -54,6 +56,7 @@
   
   // Selected node for detail view
   let selectedNode = $state<D3Node | null>(null);
+  let activeCardId = $state<string | null>(null);
   
   /**
    * Load agreement data from a Gun.js reference
@@ -128,7 +131,6 @@
       return [];
     }
   }
-  let activeCardId: string | null = null;
 
   // Icon helper function
   async function getLucideIcon(iconName: string | undefined): Promise<SvelteComponent | typeof User> {
@@ -652,7 +654,7 @@
       {/if}
       <button 
         class="mt-2 px-2 py-1 text-xs bg-surface-200 rounded hover:bg-surface-300"
-        on:click={() => selectedNode = null}>
+        onclick={() => selectedNode = null}>
         Close
       </button>
     </div>
