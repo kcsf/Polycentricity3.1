@@ -216,9 +216,9 @@
                 agreement_id: agreementId,
                 title: `Agreement ${agreementId}`,
                 summary: "Agreement details loading...",
-                parties: {},
-                obligations: {},
-                benefits: {},
+                parties: { "actor1": true, "actor2": true }, // Add dummy parties for visualization
+                obligations: { "actor1": "Obligation placeholder" }, // Object format as expected by Gun.js
+                benefits: { "actor2": "Benefit placeholder" }, // Object format as expected by Gun.js
                 created_at: Date.now(),
                 created_by: "system",
                 game_id: gameId,
