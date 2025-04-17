@@ -31,7 +31,7 @@ export async function createCapability(
     };
 
     const existing = await get(`${nodes.capabilities}/${capabilityId}`);
-    if (existing?.capability_id) {
+    if (existing && typeof existing === 'object' && 'capability_id' in existing) {
         console.log(`[createCapability] Reusing: ${capabilityId}`);
         return existing as Capability;
     }

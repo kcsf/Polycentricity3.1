@@ -29,7 +29,7 @@ export async function createValue(name: string): Promise<Value | null> {
     };
 
     const existing = await get(`${nodes.values}/${valueId}`);
-    if (existing?.value_id) {
+    if (existing && typeof existing === 'object' && 'value_id' in existing) {
         console.log(`[createValue] Reusing: ${valueId}`);
         return existing as Value;
     }

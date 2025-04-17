@@ -1,8 +1,25 @@
 import type { Actor } from '$lib/types';
 import { generateId } from '$lib/services/gunService';
 
+// These are template actors that get processed when added to a game
+// They don't need to exactly match the Actor interface since they're templates
+// that will be processed into proper Actor objects when added to a game
+type ActorTemplate = Partial<Actor> & {
+    actor_id: string;
+    created_at?: number;
+    // Additional fields used in templates that aren't in final Actor objects
+    role_title?: string; 
+    backstory?: string;
+    values?: string[] | Record<string, boolean>;
+    capabilities?: string[] | Record<string, boolean>;
+    goals?: string | string[];
+    skills?: string[];
+    resources?: string[];
+    constraints?: string[];
+};
+
 // Eco-Village role cards
-export const ecoVillageDeck: Actor[] = [
+export const ecoVillageDeck: ActorTemplate[] = [
     {
         actor_id: `actor-farmer-${generateId()}`,
         role_title: "Eco Farmer",
@@ -161,7 +178,7 @@ export const ecoVillageDeck: Actor[] = [
 ];
 
 // Community Garden role cards
-export const communityGardenDeck: Actor[] = [
+export const communityGardenDeck: ActorTemplate[] = [
     {
         actor_id: `actor-coordinator-${generateId()}`,
         role_title: "Garden Coordinator",
