@@ -326,24 +326,29 @@ export function addDonutRings(
           const itemEndAngle = itemStartAngle + anglePerItem;
           const itemMidAngle = itemStartAngle + (anglePerItem / 2);
           
-          // Calculate label position based on the original implementation
-          // Add a gap percentage to position labels away from the circle
+          // CRITICAL FIX: Exactly match the original implementation for angles
+
+          // Adjust the angle to start from the top (subtract PI/2 or 90 degrees)
+          // This is the key part that makes the labels align correctly
+          const adjustedAngle = itemMidAngle - Math.PI / 2;
+          
+          // Calculate label position with gap - exactly as in original
           const gapPercentage = 0.15;
           const labelDistance = DIMENSIONS.subWedgeRadius * (1 + gapPercentage);
           
-          // Calculate label coordinates using the midpoint angle
-          const labelX = Math.cos(itemMidAngle) * labelDistance;
-          const labelY = Math.sin(itemMidAngle) * labelDistance;
+          // Calculate label coordinates using the adjusted angle
+          const labelX = Math.cos(adjustedAngle) * labelDistance;
+          const labelY = Math.sin(adjustedAngle) * labelDistance;
           
           // Create label group for this item
           const labelGroup = labelContainer.append("g")
             .attr("class", "label-group");
           
-          // Determine text anchor based on position in radians (exactly like the original)
-          // Angles between 90° and 270° (in radians: π/2 and 3π/2) are on the left side
-          const angleDeg = ((itemMidAngle * 180) / Math.PI) % 360;
+          // Determine text anchor and rotation - exactly as in original
+          const angleDeg = ((adjustedAngle * 180) / Math.PI) % 360;
           const isLeftSide = angleDeg > 90 && angleDeg < 270;
           const textAnchor = isLeftSide ? "end" : "start";
+          const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
            
           // Clean up the item name by removing prefixes
           let displayName = item;
@@ -373,14 +378,8 @@ export function addDonutRings(
             .attr("font-size", "11px") // Match original exactly
             .attr("fill", category.color)
             .attr("font-weight", "500")
-            // Apply rotation based exactly like the original implementation
-            .attr("transform", function() {
-              // Calculate rotation in degrees based on the angle position
-              // For text on left side (90-270 degrees), add 180 degrees to flip it
-              const rotationDeg = isLeftSide ? angleDeg + 180 : angleDeg;
-              
-              return `rotate(${rotationDeg},${labelX},${labelY})`;
-            })
+            // Apply rotation exactly as in the original implementation
+            .attr("transform", `rotate(${rotationDeg},${labelX},${labelY})`)
             .text(displayName);
           
           // Create sub-wedge for this item
