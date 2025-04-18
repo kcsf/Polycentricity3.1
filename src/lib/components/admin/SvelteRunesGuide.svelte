@@ -3,16 +3,16 @@
   import { onMount } from 'svelte';
   import * as icons from 'lucide-svelte';
   
-  // Example for state (runes mode)
-  let count = $state(0);
-  let inputText = $state("");
-  let items = $state<string[]>([]);
-  let isLoading = $state(false);
-  let activeTab = $state("basics");
+  // Example for state (runes mode) - proper TypeScript typing
+  const count = $state<number>(0);
+  const inputText = $state<string>("");
+  const items = $state<string[]>([]);
+  const isLoading = $state<boolean>(false);
+  const activeTab = $state<string>("basics");
   
   // Demonstration of derived state with $derived
-  let doubledCount = $derived(count * 2);
-  let itemCount = $derived(items.length);
+  const doubledCount = $derived<number>(count * 2);
+  const itemCount = $derived<number>(items.length);
   
   // Example effect that runs when dependencies change
   $effect(() => {
@@ -21,38 +21,42 @@
   });
   
   // Example of a computed value using $derived
-  let displayMessage = $derived(
+  const displayMessage = $derived<string>(
     count > 10 ? "Count is getting high!" : "Count is still low"
   );
   
   // Functions to manipulate state
-  function increment() {
-    count++; // Direct mutation is allowed with $state variables
+  function increment(): void {
+    // For $state, we need to use assignment - not increment operator with const
+    count = count + 1;
   }
   
-  function addItem() {
+  function addItem(): void {
     if (inputText.trim()) {
-      items = [...items, inputText]; // Creating a new array is recommended
-      inputText = ""; // Reset input
+      // Create new array immutably
+      items = [...items, inputText]; 
+      // Reset input
+      inputText = ""; 
     }
   }
   
-  function removeItem(index: number) {
+  function removeItem(index: number): void {
     items = items.filter((_, i) => i !== index);
   }
   
   // Example function to simulate async operations
-  async function fetchData() {
+  async function fetchData(): Promise<void> {
     isLoading = true;
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
+      // Create new array immutably
       items = [...items, "Fetched item " + Math.floor(Math.random() * 100)];
     } finally {
       isLoading = false;
     }
   }
   
-  function setTab(tab: string) {
+  function setTab(tab: string): void {
     activeTab = tab;
   }
   
@@ -120,8 +124,8 @@ $: doubled = count * 2;</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>// New way (Svelte 5 Runes)
-let count = $state(0);
-let doubled = $derived(count * 2);</pre>
+const count = $state<number>(0);
+const doubled = $derived<number>(count * 2);</pre>
             </div>
           </div>
         </div>
@@ -190,7 +194,7 @@ let inputElement;
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>{`// New way (Svelte 5 Runes)
-let inputElement = $state<HTMLInputElement | null>(null);
+const inputElement = $state<HTMLInputElement | null>(null);
 <input bind:this={inputElement}>`}</pre>
             </div>
           </div>
@@ -213,11 +217,11 @@ let inputElement = $state<HTMLInputElement | null>(null);
   const { title = "Default", options = [] } = $props();
   
   // State declarations
-  let isExpanded = $state(false);
-  let selectedIndex = $state(-1);
+  const isExpanded = $state<boolean>(false);
+  const selectedIndex = $state<number>(-1);
   
   // Derived state
-  let hasSelection = $derived(selectedIndex >= 0);
+  const hasSelection = $derived<boolean>(selectedIndex >= 0);
   
   // Effects
   $effect(() => {
