@@ -1,6 +1,6 @@
 <script lang="ts">
   // SvelteRunesGuide.svelte - Svelte 5 Runes Mode Pattern Guide
-  import { onMount } from 'svelte';
+  // No imports needed for built-in Svelte 5 Runes ($state, $effect, $derived)
   import * as icons from 'lucide-svelte';
   
   // Example for state (runes mode) - proper TypeScript typing
@@ -11,8 +11,8 @@
   let activeTab = $state<string>("basics");
   
   // Demonstration of derived state with $derived
-  let doubledCount = $derived<number>(count * 2);
-  let itemCount = $derived<number>(items.length);
+  let doubledCount = $derived(() => count * 2);
+  let itemCount = $derived(() => items.length);
   
   // Example effect that runs when dependencies change
   $effect(() => {
@@ -29,8 +29,8 @@
   });
   
   // Example of a computed value using $derived
-  let displayMessage = $derived<string>(
-    count > 10 ? "Count is getting high!" : "Count is still low"
+  let displayMessage = $derived(
+    () => count > 10 ? "Count is getting high!" : "Count is still low"
   );
   
   // Functions to manipulate state
@@ -72,8 +72,8 @@
   }
   
   // Initialize component
-  onMount(() => {
-    console.log("SvelteRunesGuide component mounted");
+  $effect(() => {
+    console.log("SvelteRunesGuide component initialized");
   });
 </script>
 
@@ -136,7 +136,7 @@ $: doubled = count * 2;</pre>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>// New way (Svelte 5 Runes)
 let count = $state<number>(0);
-let doubled = $derived<number>(count * 2);</pre>
+let doubled = $derived(() => count * 2);</pre>
             </div>
           </div>
         </div>
@@ -221,8 +221,8 @@ let inputElement = $state<HTMLInputElement | null>(null);
           <h3 class="text-lg font-semibold mb-3">1. Component Structure</h3>
           <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
             <pre>{`<script lang="ts">
-  // Imports
-  import { onMount, onDestroy } from 'svelte';
+  // No imports needed for Svelte 5 Runes
+  // ($state, $effect, $derived, $props)
   
   // Component props
   const { title = "Default", options = [] } = $props();
@@ -232,7 +232,7 @@ let inputElement = $state<HTMLInputElement | null>(null);
   let selectedIndex = $state<number>(-1);
   
   // Derived state
-  let hasSelection = $derived<boolean>(selectedIndex >= 0);
+  let hasSelection = $derived(() => selectedIndex >= 0);
   
   // Effects
   $effect(() => {
@@ -244,13 +244,14 @@ let inputElement = $state<HTMLInputElement | null>(null);
     isExpanded = !isExpanded;
   }
   
-  // Lifecycle
-  onMount(() => {
-    // Setup
-  });
-  
-  onDestroy(() => {
-    // Cleanup
+  // Lifecycle - with Svelte 5 Runes syntax
+  $effect(() => {
+    // Setup on initialization
+
+    // Return cleanup function to run on teardown
+    return () => {
+      // Cleanup
+    };
   });
 </script>
 
