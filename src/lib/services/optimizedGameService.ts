@@ -1,10 +1,10 @@
 import { getGun, nodes, generateId, createRelationship } from './gunService';
 import { getCurrentUser } from './authService';
-import type { Game, Actor, Card } from '$lib/types';
-import { GameStatus } from '$lib/types';
-import { getPredefinedDeck } from '$lib/data/predefinedDecks';
+import type { Game, Actor, Card } from '../types';
+import { GameStatus } from '../types';
+import { getPredefinedDeck } from '../data/predefinedDecks';
 import { get } from 'svelte/store';
-import { currentGameStore, setUserGames } from '$lib/stores/gameStore';
+import { currentGameStore, setUserGames } from '../stores/gameStore';
 
 // Caches for performance
 const gameCache = new Map<string, Game>();
@@ -109,7 +109,9 @@ export async function createGame(
 
     // Create relationships for graph visualization
     await Promise.all([
-      gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id),
+      new Promise<void>((resolve) => {
+        gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id as any, resolve);
+      }),
       gun.get(nodes.games).get(game_id).get('creator_ref').put({ '#': `${nodes.users}/${currentUser.user_id}` }),
       deckType === 'eco-village' || deckType === 'community-garden'
         ? gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` })
@@ -230,9 +232,13 @@ export async function joinGame(gameId: string): Promise<boolean> {
         ack.err ? reject(ack.err) : resolve()
       );
     }),
-    gun.get(nodes.users).get(currentUser.user_id).get('games').set(gameId),
-    gun.get(nodes.games).get(gameId).get('player_refs').set({ 
-      '#': `${nodes.users}/${currentUser.user_id}` 
+    new Promise<void>((resolve) => {
+      gun.get(nodes.users).get(currentUser.user_id).get('games').set(gameId as any, resolve);
+    }),
+    new Promise<void>((resolve) => {
+      gun.get(nodes.games).get(gameId).get('player_refs').set({ 
+        '#': `${nodes.users}/${currentUser.user_id}` 
+      } as any, resolve);
     })
   ]);
 
@@ -1118,9 +1124,8 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
   }
 }
 
-// Re-export existing functions from the original service
+// Re-export existing functions from the original service as needed
 export { 
   // Additional functions not covered above
-  assignCardToActor,
-  getAvailableCardsForGame
+  assignCardToActor
 } from './gameService';
