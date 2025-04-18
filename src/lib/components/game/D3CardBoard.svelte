@@ -60,86 +60,20 @@
   async function loadCardData(deckId: string): Promise<CardWithPosition[]> {
     log(`Loading cards for deck: ${deckId}`);
     
-    // First try to get cards from the gameService
-    try {
-      const cards = await getAvailableCardsForGame(gameId);
-      log(`Loaded ${cards.length} cards from gameService`);
-      
-      // Cache cards for future reference
-      cards.forEach(card => {
-        if (card.card_id) cardCache.set(card.card_id, card);
-      });
-      
-      // Add position data
-      return cards.map(card => ({
-        ...card,
-        position: { x: Math.random() * width, y: Math.random() * height }
-      }));
-    } catch (error) {
-      log(`Error loading cards from gameService: ${error}`);
-      
-      // Fallback to direct Gun.js loading with batching
-      const gun = getGun();
-      const cards: CardWithPosition[] = [];
-      
-      return new Promise<CardWithPosition[]>((resolve) => {
-        // Use a counter to track when all data is loaded
-        let pendingFetches = 0;
-        let fetched = false;
-        
-        gun.get(deckId).get('cards').map().once((cardData: any, cardId: string) => {
-          if (cardData && cardId.startsWith('cards/')) {
-            const cardId = cardId.replace('cards/', '');
-            
-            // Check cache first
-            if (cardCache.has(cardId)) {
-              const cachedCard = cardCache.get(cardId);
-              cards.push({
-                ...cachedCard,
-                position: { x: Math.random() * width, y: Math.random() * height }
-              });
-              return;
-            }
-            
-            // Fetch from Gun.js
-            pendingFetches++;
-            const cardPath = `${nodes.cards}/${cardId}`;
-            
-            gun.get(cardPath).once((fullCardData: Card) => {
-              pendingFetches--;
-              
-              if (fullCardData) {
-                // Cache for future use
-                if (fullCardData.card_id) {
-                  cardCache.set(fullCardData.card_id, fullCardData);
-                }
-                
-                cards.push({
-                  ...fullCardData,
-                  position: { x: Math.random() * width, y: Math.random() * height }
-                });
-              }
-              
-              // If all pending fetches are done, resolve
-              if (pendingFetches === 0 && fetched) {
-                resolve(cards);
-              }
-            });
-          }
-        }).then(() => {
-          fetched = true;
-          if (pendingFetches === 0) {
-            resolve(cards);
-          }
-        });
-        
-        // Set a reasonable timeout to resolve anyway after 2 seconds
-        setTimeout(() => {
-          log(`loadCardData fallback timed out after 2 seconds, returning ${cards.length} cards`);
-          resolve(cards);
-        }, 2000);
-      });
-    }
+    // Get cards using the optimized function from gameService
+    const cards = await getAvailableCardsForGame(gameId);
+    log(`Loaded ${cards.length} cards from gameService`);
+    
+    // Cache cards for future reference
+    cards.forEach(card => {
+      if (card.card_id) cardCache.set(card.card_id, card);
+    });
+    
+    // Add position data
+    return cards.map(card => ({
+      ...card,
+      position: { x: Math.random() * width, y: Math.random() * height }
+    }));
   }
 
   async function loadAgreementData(agreementId: string): Promise<AgreementWithPosition | null> {
@@ -166,63 +100,34 @@
   }> {
     log(`Loading game data for: ${gameId}`);
     
-    // Use getGame with timeout protection
-    const gamePromise = getGame(gameId);
-    const gameTimeout = new Promise<null>((resolve) => {
-      setTimeout(() => {
-        log('getGame timed out after 3 seconds');
-        resolve(null);
-      }, 3000);
-    });
+    // Check gameCache first for performance
+    let game;
+    if (gameCache.has(gameId)) {
+      log('Using cached game data');
+      game = gameCache.get(gameId);
+    } else {
+      // Load game data
+      game = await getGame(gameId);
+      if (game) gameCache.set(gameId, game);
+    }
     
-    // Race between loading and timeout
-    const game = await Promise.race([gamePromise, gameTimeout]);
-    if (!game) throw new Error(`Game not found or loading timed out: ${gameId}`);
+    if (!game) throw new Error(`Game not found: ${gameId}`);
     
-    // Get actors using the optimized function with timeout
-    const actorsPromise = getGameActors(gameId);
-    const actorsTimeout = new Promise<Actor[]>((resolve) => {
-      setTimeout(() => {
-        log('getGameActors timed out after 3 seconds');
-        resolve([]);
-      }, 3000);
-    });
-    
-    const actors = await Promise.race([actorsPromise, actorsTimeout]);
-    
-    // Load cards and agreements
-    let cards: Card[] = [];
-    let agreementData: AgreementWithPosition[] = [];
+    // Get actors using the optimized function
+    const actors = await getGameActors(gameId);
     
     // Get deck ID from game
     const deckId = game.deck_id;
     if (!deckId) throw new Error(`No deck ID found for game: ${gameId}`);
     
     // Load cards
-    try {
-      cards = await loadCardData(deckId);
-    } catch (error) {
-      console.error('Error loading card data:', error);
-      cards = [];
-    }
+    const cards = await loadCardData(deckId);
     
-    // Load agreements if any
-    try {
-      if (game.agreement_ids) {
-        // Handle both string[] and Record<string, boolean> formats
-        const agreementIdList = Array.isArray(game.agreement_ids) 
-          ? game.agreement_ids 
-          : typeof game.agreement_ids === 'object' && !game.agreement_ids['#']
-            ? Object.keys(game.agreement_ids)
-            : [];
-            
-        agreementData = await Promise.all(
-          agreementIdList.map(loadAgreementData)
-        ).then((ags) => ags.filter((a): a is AgreementWithPosition => a !== null));
-      }
-    } catch (error) {
-      console.error('Error loading agreement data:', error);
-      agreementData = [];
+    // Load agreements if any, using our optimized function with 
+    // limit of 10 concurrent calls
+    let agreementData: AgreementWithPosition[] = [];
+    if (game.agreement_ids) {
+      agreementData = await loadGameAgreements(game);
     }
 
     return { cards, agreements: agreementData, actors };
@@ -281,100 +186,110 @@
   async function enhanceCardData(cards: CardWithPosition[]): Promise<CardWithPosition[]> {
     log(`Enhancing ${cards.length} cards`);
     
-    // Batch process the cards to reduce Gun.js load
-    return Promise.all(
-      cards.map(async (card) => {
-        // Process values with caching
-        const valueNames = [];
-        if (card.values) {
-          const valueIds = Object.keys(card.values);
-          
-          // Split into cached and uncached values
-          const cachedValueIds = valueIds.filter(id => valueCache.has(id) || !id.startsWith('value_'));
-          const uncachedValueIds = valueIds.filter(id => !valueCache.has(id) && id.startsWith('value_'));
-          
-          // Add cached values
-          for (const valueId of cachedValueIds) {
-            if (valueCache.has(valueId)) {
-              valueNames.push(valueCache.get(valueId));
-            } else {
-              // For non-value_ IDs, just clean up the format
-              const cleanName = valueId.replace(/-/g, ' ');
-              valueCache.set(valueId, cleanName);
-              valueNames.push(cleanName);
-            }
+    // Get all unique values and capabilities IDs that need fetching
+    const valueIdsToFetch = new Set<string>();
+    const capabilityIdsToFetch = new Set<string>();
+    
+    // First pass - identify what needs fetching
+    cards.forEach(card => {
+      // Values
+      if (card.values) {
+        Object.keys(card.values).forEach(valueId => {
+          if (!valueCache.has(valueId) && valueId.startsWith('value_')) {
+            valueIdsToFetch.add(valueId);
           }
-          
-          // Batch request uncached values in small groups (max 5 at a time)
-          const batchSize = 5;
-          for (let i = 0; i < uncachedValueIds.length; i += batchSize) {
-            const batch = uncachedValueIds.slice(i, i + batchSize);
-            
-            await Promise.all(
-              batch.map(async (valueId) => {
-                try {
-                  const value = await getValue(valueId);
-                  const name = value?.name || valueId.replace('value_', '').replace(/-/g, ' ');
-                  valueCache.set(valueId, name);
-                  valueNames.push(name);
-                } catch (error) {
-                  // Fallback to formatted value ID
-                  const fallbackName = valueId.replace('value_', '').replace(/-/g, ' ');
-                  valueCache.set(valueId, fallbackName);
-                  valueNames.push(fallbackName);
-                }
-              })
-            );
+        });
+      }
+      
+      // Capabilities
+      if (card.capabilities) {
+        Object.keys(card.capabilities).forEach(capabilityId => {
+          if (!capabilityCache.has(capabilityId) && capabilityId.startsWith('capability_')) {
+            capabilityIdsToFetch.add(capabilityId);
           }
-        }
-        
-        // Process capabilities with caching
-        const capabilityNames = [];
-        if (card.capabilities) {
-          const capabilityIds = Object.keys(card.capabilities);
-          
-          // Split into cached and uncached capabilities
-          const cachedCapabilityIds = capabilityIds.filter(id => capabilityCache.has(id) || !id.startsWith('capability_'));
-          const uncachedCapabilityIds = capabilityIds.filter(id => !capabilityCache.has(id) && id.startsWith('capability_'));
-          
-          // Add cached capabilities
-          for (const capabilityId of cachedCapabilityIds) {
-            if (capabilityCache.has(capabilityId)) {
-              capabilityNames.push(capabilityCache.get(capabilityId));
-            } else {
-              // For non-capability_ IDs, just clean up the format
-              const cleanName = capabilityId.replace(/-/g, ' ');
-              capabilityCache.set(capabilityId, cleanName);
-              capabilityNames.push(cleanName);
-            }
+        });
+      }
+    });
+    
+    // Fetch values in batches
+    const valueIdsArray = Array.from(valueIdsToFetch);
+    const batchSize = 10; // Larger batch size for better efficiency
+    
+    for (let i = 0; i < valueIdsArray.length; i += batchSize) {
+      const batch = valueIdsArray.slice(i, i + batchSize);
+      
+      // Fetch batch of values
+      await Promise.allSettled(
+        batch.map(async (valueId) => {
+          try {
+            const value = await getValue(valueId);
+            const name = value?.name || valueId.replace('value_', '').replace(/-/g, ' ');
+            valueCache.set(valueId, name);
+          } catch (error) {
+            // Cache a fallback on error
+            const fallbackName = valueId.replace('value_', '').replace(/-/g, ' ');
+            valueCache.set(valueId, fallbackName);
           }
-          
-          // Batch request uncached capabilities in small groups (max 5 at a time)
-          const batchSize = 5;
-          for (let i = 0; i < uncachedCapabilityIds.length; i += batchSize) {
-            const batch = uncachedCapabilityIds.slice(i, i + batchSize);
-            
-            await Promise.all(
-              batch.map(async (capabilityId) => {
-                try {
-                  const capability = await getCapability(capabilityId);
-                  const name = capability?.name || capabilityId.replace('capability_', '').replace(/-/g, ' ');
-                  capabilityCache.set(capabilityId, name);
-                  capabilityNames.push(name);
-                } catch (error) {
-                  // Fallback to formatted capability ID
-                  const fallbackName = capabilityId.replace('capability_', '').replace(/-/g, ' ');
-                  capabilityCache.set(capabilityId, fallbackName);
-                  capabilityNames.push(fallbackName);
-                }
-              })
-            );
+        })
+      );
+    }
+    
+    // Fetch capabilities in batches
+    const capabilityIdsArray = Array.from(capabilityIdsToFetch);
+    
+    for (let i = 0; i < capabilityIdsArray.length; i += batchSize) {
+      const batch = capabilityIdsArray.slice(i, i + batchSize);
+      
+      // Fetch batch of capabilities
+      await Promise.allSettled(
+        batch.map(async (capabilityId) => {
+          try {
+            const capability = await getCapability(capabilityId);
+            const name = capability?.name || capabilityId.replace('capability_', '').replace(/-/g, ' ');
+            capabilityCache.set(capabilityId, name);
+          } catch (error) {
+            // Cache a fallback on error
+            const fallbackName = capabilityId.replace('capability_', '').replace(/-/g, ' ');
+            capabilityCache.set(capabilityId, fallbackName);
           }
-        }
-        
-        return { ...card, _valueNames: valueNames, _capabilityNames: capabilityNames };
-      })
-    );
+        })
+      );
+    }
+    
+    // Now that all values and capabilities are cached, enhance each card
+    return cards.map(card => {
+      // Process values
+      const valueNames: string[] = [];
+      if (card.values) {
+        Object.keys(card.values).forEach(valueId => {
+          // Either use cache or format the ID
+          if (valueCache.has(valueId)) {
+            valueNames.push(valueCache.get(valueId)!);
+          } else {
+            const cleanName = valueId.replace(/-/g, ' ');
+            valueCache.set(valueId, cleanName);
+            valueNames.push(cleanName);
+          }
+        });
+      }
+      
+      // Process capabilities
+      const capabilityNames: string[] = [];
+      if (card.capabilities) {
+        Object.keys(card.capabilities).forEach(capabilityId => {
+          // Either use cache or format the ID
+          if (capabilityCache.has(capabilityId)) {
+            capabilityNames.push(capabilityCache.get(capabilityId)!);
+          } else {
+            const cleanName = capabilityId.replace(/-/g, ' ');
+            capabilityCache.set(capabilityId, cleanName);
+            capabilityNames.push(cleanName);
+          }
+        });
+      }
+      
+      return { ...card, _valueNames: valueNames, _capabilityNames: capabilityNames };
+    });
   }
 
   // Track the last update time to avoid redundant operations
@@ -390,109 +305,134 @@
     log(`Subscribing to game data: ${gameId}`);
     
     // Subscribe to game updates using our optimized service function
+    // This uses a selective update approach to avoid redundant data fetching
     unsubscribe.push(
       subscribeToGame(gameId, (game) => {
         if (!game) return;
         
         const currentTime = Date.now();
         
-        // Check if this is a meaningful update (at least 1 second since last update)
+        // Throttle updates (only process once per second)
         if (currentTime - lastGameUpdateTime < 1000) {
-          log('Skipping redundant game update (too frequent)');
           return;
         }
         
         lastGameUpdateTime = currentTime;
-        log(`Game subscription received update at ${new Date(currentTime).toISOString()}`);
         
-        // Track if game structure changed to determine if we need a full refresh
-        let needsFullRefresh = false;
+        // Track game changes for intelligent updates
+        let shouldUpdateCards = false;
+        let shouldUpdateActors = false;
+        let shouldUpdateAgreements = false;
         
+        // Check if it's a new game or changed significantly
         if (!gameCache.has(gameId)) {
           gameCache.set(gameId, game);
-          needsFullRefresh = true;
+          shouldUpdateCards = true;
+          shouldUpdateActors = true;
+          shouldUpdateAgreements = true;
         } else {
           const cachedGame = gameCache.get(gameId);
           
-          // Check if critical game properties have changed
-          if (
-            cachedGame.deck_id !== game.deck_id || 
-            cachedGame.status !== game.status
-          ) {
-            needsFullRefresh = true;
-            gameCache.set(gameId, game);
+          // Selective updates based on what changed
+          if (cachedGame.deck_id !== game.deck_id) {
+            shouldUpdateCards = true;
+          }
+          
+          if (cachedGame.status !== game.status) {
+            shouldUpdateActors = true;
+          }
+          
+          // For agreements, check if they've been added or removed
+          if (game.agreement_ids) {
+            const oldAgreementCount = cachedGame.agreement_ids ? 
+              (Array.isArray(cachedGame.agreement_ids) ? 
+                cachedGame.agreement_ids.length : 
+                Object.keys(cachedGame.agreement_ids).length) : 0;
+                
+            const newAgreementCount = Array.isArray(game.agreement_ids) ? 
+              game.agreement_ids.length : 
+              Object.keys(game.agreement_ids).length;
+              
+            if (oldAgreementCount !== newAgreementCount) {
+              shouldUpdateAgreements = true;
+            }
+          }
+          
+          // Update cache
+          gameCache.set(gameId, game);
+        }
+        
+        // Update agreements if needed
+        if (shouldUpdateAgreements || currentTime - lastAgreementUpdateTime > 5000) {
+          lastAgreementUpdateTime = currentTime;
+          
+          if (game.agreement_ids) {
+            loadGameAgreements(game).then(loadedAgreements => {
+              agreements = loadedAgreements;
+              log(`Updated ${loadedAgreements.length} agreements`);
+            }).catch(error => {
+              console.error('Error updating agreements:', error);
+            });
           }
         }
         
-        // Always check for agreement updates since they're lightweight
-        if (game.agreement_ids && currentTime - lastAgreementUpdateTime > 2000) {
-          lastAgreementUpdateTime = currentTime;
-          loadGameAgreements(game).then((ags) => {
-            agreements = ags;
-            log(`Updated ${ags.length} agreements`);
-          });
-        }
-        
-        // Only do full refresh if needed or significant time has passed
-        if (needsFullRefresh || currentTime - lastActorUpdateTime > 10000) {
+        // Update actors if needed
+        if (shouldUpdateActors || currentTime - lastActorUpdateTime > 5000) {
           lastActorUpdateTime = currentTime;
           
-          log('Performing selective game data refresh');
-          
-          // Get actors separately without reloading cards if possible
           getGameActors(gameId).then(loadedActors => {
             actors = loadedActors;
-            log(`Updated ${loadedActors.length} actors`);
             
-            // Update actor-card mappings
-            actors.forEach((actor) => {
+            // Cache actors and update mappings
+            loadedActors.forEach(actor => {
               actorCache.set(actor.actor_id, actor);
               if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
             });
-            
-            // Only reload cards if we don't have any or deck ID changed
-            if (cardsWithPosition.length === 0 || needsFullRefresh) {
-              const deckId = game.deck_id;
-              if (deckId) {
-                loadCardData(deckId).then(cards => {
-                  enhanceCardData(cards).then(enhancedCards => {
-                    cardsWithPosition = enhancedCards;
-                    log(`Updated ${enhancedCards.length} cards`);
-                    
-                    // Update card-actor mappings
-                    cardsWithPosition.forEach((card) => {
-                      if (card.actor_id) actorCardMap.set(card.actor_id, card.card_id);
-                    });
-                  });
-                }).catch(error => {
-                  console.error('Error refreshing card data:', error);
-                });
-              }
-            }
           }).catch(error => {
-            console.error('Error refreshing actor data:', error);
+            console.error('Error updating actors:', error);
           });
+        }
+        
+        // Update cards only if deck changed or not yet loaded
+        if (shouldUpdateCards || cardsWithPosition.length === 0) {
+          const deckId = game.deck_id;
+          if (deckId) {
+            loadCardData(deckId)
+              .then(enhanceCardData)
+              .then(enhancedCards => {
+                cardsWithPosition = enhancedCards;
+                
+                // Update card-actor mappings
+                enhancedCards.forEach(card => {
+                  if (card.card_id && card.actor_id) {
+                    actorCardMap.set(card.actor_id, card.card_id);
+                  }
+                });
+              })
+              .catch(error => {
+                console.error('Error updating cards:', error);
+              });
+          }
         }
       })
     );
     
-    // Also subscribe to actors to catch new actors joining
+    // Subscribe to actor changes
     unsubscribe.push(
       subscribeToGameActors(gameId, (updatedActors) => {
         if (!updatedActors || updatedActors.length === 0) return;
         
+        // Throttle updates to avoid excessive renders
         const currentTime = Date.now();
-        if (currentTime - lastActorUpdateTime < 2000) {
-          log('Skipping redundant actor update (too frequent)');
-          return;
-        }
+        if (currentTime - lastActorUpdateTime < 2000) return;
         
-        log(`Actor subscription received update with ${updatedActors.length} actors`);
         lastActorUpdateTime = currentTime;
         
-        // Update our actor list and mappings
+        // Update our actor list with new data
         actors = updatedActors;
-        updatedActors.forEach((actor) => {
+        
+        // Cache actors and update mappings
+        updatedActors.forEach(actor => {
           actorCache.set(actor.actor_id, actor);
           if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
         });
