@@ -71,7 +71,7 @@
             }
             
             // Check if user is already in the game
-            const playersObj = game.players as Record<string, boolean>;
+            const playersObj = game.players as Record<string, boolean> | Record<string, string>;
             if (playersObj && $userStore.user && playersObj[$userStore.user.user_id]) {
                 // User is already in the game, redirect to game page
                 goto(`/games/${gameId}`);
