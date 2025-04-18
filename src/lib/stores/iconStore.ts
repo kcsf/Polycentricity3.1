@@ -31,11 +31,15 @@ const iconNameMap: Record<string, string> = {
   investor: "TrendingUp"
 };
 
-import type { SvelteComponent } from 'svelte';
+import type { ComponentType } from 'svelte';
+import type { User } from 'lucide-svelte';
+
+// Define a type that accepts both lucide-svelte icons and generic Svelte components
+type IconComponent = ComponentType<any>;
 
 interface IconData {
   name: string;
-  component: typeof SvelteComponent;
+  component: IconComponent;
 }
 
 export const iconStore = writable<Map<string, IconData>>(new Map());
