@@ -16,7 +16,15 @@
   
   // Example effect that runs when dependencies change
   $effect(() => {
-    console.log(`Count changed to: ${count}, doubled: ${doubledCount}`);
+    // Log state changes with more detail to help debug
+    console.log("DEBUG - State values:", {
+      count, 
+      doubledCount,
+      displayMessage, 
+      activeTab,
+      items: items.length,
+      isLoading
+    });
     // Effects should NOT directly set state
   });
   
