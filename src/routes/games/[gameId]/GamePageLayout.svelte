@@ -31,10 +31,12 @@
   import PlayersList from '$lib/components/game/PlayersList.svelte';
   import RoleCard from '$lib/components/RoleCard.svelte';
 
-  // Props
-  export let game: Game;
-  export let gameId: string;
-  export let playerRole: Actor | null = null;
+  // Props using $props() for Svelte 5.25.9 Runes mode
+  const { game, gameId, playerRole = null } = $props<{
+    game: Game;
+    gameId: string;
+    playerRole?: Actor | null;
+  }>();
   
   // Local state with Svelte 5 Runes
   let viewMode = $state<'actors' | 'cards'>('cards');
@@ -162,7 +164,7 @@
     }
     
     fetchCardData();
-  }
+  });
   
   // Handle zoom in/out
   function zoomIn() {

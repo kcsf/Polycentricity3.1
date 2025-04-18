@@ -12,18 +12,18 @@
         import * as icons from 'lucide-svelte';
         // Dashboard specific imports
         
-        // Dashboard state
-        let isLoading = true;
-        let actorStats = [];
-        let actorGames = []; // Games found through actors
-        let dashboardStats = {
+        // Dashboard state using Svelte 5.25.9 Runes mode
+        let isLoading = $state(true);
+        let actorStats = $state<any[]>([]);
+        let actorGames = $state<any[]>([]); // Games found through actors
+        let dashboardStats = $state({
             gamesCreated: 0,
             gamesJoined: 0,
             agreementsParticipating: 0,
             agreementsCreated: 0,
             decksCreated: 0,
             cardsOwned: 0
-        };
+        });
 
         // Get all games that a user's actors are part of (deeper traversal)
         async function getGamesFromActors(actors) {
@@ -193,6 +193,7 @@
             });
         }
         
+        // Using onMount with proper error handling for Svelte 5.25.9 Runes mode
         onMount(async () => {
                 // Fetch user's games and actors
                 try {
@@ -288,6 +289,19 @@
                 } finally {
                         isLoading = false;
                 }
+                
+                // Add a cleanup function to prevent memory leaks
+                return () => {
+                    // Perform any cleanup needed when component is destroyed
+                    console.log('Dashboard component unmounted');
+                };
+        });
+        
+        // Add a Runes $effect to log when dashboard data changes
+        $effect(() => {
+            if (!isLoading) {
+                console.log('Dashboard data loaded with stats:', dashboardStats);
+            }
         });
         
         // Format numbers with commas
@@ -295,10 +309,10 @@
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
         
-        // Modal states
-        let profileModalOpen = false;
-        let actorEditModalOpen = false;
-        let selectedActor = null;
+        // Modal states using Svelte 5.25.9 Runes mode
+        let profileModalOpen = $state(false);
+        let actorEditModalOpen = $state(false);
+        let selectedActor = $state<any | null>(null);
         
         // Modal handling for profile update
         function openProfileUpdateModal() {
@@ -334,7 +348,7 @@
                         <div class="mt-5 flex justify-center sm:mt-0">
                             <button 
                                 class="btn variant-soft-primary"
-                                on:click={openProfileUpdateModal}
+                                onclick={openProfileUpdateModal}
                             >
                                 <icons.UserCog size={16} class="mr-2" /> 
                                 Update Profile
@@ -437,9 +451,11 @@
                                                                                                         <button 
                                                                                                             class="btn-icon variant-soft-tertiary btn-sm" 
                                                                                                             title="Edit Actor" 
-                                                                                                            on:click={() => openActorEditModal(actor)}
+                                                                                                            onclick={() => openActorEditModal(actor)}
                                                                                                         >
-                                                                                                            <svelte:component this={icons.Pencil} size={14} />
+                                                                                                            {#key icons.Pencil}
+                                                                                                                {icons.Pencil ? icons.Pencil({ size: 14 }) : null}
+                                                                                                            {/key}
                                                                                                         </button>
                                                                                                 </div>
                                                                                         </div>
