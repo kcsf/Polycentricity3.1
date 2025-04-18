@@ -658,7 +658,7 @@
       <h1 class="text-2xl font-bold">Admin Dashboard</h1>
       <div class="flex space-x-2">
         <button class="btn variant-filled-primary" onclick={fetchDatabaseStats}>
-          <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+          <icons.RefreshCcw class="w-4 h-4 mr-2" />
           Refresh Data
         </button>
       </div>
@@ -721,7 +721,7 @@
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
-              <svelte:component this={icons.Network} class="text-primary-500" />
+              <icons.Network class="text-primary-500" />
               <div>
                 <h3 class="h4 text-surface-900-50">Database Visualization</h3>
                 <p class="text-sm text-surface-700-300">This interactive graph shows the nodes and relationships in your Gun.js database.</p>
@@ -742,7 +742,7 @@
                 <p>{g6Error}</p>
               </div>
               <div class="alert-actions">
-                <button class="btn variant-filled" on:click={loadGraphVisualization}>Retry</button>
+                <button class="btn variant-filled" onclick={loadGraphVisualization}>Retry</button>
               </div>
             </div>
           {:else}
@@ -974,7 +974,7 @@
                               <td>
                                 <button 
                                   class="delete-button"
-                                  on:click={() => {
+                                  onclick={() => {
                                     if (confirm(`Are you sure you want to delete this ${nodeType.type.slice(0, -1)} with ID "${node.id}"? This cannot be undone.`)) {
                                       deleteNode(nodeType.type, node.id);
                                     }
@@ -1020,7 +1020,7 @@
                 <p>{error}</p>
               </div>
               <div class="alert-actions">
-                <button class="btn variant-filled" on:click={fetchDatabaseStats}>Retry</button>
+                <button class="btn variant-filled" onclick={fetchDatabaseStats}>Retry</button>
               </div>
             </div>
           {:else}
