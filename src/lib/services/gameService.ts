@@ -6,11 +6,25 @@ import { getPredefinedDeck } from '../data/predefinedDecks';
 import { get } from 'svelte/store';
 import { currentGameStore, setUserGames } from '../stores/gameStore';
 
-// Caches for performance
-const gameCache = new Map<string, Game>();
-const actorCache = new Map<string, Actor>();
-const cardCache = new Map<string, Card>();
-const roleCache = new Map<string, string>(); // gameId+userId -> actorId
+// Define global types for TypeScript
+declare global {
+  var gameCache: Map<string, Game>;
+  var actorCache: Map<string, Actor>;
+  var cardCache: Map<string, Card>;
+  var roleCache: Map<string, string>;
+}
+
+// Initialize global caches if they don't exist
+if (!globalThis.gameCache) globalThis.gameCache = new Map<string, Game>();
+if (!globalThis.actorCache) globalThis.actorCache = new Map<string, Actor>();
+if (!globalThis.cardCache) globalThis.cardCache = new Map<string, Card>();
+if (!globalThis.roleCache) globalThis.roleCache = new Map<string, string>();
+
+// Export references to the global caches for use throughout the app
+const gameCache = globalThis.gameCache;
+const actorCache = globalThis.actorCache;
+const cardCache = globalThis.cardCache;
+const roleCache = globalThis.roleCache; // gameId:userId -> actorId
 
 // REMOVED: Helper function to get an actor by ID (getActorById)
 // Replaced with getPlayerRole or getUserActors as these provide more comprehensive checks
@@ -1270,7 +1284,7 @@ export async function createActor(
 }
 
 // Get a user's actors from all games
-export const actorCache = new Map<string, Actor>();
+export { actorCache };
 
 async function getUserActors(userId?: string): Promise<Actor[]> {
   try {
@@ -1324,6 +1338,7 @@ async function getUserActors(userId?: string): Promise<Actor[]> {
       log(`[PRIMARY] Checking role assignments for user ${userToCheck}`);
       let roleAssignmentsComplete = false;
       
+      // Start tracking role assignment checks
       gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
         if (!gameData) return;
         
@@ -1361,10 +1376,13 @@ async function getUserActors(userId?: string): Promise<Actor[]> {
             }
           });
         }
-      }).then(() => {
+      });
+      
+      // Set a reasonable timeout to complete this method
+      setTimeout(() => {
         roleAssignmentsComplete = true;
         methodComplete();
-      });
+      }, 500);
       
       // Method 3: Try to get actors from user->actors relationship (fallback)
       log(`[SECONDARY] Checking user->actors links for user ${userToCheck}`);
@@ -1375,10 +1393,13 @@ async function getUserActors(userId?: string): Promise<Actor[]> {
           log(`Found actor link from user: ${actorId}`);
           fetchActor(actorId);
         }
-      }).then(() => {
+      });
+      
+      // Set timeout for user actors method completion
+      setTimeout(() => {
         userActorsComplete = true;
         methodComplete();
-      });
+      }, 500);
       
       // Helper to fetch an actor with timeout protection
       function fetchActor(actorId: string, gameId?: string) {
