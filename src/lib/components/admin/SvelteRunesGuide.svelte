@@ -587,8 +587,8 @@ async function saveToGun() {
             <li><strong>Implement retry logic</strong> for critical operations</li>
             <li><strong>Always check for Gun initialization</strong> before using it</li>
             <li><strong>Use our utility functions</strong> in gameService.ts for common operations</li>
-            <li><strong>Remember to handle Gun.js references</strong> structured as {"{#}": "path"}</li>
-            <li><strong>For collections, use object format</strong> with {id: true} pattern, not arrays</li>
+            <li><strong>Remember to handle Gun.js references</strong> structured as reference objects</li>
+            <li><strong>For collections, use object format</strong> with key-value pairs, not arrays</li>
           </ul>
         </div>
       </div>
@@ -643,7 +643,7 @@ async function saveToGun() {
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
-                <td class="p-2"><code>{@render $$slots.default?.() || 'Default'}</code></td>
+                <td class="p-2"><code>{@render $$slots.default?.()}</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;svelte:component this={Comp} /&gt;</code></td>
