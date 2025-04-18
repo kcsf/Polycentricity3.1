@@ -260,9 +260,13 @@ let inputElement = $state<HTMLInputElement | null>(null);
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>{`// New way (Svelte 5 Runes)
 <div class="container">
-  {@render $$slots.header?.()}
-  {@render $$slots.default?.() || 'Default content'}
-  {@render $$slots.footer?.()}
+  {@const headerSlot = $$slots.header?.()}
+  {@const defaultSlot = $$slots.default?.() || 'Default content'}
+  {@const footerSlot = $$slots.footer?.()}
+  
+  {headerSlot}
+  {defaultSlot}
+  {footerSlot}
 </div>`}</pre>
             </div>
           </div>
@@ -665,7 +669,7 @@ async function saveToGun() {
             <li>☐ Replace $: reactive declarations with $derived</li>
             <li>☐ Update reactive statements with $effect</li>
             <li>☐ Convert on:event to onclick style handlers</li>
-            <li>☐ Update component slots to use {@render $$slots.*}</li>
+            <li>☐ Update component slots to use render tags</li>
             <li>☐ Replace svelte:component with dynamic components</li>
             <li>☐ Update event dispatchers to use props callbacks</li>
             <li>☐ Add proper type annotations to $state variables</li>

@@ -1,22 +1,25 @@
 {
-        "compilerOptions": {
-                "target": "ESNext",
-                "module": "ESNext",
-                "moduleResolution": "node",
-                "strict": true,
-                "esModuleInterop": true,
-                "skipLibCheck": true,
-                "forceConsistentCasingInFileNames": true,
-                "resolveJsonModule": true,
-                "sourceMap": true,
-                "types": ["svelte", "@types/node"],
-                "allowJs": true,
-                "checkJs": true,
-                "baseUrl": ".",
-                "paths": {
-                        "$lib/*": ["src/lib/*"]
-                }
-        },
-        "include": ["src/**/*", "src/**/*.svelte"],
-        "exclude": ["node_modules", "dist"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "types": ["svelte", "@types/node"],
+    "allowJs": true,
+    "checkJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "$lib/*": ["src/lib/*"]
+    },
+    "useDefineForClassFields": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*", "src/**/*.svelte"],
+  "exclude": ["node_modules", "build"]
 }
