@@ -505,17 +505,18 @@
           const iconName = card.icon || 'user';
           const isActive = node.id === activeCardId;
           const iconSize = isActive ? 36 : 24;
-          const offset = isActive ? -18 : -12;
-
+          
+          // Center the icon using transform instead of x/y attributes
           createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
           const foreignObject = centerGroup
             .append('foreignObject')
             .attr('width', iconSize)
             .attr('height', iconSize)
-            .attr('x', offset)
-            .attr('y', offset)
-            .attr('class', 'icon-container')
-            .style('pointer-events', 'none');
+            .attr('x', -iconSize/2)  // Use half iconSize to center
+            .attr('y', -iconSize/2)  // Use half iconSize to center
+            .attr('class', 'card-icon-container')
+            .style('pointer-events', 'none')
+            .style('overflow', 'visible');
           foreignObject.node()?.appendChild(iconContainer);
         }
       });

@@ -92,9 +92,22 @@ export async function loadIcons(iconNames: string[]) {
     } catch (error) {
       // Only log the error message, not the full error object
       console.warn(`Failed to load icon ${pascalName} for ${name}, using default fallback`);
-      // Try to get the User icon from the module or use any available icon as fallback
-      const fallbackIcon = module.User || module.Box || Object.values(module)[0];
-      newIcons.set(name, { name, component: fallbackIcon });
+      try {
+        // Import the User icon directly
+        import("lucide-svelte").then(module => {
+          // Use User icon or any available icon as fallback
+          const fallbackIcon = module["User"] || module["Box"] || Object.values(module)[0];
+          if (fallbackIcon) {
+            newIcons.set(name, { name, component: fallbackIcon });
+            // Update the store if we added a new icon
+            if (newIcons.size > existingIcons.size) {
+              iconStore.set(newIcons);
+            }
+          }
+        });
+      } catch (fallbackError) {
+        console.error("Failed to load fallback icon:", fallbackError);
+      }
     }
   }
   
