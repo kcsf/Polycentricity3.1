@@ -52,11 +52,22 @@
         error = '';
         
         try {
-            // Load the game
-            game = await getGame(gameId);
+            // Load the game with timeout protection
+            const gameLoadPromise = getGame(gameId);
+            
+            // Set a timeout for loading to prevent infinite waiting
+            const timeout = new Promise<null>((resolve) => {
+                setTimeout(() => {
+                    log('Game loading timed out after 3 seconds');
+                    resolve(null);
+                }, 3000);
+            });
+            
+            // Race between loading and timeout
+            game = await Promise.race([gameLoadPromise, timeout]);
             
             if (!game) {
-                error = 'Game not found';
+                error = 'Game not found or loading timed out. Please try refreshing the page.';
                 isLoading = false;
                 return;
             }
@@ -72,8 +83,17 @@
                 }
             });
             
-            // Try to load the user's role/actor in this game
-            await loadUserActor();
+            // Load the user's role in this game (if any) with timeout protection
+            const userActorPromise = loadUserActor();
+            const userActorTimeout = new Promise<void>((resolve) => {
+                setTimeout(() => {
+                    log('User actor loading timed out after 3 seconds');
+                    resolve();
+                }, 3000);
+            });
+            
+            // Don't wait indefinitely for user actor
+            await Promise.race([userActorPromise, userActorTimeout]);
         } catch (err) {
             log('Error loading game data:', err);
             error = 'Failed to load game data. Please try refreshing the page.';

@@ -231,7 +231,16 @@
 
     try {
       if (activeActorId) {
-        const card = await getUserCard(gameId, activeActorId);
+        // Add timeout protection for getUserCard
+        const cardPromise = getUserCard(gameId, activeActorId);
+        const cardTimeout = new Promise<null>((resolve) => {
+          setTimeout(() => {
+            log('getUserCard timed out after 3 seconds');
+            resolve(null);
+          }, 3000);
+        });
+        
+        const card = await Promise.race([cardPromise, cardTimeout]);
         if (card) activeCardId = card.card_id;
       }
 
