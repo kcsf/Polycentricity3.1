@@ -118,9 +118,16 @@
     
     // Load agreements if any
     try {
-      if (game.agreement_ids && typeof game.agreement_ids === 'object') {
+      if (game.agreement_ids) {
+        // Handle both string[] and Record<string, boolean> formats
+        const agreementIdList = Array.isArray(game.agreement_ids) 
+          ? game.agreement_ids 
+          : typeof game.agreement_ids === 'object' && !game.agreement_ids['#']
+            ? Object.keys(game.agreement_ids)
+            : [];
+            
         agreementData = await Promise.all(
-          Object.keys(game.agreement_ids).map(loadAgreementData)
+          agreementIdList.map(loadAgreementData)
         ).then((ags) => ags.filter((a): a is AgreementWithPosition => a !== null));
       }
     } catch (error) {
@@ -131,13 +138,19 @@
     return { cards, agreements: agreementData, actors };
   }
 
-  async function loadGameAgreements(game: { agreement_ids?: Record<string, boolean> }): Promise<AgreementWithPosition[]> {
+  async function loadGameAgreements(game: { agreement_ids?: string[] | Record<string, boolean> | Record<string, any> }): Promise<AgreementWithPosition[]> {
     if (!game || !game.agreement_ids) return [];
     
-    const agreementIds = typeof game.agreement_ids === 'object' ? Object.keys(game.agreement_ids) : [];
-    if (agreementIds.length === 0) return [];
+    // Handle both string[] and Record<string, boolean> formats, and Gun.js references
+    const agreementIdList = Array.isArray(game.agreement_ids) 
+      ? game.agreement_ids 
+      : typeof game.agreement_ids === 'object' && !game.agreement_ids['#']
+        ? Object.keys(game.agreement_ids)
+        : [];
+        
+    if (agreementIdList.length === 0) return [];
     
-    const agreements = await Promise.all(agreementIds.map(loadAgreementData));
+    const agreements = await Promise.all(agreementIdList.map(loadAgreementData));
     return agreements.filter((a): a is AgreementWithPosition => a !== null);
   }
 
