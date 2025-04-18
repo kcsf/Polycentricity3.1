@@ -146,18 +146,18 @@ const { name = "default", count = 0 }
           <h3 class="text-lg font-semibold mb-3">3. Reactive Statements</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// Old way (Svelte 4)
+              <pre>{`// Old way (Svelte 4)
 $: {
   console.log('Count is ' + count);
   calculateSomething(count);
-}</pre>
+}`}</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// New way (Svelte 5 Runes)
+              <pre>{`// New way (Svelte 5 Runes)
 $effect(() => {
-  console.log(`Count is ${count}`);
+  console.log('Count is ' + count);
   calculateSomething(count);
-});</pre>
+});`}</pre>
             </div>
           </div>
         </div>
@@ -166,16 +166,16 @@ $effect(() => {
           <h3 class="text-lg font-semibold mb-3">4. Event Handlers</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// Old way (Svelte 4)
-&lt;button on:click={handleClick}&gt;
+              <pre>{`// Old way (Svelte 4)
+<button on:click={handleClick}>
   Click me
-&lt;/button&gt;</pre>
+</button>`}</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// New way (Svelte 5 Runes)
-&lt;button onclick={handleClick}&gt;
+              <pre>{`// New way (Svelte 5 Runes)
+<button onclick={handleClick}>
   Click me
-&lt;/button&gt;</pre>
+</button>`}</pre>
             </div>
           </div>
         </div>
@@ -184,14 +184,14 @@ $effect(() => {
           <h3 class="text-lg font-semibold mb-3">5. DOM References</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// Old way (Svelte 4)
+              <pre>{`// Old way (Svelte 4)
 let inputElement;
-&lt;input bind:this={inputElement}&gt;</pre>
+<input bind:this={inputElement}>`}</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// New way (Svelte 5 Runes)
-let inputElement = $state&lt;HTMLInputElement | null&gt;(null);
-&lt;input bind:this={inputElement}&gt;</pre>
+              <pre>{`// New way (Svelte 5 Runes)
+let inputElement = $state<HTMLInputElement | null>(null);
+<input bind:this={inputElement}>`}</pre>
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ let inputElement = $state&lt;HTMLInputElement | null&gt;(null);
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Component Structure</h3>
           <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>&lt;script lang="ts"&gt;
+            <pre>{`<script lang="ts">
   // Imports
   import { onMount, onDestroy } from 'svelte';
   
@@ -237,12 +237,12 @@ let inputElement = $state&lt;HTMLInputElement | null&gt;(null);
   onDestroy(() => {
     // Cleanup
   });
-&lt;/script&gt;
+</script>
 
-&lt;div class="component"&gt;
-  &lt;h2&gt;{title}&lt;/h2&gt;
-  &lt;!-- Component template --&gt;
-&lt;/div&gt;</pre>
+<div class="component">
+  <h2>{title}</h2>
+  <!-- Component template -->
+</div>`}</pre>
           </div>
         </div>
         
@@ -250,20 +250,20 @@ let inputElement = $state&lt;HTMLInputElement | null&gt;(null);
           <h3 class="text-lg font-semibold mb-3">2. Slot Rendering</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// Old way (Svelte 4)
-&lt;div class="container"&gt;
-  &lt;slot name="header"&gt;&lt;/slot&gt;
-  &lt;slot&gt;Default content&lt;/slot&gt;
-  &lt;slot name="footer"&gt;&lt;/slot&gt;
-&lt;/div&gt;</pre>
+              <pre>{`// Old way (Svelte 4)
+<div class="container">
+  <slot name="header"></slot>
+  <slot>Default content</slot>
+  <slot name="footer"></slot>
+</div>`}</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// New way (Svelte 5 Runes)
-&lt;div class="container"&gt;
+              <pre>{`// New way (Svelte 5 Runes)
+<div class="container">
   {@render $$slots.header?.()}
   {@render $$slots.default?.() || 'Default content'}
   {@render $$slots.footer?.()}
-&lt;/div&gt;</pre>
+</div>`}</pre>
             </div>
           </div>
         </div>
