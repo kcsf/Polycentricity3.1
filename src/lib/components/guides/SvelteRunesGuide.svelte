@@ -138,15 +138,15 @@
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Reactive Statements</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\n$: {\n  console.log('Count is ' + count);\n  calculateSomething(count);\n}" />
-            <CodeBlock code="// New way (Svelte 5 Runes)\n$effect(() => {\n  console.log('Count is ' + count);\n  calculateSomething(count);\n});" />
+            <CodeBlock code={'// Old way (Svelte 4)\n$: {\n  console.log("Count is " + count);\n  calculateSomething(count);\n}'} />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\n$effect(() => {\n  console.log("Count is " + count);\n  calculateSomething(count);\n});'} />
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Event Handlers</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\n<button on:click={handleClick}>\n  Click me\n</button>" />
+            <CodeBlock code={'// Old way (Svelte 4)\n<button on:click={handleClick}>\n  Click me\n</button>'} />
             <CodeBlock code="// New way (Svelte 5 Runes)\n<button onclick={handleClick}>\n  Click me\n</button>" />
           </div>
         </div>
