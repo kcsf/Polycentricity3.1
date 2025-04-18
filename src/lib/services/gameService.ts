@@ -603,11 +603,11 @@ async function removePlayerRole(gameId: string, userId: string): Promise<boolean
   return true;
 }
 
-// Get a player's role in a game
+// Get a player's role in a game with retry logic
 export async function getPlayerRole(gameId: string, userId: string, specifiedActorId?: string): Promise<Actor | null> {
   log(`Getting role for user ${userId} in game ${gameId}`);
   
-  // Check cache first
+  // Check cache first (fastest path)
   const cacheKey = `${gameId}:${userId}`;
   if (roleCache.has(cacheKey)) {
     const actorId = roleCache.get(cacheKey)!;
@@ -626,7 +626,14 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
   // If a specific actor ID is provided, get that actor directly
   if (specifiedActorId) {
     return new Promise((resolve) => {
+      // Set a timeout to ensure we don't hang
+      const timeout = setTimeout(() => {
+        log(`Timeout getting actor ${specifiedActorId}`);
+        resolve(null);
+      }, 1000);
+      
       gun.get(nodes.actors).get(specifiedActorId).once((actorData: Actor) => {
+        clearTimeout(timeout);
         if (!actorData) {
           log(`Actor not found: ${specifiedActorId}`);
           resolve(null);
@@ -645,33 +652,93 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
     });
   }
 
-  // First try role_assignment
-  return new Promise((resolve) => {
-    gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).once((actorId: string) => {
-      if (!actorId) {
-        log(`No role assigned to user ${userId} in game ${gameId}`);
-        resolve(null);
-        return;
-      }
-
-      gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
-        if (!actorData) {
-          log(`Actor not found: ${actorId}`);
+  // First attempt with role_assignment
+  // Implement retry logic with 500ms backoff
+  const maxAttempts = 2;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      log(`Attempt ${attempt}/${maxAttempts} to get role for user ${userId} in game ${gameId}`);
+      
+      const result = await new Promise<Actor | null>((resolve) => {
+        // Set a timeout to ensure we don't hang
+        const timeout = setTimeout(() => {
+          log(`Timeout on attempt ${attempt} to get role`);
           resolve(null);
-          return;
-        }
+        }, 1000);
         
-        if (!actorData.actor_id) {
-          actorData.actor_id = actorId;
-        }
-        
-        cacheActor(actorId, actorData);
-        cacheRole(gameId, userId, actorId);
-        log(`Found actor via role_assignment: ${actorId}`);
-        resolve(actorData);
+        // First check player_actor_map (more reliable in practice)
+        gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).once((actorId: string) => {
+          if (actorId && typeof actorId === 'string' && actorId.startsWith('a')) {
+            gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+              clearTimeout(timeout);
+              if (!actorData) {
+                log(`Actor not found in map: ${actorId}`);
+                resolve(null);
+                return;
+              }
+              
+              if (!actorData.actor_id) {
+                actorData.actor_id = actorId;
+              }
+              
+              cacheActor(actorId, actorData);
+              cacheRole(gameId, userId, actorId);
+              log(`Found actor via player_actor_map: ${actorId}`);
+              resolve(actorData);
+            });
+          } else {
+            // If not found in map, check role_assignment next
+            gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).once((actorId: string) => {
+              if (!actorId) {
+                clearTimeout(timeout);
+                log(`No role assigned to user ${userId} in game ${gameId}`);
+                resolve(null);
+                return;
+              }
+              
+              gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+                clearTimeout(timeout);
+                if (!actorData) {
+                  log(`Actor not found: ${actorId}`);
+                  resolve(null);
+                  return;
+                }
+                
+                if (!actorData.actor_id) {
+                  actorData.actor_id = actorId;
+                }
+                
+                cacheActor(actorId, actorData);
+                cacheRole(gameId, userId, actorId);
+                log(`Found actor via role_assignment: ${actorId}`);
+                resolve(actorData);
+              });
+            });
+          }
+        });
       });
-    });
-  });
+      
+      if (result) {
+        return result;
+      }
+      
+      if (attempt < maxAttempts) {
+        log(`Retrying in 500ms...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      logError(`Error in getPlayerRole attempt ${attempt}:`, error);
+      
+      if (attempt < maxAttempts) {
+        log(`Retrying in 500ms after error...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  }
+  
+  log(`Could not get role for user ${userId} in game ${gameId} after ${maxAttempts} attempts`);
+  return null;
 }
 
 // Update game status
