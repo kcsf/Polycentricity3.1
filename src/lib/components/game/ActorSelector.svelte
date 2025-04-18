@@ -6,6 +6,7 @@
     createActor, 
     subscribeToUserCard 
   } from '$lib/services/gameService';
+  import { getCurrentUser } from '$lib/services/authService';
   import type { Actor, Card } from '$lib/types';
   import * as icons from 'lucide-svelte';
   
@@ -46,13 +47,13 @@
         getAvailableCardsForGame(gameId)
       ]);
       
-      // Filter actors for this game with detailed logging
-      log(`Filtering ${allUserActors.length} user actors for game ${gameId}`);
+      // Display ALL user actors, not just ones from this game
+      log(`Processing ${allUserActors.length} user actors for selection`);
       
-      existingActors = allUserActors.filter(actor => {
-        const matches = actor.game_id === gameId;
-        log(`Actor ${actor.actor_id} game_id=${actor.game_id}, matches=${matches}`);
-        return matches;
+      // We want to show all user actors, not just those from this game
+      existingActors = allUserActors;
+      existingActors.forEach(actor => {
+        log(`Actor ${actor.actor_id}: game_id=${actor.game_id}, card_id=${actor.card_id}, name=${actor.custom_name || 'unnamed'}`);
       });
       
       availableCards = cards;

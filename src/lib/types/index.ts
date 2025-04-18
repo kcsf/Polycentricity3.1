@@ -91,7 +91,7 @@ export interface Game {
     deck_type?: string;
     role_assignment_type: string;
     role_assignment: Record<string, string>;
-    players: Record<string, boolean>;
+    players: Record<string, boolean | string>;
     player_actor_map?: Record<string, string>;
     created_at: number;
     updated_at?: number;
