@@ -174,7 +174,7 @@
           <h3 class="text-lg font-semibold mb-3">2. Slot Rendering</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <CodeBlock code={'// Old way (Svelte 4)\n<div class="container">\n  <slot name="header"></slot>\n  <slot>Default content</slot>\n  <slot name="footer"></slot>\n</div>'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\n<div class="container">\n  {#render headerSlot?.()}\n    Header content\n  {/render}\n  {#render defaultSlot?.()}\n    Default content\n  {/render}\n  {#render footerSlot?.()}\n    Footer content\n  {/render}\n</div>'} />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\n<div class="container">\n  &#123;#render headerSlot?.()&#125;\n    Header content\n  &#123;/render&#125;\n  &#123;#render defaultSlot?.()&#125;\n    Default content\n  &#123;/render&#125;\n  &#123;#render footerSlot?.()&#125;\n    Footer content\n  &#123;/render&#125;\n</div>'} />
           </div>
         </div>
         
@@ -195,7 +195,7 @@
           <h3 class="text-lg font-semibold mb-3">5. Component Events</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <CodeBlock code={'// Old way (Svelte 4)\n// Child component\nimport { createEventDispatcher } from "svelte";\nconst dispatch = createEventDispatcher();\nfunction notify() {\n  dispatch("message", { text: "Hello" });\n}\n\n// Parent\n<Child on:message={handleMessage} />'} />
-            <CodeBlock code="// New way (Svelte 5 Runes)\n// Child component\nconst { onMessage } = $props();\nfunction notify() {\n  onMessage?.({ text: 'Hello' });\n}\n\n// Parent\n<Child onMessage={handleMessage} />" />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\n// Child component\nconst { onMessage } = $props();\nfunction notify() {\n  onMessage?.({ text: "Hello" });\n}\n\n// Parent\n<Child onMessage={handleMessage} />'} />
           </div>
         </div>
       </div>
@@ -394,7 +394,7 @@
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
-                <td class="p-2"><code>{#render slotName?.()} content {/render}</code></td>
+                <td class="p-2"><code>&#123;#render slotName?.()&#125; content &#123;/render&#125;</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;svelte:component this={Comp} /&gt;</code></td>
