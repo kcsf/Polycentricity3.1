@@ -7,19 +7,20 @@
     export let gameId: string;
     export let onSelectActor: (actor: Actor) => void;
     
-    let isLoading = true;
-    let existingActors: Actor[] = [];
-    let availableCards: Card[] = [];
-    let selectedActorId: string = '';
-    let selectedCardId: string = '';
-    let actorType: 'National Identity' | 'Sovereign Identity' = 'National Identity';
-    let customName: string = '';
-    let creatingActor = false;
-    let selectedExistingActor: boolean = false;
-    let errorMessage: string = '';
+    // Use Svelte 5 RUNES state
+    let isLoading = $state(true);
+    let existingActors = $state<Actor[]>([]);
+    let availableCards = $state<Card[]>([]);
+    let selectedActorId = $state('');
+    let selectedCardId = $state('');
+    let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
+    let customName = $state('');
+    let creatingActor = $state(false);
+    let selectedExistingActor = $state(false);
+    let errorMessage = $state('');
     
     // Component modes
-    let mode: 'select' | 'create' = 'select';
+    let mode = $state<'select' | 'create'>('select');
     
     onMount(async () => {
         try {

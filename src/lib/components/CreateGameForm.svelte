@@ -6,12 +6,13 @@
                 created: { gameId: string }
         }>();
         
-        let gameName = '';
-        let deckOption = 'predefined'; // 'predefined' or 'custom'
-        let deckType = 'eco-village';
-        let roleAssignment = 'random'; // 'random' or 'player-choice'
-        let isCreating = false;
-        let error = '';
+        // Use Svelte 5 RUNES state
+        let gameName = $state('');
+        let deckOption = $state('predefined'); // 'predefined' or 'custom'
+        let deckType = $state('eco-village');
+        let roleAssignment = $state('random'); // 'random' or 'player-choice'
+        let isCreating = $state(false);
+        let error = $state('');
         
         const predefinedDeckTypes = [
                 { value: 'eco-village', label: 'Eco-Village' },
@@ -77,7 +78,7 @@
         </header>
         
         <div class="p-4">
-                <form on:submit|preventDefault={handleSubmit}>
+                <form onsubmit={e => { e.preventDefault(); handleSubmit(); }}>
                         {#if error}
                                 <div class="alert variant-ghost-secondary mb-4">
                                         <p class="text-secondary-200 text-sm">{error}</p>
