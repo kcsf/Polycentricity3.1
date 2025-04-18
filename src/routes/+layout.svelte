@@ -1,5 +1,5 @@
 <!-- src/routes/+layout.svelte -->
-<script lang="ts">
+<script>
   import '../app.css';
   import Header from '$lib/components/Header.svelte';
   import Footer from '$lib/components/Footer.svelte';
@@ -10,26 +10,29 @@
   import { getAllGames } from '$lib/services/gameService';
   import { toggleTheme } from '$lib/stores/themeStore';
 
-  // Initialize on mount - simple approach without Runes for now
+  // Initialize app when component mounts
   onMount(async () => {
+    // Start Gun.js database
     initializeGun();
     
+    // Set header height for layout calculations
     const headerEl = document.querySelector('header');
     if (headerEl) {
       const height = headerEl.offsetHeight;
       document.documentElement.style.setProperty('--app-bar-height', `${height}px`);
     }
     
+    // Handle authentication
     try {
       await initializeAuth();
       
-      // Try admin login if not authenticated
+      // Auto-login as admin for development
       if (!$userStore.isAuthenticated) {
         try {
           await loginUser('bjorn@endogon.com', 'admin123');
           console.log('Admin login successful');
           
-          // Pre-fetch games for faster dashboard loading
+          // Preload games data for faster dashboard loading
           getAllGames().then(games => {
             console.log(`Pre-fetched ${games.length} games`);
           });
@@ -52,7 +55,7 @@
 <div class="flex flex-col min-h-screen">
   <Header {toggleTheme} />
   <main class="flex-grow container mx-auto p-4">
-    <slot />
+    <slot></slot>
   </main>
   <Footer />
 </div>
