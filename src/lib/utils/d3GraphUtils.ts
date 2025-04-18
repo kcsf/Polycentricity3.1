@@ -551,6 +551,11 @@ export function addDonutRings(
  * @param container - Container element to append the icon to
  * @param cardTitle - Title of the card for logging
  */
+// Fixed imports with proper placement at the top of the file
+import { get } from 'svelte/store';
+import { iconStore } from '$lib/stores/iconStore';
+import { User } from 'lucide-svelte';
+
 export function createCardIcon(
   iconName: string | undefined,
   iconSize: number,
@@ -566,6 +571,10 @@ export function createCardIcon(
       container.removeChild(container.firstChild);
     }
     
+    // Get the icon from the iconStore
+    const icons = get(iconStore);
+    const iconData = icons.get(icon) || icons.get('default') || { name: 'user', component: User };
+    
     // Create SVG element with proper attributes
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", iconSize.toString());
@@ -578,123 +587,42 @@ export function createCardIcon(
     svg.setAttribute("fill", "none");
     svg.setAttribute("class", "lucide-icon");
     
-    // Set icon path data based on icon variable
-    switch(icon.toLowerCase()) {
-      case 'sun':
-        // Sun icon path data
-        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", "12");
-        circle.setAttribute("cy", "12");
-        circle.setAttribute("r", "4");
-        svg.appendChild(circle);
-        
-        const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line1.setAttribute("x1", "12");
-        line1.setAttribute("y1", "2");
-        line1.setAttribute("x2", "12");
-        line1.setAttribute("y2", "6");
-        svg.appendChild(line1);
-        
-        const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line2.setAttribute("x1", "12");
-        line2.setAttribute("y1", "18");
-        line2.setAttribute("x2", "12");
-        line2.setAttribute("y2", "22");
-        svg.appendChild(line2);
-        
-        const line3 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line3.setAttribute("x1", "4.93");
-        line3.setAttribute("y1", "4.93");
-        line3.setAttribute("x2", "7.76");
-        line3.setAttribute("y2", "7.76");
-        svg.appendChild(line3);
-        
-        const line4 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line4.setAttribute("x1", "16.24");
-        line4.setAttribute("y1", "16.24");
-        line4.setAttribute("x2", "19.07");
-        line4.setAttribute("y2", "19.07");
-        svg.appendChild(line4);
-        
-        const line5 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line5.setAttribute("x1", "2");
-        line5.setAttribute("y1", "12");
-        line5.setAttribute("x2", "6");
-        line5.setAttribute("y2", "12");
-        svg.appendChild(line5);
-        
-        const line6 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line6.setAttribute("x1", "18");
-        line6.setAttribute("y1", "12");
-        line6.setAttribute("x2", "22");
-        line6.setAttribute("y2", "12");
-        svg.appendChild(line6);
-        
-        const line7 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line7.setAttribute("x1", "4.93");
-        line7.setAttribute("y1", "19.07");
-        line7.setAttribute("x2", "7.76");
-        line7.setAttribute("y2", "16.24");
-        svg.appendChild(line7);
-        
-        const line8 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line8.setAttribute("x1", "16.24");
-        line8.setAttribute("y1", "7.76");
-        line8.setAttribute("x2", "19.07");
-        line8.setAttribute("y2", "4.93");
-        svg.appendChild(line8);
-        break;
+    // Create an instance of the icon component and get its path data
+    const iconComponent = new iconData.component({
+      target: document.createElement('div'),
+      props: { size: iconSize }
+    });
+    
+    // Extract SVG contents from the instantiated component
+    if (iconComponent && iconComponent.$$.root) {
+      const iconRoot = iconComponent.$$.root as Element;
+      const paths = iconRoot.querySelectorAll('path, circle, line, rect, polyline');
       
-      case 'user':
-        // User icon path data
-        const userCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        userCircle.setAttribute("cx", "12");
-        userCircle.setAttribute("cy", "8");
-        userCircle.setAttribute("r", "4");
-        svg.appendChild(userCircle);
-        
-        const userPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        userPath.setAttribute("d", "M20 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
-        svg.appendChild(userPath);
-        break;
-        
-      case 'lock':
-        // Lock icon path data
-        const lockRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        lockRect.setAttribute("x", "3");
-        lockRect.setAttribute("y", "11");
-        lockRect.setAttribute("width", "18");
-        lockRect.setAttribute("height", "11");
-        lockRect.setAttribute("rx", "2");
-        lockRect.setAttribute("ry", "2");
-        svg.appendChild(lockRect);
-        
-        const lockPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        lockPath.setAttribute("d", "M7 11V7a5 5 0 0 1 10 0v4");
-        svg.appendChild(lockPath);
-        break;
-        
-      default:
-        // Default box icon for unknown icons
-        const boxPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        boxPath.setAttribute("d", "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z");
-        svg.appendChild(boxPath);
-        
-        const boxLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-        boxLine.setAttribute("points", "3.27 6.96 12 12.01 20.73 6.96");
-        svg.appendChild(boxLine);
-        
-        const boxLine2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        boxLine2.setAttribute("x1", "12");
-        boxLine2.setAttribute("y1", "22.08");
-        boxLine2.setAttribute("x2", "12");
-        boxLine2.setAttribute("y2", "12");
-        svg.appendChild(boxLine2);
+      // Clone path elements to our new SVG
+      paths.forEach(path => {
+        const clone = path.cloneNode(true) as Element;
+        svg.appendChild(clone);
+      });
+      
+      // Destroy the temporary component
+      iconComponent.$destroy();
+    } else {
+      // Fallback to User icon if the component couldn't be instantiated
+      const userCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      userCircle.setAttribute("cx", "12");
+      userCircle.setAttribute("cy", "8");
+      userCircle.setAttribute("r", "4");
+      svg.appendChild(userCircle);
+      
+      const userPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      userPath.setAttribute("d", "M20 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
+      svg.appendChild(userPath);
     }
     
     // Add the SVG to the container
     container.appendChild(svg);
   } catch (err) {
+    console.error('Error creating card icon:', err);
     // Silent failure - let caller handle the error
   }
 }
