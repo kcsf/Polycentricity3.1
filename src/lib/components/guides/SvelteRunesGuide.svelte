@@ -147,15 +147,15 @@
           <h3 class="text-lg font-semibold mb-3">4. Event Handlers</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <CodeBlock code={'// Old way (Svelte 4)\n<button on:click={handleClick}>\n  Click me\n</button>'} />
-            <CodeBlock code="// New way (Svelte 5 Runes)\n<button onclick={handleClick}>\n  Click me\n</button>" />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\n<button onclick={handleClick}>\n  Click me\n</button>'} />
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">5. DOM References</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\nlet inputElement;\n<input bind:this={inputElement}>" />
-            <CodeBlock code="// New way (Svelte 5 Runes)\nlet inputElement = $state<HTMLInputElement | null>(null);\n<input bind:this={inputElement}>" />
+            <CodeBlock code={'// Old way (Svelte 4)\nlet inputElement;\n<input bind:this={inputElement}>'} />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\nlet inputElement = $state<HTMLInputElement | null>(null);\n<input bind:this={inputElement}>'} />
           </div>
         </div>
       </div>
@@ -167,34 +167,34 @@
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Component Structure</h3>
-          <CodeBlock code="<script lang=\"ts\">\n  // No imports needed for Svelte 5 Runes\n  // ($state, $effect, $derived, $props)\n  \n  // Component props\n  const { title = \"Default\", options = [] } = $props();\n  \n  // State declarations\n  let isExpanded = $state<boolean>(false);\n  let selectedIndex = $state<number>(-1);\n  \n  // Derived state\n  let hasSelection = $derived(() => selectedIndex >= 0);\n  \n  // Effects\n  $effect(() => {\n    // Side effects when state changes\n    console.log(`Selection changed: ${selectedIndex}`);\n  });\n  \n  // Methods\n  function toggle(): void {\n    isExpanded = !isExpanded;\n  }\n  \n  function select(index: number): void {\n    selectedIndex = index;\n    isExpanded = false;\n  }\n</script>" />
+          <CodeBlock code={'<script lang="ts">\n  // No imports needed for Svelte 5 Runes\n  // ($state, $effect, $derived, $props)\n  \n  // Component props\n  const { title = "Default", options = [] } = $props();\n  \n  // State declarations\n  let isExpanded = $state<boolean>(false);\n  let selectedIndex = $state<number>(-1);\n  \n  // Derived state\n  let hasSelection = $derived(() => selectedIndex >= 0);\n  \n  // Effects\n  $effect(() => {\n    // Side effects when state changes\n    console.log(`Selection changed: ${selectedIndex}`);\n  });\n  \n  // Methods\n  function toggle(): void {\n    isExpanded = !isExpanded;\n  }\n  \n  function select(index: number): void {\n    selectedIndex = index;\n    isExpanded = false;\n  }\n</script>'} />
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Slot Rendering</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\n<div class=\"container\">\n  <slot name=\"header\"></slot>\n  <slot>Default content</slot>\n  <slot name=\"footer\"></slot>\n</div>" />
-            <CodeBlock code="// New way (Svelte 5 Runes)\n<div class=\"container\">\n  {#render headerSlot?.()}\n    Header content\n  {/render}\n  {#render defaultSlot?.()}\n    Default content\n  {/render}\n  {#render footerSlot?.()}\n    Footer content\n  {/render}\n</div>" />
+            <CodeBlock code={'// Old way (Svelte 4)\n<div class="container">\n  <slot name="header"></slot>\n  <slot>Default content</slot>\n  <slot name="footer"></slot>\n</div>'} />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\n<div class="container">\n  {#render headerSlot?.()}\n    Header content\n  {/render}\n  {#render defaultSlot?.()}\n    Default content\n  {/render}\n  {#render footerSlot?.()}\n    Footer content\n  {/render}\n</div>'} />
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Snippet Rendering</h3>
-          <CodeBlock code="// Svelte 5 Runes Snippet Example\n<script lang=\"ts\">\n  let items = $state<string[]>(['Item 1', 'Item 2']);\n</script>\n\n{#snippet itemRenderer(item)}\n  <li class=\"p-2 bg-surface-100\">{item}</li>\n{/snippet}\n\n<ul>\n  {#each items as item}\n    {@render itemRenderer(item)}\n  {/each}\n</ul>" />
+          <CodeBlock code={'// Svelte 5 Runes Snippet Example\n<script lang="ts">\n  let items = $state<string[]>(["Item 1", "Item 2"]);\n</script>\n\n{#snippet itemRenderer(item)}\n  <li class="p-2 bg-surface-100">{item}</li>\n{/snippet}\n\n<ul>\n  {#each items as item}\n    {@render itemRenderer(item)}\n  {/each}\n</ul>'} />
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Dynamic Components</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\n<svelte:component this={componentType} {...props} />" />
-            <CodeBlock code="// New way (Svelte 5 Runes)\n<{componentType} {...props} />" />
+            <CodeBlock code={'// Old way (Svelte 4)\n<svelte:component this={componentType} {...props} />'} />
+            <CodeBlock code={'// New way (Svelte 5 Runes)\n<{componentType} {...props} />'} />
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">5. Component Events</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\n// Child component\nimport { createEventDispatcher } from 'svelte';\nconst dispatch = createEventDispatcher();\nfunction notify() {\n  dispatch('message', { text: 'Hello' });\n}\n\n// Parent\n<Child on:message={handleMessage} />" />
+            <CodeBlock code={'// Old way (Svelte 4)\n// Child component\nimport { createEventDispatcher } from "svelte";\nconst dispatch = createEventDispatcher();\nfunction notify() {\n  dispatch("message", { text: "Hello" });\n}\n\n// Parent\n<Child on:message={handleMessage} />'} />
             <CodeBlock code="// New way (Svelte 5 Runes)\n// Child component\nconst { onMessage } = $props();\nfunction notify() {\n  onMessage?.({ text: 'Hello' });\n}\n\n// Parent\n<Child onMessage={handleMessage} />" />
           </div>
         </div>
