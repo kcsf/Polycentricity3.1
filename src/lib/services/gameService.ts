@@ -153,27 +153,29 @@ export async function createGame(
     
     // Setup predefined deck if specified (this is done in a background process)
     if (deckType === 'eco-village' || deckType === 'community-garden') {
-      // Don't await this - let it run in the background
-      (async () => {
-        try {
-          log(`Setting up predefined deck (background): ${deckType} for game ${game_id}`);
-          const actors = getPredefinedDeck(deckType);
-          await setGameActors(game_id, actors as Actor[]);
-          
-          // Add deck reference
-          await new Promise<void>((resolve, reject) => {
-            gun.get(nodes.games).get(game_id).get('deck_ref').put(
-              { '#': `${nodes.decks}/${deck_id}` }, 
-              (ack: any) => ack.err ? reject(ack.err) : resolve()
-            );
-          });
-          
-          log(`Completed background deck setup for game: ${game_id}`);
-        } catch (error) {
-          logWarn(`Background deck setup error for game ${game_id}:`, error);
-          // We still consider the game created successfully even if deck setup fails
-        }
-      })();
+      // IMPORTANT: This is a true background process, we don't block the main thread
+      setTimeout(() => {
+        (async () => {
+          try {
+            log(`Setting up predefined deck (background): ${deckType} for game ${game_id}`);
+            const actors = getPredefinedDeck(deckType);
+            await setGameActors(game_id, actors as Actor[]);
+            
+            // Add deck reference
+            await new Promise<void>((resolve, reject) => {
+              gun.get(nodes.games).get(game_id).get('deck_ref').put(
+                { '#': `${nodes.decks}/${deck_id}` }, 
+                (ack: any) => ack.err ? reject(ack.err) : resolve()
+              );
+            });
+            
+            log(`Completed background deck setup for game: ${game_id}`);
+          } catch (error) {
+            logWarn(`Background deck setup error for game ${game_id}:`, error);
+            // We still consider the game created successfully even if deck setup fails
+          }
+        })();
+      }, 0);
     }
     
     console.log(`Game created successfully: ${game_id}`);
@@ -282,17 +284,18 @@ export async function getAllGames(): Promise<Game[]> {
       });
     }
     
-    // If the background creation flag is set, we should wait longer for games to arrive
-    const backgroundCreating = localStorage.getItem('game_creating_background') === 'true';
-    const timeoutDelay = backgroundCreating ? 6000 : 
-                         hasReceivedData ? 3000 : 5000; // Adaptive timeout values
+    // Use a shorter timeout for better performance
+    const timeoutDelay = hasReceivedData ? 500 : 1000; // Reduced timeout values
     
     log(`Setting timeout for ${timeoutDelay}ms to wait for Gun.js data`);
     
     setTimeout(() => {
       console.log(`Retrieved ${games.length} games`);
       
-      // If we still don't have any games, try to get them one more time
+      // Clear the background creation flag if it exists
+      localStorage.removeItem('game_creating_background');
+      
+      // If we still don't have any games, try to get them one more time but with a shorter timeout
       if (games.length === 0) {
         log('No games retrieved on first attempt, trying again with direct fetch');
         gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
@@ -304,10 +307,10 @@ export async function getAllGames(): Promise<Game[]> {
           }
         });
         
-        // Resolve after a short timeout to allow second pass to complete
+        // Resolve after a shorter timeout
         setTimeout(() => {
           resolve(games);
-        }, 1500);
+        }, 500);
       } else {
         resolve(games);
       }
