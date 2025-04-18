@@ -644,28 +644,56 @@ export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> 
 // Get a specific card by ID
 export async function getCard(cardId: string): Promise<Card | null> {
     try {
-        // Getting card by ID
+        console.log(`[getCard] Fetching card: ${cardId}`);
         const gun = getGun();
         
         if (!gun) {
-            console.error('Gun not initialized');
+            console.error('[getCard] Gun not initialized');
             return null;
         }
         
         return new Promise((resolve) => {
             gun.get(nodes.cards).get(cardId).once((cardData: Card) => {
                 if (!cardData) {
-                    // Card not found
-                    resolve(null);
+                    console.warn(`[getCard] Card ${cardId} not found in database`);
+                    
+                    // Try alternative format - Gun.js sometimes saves with different prefixes
+                    if (cardId.startsWith('card_')) {
+                        const alternativeId = cardId.replace('card_', '');
+                        console.log(`[getCard] Trying alternative ID: ${alternativeId}`);
+                        
+                        gun.get(nodes.cards).get(alternativeId).once((altCardData: Card) => {
+                            if (altCardData) {
+                                console.log(`[getCard] Found card with alternative ID: ${alternativeId}`);
+                                // Fix the ID to match the expected format
+                                resolve({
+                                    ...altCardData,
+                                    card_id: cardId // Use the original requested ID for consistency
+                                });
+                            } else {
+                                console.error(`[getCard] Card not found with alternative ID: ${alternativeId}`);
+                                resolve(null);
+                            }
+                        });
+                    } else {
+                        resolve(null);
+                    }
                     return;
                 }
                 
                 // Card retrieved successfully
+                console.log(`[getCard] Successfully retrieved card: ${cardId}`);
+                
+                // Ensure card_id is set correctly (for consistency)
+                if (!cardData.card_id) {
+                    cardData.card_id = cardId;
+                }
+                
                 resolve(cardData);
             });
         });
     } catch (error) {
-        // Silent error handling for performance
+        console.error(`[getCard] Error fetching card ${cardId}:`, error);
         return null;
     }
 }
@@ -911,6 +939,84 @@ export async function isGameFull(gameId: string): Promise<boolean> {
     }
 }
 
+/**
+ * Get a user's card in a game efficiently
+ * This function combines getPlayerRole and getCard for better performance
+ * 
+ * @param gameId - The ID of the game
+ * @param userId - The ID of the user
+ * @returns Promise with the user's card or null if not found
+ */
+export async function getUserCard(gameId: string, userId: string): Promise<Card | null> {
+    try {
+        console.log(`[getUserCard] Fetching card for user ${userId} in game ${gameId}`);
+        const gun = getGun();
+        
+        if (!gun) {
+            console.error('[getUserCard] Gun not initialized');
+            return null;
+        }
+        
+        // First get the player's role (actor) in the game
+        return new Promise((resolve) => {
+            // We'll query actors directly instead of using getPlayerRole to avoid nested promises
+            gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
+                if (actorData && actorData.game_id === gameId && actorData.user_id === userId && actorData.card_id) {
+                    console.log(`[getUserCard] Found actor ${actorId} with card ${actorData.card_id}`);
+                    
+                    // Now get the card using the card_id from the actor
+                    gun.get(nodes.cards).get(actorData.card_id).once((cardData: Card) => {
+                        if (!cardData) {
+                            console.warn(`[getUserCard] Card ${actorData.card_id} not found for actor ${actorId}`);
+                            
+                            // Try the alternative format like in getCard
+                            if (actorData.card_id.startsWith('card_')) {
+                                const alternativeId = actorData.card_id.replace('card_', '');
+                                console.log(`[getUserCard] Trying alternative ID: ${alternativeId}`);
+                                
+                                gun.get(nodes.cards).get(alternativeId).once((altCardData: Card) => {
+                                    if (altCardData) {
+                                        console.log(`[getUserCard] Found card with alternative ID: ${alternativeId}`);
+                                        // Fix the ID to match the expected format
+                                        resolve({
+                                            ...altCardData,
+                                            card_id: actorData.card_id // Use the original requested ID for consistency
+                                        });
+                                    } else {
+                                        console.error(`[getUserCard] Card not found with alternative ID: ${alternativeId}`);
+                                        resolve(null);
+                                    }
+                                });
+                            } else {
+                                resolve(null);
+                            }
+                            return;
+                        }
+                        
+                        // Card retrieved successfully
+                        console.log(`[getUserCard] Successfully retrieved card: ${actorData.card_id}`);
+                        
+                        // Ensure card_id is set correctly (for consistency)
+                        if (!cardData.card_id) {
+                            cardData.card_id = actorData.card_id;
+                        }
+                        
+                        resolve(cardData);
+                    });
+                }
+            });
+            
+            // Set a timeout to resolve with null if no actor is found
+            setTimeout(() => {
+                resolve(null);
+            }, 500);
+        });
+    } catch (error) {
+        console.error(`[getUserCard] Error fetching card for user ${userId} in game ${gameId}:`, error);
+        return null;
+    }
+}
+
 export async function fixGameRelationships(): Promise<{success: boolean, gamesFixed: number}> {
     try {
         console.log('Fixing game relationships for visualization');
@@ -1000,24 +1106,4 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
     }
 }
 
-// Get the card assigned to a user in a game
-export async function getUserCard(gameId: string, userId: string): Promise<Card | null> {
-    console.log(`Fetching card for user ${userId} in game ${gameId}`);
-    const gun = getGun();
-    if (!gun) {
-        console.error('Gun not initialized');
-        return null;
-    }
-    const actor = await getPlayerRole(gameId, userId);
-    if (!actor || !actor.card_id) {
-        console.log(`No actor or card found for user ${userId} in game ${gameId}`);
-        return null;
-    }
-    const card = await getCard(actor.card_id);
-    if (!card) {
-        console.log(`Card ${actor.card_id} not found`);
-        return null;
-    }
-    console.log(`Found card ${actor.card_id} for user ${userId}`);
-    return card;
-}
+// This comment intentionally left blank to remove duplicate function
