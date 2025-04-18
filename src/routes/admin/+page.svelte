@@ -657,7 +657,7 @@
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-bold">Admin Dashboard</h1>
       <div class="flex space-x-2">
-        <button class="btn variant-filled-primary" on:click={fetchDatabaseStats}>
+        <button class="btn variant-filled-primary" onclick={fetchDatabaseStats}>
           <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
           Refresh Data
         </button>
@@ -898,7 +898,7 @@
                 <p>{error}</p>
               </div>
               <div class="alert-actions">
-                <button class="btn variant-filled" on:click={fetchDatabaseStats}>Retry</button>
+                <button class="btn variant-filled" onclick={fetchDatabaseStats}>Retry</button>
               </div>
             </div>
           {:else}
@@ -908,7 +908,7 @@
                 {#each databaseNodes as nodeType}
                   <button 
                     class="data-tab {activeDataTab === nodeType.type ? 'active' : ''}" 
-                    on:click={() => handleDataTabChange(nodeType.type)}
+                    onclick={() => handleDataTabChange(nodeType.type)}
                   >
                     <span class="w-3 h-3 mr-2 rounded-full" style="background-color: {getColorForNodeType(nodeType.type)}"></span>
                     {nodeType.type}
