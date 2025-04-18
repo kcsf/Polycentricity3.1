@@ -442,70 +442,153 @@ export async function assignRole(gameId: string, userId: string, actorId: string
     return false;
   }
 
-  try {
-    // Get current game data to make sure we have the latest version
-    const game = await getGame(gameId);
-    if (!game) {
-      logError('Game not found during role assignment');
-      return false;
-    }
+  // Implement retry logic with exponential backoff
+  const maxAttempts = 3;
+  const backoffMs = [500, 1000, 2000]; // Exponential backoff
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      log(`Role assignment attempt ${attempt}/${maxAttempts}`);
+      
+      // Get current game data to make sure we have the latest version
+      const game = await getGame(gameId);
+      if (!game) {
+        logError(`Game not found during role assignment (attempt ${attempt})`);
+        
+        if (attempt < maxAttempts) {
+          log(`Retrying in ${backoffMs[attempt-1]}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
+          continue;
+        }
+        return false;
+      }
 
-    // Initialize player_actor_map if it doesn't exist
-    const currentPlayerActorMap = game.player_actor_map || {};
-    
-    // Update player_actor_map with the new mapping
-    const updatedPlayerActorMap = { ...currentPlayerActorMap, [userId]: actorId };
-    
-    // Perform all updates in parallel for performance
-    await Promise.all([
-      // Update role_assignment (traditional way)
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId, (ack: any) =>
-          ack.err ? reject(ack.err) : resolve()
-        );
-      }),
+      // Initialize player_actor_map if it doesn't exist
+      const currentPlayerActorMap = game.player_actor_map || {};
       
-      // Update player_actor_map in the game document
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap, (ack: any) =>
-          ack.err ? reject(ack.err) : resolve()
-        );
-      }),
+      // Update player_actor_map with the new mapping
+      const updatedPlayerActorMap = { ...currentPlayerActorMap, [userId]: actorId };
       
-      // Set the user_id on the actor
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.actors).get(actorId).get('user_id').put(userId, (ack: any) =>
-          ack.err ? reject(ack.err) : resolve()
-        );
-      }),
+      // Get actor to check if it's from another game
+      let isFromAnotherGame = false;
+      try {
+        const actor = await getActor(actorId);
+        isFromAnotherGame = actor && actor.game_id && actor.game_id !== gameId;
+        
+        if (isFromAnotherGame) {
+          log(`Actor ${actorId} is being reused from game ${actor.game_id} in new game ${gameId}`);
+        }
+      } catch (actorErr) {
+        // Non-fatal error
+        logWarn(`Could not check actor origin: ${actorErr}`);
+      }
       
-      // Also set the game_id on the actor if it's from another game
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.actors).get(actorId).get('game_id').put(gameId, (ack: any) =>
-          ack.err ? reject(ack.err) : resolve()
-        );
-      })
-    ]);
+      // Perform critical updates with individual retry handling
+      try {
+        // Use promises for parallelization but with individual timeouts
+        await Promise.all([
+          // 1. Update role_assignment (traditional way)
+          new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              log(`Role assignment update timed out (attempt ${attempt})`);
+              resolve(); // Resolve anyway to continue
+            }, 500);
+            
+            gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId, (ack: any) => {
+              clearTimeout(timeout);
+              ack.err ? reject(ack.err) : resolve();
+            });
+          }),
+          
+          // 2. Update player_actor_map in the game document - MOST CRITICAL OPERATION
+          new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              log(`player_actor_map update timed out (attempt ${attempt})`);
+              resolve(); // Resolve anyway to continue
+            }, 500);
+            
+            gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap, (ack: any) => {
+              clearTimeout(timeout);
+              ack.err ? reject(ack.err) : resolve();
+            });
+          }),
+          
+          // 3. Set the user_id on the actor
+          new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              log(`Actor user_id update timed out (attempt ${attempt})`);
+              resolve(); // Resolve anyway to continue
+            }, 500);
+            
+            gun.get(nodes.actors).get(actorId).get('user_id').put(userId, (ack: any) => {
+              clearTimeout(timeout);
+              ack.err ? reject(ack.err) : resolve();
+            });
+          }),
+          
+          // 4. Set the game_id on the actor if it's from another game
+          new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              log(`Actor game_id update timed out (attempt ${attempt})`);
+              resolve(); // Resolve anyway to continue
+            }, 500);
+            
+            gun.get(nodes.actors).get(actorId).get('game_id').put(gameId, (ack: any) => {
+              clearTimeout(timeout);
+              ack.err ? reject(ack.err) : resolve();
+            });
+          })
+        ]);
+      } catch (updateError) {
+        logError(`Error during database updates (attempt ${attempt}):`, updateError);
+        if (attempt < maxAttempts) {
+          log(`Retrying in ${backoffMs[attempt-1]}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
+          continue;
+        }
+        throw updateError; // Re-throw on final attempt
+      }
 
-    // Update cache
-    cacheRole(gameId, userId, actorId);
-    
-    // Update game cache with new player_actor_map
-    if (gameCache.has(gameId)) {
-      const cachedGame = gameCache.get(gameId)!;
-      gameCache.set(gameId, { 
-        ...cachedGame, 
-        player_actor_map: updatedPlayerActorMap 
-      });
+      // 5. Fire-and-forget approach for the individual player_actor_map field update as an extra backup
+      // This operation is critical for cross-game actor usage
+      setTimeout(() => {
+        try {
+          log(`Backup update: directly setting player_actor_map[${userId}] = ${actorId}`);
+          // Direct key/value update to the specific user-actor relationship
+          gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
+        } catch (backupErr) {
+          // Non-fatal error
+          logWarn('Backup player_actor_map update failed:', backupErr);
+        }
+      }, 200);
+
+      // Update cache
+      cacheRole(gameId, userId, actorId);
+      
+      // Update game cache with new player_actor_map
+      if (gameCache.has(gameId)) {
+        const cachedGame = gameCache.get(gameId)!;
+        gameCache.set(gameId, { 
+          ...cachedGame, 
+          player_actor_map: updatedPlayerActorMap 
+        });
+      }
+
+      log(`Role assigned: ${actorId} to user ${userId} in game ${gameId}`);
+      log(`Updated player_actor_map:`, updatedPlayerActorMap);
+      return true;
+    } catch (error) {
+      logError(`Error in role assignment attempt ${attempt}:`, error);
+      
+      if (attempt < maxAttempts) {
+        log(`Retrying in ${backoffMs[attempt-1]}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
+      }
     }
-    
-    log(`Role assigned: ${actorId} to user ${userId} in game ${gameId}`);
-    log(`Updated player_actor_map:`, updatedPlayerActorMap);
-    return true;
-  } catch (error) {
-    logError(`Error assigning role ${actorId} to user ${userId}:`, error);
-    return false;
   }
+
+  logError(`Failed to assign role after ${maxAttempts} attempts`);
+  return false;
 }
 
 // Remove a player's role
