@@ -226,26 +226,27 @@ export async function joinGame(gameId: string): Promise<boolean> {
 
   // Update players list with the current user
   const updatedPlayers = { ...(playersObj || {}), [currentUser.user_id]: true };
-  await Promise.all([
-    new Promise<void>((resolve, reject) => {
-      gun.get(nodes.games).get(gameId).get('players').put(updatedPlayers, (ack: any) => 
-        ack.err ? reject(ack.err) : resolve()
-      );
-    }),
-    new Promise<void>((resolve) => {
-      // Note: GunJS expects a callback function with ack parameter, not a Promise resolve
-      gun.get(nodes.users).get(currentUser.user_id).get('games').set(gameId, (ack) => {
-        resolve(); // Ignore potential ack.err here since this is optional
-      });
-    }),
-    new Promise<void>((resolve) => {
-      gun.get(nodes.games).get(gameId).get('player_refs').set({ 
-        '#': `${nodes.users}/${currentUser.user_id}` 
-      }, (ack) => {
-        resolve(); // Ignore potential ack.err here since this is optional
-      });
-    })
-  ]);
+  
+  try {
+    // Use the utility functions from gunService which properly handle Gun.js operations
+    await Promise.all([
+      // Update players in game
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.games).get(gameId).get('players').put(updatedPlayers, (ack: any) => 
+          ack.err ? reject(ack.err) : resolve()
+        );
+      }),
+      
+      // Create relationship between user and game using createRelationship
+      createRelationship(`${nodes.users}/${currentUser.user_id}`, 'games', `${nodes.games}/${gameId}`),
+      
+      // Create relationship between game and user reference
+      createRelationship(`${nodes.games}/${gameId}`, 'player_refs', `${nodes.users}/${currentUser.user_id}`)
+    ]);
+  } catch (error) {
+    logError(`Error joining game ${gameId}:`, error);
+    return false;
+  }
 
   // Update cache
   cacheGame(gameId, { ...game, players: updatedPlayers });
@@ -873,7 +874,8 @@ export async function createActor(
       createRelationship(`${nodes.users}/${currentUser.user_id}`, 'actors', `${nodes.actors}/${actorId}`),
       createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`),
       createRelationship(`${nodes.actors}/${actorId}`, 'game', `${nodes.games}/${gameId}`),
-      gun.get(nodes.chat).get(`${gameId}_group`).get('participants').set(currentUser.user_id)
+      // Add user to chat participants using createRelationship
+      createRelationship(`${nodes.chat}/${gameId}_group/participants`, currentUser.user_id, `${nodes.users}/${currentUser.user_id}`)
     ]);
     
     // Cache the actor
@@ -1049,7 +1051,7 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
             })
           );
           promises.push(
-            gun.get(nodes.users).get(game.creator).get('games').set(game.game_id)
+            createRelationship(`${nodes.users}/${game.creator}`, 'games', `${nodes.games}/${game.game_id}`)
           );
         }
         
@@ -1077,13 +1079,11 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
             if (playerId === '_') continue;
             
             promises.push(
-              gun.get(nodes.users).get(playerId).get('games').set(game.game_id)
+              createRelationship(`${nodes.users}/${playerId}`, 'games', `${nodes.games}/${game.game_id}`)
             );
             
             promises.push(
-              gun.get(nodes.games).get(game.game_id).get('player_refs').set({
-                '#': `${nodes.users}/${playerId}`
-              })
+              createRelationship(`${nodes.games}/${game.game_id}`, 'player_refs', `${nodes.users}/${playerId}`)
             );
           }
         }
@@ -1100,15 +1100,11 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
           
           for (const actorId of actorIds) {
             promises.push(
-              gun.get(nodes.games).get(game.game_id).get('actor_refs').set({
-                '#': `${nodes.actors}/${actorId}`
-              })
+              createRelationship(`${nodes.games}/${game.game_id}`, 'actor_refs', `${nodes.actors}/${actorId}`)
             );
             
             promises.push(
-              gun.get(nodes.actors).get(actorId).get('game_refs').set({
-                '#': `${nodes.games}/${game.game_id}`
-              })
+              createRelationship(`${nodes.actors}/${actorId}`, 'game_refs', `${nodes.games}/${game.game_id}`)
             );
           }
         }
