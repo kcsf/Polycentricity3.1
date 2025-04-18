@@ -28,7 +28,10 @@
                 isCreating = true;
                 error = '';
                 
-                // Set a timeout to handle stalled game creation
+                // Update creator status through event
+                dispatch('statusUpdate', { status: 'creating' });
+                
+                // Set a timeout to handle stalled game creation - increased to 20 seconds
                 const timeoutId = setTimeout(() => {
                         if (isCreating) {
                                 // Force navigation to games page if taking too long
@@ -36,7 +39,7 @@
                                 isCreating = false;
                                 dispatch('created', { gameId: 'timeout' });
                         }
-                }, 5000);
+                }, 20000); // Increased from 5000 to 20000 ms to allow more time for Gun.js operations
                 
                 try {
                         // If custom deck is selected but no implementation yet, fallback to predefined

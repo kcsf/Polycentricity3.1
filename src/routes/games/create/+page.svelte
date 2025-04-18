@@ -13,19 +13,33 @@
         //         }
         // });
         
-        function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
+        // Status management for game creation
+        let creationStatus = $state('idle'); // 'idle', 'creating', 'success', 'error', 'timeout'
+        let createdGameId = $state('');
+        
+        async function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
                 const { gameId } = event.detail;
                 
                 // Handle timeout case
                 if (gameId === 'timeout') {
                     console.log('Game creation timed out, redirecting to games list');
-                    goto('/games');
+                    creationStatus = 'timeout';
+                    // Wait a moment to show the timeout message before redirecting
+                    setTimeout(() => {
+                        goto('/games');
+                    }, 3000);
                     return;
                 }
                 
-                // Normal case - navigate to the new game
+                // Normal case - wait a second to ensure Gun.js has time to sync
                 console.log(`Game created, navigating to game: ${gameId}`);
-                goto(`/games/${gameId}`);
+                creationStatus = 'success';
+                createdGameId = gameId;
+                
+                // Wait a short time to ensure Gun.js has synced data before navigating
+                setTimeout(() => {
+                    goto(`/games/${gameId}`);
+                }, 2000);
         }
 </script>
 
@@ -67,6 +81,28 @@
                 </div>
                 
                 <div class="lg:col-span-2">
+                        {#if creationStatus === 'success'}
+                                <div class="card p-4 mb-4 variant-filled-success">
+                                        <div class="flex items-center">
+                                                <div class="mr-2">✓</div>
+                                                <div>
+                                                        <p class="font-semibold">Game created successfully!</p>
+                                                        <p class="text-sm">Redirecting to your new game...</p>
+                                                </div>
+                                        </div>
+                                </div>
+                        {:else if creationStatus === 'timeout'}
+                                <div class="card p-4 mb-4 variant-filled-warning">
+                                        <div class="flex items-center">
+                                                <div class="mr-2">⚠️</div>
+                                                <div>
+                                                        <p class="font-semibold">Game creation is taking longer than expected</p>
+                                                        <p class="text-sm">Redirecting to games list. Your game may still be created in the background.</p>
+                                                </div>
+                                        </div>
+                                </div>
+                        {/if}
+                        
                         <CreateGameForm on:created={handleGameCreated} />
                 </div>
         </div>
