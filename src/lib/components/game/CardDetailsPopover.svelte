@@ -1,32 +1,22 @@
 <script lang="ts">
   import type { D3Node } from '$lib/utils/d3GraphUtils';
   
-  /**
-   * Component properties using Svelte 5 Runes
-   */
-  const props = $props<{
-    /** The currently selected node to display details for */
-    node: D3Node;
-    /** Function to call when closing the popover */
-    onClose: () => void;
-  }>();
+  // Using export let for traditional Svelte props
+  export let node: D3Node;
+  export let onClose: () => void;
   
   // Create a typed logging function
   const isDev = process.env.NODE_ENV !== 'production';
   const log = (...args: any[]) => isDev && console.log('[CardDetailsPopover]', ...args);
   
-  // Add state for animation
-  const isVisible = $state(false);
+  // Traditional reactive variable
+  let isVisible = false;
   
-  // Animation effect - make visible after component is mounted
-  $effect(() => {
-    // Set visible in next tick to trigger animation
-    setTimeout(() => {
-      isVisible = true;
-    }, 10);
-    
-    log('Popover rendered for', props.node.name);
-  });
+  // Run as soon as the script executes
+  setTimeout(() => {
+    isVisible = true;
+    log('Popover visible for', node.name);
+  }, 10);
 </script>
 
 <div 
@@ -36,48 +26,48 @@
   class:translate-y-4={!isVisible}
   class:translate-y-0={isVisible}
 >
-  {#if props.node.type === 'actor'}
-    <h3 class="text-lg font-semibold mb-2 text-primary-700">{props.node.name}</h3>
+  {#if node.type === 'actor'}
+    <h3 class="text-lg font-semibold mb-2 text-primary-700">{node.name}</h3>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {#if props.node._valueNames?.length}
+      {#if node._valueNames?.length}
         <div>
           <h4 class="text-sm font-medium text-primary-700">Values</h4>
           <ul class="list-disc pl-5 text-sm">
-            {#each props.node._valueNames as value}
+            {#each node._valueNames as value}
               <li>{value}</li>
             {/each}
           </ul>
         </div>
       {/if}
-      {#if props.node._capabilityNames?.length}
+      {#if node._capabilityNames?.length}
         <div>
           <h4 class="text-sm font-medium text-primary-700">Capabilities</h4>
           <ul class="list-disc pl-5 text-sm">
-            {#each props.node._capabilityNames as capability}
+            {#each node._capabilityNames as capability}
               <li>{capability}</li>
             {/each}
           </ul>
         </div>
       {/if}
     </div>
-  {:else if props.node.type === 'agreement'}
-    <h3 class="text-lg font-semibold mb-2 text-primary-700">{props.node.name}</h3>
+  {:else if node.type === 'agreement'}
+    <h3 class="text-lg font-semibold mb-2 text-primary-700">{node.name}</h3>
     <div class="grid grid-cols-1 gap-4">
-      {#if props.node.data?.obligations?.length}
+      {#if node.data?.obligations?.length}
         <div>
           <h4 class="text-sm font-medium text-indigo-700">Obligations</h4>
           <ul class="list-disc pl-5 text-sm">
-            {#each props.node.data.obligations as obligation}
+            {#each node.data.obligations as obligation}
               <li>{obligation.text}</li>
             {/each}
           </ul>
         </div>
       {/if}
-      {#if props.node.data?.benefits?.length}
+      {#if node.data?.benefits?.length}
         <div>
           <h4 class="text-sm font-medium text-emerald-700">Benefits</h4>
           <ul class="list-disc pl-5 text-sm">
-            {#each props.node.data.benefits as benefit}
+            {#each node.data.benefits as benefit}
               <li>{benefit.text}</li>
             {/each}
           </ul>
@@ -87,7 +77,7 @@
   {/if}
   <button
     class="mt-4 px-3 py-1 text-sm bg-surface-200 rounded hover:bg-surface-300 transition-colors"
-    onclick={props.onClose}
+    on:click={onClose}
   >
     Close
   </button>
