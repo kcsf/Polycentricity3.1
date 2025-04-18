@@ -16,8 +16,8 @@
   
   // Example effect that runs when dependencies change
   $effect(() => {
-    // Log state changes with more detail to help debug
-    console.log("DEBUG - State values:", {
+    // Use $inspect instead of console.log for state variables
+    $inspect({
       count, 
       doubledCount,
       displayMessage, 
@@ -73,6 +73,7 @@
   
   // Initialize component
   $effect(() => {
+    // Using a string here, not state variables, so console.log is fine
     console.log("SvelteRunesGuide component initialized");
   });
 </script>
