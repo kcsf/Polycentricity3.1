@@ -63,8 +63,15 @@
                 console.log(`Checking existing actors: ${existingActors.length} actors, Game ID: ${gameId}`);
                 if (actorForThisGame) {
                     console.log(`User already has actor ${actorForThisGame.actor_id} assigned to game ${gameId}`);
-                    // Redirect back to game page
-                    goto(`/games/${gameId}`);
+                    // Redirect back to game page with error handling
+                    try {
+                        await goto(`/games/${gameId}`);
+                        console.log(`[JoinPage] Navigation to game page successful (existing actor)`);
+                    } catch (navError) {
+                        console.error('[JoinPage] Navigation error (existing actor):', navError);
+                        // Try fallback navigation
+                        window.location.href = `/games/${gameId}`;
+                    }
                     return;
                 } else {
                     console.log(`No actor found for game ${gameId}`);
@@ -74,8 +81,15 @@
             // Check if user is already in the game
             const playersObj = game.players as Record<string, boolean> | Record<string, string>;
             if (playersObj && $userStore.user && playersObj[$userStore.user.user_id]) {
-                // User is already in the game, redirect to game page
-                goto(`/games/${gameId}`);
+                // User is already in the game, redirect to game page with error handling
+                try {
+                    await goto(`/games/${gameId}`);
+                    console.log(`[JoinPage] Navigation to game page successful (already in game)`);
+                } catch (navError) {
+                    console.error('[JoinPage] Navigation error (already in game):', navError);
+                    // Try fallback navigation
+                    window.location.href = `/games/${gameId}`;
+                }
                 return;
             }
         } catch (err) {
@@ -227,15 +241,33 @@
             
             // Now redirect to the game page
             console.log(`[JoinPage] Actor selected and role assigned - redirecting to game page: /games/${gameId}`);
-            goto(`/games/${gameId}`);
+            try {
+                // Use goto with navigation error handling
+                await goto(`/games/${gameId}`);
+                console.log(`[JoinPage] Navigation to game page successful`);
+            } catch (navError) {
+                // Log navigation errors specifically
+                console.error('[JoinPage] Navigation error:', navError);
+                
+                // Try a fallback direct navigation
+                console.log('[JoinPage] Trying fallback direct navigation');
+                window.location.href = `/games/${gameId}`;
+            }
         } catch (err) {
             console.error('[JoinPage] Error during actor selection:', err);
             errorMessage = 'Failed to process actor selection';
         }
     }
     
-    function goBack() {
-        goto('/games');
+    async function goBack() {
+        try {
+            await goto('/games');
+            console.log('[JoinPage] Navigation back to games list successful');
+        } catch (navError) {
+            console.error('[JoinPage] Navigation error going back to games list:', navError);
+            // Try fallback navigation
+            window.location.href = '/games';
+        }
     }
 </script>
 
