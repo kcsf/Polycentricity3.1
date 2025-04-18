@@ -149,34 +149,113 @@
             }
             
             // Check game's player_actor_map as a last resort
-            if (game.player_actor_map) {
-                log('Checking game.player_actor_map:', JSON.stringify(game.player_actor_map));
-                
-                if (game.player_actor_map[userId]) {
-                    const mappedActorId = game.player_actor_map[userId];
-                    log(`Found actor mapping in game: user ${userId} -> actor ${mappedActorId}`);
+            try {
+                if (game.player_actor_map) {
+                    log('Checking game.player_actor_map:', JSON.stringify(game.player_actor_map));
                     
-                    try {
-                        // Get the complete actor data
-                        log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
-                        const mappedActor = await getPlayerRole(gameId, userId, mappedActorId);
+                    // Check if player_actor_map is a Gun.js reference
+                    // These show up as an object with a # property: {"#": "games/gameId/player_actor_map"}
+                    if (typeof game.player_actor_map === 'object' && game.player_actor_map['#'] && 
+                        typeof game.player_actor_map['#'] === 'string') {
                         
-                        if (mappedActor) {
-                            log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
-                            playerRole = mappedActor;
-                            activeActorId.set(mappedActor.actor_id);
-                            return mappedActor;
-                        } else {
-                            log(`getPlayerRole returned null for actor ${mappedActorId}`);
+                        // This is a Gun.js reference - need to resolve it directly
+                        log('player_actor_map is a Gun.js reference, resolving directly');
+                        
+                        const mapPath = game.player_actor_map['#'];
+                        const gun = getGun();
+                        
+                        // Use a direct lookup with the user ID as key
+                        const mappedActorId = await new Promise<string | null>((resolve) => {
+                            gun.get(mapPath).get(userId).once((actorId: string) => {
+                                if (actorId) {
+                                    log(`Direct map lookup found: ${userId} -> ${actorId}`);
+                                    resolve(actorId);
+                                } else {
+                                    log(`Direct map lookup found no mapping for user ${userId}`);
+                                    resolve(null);
+                                }
+                            });
+                            
+                            // Also set a timeout to avoid hanging
+                            setTimeout(() => resolve(null), 1000);
+                        });
+                        
+                        if (mappedActorId) {
+                            log(`Found actor mapping via direct Gun.js lookup: user ${userId} -> actor ${mappedActorId}`);
+                            
+                            try {
+                                // Get the complete actor data
+                                log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
+                                const mappedActor = await getPlayerRole(gameId, userId, mappedActorId);
+                                
+                                if (mappedActor) {
+                                    log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
+                                    playerRole = mappedActor;
+                                    activeActorId.set(mappedActor.actor_id);
+                                    
+                                    // Store in localStorage for additional redundancy
+                                    localStorage.setItem(`game_${gameId}_actor`, mappedActor.actor_id);
+                                    
+                                    return mappedActor;
+                                } else {
+                                    log(`getPlayerRole returned null for actor ${mappedActorId}`);
+                                }
+                            } catch (mappingErr) {
+                                log('Error retrieving mapped actor:', mappingErr);
+                            }
                         }
-                    } catch (mappingErr) {
-                        log('Error retrieving mapped actor:', mappingErr);
+                    }
+                    // Normal object (not a reference)
+                    else if (game.player_actor_map[userId]) {
+                        const mappedActorId = game.player_actor_map[userId];
+                        log(`Found actor mapping in game object: user ${userId} -> actor ${mappedActorId}`);
+                        
+                        try {
+                            // Get the complete actor data
+                            log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
+                            const mappedActor = await getPlayerRole(gameId, userId, mappedActorId);
+                            
+                            if (mappedActor) {
+                                log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
+                                playerRole = mappedActor;
+                                activeActorId.set(mappedActor.actor_id);
+                                return mappedActor;
+                            } else {
+                                log(`getPlayerRole returned null for actor ${mappedActorId}`);
+                            }
+                        } catch (mappingErr) {
+                            log('Error retrieving mapped actor:', mappingErr);
+                        }
+                    } else {
+                        log(`No mapping found for user ${userId} in player_actor_map`);
                     }
                 } else {
-                    log(`No mapping found for user ${userId} in player_actor_map`);
+                    log('Game does not have a player_actor_map property');
+                    
+                    // If we have a saved actor ID, try one last direct lookup
+                    if (savedActorId) {
+                        log(`Attempting direct Gun.js update to create missing player_actor_map with user ${userId} -> actor ${savedActorId}`);
+                        
+                        // Create player_actor_map with the saved actor as a fire-and-forget operation
+                        try {
+                            const gun = getGun();
+                            const userActorMap = {};
+                            userActorMap[userId] = savedActorId;
+                            
+                            // First create the property if it doesn't exist
+                            gun.get(nodes.games).get(gameId).get('player_actor_map').put({});
+                            
+                            // Then set the specific mapping
+                            setTimeout(() => {
+                                gun.get(nodes.games).get(gameId).get('player_actor_map').put(userActorMap);
+                            }, 100);
+                        } catch (err) {
+                            log('Error fixing missing player_actor_map:', err);
+                        }
+                    }
                 }
-            } else {
-                log('Game does not have a player_actor_map property');
+            } catch (mapErr) {
+                log('Error accessing player_actor_map:', mapErr);
             }
             
             log('No actor found for current user');

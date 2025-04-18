@@ -12,6 +12,41 @@ const actorCache = new Map<string, Actor>();
 const cardCache = new Map<string, Card>();
 const roleCache = new Map<string, string>(); // gameId+userId -> actorId
 
+// Helper function to get an actor by ID
+async function getActorById(actorId: string): Promise<Actor | null> {
+  // First check cache
+  if (actorCache.has(actorId)) {
+    return actorCache.get(actorId)!;
+  }
+  
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized in getActorById');
+    return null;
+  }
+  
+  return new Promise<Actor | null>((resolve) => {
+    gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+      if (!actorData) {
+        resolve(null);
+        return;
+      }
+      
+      // Ensure actor_id is set
+      if (!actorData.actor_id) {
+        actorData.actor_id = actorId;
+      }
+      
+      // Cache for future use
+      cacheActor(actorId, actorData);
+      resolve(actorData);
+    });
+    
+    // Set timeout to prevent hanging
+    setTimeout(() => resolve(null), 500);
+  });
+}
+
 // Conditional logging
 const isDev = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';
 const log = (...args: any[]) => isDev && console.log('[gameService]', ...args);
@@ -472,7 +507,8 @@ export async function assignRole(gameId: string, userId: string, actorId: string
       // Get actor to check if it's from another game
       let isFromAnotherGame = false;
       try {
-        const actor = await getActor(actorId);
+        // Get actor directly from cache or gun
+        const actor = await getActorById(actorId);
         isFromAnotherGame = actor && actor.game_id && actor.game_id !== gameId;
         
         if (isFromAnotherGame) {
