@@ -476,12 +476,31 @@ export async function assignRole(gameId: string, userId: string, actorId: string
       // Get actor to check if it's from another game
       let isFromAnotherGame = false;
       try {
-        // Use getUserActors to properly look up actor information with fallbacks
-        const userActors = await getUserActors();
-        const actor = userActors.find(a => a.actor_id === actorId);
+        // Get the actor directly by checking the cache first, then via getPlayerRole as a fallback
+        let actor = null;
+        
+        // Check cache first for efficiency
+        if (actorCache.has(actorId)) {
+          actor = actorCache.get(actorId);
+        } else {
+          // Try to find in user's actors
+          const userActors = await getUserActors();
+          actor = userActors.find(a => a.actor_id === actorId);
+          
+          // If not found and we have a user ID, try getPlayerRole with any gameId
+          if (!actor) {
+            try {
+              // We specify the actorId directly to retrieve it regardless of role assignment
+              actor = await getPlayerRole(gameId, userId, actorId);
+            } catch (playerRoleErr) {
+              log(`Could not get actor via getPlayerRole: ${playerRoleErr}`);
+            }
+          }
+        }
         
         if (actor) {
-          isFromAnotherGame = actor.game_id && actor.game_id !== gameId;
+          // Convert explicitly to boolean to avoid TypeScript errors
+          isFromAnotherGame = Boolean(actor.game_id) && actor.game_id !== gameId;
           
           if (isFromAnotherGame) {
             log(`Actor ${actorId} is being reused from game ${actor.game_id} in new game ${gameId}`);
