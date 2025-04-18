@@ -347,7 +347,9 @@ export async function joinGame(gameId: string): Promise<boolean> {
     return false;
   }
 
-  const game = await getGame(gameId);
+  // Use cached game data first for better performance
+  let game = gameCache.has(gameId) ? gameCache.get(gameId) : await getGame(gameId);
+  
   if (!game) {
     logError(`Game not found: ${gameId}`);
     return false;
@@ -363,29 +365,46 @@ export async function joinGame(gameId: string): Promise<boolean> {
   // Update players list with the current user
   const updatedPlayers: Record<string, boolean | string> = { ...(playersObj || {}), [currentUser.user_id]: true };
   
-  try {
-    // Use the utility functions from gunService which properly handle Gun.js operations
-    await Promise.all([
-      // Update players in game
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(gameId).get('players').put(updatedPlayers, (ack: any) => 
-          ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      
-      // Create relationship between user and game using createRelationship
-      createRelationship(`${nodes.users}/${currentUser.user_id}`, 'games', `${nodes.games}/${gameId}`),
-      
-      // Create relationship between game and user reference
-      createRelationship(`${nodes.games}/${gameId}`, 'player_refs', `${nodes.users}/${currentUser.user_id}`)
-    ]);
-  } catch (error) {
-    logError(`Error joining game ${gameId}:`, error);
-    return false;
-  }
-
-  // Update cache
+  // IMPORTANT: Update cache IMMEDIATELY for responsive UI
   cacheGame(gameId, { ...game, players: updatedPlayers });
+  
+  // FIRE-AND-FORGET APPROACH - No waiting for callbacks or acks
+  
+  // 1. Add player to game's players object with both approaches
+  gun.get(nodes.games).get(gameId).get('players').put(updatedPlayers);
+  gun.get(nodes.games).get(gameId).get('players').get(currentUser.user_id).put(true);
+  
+  // 2. Create relationship between user and game
+  gun.get(nodes.users).get(currentUser.user_id).get('games').set(
+    gun.get(nodes.games).get(gameId) as any
+  );
+  
+  // 3. Create relationship between game and user
+  gun.get(nodes.games).get(gameId).get('player_refs').set(
+    gun.get(nodes.users).get(currentUser.user_id) as any
+  );
+  
+  // 4. Initialize empty player_actor_map entry for user if it doesn't exist
+  setTimeout(() => {
+    try {
+      // Check if game has player_actor_map
+      gun.get(nodes.games).get(gameId).get('player_actor_map').once((map: any) => {
+        if (!map || !map[currentUser.user_id]) {
+          log(`[JoinPage] Backup update to player_actor_map: user ${currentUser.user_id} -> null`);
+          
+          // Try both approaches for redundancy
+          const updatedMap = { ...(map || {}), [currentUser.user_id]: null };
+          gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedMap);
+          
+          log(`[JoinPage] Successfully updated player_actor_map via direct write`);
+        }
+      });
+    } catch (err) {
+      logWarn(`Error updating player_actor_map after join: ${err}`);
+      // Non-fatal error, continue
+    }
+  }, 200);
+  
   log(`Joined game: ${gameId}`);
   return true;
 }
@@ -449,68 +468,43 @@ export async function assignRole(gameId: string, userId: string, actorId: string
     return false;
   }
 
-  // Only use 2 attempts to keep things fast - if it fails twice, we'll still return success and fix in background
+  // Only use 2 attempts with small backoff to keep things responsive
   const maxAttempts = 2;
-  const backoffMs = [500, 1000]; // Shorter backoff
+  const backoffMs = [500, 1000]; 
   
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       log(`Role assignment attempt ${attempt}/${maxAttempts}`);
       
-      // Get current game data to make sure we have the latest version
-      // Use cached version if available to avoid Gun.js lookup
-      let game = gameCache.has(gameId) ? gameCache.get(gameId) : await getGame(gameId);
+      // Use cached game data first for better performance
+      let game = gameCache.has(gameId) ? gameCache.get(gameId) : null;
       
+      // Only fetch from database if needed
       if (!game) {
-        logWarn(`Game not found during role assignment (attempt ${attempt})`);
-        
-        if (attempt < maxAttempts) {
-          log(`Retrying in ${backoffMs[attempt-1]}ms...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
-          continue;
+        try {
+          game = await getGame(gameId);
+        } catch (err) {
+          logWarn(`Error fetching game data: ${err}`);
         }
         
-        // Create minimal game data to continue
-        game = { game_id: gameId } as Game;
+        if (!game) {
+          if (attempt < maxAttempts) {
+            log(`Game not found, retrying in ${backoffMs[attempt-1]}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
+            continue;
+          }
+          // Create minimal game data to continue
+          game = { game_id: gameId } as Game;
+        }
       }
 
-      // Initialize player_actor_map if it doesn't exist
+      // Initialize player_actor_map if needed
       const currentPlayerActorMap = game.player_actor_map || {};
-      
-      // Update player_actor_map with the new mapping
       const updatedPlayerActorMap = { ...currentPlayerActorMap, [userId]: actorId };
       
-      // Get actor to check if it's from another game (but don't wait if cached)
-      let actor = actorCache.has(actorId) ? actorCache.get(actorId) : null;
-      let isFromAnotherGame = false;
-      
-      if (actor) {
-        isFromAnotherGame = Boolean(actor.game_id) && actor.game_id !== gameId;
-      } else {
-        try {
-          // No waiting if actor is in cache, otherwise brief lookup
-          if (!actor) {
-            const userActors = await getUserActors();
-            actor = userActors.find(a => a.actor_id === actorId) || null;
-          }
-          
-          if (actor) {
-            isFromAnotherGame = Boolean(actor.game_id) && actor.game_id !== gameId;
-          }
-        } catch (actorErr) {
-          // Non-fatal error, continue
-          logWarn(`Could not check actor origin: ${actorErr}`);
-        }
-      }
-      
-      if (isFromAnotherGame) {
-        log(`Actor ${actorId} is being reused from game ${actor?.game_id} in new game ${gameId}`);
-      }
-      
-      // Immediately update cache for responsive UI
+      // IMPORTANT: Update cache IMMEDIATELY for responsive UI
       cacheRole(gameId, userId, actorId);
       
-      // Update game cache with new player_actor_map
       if (gameCache.has(gameId)) {
         const cachedGame = gameCache.get(gameId)!;
         gameCache.set(gameId, { 
@@ -519,36 +513,30 @@ export async function assignRole(gameId: string, userId: string, actorId: string
         });
       }
       
-      // FIRE-AND-FORGET APPROACH
-      // First, set up the player_actor_map with the new mapping directly
+      // FIRE-AND-FORGET APPROACH - No waiting for acks or callbacks
+      // Write player_actor_map with both object and direct key/value approaches
       gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap);
-      
-      // Also set the direct key/value relationship for redundancy
       gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
       
-      // Set the role_assignment (traditional way)
+      // Set role_assignment for backward compatibility
       gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId);
       
-      // Set the user_id on the actor
+      // Update actor properties
       gun.get(nodes.actors).get(actorId).get('user_id').put(userId);
-      
-      // Set the game_id on the actor if it's from another game
       gun.get(nodes.actors).get(actorId).get('game_id').put(gameId);
       
-      // Make a retry attempt in the background after a delay
+      // Delayed retry with longer delay for better reliability
       setTimeout(() => {
         try {
-          // Redundant writes with different paths to ensure data consistency
-          log(`Background retry: setting player_actor_map[${userId}] = ${actorId}`);
-          
-          // Try both direct and full object approaches
+          log(`Delayed retry: updating player_actor_map[${userId}] = ${actorId}`);
+          // Try both approaches again for redundancy
           gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
           gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap);
-        } catch (backupErr) {
+        } catch (err) {
           // Non-fatal error
-          logWarn('Background player_actor_map update failed:', backupErr);
+          logWarn('Delayed player_actor_map update failed:', err);
         }
-      }, 200);
+      }, 1000); // Use longer delay (1000ms) for better reliability
 
       log(`Role assigned: ${actorId} to user ${userId} in game ${gameId}`);
       log(`Updated player_actor_map:`, updatedPlayerActorMap);
