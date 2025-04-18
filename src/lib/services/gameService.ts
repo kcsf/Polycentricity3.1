@@ -609,7 +609,13 @@ async function removePlayerRole(gameId: string, userId: string): Promise<boolean
   return true;
 }
 
-// Get a player's role in a game with retry logic
+/**
+ * Get a player's role in a game with expedited fallbacks - OPTIMIZED VERSION
+ * @param gameId The game ID
+ * @param userId The user ID
+ * @param specifiedActorId Optional specific actor ID to get directly
+ * @returns Promise with Actor or null
+ */
 export async function getPlayerRole(gameId: string, userId: string, specifiedActorId?: string): Promise<Actor | null> {
   log(`Getting role for user ${userId} in game ${gameId}`);
   
@@ -632,11 +638,11 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
   // If a specific actor ID is provided, get that actor directly
   if (specifiedActorId) {
     return new Promise((resolve) => {
-      // Set a timeout to ensure we don't hang
+      // Set a shorter timeout to ensure we don't hang
       const timeout = setTimeout(() => {
         log(`Timeout getting actor ${specifiedActorId}`);
         resolve(null);
-      }, 1000);
+      }, 800); // Faster timeout
       
       gun.get(nodes.actors).get(specifiedActorId).once((actorData: Actor) => {
         clearTimeout(timeout);
@@ -658,28 +664,78 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
     });
   }
 
-  // First attempt with role_assignment
-  // Implement retry logic with 500ms backoff
-  const maxAttempts = 2;
-  
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      log(`Attempt ${attempt}/${maxAttempts} to get role for user ${userId} in game ${gameId}`);
+  // Only try once with a quicker timeout
+  try {
+    log(`Getting role for user ${userId} in game ${gameId}`);
+    
+    // Make the single attempt faster
+    const result = await new Promise<Actor | null>((resolve) => {
+      // Set a faster timeout to ensure we don't hang
+      const timeout = setTimeout(() => {
+        log(`Timeout getting role for user ${userId} in game ${gameId}`);
+        resolve(null);
+      }, 800); // Shorter timeout for faster UI
       
-      const result = await new Promise<Actor | null>((resolve) => {
-        // Set a timeout to ensure we don't hang
-        const timeout = setTimeout(() => {
-          log(`Timeout on attempt ${attempt} to get role`);
-          resolve(null);
-        }, 1000);
-        
-        // First check player_actor_map (more reliable in practice)
-        gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).once((actorId: string) => {
-          if (actorId && typeof actorId === 'string' && actorId.startsWith('a')) {
+      // First check player_actor_map (more reliable in practice)
+      gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).once((actorId: string) => {
+        if (actorId && typeof actorId === 'string' && actorId.startsWith('a')) {
+          // Start secondary timeout in case actor lookup fails
+          const actorTimeout = setTimeout(() => {
+            clearTimeout(timeout);
+            log(`Timeout getting actor data for ${actorId}`);
+            resolve(null);
+          }, 400); // Very quick timeout for nested query
+          
+          gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+            clearTimeout(timeout);
+            clearTimeout(actorTimeout);
+            
+            if (!actorData) {
+              log(`Actor not found in map: ${actorId}`);
+              resolve(null);
+              return;
+            }
+            
+            if (!actorData.actor_id) {
+              actorData.actor_id = actorId;
+            }
+            
+            cacheActor(actorId, actorData);
+            cacheRole(gameId, userId, actorId);
+            log(`Found actor via player_actor_map: ${actorId}`);
+            resolve(actorData);
+          });
+        } else {
+          // If not found in map, check role_assignment next with a short timeout
+          const assignmentTimeout = setTimeout(() => {
+            clearTimeout(timeout);
+            log(`Timeout getting role_assignment for ${userId}`);
+            resolve(null);
+          }, 400); // Very quick timeout for nested query
+          
+          gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).once((actorId: string) => {
+            clearTimeout(assignmentTimeout);
+            
+            if (!actorId) {
+              clearTimeout(timeout);
+              log(`No role assigned to user ${userId} in game ${gameId}`);
+              resolve(null);
+              return;
+            }
+            
+            // Another timeout for the final actor lookup
+            const actorTimeout = setTimeout(() => {
+              clearTimeout(timeout);
+              log(`Timeout getting actor data for ${actorId}`);
+              resolve(null);
+            }, 300); // Very quick timeout for final nested query
+            
             gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
               clearTimeout(timeout);
+              clearTimeout(actorTimeout);
+              
               if (!actorData) {
-                log(`Actor not found in map: ${actorId}`);
+                log(`Actor not found: ${actorId}`);
                 resolve(null);
                 return;
               }
@@ -690,60 +746,22 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
               
               cacheActor(actorId, actorData);
               cacheRole(gameId, userId, actorId);
-              log(`Found actor via player_actor_map: ${actorId}`);
+              log(`Found actor via role_assignment: ${actorId}`);
               resolve(actorData);
             });
-          } else {
-            // If not found in map, check role_assignment next
-            gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).once((actorId: string) => {
-              if (!actorId) {
-                clearTimeout(timeout);
-                log(`No role assigned to user ${userId} in game ${gameId}`);
-                resolve(null);
-                return;
-              }
-              
-              gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
-                clearTimeout(timeout);
-                if (!actorData) {
-                  log(`Actor not found: ${actorId}`);
-                  resolve(null);
-                  return;
-                }
-                
-                if (!actorData.actor_id) {
-                  actorData.actor_id = actorId;
-                }
-                
-                cacheActor(actorId, actorData);
-                cacheRole(gameId, userId, actorId);
-                log(`Found actor via role_assignment: ${actorId}`);
-                resolve(actorData);
-              });
-            });
-          }
-        });
+          });
+        }
       });
-      
-      if (result) {
-        return result;
-      }
-      
-      if (attempt < maxAttempts) {
-        log(`Retrying in 500ms...`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    } catch (error) {
-      logError(`Error in getPlayerRole attempt ${attempt}:`, error);
-      
-      if (attempt < maxAttempts) {
-        log(`Retrying in 500ms after error...`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+    });
+    
+    if (result) {
+      return result;
     }
+  } catch (error) {
+    logError(`Error in getPlayerRole:`, error);
   }
   
-  log(`Could not get role for user ${userId} in game ${gameId} after ${maxAttempts} attempts`);
+  log(`Could not get role for user ${userId} in game ${gameId}`);
   return null;
 }
 
@@ -1581,6 +1599,12 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
       
+      // Set a timeout to ensure we don't hang
+      const timeout = setTimeout(() => {
+        log(`Timeout getting actors via role_assignment for game ${gameId}`);
+        resolve(actors);
+      }, 1000); // 1 second timeout
+      
       gun.get(nodes.games).get(gameId).get('role_assignment').map().once((actorId: string, userId: string) => {
         if (typeof actorId === 'string' && actorId.startsWith('a') && userId !== '_') {
           log(`Found role assignment: ${userId} -> ${actorId}`);
@@ -1601,11 +1625,12 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
         }
       });
       
-      // Use Promise.resolve() to handle completion
-      Promise.resolve().then(() => {
+      // Use setTimeout to ensure we don't hang, but give Gun.js a bit of time to collect data
+      setTimeout(() => {
+        clearTimeout(timeout);
         log(`Found ${actors.length} actors via role_assignment for game ${gameId}`);
         resolve(actors);
-      });
+      }, 800); // Resolve after 800ms (before the 1000ms timeout)
     });
     
     // If we found actors via roles, return them
@@ -1618,6 +1643,12 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
     return new Promise((resolve) => {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
+      
+      // Set a timeout to ensure we don't hang
+      const timeout = setTimeout(() => {
+        log(`Timeout getting actors via fallback for game ${gameId}`);
+        resolve(actors);
+      }, 1000); // 1 second timeout
       
       gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
         if (actorData && actorData.game_id === gameId && !uniqueIds.has(actorId)) {
@@ -1633,11 +1664,12 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
         }
       });
       
-      // Use Promise.resolve() to handle completion
-      Promise.resolve().then(() => {
+      // Use setTimeout with a shorter duration than the timeout
+      setTimeout(() => {
+        clearTimeout(timeout);
         log(`Found ${actors.length} actors for game ${gameId} via fallback method`);
         resolve(actors);
-      });
+      }, 800); // Resolve after 800ms (before the 1000ms timeout)
     });
   } catch (error) {
     logError('Get game actors error:', error);
