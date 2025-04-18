@@ -260,13 +260,10 @@ let inputElement = $state<HTMLInputElement | null>(null);
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>{`// New way (Svelte 5 Runes)
 <div class="container">
-  {@const headerSlot = $$slots.header?.()}
-  {@const defaultSlot = $$slots.default?.() || 'Default content'}
-  {@const footerSlot = $$slots.footer?.()}
-  
-  {headerSlot}
-  {defaultSlot}
-  {footerSlot}
+  <!-- Content rendered from slots would appear here -->
+  {#render headerSlot} Header content {/render}
+  {#render defaultSlot || 'Default content'} Content {/render}
+  {#render footerSlot} Footer content {/render}
 </div>`}</pre>
             </div>
           </div>
@@ -647,7 +644,7 @@ async function saveToGun() {
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
-                <td class="p-2"><code>{@render $$slots.default?.()}</code></td>
+                <td class="p-2"><code>&#123;#render slotName&#125; content &#123;/render&#125;</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;svelte:component this={Comp} /&gt;</code></td>
