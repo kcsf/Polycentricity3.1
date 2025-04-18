@@ -43,12 +43,12 @@ export async function createGame(
   roleAssignmentType: string = 'random'
 ): Promise<Game | null> {
   try {
-    console.log(`Starting game creation: ${name}, ${deckType}, ${roleAssignmentType}`);
+    log(`Creating game: ${name} with deck type: ${deckType}`);
     const gun = getGun();
     let currentUser = getCurrentUser();
 
     if (!currentUser) {
-      logWarn('No authenticated user. Using mock user for development.');
+      logWarn('No authenticated user. Using mock user.');
       currentUser = {
         user_id: 'u838', // Using a consistent ID for development to make debugging easier
         name: 'Development User',
@@ -64,121 +64,72 @@ export async function createGame(
     }
 
     const game_id = generateId();
-    log(`Generated game ID: ${game_id}`);
-    
-    // Get appropriate deck ID based on type
-    const deck_id = deckType === 'eco-village' ? 'd1' : 
-                    deckType === 'community-garden' ? 'd2' : 'd1'; // default to d1
-    
-    // Create the game data with proper types
     const gameData: Game = {
       game_id,
       name,
       creator: currentUser.user_id,
       deck_type: deckType,
-      deck_id,
-      role_assignment_type: roleAssignmentType, 
-      role_assignment: {}, // Add empty role_assignment object, not the enum value
+      deck_id: deckType === 'eco-village' ? 'd1' : deckType === 'community-garden' ? 'd2' : 'd1',
+      role_assignment_type: roleAssignmentType,
+      role_assignment: {},
       players: { [currentUser.user_id]: true },
       created_at: Date.now(),
-      status: GameStatus.ACTIVE // Set to ACTIVE by default (not CREATED)
+      status: GameStatus.ACTIVE // Set to ACTIVE immediately
     };
 
-    // Cache immediately to provide faster responses
-    cacheGame(game_id, gameData);
-    // Update current game store
-    currentGameStore.set(gameData);
-    
-    // OPTIMIZATION: Run all database operations in parallel using Promise.all
-    // This significantly reduces the time needed for game creation
-    const corePromises = [
-      // Core game data
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).put({
-          game_id,
-          name,
-          creator: currentUser.user_id,
-          deck_type: deckType,
-          deck_id,
-          role_assignment_type: roleAssignmentType,
-          created_at: Date.now(),
-          status: GameStatus.ACTIVE // Set to ACTIVE, not CREATED
-        }, (ack: any) => ack.err ? reject(ack.err) : resolve());
-      }),
-      
-      // Player data
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('players').put(
-          { [currentUser.user_id]: true }, 
-          (ack: any) => ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      
-      // Empty deck object
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('deck').put(
-          {}, 
-          (ack: any) => ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      
-      // Empty role_assignment object
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('role_assignment').put(
-          {}, 
-          (ack: any) => ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      
-      // User-Game relationship
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.users).get(currentUser.user_id).get('games').set(
-          game_id as any, 
-          (ack: any) => ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      
-      // Creator reference
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('creator_ref').put(
-          { '#': `${nodes.users}/${currentUser.user_id}` }, 
-          (ack: any) => ack.err ? reject(ack.err) : resolve()
-        );
-      })
-    ];
-    
-    // Execute core promises in parallel (significant performance improvement)
-    await Promise.all(corePromises);
-    log(`Completed core game creation for: ${game_id}`);
-    
-    // Setup predefined deck if specified (this is done in a background process)
+    // Batch writes into a single put operation for better performance
+    const gameNode = gun.get(nodes.games).get(game_id);
+    await new Promise<void>((resolve, reject) => {
+      gameNode.put({
+        game_id,
+        name,
+        creator: currentUser.user_id,
+        deck_type: deckType,
+        deck_id: deckType === 'eco-village' ? 'd1' : deckType === 'community-garden' ? 'd2' : 'd1',
+        role_assignment_type: roleAssignmentType,
+        created_at: Date.now(),
+        status: GameStatus.ACTIVE,
+        players: { [currentUser.user_id]: true },
+        deck: {},
+        role_assignment: {}
+      }, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
+    });
+
+    // Setup predefined deck with timeout to prevent blocking
     if (deckType === 'eco-village' || deckType === 'community-garden') {
-      // IMPORTANT: This is a true background process, we don't block the main thread
+      // Use setTimeout to make this truly asynchronous
       setTimeout(() => {
         (async () => {
           try {
-            log(`Setting up predefined deck (background): ${deckType} for game ${game_id}`);
             const actors = getPredefinedDeck(deckType);
-            await setGameActors(game_id, actors as Actor[]);
-            
-            // Add deck reference
-            await new Promise<void>((resolve, reject) => {
-              gun.get(nodes.games).get(game_id).get('deck_ref').put(
-                { '#': `${nodes.decks}/${deck_id}` }, 
-                (ack: any) => ack.err ? reject(ack.err) : resolve()
-              );
-            });
-            
-            log(`Completed background deck setup for game: ${game_id}`);
+            const startActors = performance.now();
+            await Promise.race([
+              setGameActors(game_id, actors as Actor[]),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('setGameActors timeout')), 5000))
+            ]).catch(err => logWarn(`setGameActors failed: ${err}`));
+            log(`setGameActors took ${performance.now() - startActors}ms`);
           } catch (error) {
             logWarn(`Background deck setup error for game ${game_id}:`, error);
-            // We still consider the game created successfully even if deck setup fails
           }
         })();
       }, 0);
     }
-    
-    console.log(`Game created successfully: ${game_id}`);
+
+    // Create relationships using set for better reliability
+    const startRelations = performance.now();
+    await Promise.all([
+      gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id),
+      gun.get(nodes.games).get(game_id).get('creator_ref').set({ '#': `${nodes.users}/${currentUser.user_id}` }),
+      deckType === 'eco-village' || deckType === 'community-garden'
+        ? gun.get(nodes.games).get(game_id).get('deck_ref').set({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` })
+        : Promise.resolve()
+    ]);
+    log(`Relationships took ${performance.now() - startRelations}ms`);
+
+    // Cache immediately and update store for faster UI updates
+    cacheGame(game_id, gameData);
+    currentGameStore.set(gameData);
+    log(`Game created: ${game_id}`);
     return gameData;
   } catch (error) {
     logError('Create game error:', error);

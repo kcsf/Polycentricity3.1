@@ -1,0 +1,88 @@
+export async function createGame(
+  name: string,
+  deckType: string,
+  roleAssignmentType: string = 'random'
+): Promise<Game | null> {
+  try {
+    log(`Creating game: ${name} with deck type: ${deckType}`);
+    const gun = getGun();
+    let currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      logWarn('No authenticated user. Using mock user.');
+      currentUser = {
+        user_id: 'dev-user-' + Date.now(),
+        name: 'Development User',
+        email: 'dev@example.com',
+        created_at: Date.now(),
+        role: 'Guest'
+      };
+    }
+
+    if (!gun) {
+      logError('Gun not initialized');
+      return null;
+    }
+
+    const game_id = generateId();
+    const gameData: Game = {
+      game_id,
+      name,
+      creator: currentUser.user_id,
+      deck_type: deckType,
+      deck: {},
+      role_assignment: {},
+      role_assignment_type: roleAssignmentType,
+      players: { [currentUser.user_id]: true },
+      created_at: Date.now(),
+      status: GameStatus.CREATED
+    };
+
+    // Batch writes into a single put operation
+    const gameNode = gun.get(nodes.games).get(game_id);
+    await new Promise<void>((resolve, reject) => {
+      gameNode.put({
+        game_id,
+        name,
+        creator: currentUser.user_id,
+        deck_type: deckType,
+        role_assignment_type: roleAssignmentType,
+        created_at: Date.now(),
+        status: GameStatus.CREATED,
+        players: { [currentUser.user_id]: true },
+        deck: {},
+        role_assignment: {}
+      }, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
+    });
+
+    // Setup predefined deck with timeout
+    if (deckType === 'eco-village' || deckType === 'community-garden') {
+      const actors = getPredefinedDeck(deckType);
+      const startActors = performance.now();
+      await Promise.race([
+        setGameActors(game_id, actors as Actor[]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('setGameActors timeout')), 5000))
+      ]).catch(err => logWarn(`setGameActors failed: ${err}`));
+      log(`setGameActors took ${performance.now() - startActors}ms`);
+    }
+
+    // Create relationships using set
+    const startRelations = performance.now();
+    await Promise.all([
+      gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id),
+      gun.get(nodes.games).get(game_id).get('creator_ref').set({ '#': `${nodes.users}/${currentUser.user_id}` }),
+      deckType === 'eco-village' || deckType === 'community-garden'
+        ? gun.get(nodes.games).get(game_id).get('deck_ref').set({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` })
+        : Promise.resolve()
+    ]);
+    log(`Relationships took ${performance.now() - startRelations}ms`);
+
+    cacheGame(game_id, gameData);
+    currentGameStore.set(gameData);
+    log(`Game created: ${game_id}`);
+    return gameData;
+  } catch (error) {
+    logError('Create game error:', error);
+    return null;
+  }
+}
