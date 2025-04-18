@@ -148,19 +148,37 @@
           log(`Actor ${actor.actor_id} is from game ${actor.game_id}, adding to new game ${gameId}`);
           
           try {
-            // Using fire-and-forget approach for these operations to avoid blocking UI
-            // 1. Create relationship between actor and new game (Gun.js edge)
-            createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
-            log(`Created relationship: Actor ${actor.actor_id} -> Game ${gameId}`);
-            
-            // 2. Store original game_id for reference before we modify it
+            // 1. Store original game_id for reference before we modify it
             const originalGameId = actor.game_id;
             
-            // 3. Update the actor's game_id to the current game for proper display
+            // 2. Update the actor's game_id to the current game for proper display
             actor.game_id = gameId;
             
-            // 4. Log the cross-game usage for debugging
+            // 3. Create Actor->Game relationship with delayed execution to ensure fire-and-forget approach
+            setTimeout(() => {
+              createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
+              log(`Created relationship: Actor ${actor.actor_id} -> Game ${gameId}`);
+            }, 200);
+            
+            // 4. Create Actor->Card relationship explicitly
+            setTimeout(() => {
+              if (actor.card_id) {
+                createRelationship(`${nodes.actors}/${actor.actor_id}`, 'card', `${nodes.cards}/${actor.card_id}`);
+                log(`Created relationship: Actor ${actor.actor_id} -> Card ${actor.card_id}`);
+              }
+            }, 200);
+            
+            // 5. Log the cross-game usage for debugging
             log(`Reusing actor from game ${originalGameId} in new game ${gameId}`);
+            
+            // 6. Assign role in the new game with retry logic
+            try {
+              await assignRole(gameId, actor.user_id, actor.actor_id);
+              log(`Assigned actor ${actor.actor_id} to user ${actor.user_id} in game ${gameId}`);
+            } catch (assignErr) {
+              // Just log the error, we'll handle this via joinGame in the parent component
+              logError('Error during initial assignRole call:', assignErr);
+            }
           } catch (relErr) {
             // Log error but continue - the join+assign process in the parent will handle this
             logError('Error setting up cross-game actor relationship:', relErr);
@@ -180,7 +198,7 @@
           logError('Error setting up card subscription:', subErr);
         }
         
-        // Call the parent handler with selected actor - this will handle joinGame and assignRole
+        // Call the parent handler with selected actor
         onSelectActor(actor);
       } else {
         log(`Actor with ID ${selectedActorId} not found in existingActors array`);

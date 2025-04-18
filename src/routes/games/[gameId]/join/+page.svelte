@@ -5,6 +5,7 @@
     import { getGame, isGameFull, joinGame, getUserActors, assignRole } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
     import { activeActorId } from '$lib/stores/enhancedGameStore'; 
+    import { getGun, nodes } from '$lib/services/gunService';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     import type { Game, Actor } from '$lib/types';
     import * as icons from 'lucide-svelte';
@@ -96,26 +97,47 @@
             selectedActor = actor;
             actorSelected = true;
             
-            // Step 1: First join the game itself to add the player to the players array
-            // Use retry logic for critical operations
-            let joinResult = false;
+            // Define reusable retry logic for critical operations
             const maxAttempts = 3;
             const backoffMs = [500, 1000, 2000]; // Exponential backoff
             
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                console.log(`[JoinPage] Joining game... (attempt ${attempt}/${maxAttempts})`);
-                joinResult = await joinGame(gameId);
-                console.log(`[JoinPage] Join result: ${joinResult}`);
-                
-                if (joinResult) break;
-                
-                if (attempt < maxAttempts) {
-                    console.log(`[JoinPage] Join failed, retrying in ${backoffMs[attempt-1]}ms`);
-                    await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
+            // Helper function for retry logic
+            async function executeWithRetry<T>(
+                operation: () => Promise<T>,
+                description: string,
+                validateResult: (result: T) => boolean = (r) => !!r
+            ): Promise<{success: boolean, result?: T}> {
+                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                    console.log(`[JoinPage] ${description}... (attempt ${attempt}/${maxAttempts})`);
+                    
+                    try {
+                        const result = await operation();
+                        const isValid = validateResult(result);
+                        
+                        console.log(`[JoinPage] ${description} result:`, result, `valid:`, isValid);
+                        
+                        if (isValid) {
+                            return { success: true, result };
+                        }
+                    } catch (error) {
+                        console.error(`[JoinPage] Error during ${description} (attempt ${attempt}):`, error);
+                    }
+                    
+                    if (attempt < maxAttempts) {
+                        console.log(`[JoinPage] ${description} failed or returned invalid result, retrying in ${backoffMs[attempt-1]}ms`);
+                        await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
+                    }
                 }
+                
+                console.error(`[JoinPage] ${description} failed after ${maxAttempts} attempts`);
+                return { success: false };
             }
             
-            if (!joinResult) {
+            // Step 1: First join the game itself to add the player to the players array
+            const joinOperation = async () => joinGame(gameId);
+            const joinResult = await executeWithRetry(joinOperation, "Joining game");
+            
+            if (!joinResult.success) {
                 errorMessage = 'Failed to join the game after multiple attempts';
                 return;
             }
@@ -123,10 +145,12 @@
             // Step 2: Assign the selected actor to the user in this game
             // This critical operation updates the player_actor_map
             console.log(`[JoinPage] Assigning actor ${actor.actor_id} to user ${$userStore.user.user_id} in game ${gameId}`);
-            const roleAssigned = await assignRole(gameId, $userStore.user.user_id, actor.actor_id);
             
-            if (!roleAssigned) {
-                errorMessage = 'Failed to assign role';
+            const assignOperation = async () => assignRole(gameId, $userStore.user.user_id, actor.actor_id);
+            const assignResult = await executeWithRetry(assignOperation, "Assigning role");
+            
+            if (!assignResult.success) {
+                errorMessage = 'Failed to assign role after multiple attempts';
                 return;
             }
             
@@ -141,31 +165,65 @@
             // This is a fire-and-forget operation as a backup to ensure the map is populated
             try {
                 const gun = getGun();
-                const userActorMap = {};
-                userActorMap[$userStore.user.user_id] = actor.actor_id;
                 
-                // Delayed put to avoid race conditions with assignRole
+                // First, make sure the player_actor_map node exists
+                gun.get(nodes.games).get(gameId).get('player_actor_map').put({}, (ack) => {
+                    if (ack.err) {
+                        console.error('[JoinPage] Error initializing player_actor_map:', ack.err);
+                    }
+                });
+                
+                // Then, after a short delay, set the user-actor mapping
                 setTimeout(() => {
+                    const userActorMap = {};
+                    userActorMap[$userStore.user.user_id] = actor.actor_id;
+                    
                     console.log(`[JoinPage] Backup update to player_actor_map: user ${$userStore.user.user_id} -> actor ${actor.actor_id}`);
-                    gun.get(nodes.games).get(gameId).get('player_actor_map').put(userActorMap);
+                    gun.get(nodes.games).get(gameId).get('player_actor_map').put(userActorMap, (ack) => {
+                        if (ack.err) {
+                            console.error('[JoinPage] Error updating player_actor_map:', ack.err);
+                        } else {
+                            console.log('[JoinPage] Successfully updated player_actor_map via direct write');
+                        }
+                    });
                 }, 200);
             } catch (mapErr) {
                 // Non-fatal error - the assignRole function should have handled this already
                 console.warn('[JoinPage] Backup player_actor_map update failed:', mapErr);
             }
             
-            // Double-check that the player_actor_map was updated
-            const updatedGame = await getGame(gameId);
-            if (updatedGame && updatedGame.player_actor_map) {
-                console.log('[JoinPage] Updated player_actor_map:', updatedGame.player_actor_map);
-                if (updatedGame.player_actor_map[$userStore.user.user_id] === actor.actor_id) {
-                    console.log(`[JoinPage] ✅ player_actor_map correctly set for user ${$userStore.user.user_id} -> actor ${actor.actor_id}`);
-                } else {
-                    console.warn(`[JoinPage] ⚠️ player_actor_map not correctly set yet. Current map:`, updatedGame.player_actor_map);
+            // Step 6: Double-check that the player_actor_map was updated
+            const verifyMapOperation = async () => {
+                const game = await getGame(gameId);
+                if (!game) return false;
+                
+                if (!game.player_actor_map) {
+                    console.warn('[JoinPage] Game has no player_actor_map property, will try to create it');
+                    return false;
                 }
-            } else {
-                console.warn(`[JoinPage] ⚠️ Game has no player_actor_map property`);
-            }
+                
+                // The map may be a Gun.js reference or a regular object
+                const isReference = typeof game.player_actor_map === 'object' && game.player_actor_map['#'];
+                
+                if (isReference) {
+                    console.log('[JoinPage] player_actor_map is a Gun.js reference:', game.player_actor_map);
+                    return true; // We'll resolve it later in the game page
+                }
+                
+                // Check if our mapping is in the object
+                if (game.player_actor_map[$userStore.user.user_id] === actor.actor_id) {
+                    console.log(`[JoinPage] ✅ player_actor_map correctly set for user ${$userStore.user.user_id} -> actor ${actor.actor_id}`);
+                    return true;
+                }
+                
+                console.warn(`[JoinPage] ⚠️ player_actor_map doesn't have our mapping yet:`, game.player_actor_map);
+                return false;
+            };
+            
+            await executeWithRetry(verifyMapOperation, "Verifying player_actor_map");
+            
+            // Even if verification failed, we proceed with the redirect
+            // The game page has recovery mechanisms for missing player_actor_map entries
             
             // Now redirect to the game page
             console.log(`[JoinPage] Actor selected and role assigned - redirecting to game page: /games/${gameId}`);
