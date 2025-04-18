@@ -82,7 +82,7 @@ export interface Game {
     deck_id: string; // Reference to deck used in this game
     deck_type?: string; // Type of deck ('eco-village' or 'community-garden')
     role_assignment: 'random' | 'choice'; // How roles are assigned
-    players: Record<string, string>; // Map of user_id to actor_id
+    players: Record<string, boolean | string>; // Map of user_id to either true (for membership) or actor_id
     created_at: number;
     updated_at?: number;
     status: GameStatus;

@@ -70,8 +70,9 @@ export async function createGame(
       creator: currentUser.user_id,
       deck_type: deckType,
       deck: {},
-      role_assignment: {},
-      role_assignment_type: roleAssignmentType,
+      role_assignment: 'random' as 'random' | 'choice',
+      // Custom property for UI only - not in Game interface
+      role_assignment_type: roleAssignmentType as any,
       players: { [currentUser.user_id]: true },
       created_at: Date.now(),
       status: GameStatus.CREATED
@@ -222,7 +223,7 @@ export async function joinGame(gameId: string): Promise<boolean> {
   }
 
   // Check if user is already in the game
-  const playersObj = game.players as Record<string, boolean>;
+  const playersObj = game.players as Record<string, boolean | string>;
   if (playersObj && playersObj[currentUser.user_id]) {
     log(`User already in game: ${gameId}`);
     return true;
@@ -276,7 +277,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   }
 
   // Remove user from players list
-  const playersObj = game.players as Record<string, boolean>;
+  const playersObj = game.players as Record<string, boolean | string>;
   if (!playersObj || !playersObj[currentUser.user_id]) {
     log(`User not in game: ${gameId}`);
     return true; // Already not in the game
@@ -1216,7 +1217,7 @@ export async function isGameFull(gameId: string): Promise<boolean> {
       return false;
     }
     
-    const playersObj = game.players as Record<string, boolean>;
+    const playersObj = game.players as Record<string, boolean | string>;
     const playerCount = playersObj ? Object.keys(playersObj).length : 0;
     
     const isFull = playerCount >= game.max_players;
@@ -1276,7 +1277,7 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
         if (game.players) {
           const players = Array.isArray(game.players) 
             ? game.players 
-            : Object.keys(game.players as Record<string, boolean>);
+            : Object.keys(game.players as Record<string, boolean | string>);
             
           for (const playerId of players) {
             // Skip if playerId is just the Gun metadata property '_'
