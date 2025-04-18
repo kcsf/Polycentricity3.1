@@ -5,7 +5,14 @@
   import { User } from 'lucide-svelte';
   import { iconStore, loadIcons } from '$lib/stores/iconStore';
   import { getGun, nodes } from '$lib/services/gunService';
-  import { getGameActors, getUserCard, subscribeToGame, getGame, getAvailableCardsForGame } from '$lib/services/gameService';
+  import { 
+    getGameActors, 
+    getUserCard, 
+    subscribeToGame, 
+    subscribeToGameActors,
+    getGame, 
+    getAvailableCardsForGame 
+  } from '$lib/services/gameService';
   import { getValue } from '$lib/services/valueService';
   import { getCapability } from '$lib/services/capabilityService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
