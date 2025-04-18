@@ -1,7 +1,7 @@
-import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ params }) => {
+// Define our load function with proper typing
+export async function load({ params }: { params: { gameId: string } }) {
     return {
         gameId: params.gameId
     };
