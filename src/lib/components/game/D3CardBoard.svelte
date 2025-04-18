@@ -353,7 +353,7 @@
       {/if}
       <button
         class="mt-2 px-2 py-1 text-xs bg-surface-200 rounded hover:bg-surface-300"
-        on:click={() => (selectedNode = null)}
+        onclick={() => (selectedNode = null)}
       >
         Close
       </button>
