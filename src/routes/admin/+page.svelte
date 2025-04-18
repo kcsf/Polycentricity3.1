@@ -17,27 +17,25 @@
   import { getCurrentUser } from '$lib/services/authService';
   
   // For visualization
-  let isG6Loading = false;
-  let g6Error: string | null = null;
-  let graphData = { nodes: [], edges: [] };
-  // No longer needed with the G6Graph component
-  // let graphContainer: HTMLElement;
+  let isG6Loading = $state<boolean>(false);
+  let g6Error = $state<string | null>(null);
+  let graphData = $state<{nodes: any[], edges: any[]}>({ nodes: [], edges: [] });
   
   // State variables
-  let isMounted = false;
-  let isLoading = true;
-  let error: string | null = null;
-  let databaseNodes: any[] = [];
-  let nodeCount = 0;
-  let activeTab = 'overview';
-  let activeDataTab = 'users';
+  let isMounted = $state<boolean>(false);
+  let isLoading = $state<boolean>(true);
+  let error = $state<string | null>(null);
+  let databaseNodes = $state<any[]>([]);
+  let nodeCount = $state<number>(0);
+  let activeTab = $state<string>('overview');
+  let activeDataTab = $state<string>('users');
   
   // Cleanup variables
-  let isCleanupLoading = false;
-  let cleanupError: string | null = null;
-  let cleanupSuccess: boolean = false;
-  let cleanupResult: { success: boolean; removed: number; error?: string } | null = null;
-  let currentUser = null;
+  let isCleanupLoading = $state<boolean>(false);
+  let cleanupError = $state<string | null>(null);
+  let cleanupSuccess = $state<boolean>(false);
+  let cleanupResult = $state<{ success: boolean; removed: number; error?: string } | null>(null);
+  let currentUser = $state<any>(null);
   
   // Simplified visualization loading
   function loadGraphVisualization() {
