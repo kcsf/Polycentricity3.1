@@ -110,6 +110,10 @@
             const userId = $userStore.user.user_id;
             log(`Loading user ${userId} actor for game ${gameId}`);
             
+            // Define retry settings
+            const maxAttempts = 2;
+            const backoffMs = 500;
+            
             // Create a timeout for the entire function
             const globalTimeout = setTimeout(() => {
                 log('loadUserActor timed out globally after 10 seconds');
@@ -204,18 +208,54 @@
                         // Let's try to use getPlayerRole function directly first (safer)
                         try {
                             if (savedActorId) {
-                                // Add timeout protection for getPlayerRole
-                                const rolePromise = getPlayerRole(gameId, userId, savedActorId);
-                                const roleTimeout = new Promise<null>((resolve) => {
-                                    setTimeout(() => {
-                                        log('getPlayerRole timed out after 2 seconds');
-                                        resolve(null);
-                                    }, 2000);
-                                });
+                                // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
+                                log(`Attempting getPlayerRole with retry logic - actor ${savedActorId}`);
                                 
-                                const actorFromRole = await Promise.race([rolePromise, roleTimeout]);
+                                let actorFromRole = null;
+                                
+                                // Try up to maxAttempts times with backoff
+                                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                    try {
+                                        log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
+                                        const rolePromise = getPlayerRole(gameId, userId, savedActorId);
+                                        const roleTimeout = new Promise<null>((resolve) => {
+                                            setTimeout(() => {
+                                                log(`getPlayerRole attempt ${attempt} timed out`);
+                                                resolve(null);
+                                            }, 2000);
+                                        });
+                                        
+                                        actorFromRole = await Promise.race([rolePromise, roleTimeout]);
+                                        
+                                        if (actorFromRole) {
+                                            log(`Successfully retrieved actor ${actorFromRole.actor_id} on attempt ${attempt}`);
+                                            break; // Success, exit the retry loop
+                                        } else if (attempt < maxAttempts) {
+                                            log(`Retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
+                                            await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                        }
+                                    } catch (retryErr) {
+                                        log(`Error in getPlayerRole retry attempt ${attempt}:`, retryErr);
+                                        if (attempt < maxAttempts) {
+                                            log(`Will retry after ${backoffMs}ms`);
+                                            await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                        }
+                                    }
+                                }
+                                
+                                // Fall back to localStorage if all retry attempts failed
+                                if (!actorFromRole) {
+                                    log(`All getPlayerRole attempts failed, falling back to basic actor with savedActorId: ${savedActorId}`);
+                                    // This is a basic placeholder actor with just the ID
+                                    actorFromRole = { 
+                                        actor_id: savedActorId,
+                                        game_id: gameId,
+                                        user_id: userId
+                                    } as Actor;
+                                }
+                                
                                 if (actorFromRole) {
-                                    log(`Found actor via getPlayerRole: ${actorFromRole.actor_id}`);
+                                    log(`Using actor ${actorFromRole.actor_id}`);
                                     playerRole = actorFromRole;
                                     activeActorId.set(actorFromRole.actor_id);
                                     return actorFromRole;
@@ -261,20 +301,54 @@
                                 log(`Found actor mapping via direct Gun.js lookup: user ${userId} -> actor ${mappedActorId}`);
                                 
                                 try {
-                                    // Get the complete actor data with timeout protection
-                                    log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
-                                    const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
-                                    const roleTimeout = new Promise<null>((resolve) => {
-                                        setTimeout(() => {
-                                            log('getPlayerRole for mappedActor timed out after 2 seconds');
-                                            resolve(null);
-                                        }, 2000);
-                                    });
+                                    // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
+                                    log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId}) with retries`);
                                     
-                                    const mappedActor = await Promise.race([rolePromise, roleTimeout]);
+                                    let mappedActor = null;
+                                    
+                                    // Try up to maxAttempts times with backoff
+                                    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                        try {
+                                            log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
+                                            const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
+                                            const roleTimeout = new Promise<null>((resolve) => {
+                                                setTimeout(() => {
+                                                    log(`getPlayerRole attempt ${attempt} timed out`);
+                                                    resolve(null);
+                                                }, 2000);
+                                            });
+                                            
+                                            mappedActor = await Promise.race([rolePromise, roleTimeout]);
+                                            
+                                            if (mappedActor) {
+                                                log(`Successfully retrieved mapped actor ${mappedActor.actor_id} on attempt ${attempt}`);
+                                                break; // Success, exit the retry loop
+                                            } else if (attempt < maxAttempts) {
+                                                log(`Retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
+                                                await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                            }
+                                        } catch (retryErr) {
+                                            log(`Error in getPlayerRole retry attempt ${attempt}:`, retryErr);
+                                            if (attempt < maxAttempts) {
+                                                log(`Will retry after ${backoffMs}ms`);
+                                                await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Fall back to basic actor if all retry attempts failed
+                                    if (!mappedActor) {
+                                        log(`All getPlayerRole attempts failed, falling back to basic actor with mappedActorId: ${mappedActorId}`);
+                                        // This is a basic placeholder actor with just the ID
+                                        mappedActor = { 
+                                            actor_id: mappedActorId,
+                                            game_id: gameId,
+                                            user_id: userId
+                                        } as Actor;
+                                    }
                                     
                                     if (mappedActor) {
-                                        log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
+                                        log(`Using actor ${mappedActor.actor_id}`);
                                         playerRole = mappedActor;
                                         activeActorId.set(mappedActor.actor_id);
                                         
@@ -300,20 +374,54 @@
                         log(`Found actor mapping in game object: user ${userId} -> actor ${mappedActorId}`);
                         
                         try {
-                            // Get the complete actor data with timeout protection
-                            log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
-                            const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
-                            const roleTimeout = new Promise<null>((resolve) => {
-                                setTimeout(() => {
-                                    log('getPlayerRole for normal object timed out after 2 seconds');
-                                    resolve(null);
-                                }, 2000);
-                            });
+                            // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
+                            log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId}) with retries`);
                             
-                            const mappedActor = await Promise.race([rolePromise, roleTimeout]);
+                            let mappedActor = null;
+                            
+                            // Try up to maxAttempts times with backoff
+                            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                try {
+                                    log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
+                                    const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
+                                    const roleTimeout = new Promise<null>((resolve) => {
+                                        setTimeout(() => {
+                                            log(`getPlayerRole attempt ${attempt} timed out`);
+                                            resolve(null);
+                                        }, 2000);
+                                    });
+                                    
+                                    mappedActor = await Promise.race([rolePromise, roleTimeout]);
+                                    
+                                    if (mappedActor) {
+                                        log(`Successfully retrieved mapped actor ${mappedActor.actor_id} on attempt ${attempt}`);
+                                        break; // Success, exit the retry loop
+                                    } else if (attempt < maxAttempts) {
+                                        log(`Retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
+                                        await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                    }
+                                } catch (retryErr) {
+                                    log(`Error in getPlayerRole retry attempt ${attempt}:`, retryErr);
+                                    if (attempt < maxAttempts) {
+                                        log(`Will retry after ${backoffMs}ms`);
+                                        await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                    }
+                                }
+                            }
+                            
+                            // Fall back to localStorage if all retry attempts failed
+                            if (!mappedActor && savedActorId) {
+                                log(`All getPlayerRole attempts failed, falling back to localStorage actorId: ${savedActorId}`);
+                                // This is a basic placeholder actor with just the ID
+                                mappedActor = { 
+                                    actor_id: savedActorId,
+                                    game_id: gameId,
+                                    user_id: userId
+                                } as Actor;
+                            }
                             
                             if (mappedActor) {
-                                log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
+                                log(`Using actor ${mappedActor.actor_id} (from ${mappedActor === null ? "retries" : "localStorage fallback"})`);
                                 playerRole = mappedActor;
                                 activeActorId.set(mappedActor.actor_id);
                                 return mappedActor;
@@ -378,18 +486,54 @@
                             
                             // Now try to get the actor data
                             try {
-                                // Add timeout protection
-                                const rolePromise = getPlayerRole(gameId, userId, savedActorId);
-                                const roleTimeout = new Promise<null>((resolve) => {
-                                    setTimeout(() => {
-                                        log('getPlayerRole for final actor lookup timed out after 2 seconds');
-                                        resolve(null);
-                                    }, 2000);
-                                });
+                                // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
+                                log(`Attempting final getPlayerRole attempt with retry logic - actor ${savedActorId}`);
                                 
-                                const actor = await Promise.race([rolePromise, roleTimeout]);
+                                let actor = null;
+                                
+                                // Try up to maxAttempts times with backoff
+                                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                    try {
+                                        log(`Final getPlayerRole attempt ${attempt}/${maxAttempts}`);
+                                        const rolePromise = getPlayerRole(gameId, userId, savedActorId);
+                                        const roleTimeout = new Promise<null>((resolve) => {
+                                            setTimeout(() => {
+                                                log(`Final getPlayerRole attempt ${attempt} timed out`);
+                                                resolve(null);
+                                            }, 2000);
+                                        });
+                                        
+                                        actor = await Promise.race([rolePromise, roleTimeout]);
+                                        
+                                        if (actor) {
+                                            log(`Successfully retrieved actor ${actor.actor_id} on final attempt ${attempt}`);
+                                            break; // Success, exit the retry loop
+                                        } else if (attempt < maxAttempts) {
+                                            log(`Final retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
+                                            await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                        }
+                                    } catch (retryErr) {
+                                        log(`Error in final getPlayerRole retry attempt ${attempt}:`, retryErr);
+                                        if (attempt < maxAttempts) {
+                                            log(`Will retry after ${backoffMs}ms`);
+                                            await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                        }
+                                    }
+                                }
+                                
+                                // Fall back to basic actor if all retry attempts failed
+                                if (!actor) {
+                                    log(`All final getPlayerRole attempts failed, falling back to basic actor with savedActorId: ${savedActorId}`);
+                                    // This is a basic placeholder actor with just the ID
+                                    actor = { 
+                                        actor_id: savedActorId,
+                                        game_id: gameId,
+                                        user_id: userId
+                                    } as Actor;
+                                }
+                                
                                 if (actor) {
-                                    log(`Successfully retrieved actor after fixing player_actor_map: ${actor.actor_id}`);
+                                    log(`Using actor ${actor.actor_id} after fixing player_actor_map`);
                                     playerRole = actor;
                                     activeActorId.set(actor.actor_id);
                                     return actor;
