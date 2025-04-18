@@ -20,7 +20,8 @@
   import { userStore } from '$lib/stores/userStore';
   import type { Game, Actor, Card } from '$lib/types';
   import { getCard } from '$lib/services/gameService';
-  // Using local cache-only implementations instead of deckService functions to avoid redundant Gun queries
+  import { getCardValueNames } from '$lib/services/valueService';
+  import { getCardCapabilityNames } from '$lib/services/capabilityService';
   
   // Components
   import GameBoard from '$lib/components/game/GameBoard.svelte';
@@ -52,67 +53,7 @@
   let playerCardValues: string[] = [];
   let playerCardCapabilities: string[] = [];
   
-  // Cache-only version of getCardValueNames - completely avoids Gun.js queries
-  async function getCardValueNames(card: Card): Promise<string[]> {
-    if (!card.values) return [];
-    
-    // Default values that should always be available
-    const defaultValues = ["Sustainability", "Community Resilience"];
-    
-    // If we have no values, return these defaults
-    if (!card.values || (typeof card.values === 'object' && Object.keys(card.values).length === 0)) {
-      return defaultValues;
-    }
-    
-    // Determine the format of the values property and extract IDs accordingly
-    if (typeof card.values === "string") {
-      // Handle string format (comma-separated values)
-      const valueString = card.values as string;
-      return valueString.split(",")
-        .map((v: string) => v.trim())
-        .filter(Boolean);
-    } else if (Array.isArray(card.values)) {
-      // Handle array format (list of value strings)
-      const valueArray = card.values as string[];
-      return valueArray
-        .map((v: string) => v.trim())
-        .filter(Boolean);
-    }
-    
-    // If values is in an object format we can't process locally, return defaults
-    return defaultValues;
-  }
-  
-  // Cache-only version of getCardCapabilityNames - completely avoids Gun.js queries
-  async function getCardCapabilityNames(card: Card): Promise<string[]> {
-    if (!card.capabilities) return [];
-    
-    // Default values if no capabilities
-    const defaultCapabilities = [];
-    
-    // If we have no capabilities, return empty array
-    if (!card.capabilities || (typeof card.capabilities === 'object' && Object.keys(card.capabilities).length === 0)) {
-      return defaultCapabilities;
-    }
-    
-    // Process capabilities in various formats
-    if (typeof card.capabilities === "string") {
-      // Handle string format (comma-separated values)
-      const capabilityString = card.capabilities as string;
-      return capabilityString.split(",")
-        .map((v: string) => v.trim())
-        .filter(Boolean);
-    } else if (Array.isArray(card.capabilities)) {
-      // Handle array format (list of capability strings)
-      const capabilityArray = card.capabilities as string[];
-      return capabilityArray
-        .map((v: string) => v.trim())
-        .filter(Boolean);
-    }
-    
-    // For other formats, return defaults
-    return defaultCapabilities;
-  }
+  // Using imported getCardValueNames and getCardCapabilityNames from services
   
   // References to sidebar elements for click-outside detection
   let leftSidebarElement: HTMLElement;
