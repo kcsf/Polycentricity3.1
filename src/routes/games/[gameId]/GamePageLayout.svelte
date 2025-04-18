@@ -123,7 +123,10 @@
           
           // Get the value and capability names
           playerCardValues = await getCardValueNames(playerCard);
+          console.log('Retrieved values for card:', playerCardValues);
+          
           playerCardCapabilities = await getCardCapabilityNames(playerCard);
+          console.log('Retrieved capabilities for card:', playerCardCapabilities);
         } else {
           console.error(`Failed to load card data for card_id: ${playerRole.card_id}`);
           playerCard = null;
