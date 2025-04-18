@@ -193,96 +193,82 @@
             });
         }
         
-        // Function to load all dashboard data
+        // Function to load all dashboard data - optimized for Svelte 5.25.9 Runes mode
         async function loadDashboardData() {
                 console.log(`Loading dashboard data for user ${$userStore.user?.user_id || 'unknown'}`);
-                // Fetch user's games and actors
+                
                 try {
-                        // Get all user's actors first
-                        try {
-                            const userActors = await getUserActors();
-                            console.log(`Found ${userActors.length} actors for user ${$userStore.user?.user_id || 'unknown'}`);
-                            
-                            // Debug each actor found
-                            if (userActors.length > 0) {
-                                userActors.forEach((actor, index) => {
-                                    console.log(`Actor ${index + 1}: ID=${actor.actor_id}, Game=${actor.game_id}, Card=${actor.card_id || 'none'}`);
-                                });
-                            } else {
+                        // Use Promise.all to make requests in parallel for performance
+                        const [allGames, userActors] = await Promise.all([
+                                // Get all games using the optimized gameService function
+                                getAllGames(),
+                                // Get all user's actors in parallel
+                                getUserActors()
+                        ]);
+                        
+                        console.log(`Found ${userActors.length} actors for user ${$userStore.user?.user_id || 'unknown'}`);
+                        if (userActors.length === 0) {
                                 console.warn(`No actors found for user ${$userStore.user?.user_id || 'unknown'} - this suggests a possible connectivity issue with Gun.js`);
-                            }
-                            
-                            // Load detailed actor information
-                            actorStats = await loadFullActorDetails(userActors || []);
-                        } catch (error) {
-                            console.error("Error retrieving user actors:", error);
-                            actorStats = [];
                         }
                         
-                        // Get games directly through user relationship
-                        let directUserGames = [];
-                        try {
-                            console.log(`Attempting to get games for user ${$userStore.user?.user_id || 'unknown'}`);
-                            directUserGames = await getUserGames();
-                            
-                            // Debug each game found
-                            if (directUserGames.length > 0) {
-                                console.log(`Found ${directUserGames.length} direct games for user ${$userStore.user?.user_id || 'unknown'}`);
-                                directUserGames.forEach((game, index) => {
-                                    console.log(`Game ${index + 1}: ID=${game.game_id}, Name=${game.name || 'Unnamed'}`);
+                        // Load detailed actor information
+                        actorStats = await loadFullActorDetails(userActors || []);
+                        
+                        // Get games from our actors
+                        const gameIds = new Set<string>();
+                        const userGames: Game[] = [];
+                        
+                        // Filter games by creator and through actor relationships
+                        if ($userStore.user) {
+                                allGames.forEach(game => {
+                                        // Add games created by the user
+                                        if (game.creator === $userStore.user?.user_id) {
+                                                if (!gameIds.has(game.game_id)) {
+                                                        gameIds.add(game.game_id);
+                                                        userGames.push(game);
+                                                }
+                                        }
+                                        
+                                        // Add games where the user has an actor
+                                        for (const actor of userActors) {
+                                                if (actor.game_id === game.game_id) {
+                                                        if (!gameIds.has(game.game_id)) {
+                                                                gameIds.add(game.game_id);
+                                                                userGames.push(game);
+                                                        }
+                                                        break;
+                                                }
+                                        }
                                 });
-                            } else {
-                                console.warn(`No direct games found for user ${$userStore.user?.user_id || 'unknown'} - this suggests a possible connectivity issue with Gun.js`);
-                            }
-                        } catch (error) {
-                            console.error("Error retrieving user games:", error);
-                            directUserGames = [];
                         }
                         
-                        // Also get games through actors (deeper traversal)
-                        const actorLinkedGames = await getGamesFromActors(actorStats);
-                        
-                        // Combine both game lists, removing duplicates using Map
-                        const gamesMap = new Map();
-                        
-                        // Add all games to the map, keyed by game_id
-                        [...directUserGames, ...actorLinkedGames].forEach(game => {
-                            if (game && game.game_id) {
-                                gamesMap.set(game.game_id, game);
-                            }
-                        });
-                        
-                        // Convert map back to array
-                        const allUserGames = Array.from(gamesMap.values());
-                        
-                        console.log(`Combined ${directUserGames.length} direct games with ${actorLinkedGames.length} actor games for total of ${allUserGames.length} games`);
+                        console.log(`Found ${userGames.length} games for user across all relationships`);
                         
                         // Store in the games store
-                        userGamesStore.set(allUserGames);
-                        
-                        // Get all games (for additional stats)
-                        const allGames = await getAllGames();
+                        userGamesStore.set(userGames);
                         
                         // Calculate dashboard stats
                         if ($userStore.user) {
-                            // Count games created by the user
-                            dashboardStats.gamesCreated = allGames.filter(game => 
-                                game.creator === $userStore.user?.user_id
-                            ).length;
-                            
-                            // Count games joined (from combined list)
-                            dashboardStats.gamesJoined = allUserGames.length;
-                            
-                            // Count agreements
-                            const agreementCounts = await countUserAgreements();
-                            dashboardStats.agreementsParticipating = agreementCounts.participating;
-                            dashboardStats.agreementsCreated = agreementCounts.created;
-                            
-                            // Count decks
-                            dashboardStats.decksCreated = await countUserDecks();
-                            
-                            // Count cards
-                            dashboardStats.cardsOwned = await countUserCards();
+                                // Count games created by the user
+                                dashboardStats.gamesCreated = allGames.filter(game => 
+                                        game.creator === $userStore.user?.user_id
+                                ).length;
+                                
+                                // Count games joined (from combined list)
+                                dashboardStats.gamesJoined = userGames.length;
+                                
+                                // Count agreements, decks, and cards in parallel
+                                const [agreementCounts, deckCount, cardCount] = await Promise.all([
+                                        countUserAgreements(),
+                                        countUserDecks(),
+                                        countUserCards()
+                                ]);
+                                
+                                // Update the stats
+                                dashboardStats.agreementsParticipating = agreementCounts.participating;
+                                dashboardStats.agreementsCreated = agreementCounts.created;
+                                dashboardStats.decksCreated = deckCount;
+                                dashboardStats.cardsOwned = cardCount;
                         }
                 } catch (error) {
                         console.error('Error fetching dashboard data:', error);
@@ -294,38 +280,29 @@
                 // Dashboard data has been loaded successfully
         }
         
+        // Use $effect (Runes mode) to respond to auth state changes
+        $effect(() => {
+            // When auth state changes, load dashboard data if user is authenticated
+            if ($userStore.user?.user_id) {
+                console.log(`User authenticated in dashboard: ${$userStore.user.user_id}`);
+                // Don't await in $effect
+                loadDashboardData();
+            } else if (!$userStore.isLoading) {
+                console.log('User not authenticated in dashboard');
+            }
+        });
+        
         // Using onMount with proper error handling for Svelte 5.25.9 Runes mode
-        onMount(async () => {
-                // Ensure user is authenticated before loading data
-                if (!$userStore.user?.user_id) {
-                    console.log("User not authenticated yet, waiting for auth state");
-                    
-                    // Set a watcher for user state changes
-                    const unsubscribe = userStore.subscribe(state => {
-                        if (state.user?.user_id) {
-                            console.log(`User authenticated: ${state.user.user_id}, loading dashboard data`);
-                            unsubscribe();
-                            loadDashboardData();
-                        }
-                    });
-                    
-                    // Set a timeout to prevent hanging indefinitely
-                    setTimeout(() => {
-                        if (!$userStore.user?.user_id) {
-                            console.warn("User authentication timeout, attempting to load anyway");
-                            loadDashboardData();
-                        }
-                    }, 5000);
-                } else {
-                    // User is already authenticated, load data immediately
-                    await loadDashboardData();
-                }
-                
-                // Add a cleanup function to prevent memory leaks
-                return () => {
-                    // Perform any cleanup needed when component is destroyed
-                    console.log('Dashboard component unmounted');
-                };
+        onMount(() => {
+            // If auth is already complete, load data immediately
+            if (!$userStore.isLoading && !$userStore.user) {
+                console.log('Auth already complete but no user, showing login option');
+            }
+            
+            // Add a cleanup function to prevent memory leaks
+            return () => {
+                console.log('Dashboard component unmounted');
+            };
         });
         
         // Add a Runes $effect to log when dashboard data changes
@@ -443,7 +420,7 @@
                                                 class="btn variant-filled-primary"
                                                 onclick={() => {
                                                         import('$lib/services/authService').then(({ loginUser }) => {
-                                                                loginUser('bjorn@endogon.com', 'password')
+                                                                loginUser('bjorn@endogon.com', 'admin123')
                                                                         .then(() => {
                                                                                 console.log('Logged in as admin');
                                                                                 window.location.reload();

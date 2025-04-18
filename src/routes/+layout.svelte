@@ -5,48 +5,44 @@
   import Footer from '$lib/components/Footer.svelte';
   import { onMount } from 'svelte';
   import { initializeGun } from '$lib/services/gunService';
-  import { initializeAuth } from '$lib/services/authService';
+  import { initializeAuth, loginUser } from '$lib/services/authService';
   import { userStore } from '$lib/stores/userStore';
+  import { getAllGames } from '$lib/services/gameService';
   import { toggleTheme } from '$lib/stores/themeStore';
 
+  // Initialize on mount - simple approach without Runes for now
   onMount(async () => {
-    // Initialize Gun.js when app loads
     initializeGun();
     
-    // Measure the actual header height and set the CSS variable without logging
-    const headerElement = document.querySelector('header');
-    if (headerElement) {
-      const headerHeight = headerElement.offsetHeight;
-      document.documentElement.style.setProperty('--app-bar-height', `${headerHeight}px`);
+    const headerEl = document.querySelector('header');
+    if (headerEl) {
+      const height = headerEl.offsetHeight;
+      document.documentElement.style.setProperty('--app-bar-height', `${height}px`);
     }
     
-    // Override Gun's console.log with a no-op function to prevent welcome message
-    // This is a bit of a hack, but Gun.js has hardcoded console.log calls we need to silence
-    const originalConsoleLog = console.log;
-    console.log = function(...args) {
-      // Filter out Gun.js welcome message
-      if (args[0] && typeof args[0] === 'string' && args[0].includes('Hello wonderful person')) {
-        return; // don't log the welcome message
-      }
-      // Otherwise, pass through to the original console.log
-      originalConsoleLog.apply(console, args);
-    };
-    
-    // Initialize authentication from saved session
-    console.log('Initializing app authentication');
     try {
       await initializeAuth();
-      console.log(`Authentication status: ${$userStore.isAuthenticated ? 'Logged In' : 'Not Logged In'}`);
-      if ($userStore.user) {
-        console.log(`Authenticated as: ${$userStore.user.name} (${$userStore.user.user_id})`);
+      
+      // Try admin login if not authenticated
+      if (!$userStore.isAuthenticated) {
+        try {
+          await loginUser('bjorn@endogon.com', 'admin123');
+          console.log('Admin login successful');
+          
+          // Pre-fetch games for faster dashboard loading
+          getAllGames().then(games => {
+            console.log(`Pre-fetched ${games.length} games`);
+          });
+        } catch (error) {
+          console.warn('Admin login failed:', error);
+        }
       }
     } catch (error) {
-      console.error('Error initializing authentication:', error);
+      console.error('Auth error:', error);
     }
   });
 </script>
 
-<!-- Set a default app-bar-height that will be overridden by JavaScript -->
 <style>
   :global(:root) {
     --app-bar-height: 64px;
