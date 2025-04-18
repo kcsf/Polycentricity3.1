@@ -421,7 +421,7 @@
                             }
                             
                             if (mappedActor) {
-                                log(`Using actor ${mappedActor.actor_id} (from ${mappedActor === null ? "retries" : "localStorage fallback"})`);
+                                log(`Using actor ${mappedActor.actor_id} from ${savedActorId ? "localStorage fallback" : "role retrieval"}`);
                                 playerRole = mappedActor;
                                 activeActorId.set(mappedActor.actor_id);
                                 return mappedActor;
@@ -567,10 +567,17 @@
             isJoining = true;
             error = '';
             
-            // Simple safe redirect to details page for now
-            goto(`/games/${gameId}/details`);
+            // Simple safe redirect to details page with error handling
+            try {
+                await goto(`/games/${gameId}/details`);
+                log('Navigation to game details successful');
+            } catch (navError) {
+                log('Navigation error redirecting to details page:', navError);
+                // Try fallback navigation
+                window.location.href = `/games/${gameId}/details`;
+            }
         } catch (err) {
-            log('Error redirecting to join game:', err);
+            log('Error in handleJoinGame:', err);
             error = 'An error occurred. Please try again.';
         } finally {
             isJoining = false;
@@ -646,7 +653,15 @@
                         <div class="flex flex-col sm:flex-row gap-2 mt-6 justify-center">
                             <button 
                                 class="btn variant-filled-primary" 
-                                onclick={() => goto(`/games/${gameId}/join`)}
+                                onclick={async () => {
+                                    try {
+                                        await goto(`/games/${gameId}/join`);
+                                        log('Navigation to join page successful');
+                                    } catch (navError) {
+                                        log('Navigation error going to join page:', navError);
+                                        window.location.href = `/games/${gameId}/join`;
+                                    }
+                                }}
                                 disabled={isJoining}
                             >
                                 {#if isJoining}
