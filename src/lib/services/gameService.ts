@@ -1124,8 +1124,33 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
   }
 }
 
-// Re-export existing functions from the original service as needed
-export { 
-  // Additional functions not covered above
-  assignCardToActor
-} from './gameService';
+// Add an implementation for assignCardToActor
+export async function assignCardToActor(actorId: string, cardId: string): Promise<boolean> {
+  log(`Assigning card ${cardId} to actor ${actorId}`);
+  const gun = getGun();
+  
+  if (!gun) {
+    logError('Gun not initialized');
+    return false;
+  }
+
+  try {
+    await Promise.all([
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.actors).get(actorId).get('card_id').put(cardId, (ack: any) =>
+          ack.err ? reject(ack.err) : resolve()
+        );
+      }),
+      createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`)
+    ]);
+    
+    // Clear cache for this actor
+    actorCache.delete(actorId);
+    
+    log(`Card ${cardId} assigned to actor ${actorId}`);
+    return true;
+  } catch (error) {
+    logError(`Error assigning card ${cardId} to actor ${actorId}:`, error);
+    return false;
+  }
+}
