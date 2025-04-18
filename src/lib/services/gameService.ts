@@ -351,7 +351,7 @@ export async function joinGame(gameId: string): Promise<boolean> {
   }
 
   // Update players list with the current user
-  const updatedPlayers = { ...(playersObj || {}), [currentUser.user_id]: true };
+  const updatedPlayers: Record<string, boolean | string> = { ...(playersObj || {}), [currentUser.user_id]: true };
   
   try {
     // Use the utility functions from gunService which properly handle Gun.js operations
@@ -404,7 +404,9 @@ export async function leaveGame(gameId: string): Promise<boolean> {
     return true; // Already not in the game
   }
 
-  const { [currentUser.user_id]: _, ...updatedPlayers } = playersObj;
+  const { [currentUser.user_id]: _, ...updatedPlayersObj } = playersObj;
+  // Ensure correct type
+  const updatedPlayers: Record<string, boolean | string> = updatedPlayersObj;
   
   try {
     await Promise.all([
@@ -1094,7 +1096,7 @@ export async function createActor(
     }
     
     // Check if user is already in the game players
-    const playersObj = game.players as Record<string, boolean>;
+    const playersObj = game.players as Record<string, boolean | string>;
     if (!playersObj || !playersObj[currentUser.user_id]) {
       // Add user to game players first
       const success = await joinGame(gameId);
@@ -1142,6 +1144,15 @@ export async function createActor(
       // Add user to chat participants using createRelationship
       createRelationship(`${nodes.chat}/${gameId}_group/participants`, currentUser.user_id, `${nodes.users}/${currentUser.user_id}`)
     ]);
+    
+    // Direct approach to ensure User->Actor edge exists (more reliable than createRelationship)
+    gun.get(nodes.users).get(currentUser.user_id).get('actors').get(actorId).put(true, (ack: any) => {
+      if (ack.err) {
+        logError(`Failed to create direct User->Actor edge: ${ack.err}`);
+      } else {
+        log(`Created direct User->Actor edge: ${currentUser.user_id} -> ${actorId}`);
+      }
+    });
     
     // Cache the actor
     cacheActor(actorId, actor);
