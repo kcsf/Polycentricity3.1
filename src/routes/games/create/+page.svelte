@@ -103,7 +103,10 @@
                                 </div>
                         {/if}
                         
-                        <CreateGameForm on:created={handleGameCreated} />
+                        <CreateGameForm 
+                                on:created={handleGameCreated}
+                                on:statusUpdate={(e) => creationStatus = e.detail.status}
+                        />
                 </div>
         </div>
 </div>

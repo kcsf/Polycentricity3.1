@@ -36,7 +36,7 @@ function cacheRole(gameId: string, userId: string, actorId: string): void {
   roleCache.set(key, actorId);
 }
 
-// Create a new game (optimized with concurrent operations)
+// Create a new game with improved reliability
 export async function createGame(
   name: string,
   deckType: string,
@@ -48,9 +48,9 @@ export async function createGame(
     let currentUser = getCurrentUser();
 
     if (!currentUser) {
-      logWarn('No authenticated user. Using mock user.');
+      logWarn('No authenticated user. Using mock user for development.');
       currentUser = {
-        user_id: 'dev-user-' + Date.now(),
+        user_id: 'u838', // Using a consistent ID for development to make debugging easier
         name: 'Development User',
         email: 'dev@example.com',
         created_at: Date.now(),
@@ -64,6 +64,8 @@ export async function createGame(
     }
 
     const game_id = generateId();
+    log(`Generated game ID: ${game_id}`);
+    
     // Get appropriate deck ID based on type
     const deck_id = deckType === 'eco-village' ? 'd1' : 
                     deckType === 'community-garden' ? 'd2' : 'd1'; // default to d1
@@ -74,73 +76,134 @@ export async function createGame(
       name,
       creator: currentUser.user_id,
       deck_type: deckType,
-      deck_id, // This is required by the Game interface
-      deck: {},
+      deck_id,
       role_assignment: 'random' as 'random' | 'choice',
-      // Custom property for UI only - not in Game interface
       role_assignment_type: roleAssignmentType,
       players: { [currentUser.user_id]: true },
       created_at: Date.now(),
       status: GameStatus.CREATED
     };
 
-    // Perform concurrent writes
+    log(`Creating game node: ${game_id}`);
+    
+    // Step 1: Create the core game data first
+    await new Promise<void>((resolve, reject) => {
+      gun.get(nodes.games).get(game_id).put({
+        game_id,
+        name,
+        creator: currentUser.user_id,
+        deck_type: deckType,
+        deck_id,
+        role_assignment_type: roleAssignmentType as any,
+        created_at: Date.now(),
+        status: GameStatus.CREATED
+      }, (ack: any) => {
+        if (ack.err) {
+          reject(ack.err);
+        } else {
+          log(`Core game data created: ${game_id}`);
+          resolve();
+        }
+      });
+    });
+    
+    // Step 2: Add the player data
+    await new Promise<void>((resolve, reject) => {
+      gun.get(nodes.games).get(game_id).get('players').put({ [currentUser.user_id]: true }, (ack: any) => {
+        if (ack.err) {
+          reject(ack.err);
+        } else {
+          log(`Added player ${currentUser.user_id} to game: ${game_id}`);
+          resolve();
+        }
+      });
+    });
+    
+    // Step 3: Add empty deck and role_assignment objects
     await Promise.all([
       new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).put({
-          game_id,
-          name,
-          creator: currentUser.user_id,
-          deck_type: deckType,
-          deck_id, // Add the deck_id here too
-          // Store custom property in database
-          role_assignment_type: roleAssignmentType as any,
-          created_at: Date.now(),
-          status: GameStatus.CREATED
-        }, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
+        gun.get(nodes.games).get(game_id).get('deck').put({}, (ack: any) => {
+          if (ack.err) {
+            reject(ack.err);
+          } else {
+            log(`Added empty deck to game: ${game_id}`);
+            resolve();
+          }
+        });
       }),
       new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('players').put({ [currentUser.user_id]: true }, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
-      }),
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('deck').put({}, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
-      }),
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('role_assignment').put({}, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
+        gun.get(nodes.games).get(game_id).get('role_assignment').put({}, (ack: any) => {
+          if (ack.err) {
+            reject(ack.err);
+          } else {
+            log(`Added empty role_assignment to game: ${game_id}`);
+            resolve();
+          }
+        });
       })
     ]);
 
-    // Setup predefined deck if specified
+    // Step 4: Create relationship from user to game
+    log(`Creating relationship from user ${currentUser.user_id} to game ${game_id}`);
+    await new Promise<void>((resolve, reject) => {
+      gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id as any, (ack: any) => {
+        if (ack.err) {
+          reject(ack.err);
+        } else {
+          log(`Added game ${game_id} to user ${currentUser.user_id}'s games list`);
+          resolve();
+        }
+      });
+    });
+    
+    // Step 5: Create creator reference
+    await new Promise<void>((resolve, reject) => {
+      gun.get(nodes.games).get(game_id).get('creator_ref').put({ '#': `${nodes.users}/${currentUser.user_id}` }, (ack: any) => {
+        if (ack.err) {
+          reject(ack.err);
+        } else {
+          log(`Added creator_ref to game: ${game_id}`);
+          resolve();
+        }
+      });
+    });
+    
+    // Step 6: Setup predefined deck if specified
     if (deckType === 'eco-village' || deckType === 'community-garden') {
+      log(`Setting up predefined deck: ${deckType} for game ${game_id}`);
       const actors = getPredefinedDeck(deckType);
-      await setGameActors(game_id, actors as Actor[]);
-    }
+      const success = await setGameActors(game_id, actors as Actor[]);
+      if (success) {
+        log(`Successfully added ${actors.length} actors from ${deckType} deck to game ${game_id}`);
+      } else {
+        logWarn(`Failed to add actors from ${deckType} deck to game ${game_id}`);
+      }
 
-    // Create relationships for graph visualization
-    await Promise.all([
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id as any, (ack: any) => 
-          ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.games).get(game_id).get('creator_ref').put({ '#': `${nodes.users}/${currentUser.user_id}` }, (ack: any) => 
-          ack.err ? reject(ack.err) : resolve()
-        );
-      }),
-      deckType === 'eco-village' || deckType === 'community-garden'
-        ? new Promise<void>((resolve, reject) => {
-            gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` }, (ack: any) => 
-              ack.err ? reject(ack.err) : resolve()
-            );
-          })
-        : Promise.resolve()
-    ]);
+      // Create deck reference
+      await new Promise<void>((resolve, reject) => {
+        gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deck_id}` }, (ack: any) => {
+          if (ack.err) {
+            reject(ack.err);
+          } else {
+            log(`Added deck_ref to game: ${game_id}`);
+            resolve();
+          }
+        });
+      });
+    }
 
     // Cache the game and update current game store
     cacheGame(game_id, gameData as Game);
     currentGameStore.set(gameData as Game);
-    log(`Game created: ${game_id}`);
+    log(`Game created successfully: ${game_id}`);
+    
+    // Verify the game exists before returning
+    const verifyGame = await getGame(game_id);
+    if (verifyGame) {
+      log(`Verified game exists: ${game_id}`);
+    } else {
+      logWarn(`Game verification failed for: ${game_id}`);
+    }
     
     return gameData as Game;
   } catch (error) {
@@ -183,7 +246,7 @@ export async function getGame(gameId: string): Promise<Game | null> {
   });
 }
 
-// Get all games
+// Get all games with improved reliability
 export async function getAllGames(): Promise<Game[]> {
   log('Getting all games');
   const gun = getGun();
@@ -196,8 +259,13 @@ export async function getAllGames(): Promise<Game[]> {
     const games: Game[] = [];
     const uniqueIds = new Set<string>();
     
+    // Flag to track if we've gotten any data
+    let hasReceivedData = false;
+    
+    // Get games from the games node
     gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
       if (gameData && gameId !== '_' && !uniqueIds.has(gameId)) {
+        hasReceivedData = true;
         uniqueIds.add(gameId);
         
         // Add game_id property if it's not already there
@@ -206,20 +274,41 @@ export async function getAllGames(): Promise<Game[]> {
         }
         
         const game = { ...gameData, game_id: gameId };
+        log(`Found game: ${gameId}, name: ${game.name}`);
         games.push(game);
         cacheGame(gameId, game);
       }
     });
     
-    // Use a short timeout instead of .then() since Gun.js map().once() doesn't consistently support .then()
-    // We'll implement a better solution when Gun.js provides more reliable promise support
-    const gunRef = gun.get(nodes.games).map().once(() => {});
+    // Also try to get games by user reference for more reliability
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.user_id) {
+      const userId = currentUser.user_id;
+      // Cast userId to string to satisfy TypeScript
+      gun.get(nodes.users).get(String(userId)).get('games').map().once((game, gameId) => {
+        if (gameId && gameId !== '_' && !uniqueIds.has(gameId)) {
+          hasReceivedData = true;
+          log(`Found game via user: ${gameId}`);
+          // Now fetch the actual game data
+          gun.get(nodes.games).get(gameId).once((gameData: Game) => {
+            if (gameData) {
+              const game = { ...gameData, game_id: gameId };
+              uniqueIds.add(gameId);
+              games.push(game);
+              cacheGame(gameId, game);
+            }
+          });
+        }
+      });
+    }
     
-    // Use a separate promise that resolves after the Gun.js operations
-    Promise.resolve().then(() => {
-      log(`Retrieved ${games.length} games`);
+    // Use a longer timeout to allow more time for Gun.js data to arrive
+    // The timeout is longer for the first time (when hasReceivedData is false)
+    // and shorter if we've already received some data
+    setTimeout(() => {
+      log(`Retrieved ${games.length} games (timeout ${hasReceivedData ? 'with' : 'without'} data)`);
       resolve(games);
-    });
+    }, hasReceivedData ? 1000 : 3000); // Wait longer if no data received
   });
 }
 
