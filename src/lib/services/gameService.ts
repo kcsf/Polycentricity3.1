@@ -927,14 +927,15 @@ export async function getUserGames(): Promise<Game[]> {
       }
     });
     
-    // Give some time for the initial scan to register the promises
+    // Allow more time for the initial scan to register the promises and for Gun.js to find data 
     setTimeout(() => {
+      log(`Waiting for ${gamePromises.length} game promises to resolve`);
       // Wait for all game promises to resolve
       Promise.all(gamePromises).then(() => {
         log(`Retrieved ${games.length} games for user ${currentUser.user_id}`);
         resolve(games);
       });
-    }, 300);
+    }, 1000); // Increased from 300ms to 1000ms for a more complete search
   });
 
   userGames.push(...directGames);
@@ -1426,11 +1427,11 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
       let methodsCompleted = 0;
       const totalMethods = 2; // Only using role_assignment and direct actor lookups
       
-      // Shorter global timeout to ensure we return something quickly
+      // Allow a longer global timeout to find more actors
       const globalTimeout = setTimeout(() => {
         log(`Global timeout reached with ${actors.length} actors found`);
         finishCollection();
-      }, 1000); // Reduced from 1500ms for better UI responsiveness
+      }, 2500); // Increased to ensure a more comprehensive search
       
       // Method 1: Check actor cache FIRST for instant retrieval
       // Use Array.from for better TypeScript compatibility instead of for...of with entries()
@@ -1498,28 +1499,35 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
         });
       });
       
-      // Set a reasonable timeout to complete this method
+      // Set a reasonable timeout to complete this method, but extend it for a more comprehensive search
       setTimeout(() => {
         method1Complete = true;
         methodComplete();
-      }, 500);
+      }, 1500); // Increased from 500 to ensure we get more results
       
       // Method 3: Try to get actors from user->actors relationship (fallback)
       log(`[SECONDARY] Checking user->actors links for user ${userToCheck}`);
       let userActorsComplete = false;
+      let foundActorsFromUser = false;
       
       gun.get(nodes.users).get(userToCheck).get('actors').map().once((actorValue: any, actorId: string) => {
         if (actorId && actorId !== '_' && !uniqueIds.has(actorId)) {
+          foundActorsFromUser = true;
           log(`Found actor link from user: ${actorId}`);
           fetchActor(actorId);
         }
       });
       
-      // Set timeout for user actors method completion
+      // Set timeout for user actors method completion - longer if we found actors to give time to fetch
       setTimeout(() => {
         userActorsComplete = true;
+        if (foundActorsFromUser) {
+          log(`Completing user->actors search with actors found`);
+        } else {
+          log(`No actors found via user->actors links`);
+        }
         methodComplete();
-      }, 500);
+      }, foundActorsFromUser ? 1500 : 800); // Longer timeout if we found actors to fetch
       
       // Helper to fetch an actor with timeout protection
       function fetchActor(actorId: string, gameId?: string) {
