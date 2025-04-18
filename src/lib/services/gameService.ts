@@ -6,25 +6,14 @@ import { getPredefinedDeck } from '../data/predefinedDecks';
 import { get } from 'svelte/store';
 import { currentGameStore, setUserGames } from '../stores/gameStore';
 
-// Define global types for TypeScript
-declare global {
-  var gameCache: Map<string, Game>;
-  var actorCache: Map<string, Actor>;
-  var cardCache: Map<string, Card>;
-  var roleCache: Map<string, string>;
-}
+// Caches for performance
+const gameCache = new Map<string, Game>();
+const actorCache = new Map<string, Actor>();
+const cardCache = new Map<string, Card>();
+const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 
-// Initialize global caches if they don't exist
-if (!globalThis.gameCache) globalThis.gameCache = new Map<string, Game>();
-if (!globalThis.actorCache) globalThis.actorCache = new Map<string, Actor>();
-if (!globalThis.cardCache) globalThis.cardCache = new Map<string, Card>();
-if (!globalThis.roleCache) globalThis.roleCache = new Map<string, string>();
-
-// Export references to the global caches for use throughout the app
-const gameCache = globalThis.gameCache;
-const actorCache = globalThis.actorCache;
-const cardCache = globalThis.cardCache;
-const roleCache = globalThis.roleCache; // gameId:userId -> actorId
+// Export actorCache for external use
+export { actorCache };
 
 // REMOVED: Helper function to get an actor by ID (getActorById)
 // Replaced with getPlayerRole or getUserActors as these provide more comprehensive checks
@@ -1284,7 +1273,6 @@ export async function createActor(
 }
 
 // Get a user's actors from all games
-export { actorCache };
 
 async function getUserActors(userId?: string): Promise<Actor[]> {
   try {
@@ -1418,6 +1406,14 @@ async function getUserActors(userId?: string): Promise<Actor[]> {
         const fetchTimeout = setTimeout(() => {
           log(`Actor fetch timeout for ${actorId}`);
         }, 500);
+        
+        // We've already checked that gun exists at the beginning of the function
+        // TypeScript doesn't track this, so we'll do a redundant check
+        if (!gun) {
+          clearTimeout(fetchTimeout);
+          logError('Gun not initialized in fetchActor');
+          return;
+        }
         
         gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
           clearTimeout(fetchTimeout);
