@@ -1085,7 +1085,12 @@ export async function getCard(cardId: string): Promise<Card | null> {
   });
 }
 
-// Get a user's card in a game efficiently
+/**
+ * Get a user's card in a game efficiently with anti-timeout measures
+ * @param gameId Game ID
+ * @param userId User ID
+ * @returns Promise with Card or null
+ */
 export async function getUserCard(gameId: string, userId: string): Promise<Card | null> {
   log(`Fetching card for user ${userId} in game ${gameId}`);
   const cacheKey = `${gameId}:${userId}`;
@@ -1111,22 +1116,49 @@ export async function getUserCard(gameId: string, userId: string): Promise<Card 
     }
   }
 
-  // Fallback to the direct actor search approach
+  // Fallback to the direct actor search approach with explicit timeout
   return new Promise((resolve) => {
+    // Set a global timeout to ensure this function doesn't hang
+    const globalTimeout = setTimeout(() => {
+      log(`Global timeout getting card for user ${userId} in game ${gameId}`);
+      resolve(null);
+    }, 800);
+    
+    let foundActor = false;
+    
     gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
       if (actorData && actorData.game_id === gameId && actorData.user_id === userId && actorData.card_id) {
+        foundActor = true;
         log(`Found actor ${actorId} with card ${actorData.card_id}`);
         
+        // Set a card lookup timeout
+        const cardTimeout = setTimeout(() => {
+          clearTimeout(globalTimeout);
+          log(`Card lookup timeout for ${actorData.card_id}`);
+          resolve(null);
+        }, 400);
+        
         gun.get(nodes.cards).get(actorData.card_id).once((cardData: Card) => {
+          clearTimeout(cardTimeout);
+          
           if (!cardData) {
             logWarn(`Card ${actorData.card_id} not found for actor ${actorId}`);
             
-            // Try alternative format
+            // Try alternative format with a timeout
             if (actorData.card_id.startsWith('card_')) {
               const alternativeId = actorData.card_id.replace('card_', '');
               log(`Trying alternative ID: ${alternativeId}`);
               
+              const altTimeout = setTimeout(() => {
+                clearTimeout(globalTimeout);
+                log(`Alternative card lookup timeout for ${alternativeId}`);
+                resolve(null);
+              }, 300);
+              
               gun.get(nodes.cards).get(alternativeId).once((altCardData: Card) => {
+                clearTimeout(altTimeout);
+                clearTimeout(globalTimeout);
+                
                 if (altCardData) {
                   log(`Found card with alternative ID: ${alternativeId}`);
                   const fixedCard = {
@@ -1141,12 +1173,14 @@ export async function getUserCard(gameId: string, userId: string): Promise<Card 
                 }
               });
             } else {
+              clearTimeout(globalTimeout);
               resolve(null);
             }
             return;
           }
           
           // Card retrieved successfully
+          clearTimeout(globalTimeout);
           log(`Successfully retrieved card: ${actorData.card_id}`);
           
           if (!cardData.card_id) {
@@ -1159,13 +1193,14 @@ export async function getUserCard(gameId: string, userId: string): Promise<Card 
       }
     });
     
-    // Use a Promise.resolve() to handle completion instead of setTimeout
-    Promise.resolve().then(() => {
-      if (!cardCache.has(cacheKey)) {
+    // Set a shorter timeout to handle the case where actors are found but no matches
+    setTimeout(() => {
+      if (!foundActor) {
+        clearTimeout(globalTimeout);
         log(`No actor found for user ${userId} in game ${gameId}`);
         resolve(null);
       }
-    });
+    }, 600);
   });
 }
 
