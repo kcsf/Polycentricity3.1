@@ -67,16 +67,10 @@
             }
         }
         
-        async function enterGame() {
+        function enterGame() {
                 try {
-                        // If the user is already in the game, use the regular game page
-                        if (isUserInGame) {
-                                goto(`/games/${game.game_id}`);
-                        } else {
-                                // If not in the game yet, redirect to the details page instead of join
-                                // This avoids issues with the join page when accessed directly from dashboard
-                                goto(`/games/${game.game_id}/details`);
-                        }
+                        // Always use the details page for safety, regardless of user status
+                        goto(`/games/${game.game_id}/details`);
                 } catch (err) {
                         console.error('Error navigating to game:', err);
                         actionError = 'Failed to navigate to game. Please try again.';
@@ -226,7 +220,7 @@
             {#if showActions}
                 <div class="flex flex-col sm:flex-row gap-2 mt-3">
                     {#if isUserInGame}
-                        <button class="btn variant-filled-primary flex-1" on:click={enterGame}>
+                        <button class="btn variant-filled-primary flex-1" onclick={enterGame}>
                             <icons.LogIn size={18} class="mr-2" />
                             View Game
                         </button>
@@ -234,7 +228,7 @@
                         {#if !isCreator}
                             <button 
                                 class="btn variant-soft-error" 
-                                on:click={handleLeaveGame}
+                                onclick={handleLeaveGame}
                                 disabled={isLeaving}
                             >
                                 {#if isLeaving}
@@ -249,7 +243,7 @@
                     {:else if game.status === GameStatus.ACTIVE}
                         <button 
                             class="btn variant-filled-success flex-1" 
-                            on:click={handleJoinGame} 
+                            onclick={handleJoinGame} 
                             disabled={isJoining || isFull}
                         >
                             {#if isJoining}
@@ -261,12 +255,12 @@
                             {/if}
                         </button>
                         
-                        <button class="btn variant-ghost" on:click={enterGame}>
+                        <button class="btn variant-ghost" onclick={enterGame}>
                             <icons.Info size={18} class="mr-2" />
                             Details
                         </button>
                     {:else}
-                        <button class="btn variant-ghost-primary flex-1" on:click={enterGame}>
+                        <button class="btn variant-ghost-primary flex-1" onclick={enterGame}>
                             <icons.Info size={18} class="mr-2" />
                             View Details
                         </button>
