@@ -116,10 +116,14 @@
       if (playerRole && playerRole.card_id) {
         // Fetching card data for player role
         // Get the card data
+        console.log('Fetching card data for player role with card_id:', playerRole.card_id);
         playerCard = await getCard(playerRole.card_id);
+        console.log('Card data received:', playerCard);
         
         if (playerCard) {
           // Card data retrieved successfully
+          console.log('Card values reference:', playerCard.values);
+          console.log('Card capabilities reference:', playerCard.capabilities);
           
           // Get the value and capability names
           playerCardValues = await getCardValueNames(playerCard);
