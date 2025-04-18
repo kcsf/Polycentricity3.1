@@ -480,16 +480,30 @@ $effect(async () => {
       });
     });
     
-    if (result) {
-      userData = result;
-    } else {
-      error = "Data not found";
-    }
+    // Create a separate function to handle state updates to avoid state_unsafe_mutation
+    const updateUserData = (data) => {
+      if (data) {
+        userData = data;
+      } else {
+        error = "Data not found";
+      }
+    };
+    
+    // Call the function with our result
+    updateUserData(result);
   } catch (err) {
     console.error("Error loading data:", err);
-    error = err instanceof Error ? err.message : "Unknown error";
+    // Use a separate function to set the error state
+    const setError = (err: any) => {
+      error = err instanceof Error ? err.message : "Unknown error";
+    };
+    setError(err);
   } finally {
-    isLoading = false;
+    // Use a separate function to update loading state
+    const setLoading = (state: boolean) => {
+      isLoading = state;
+    };
+    setLoading(false);
   }
 });`}</pre>
           </div>
@@ -515,9 +529,12 @@ $effect(() => {
     .on((gameData, gameId) => {
       if (!gameData) return;
       
-      // Update state safely with immutable pattern
-      liveData = [...liveData.filter(g => g.game_id !== gameData.game_id), 
-                 { ...gameData, game_id: gameId }];
+      // Update state safely with immutable pattern and a separate function
+      // Avoiding direct state mutation in the callback to prevent state_unsafe_mutation errors
+      const updatedData = [...liveData.filter(g => g.game_id !== gameData.game_id), 
+                        { ...gameData, game_id: gameId }];
+      // Update state with the new array
+      liveData = updatedData;
     });
   
   // Clean up subscription on component teardown
@@ -547,8 +564,17 @@ let formData = $state({
 // Save function
 async function saveToGun() {
   try {
-    isSaving = true;
-    saveError = null;
+    // Set saving state with a separate function
+    const setSavingState = (state: boolean) => {
+      isSaving = state;
+    };
+    setSavingState(true);
+    
+    // Clear error with a separate function
+    const clearError = () => {
+      saveError = null;
+    };
+    clearError();
     
     const gun = getGun();
     if (!gun) {
@@ -568,12 +594,14 @@ async function saveToGun() {
     
     // Save with promise wrapper for better async handling
     await new Promise((resolve, reject) => {
-      console.log(\`Starting save to \${nodes.items}.\${newId}\`);
+      // Use regular string instead of interpolated string with state variables
+      console.log("Starting save to items node");
       gun.get(nodes.items).get(newId).put(itemData, (ack) => {
         if (ack.err) {
           console.error("Save error:", ack.err);
           reject(new Error(ack.err));
         } else {
+          // Simple string log without state variables
           console.log("Item saved successfully");
           resolve(true);
         }
@@ -583,14 +611,25 @@ async function saveToGun() {
       setTimeout(resolve, 2000);
     });
     
-    // Reset form on success
-    formData = { name: "", description: "" };
+    // Reset form on success with a separate function
+    const resetForm = () => {
+      formData = { name: "", description: "" };
+    };
+    resetForm();
     
   } catch (err) {
     console.error("Error saving data:", err);
-    saveError = err instanceof Error ? err.message : "Unknown error";
+    // Set error state with a separate function
+    const setErrorState = (err: any) => {
+      saveError = err instanceof Error ? err.message : "Unknown error";
+    };
+    setErrorState(err);
   } finally {
-    isSaving = false;
+    // Set saving state with a separate function (reuse from above)
+    const setSavingState = (state: boolean) => {
+      isSaving = state;
+    };
+    setSavingState(false);
   }
 }`}</pre>
           </div>
