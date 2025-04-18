@@ -9,6 +9,10 @@
   import { getValue } from '$lib/services/valueService';
   import { getCapability } from '$lib/services/capabilityService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
+  
+  // Add logging utility for debugging
+  const isDev = process.env.NODE_ENV !== 'production';
+  const log = (...args: any[]) => isDev && console.log('[D3CardBoard]', ...args);
   import { GameStatus } from '$lib/types';
   import {
     createNodes,
@@ -42,9 +46,6 @@
   let activeCardId = $state<string | null>(null);
   let unsubscribe = $state<(() => void)[]>([]);
 
-  const isDev = process.env.NODE_ENV !== 'production';
-  const log = (...args: any[]) => isDev && console.log('[D3CardBoard]', ...args);
-
   $effect(() => {
     if (svgElement && svgElement.parentElement) {
       const rect = svgElement.parentElement.getBoundingClientRect();
@@ -57,7 +58,9 @@
     log(`Loading cards for deck: ${deckId}`);
     const gun = getGun();
     const cards: CardWithPosition[] = [];
-    await new Promise<void>((resolve) => {
+    
+    // Create a promise that includes timeout
+    const dataPromise = new Promise<CardWithPosition[]>((resolve) => {
       gun.get(deckId).get('cards').map().once((cardData: any, cardId: string) => {
         if (cardData && cardId.startsWith('cards/')) {
           const cardPath = `${nodes.cards}/${cardId.replace('cards/', '')}`;
@@ -70,9 +73,16 @@
             }
           });
         }
-      }).then(resolve);
+      }).then(() => resolve(cards));
+      
+      // Set a timeout to resolve anyway after 3 seconds
+      setTimeout(() => {
+        log(`loadCardData timed out after 3 seconds, returning ${cards.length} cards`);
+        resolve(cards);
+      }, 3000);
     });
-    return cards;
+    
+    return dataPromise;
   }
 
   async function loadAgreementData(agreementId: string): Promise<AgreementWithPosition | null> {
@@ -83,6 +93,12 @@
         if (!agreement) resolve(null);
         else resolve({ ...agreement, position: { x: Math.random() * width, y: Math.random() * height } });
       });
+      
+      // Set a timeout to resolve if Gun.js doesn't respond
+      setTimeout(() => {
+        log(`loadAgreementData timed out after 2 seconds for agreement: ${agreementId}`);
+        resolve(null);
+      }, 2000);
     });
   }
 
@@ -93,12 +109,29 @@
   }> {
     log(`Loading game data for: ${gameId}`);
     
-    // Use getGame from gameService to get all game data
-    const game = await getGame(gameId);
-    if (!game) throw new Error(`Game not found: ${gameId}`);
+    // Use getGame with timeout protection
+    const gamePromise = getGame(gameId);
+    const gameTimeout = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        log('getGame timed out after 3 seconds');
+        resolve(null);
+      }, 3000);
+    });
     
-    // Get actors using the optimized function
-    const actors = await getGameActors(gameId);
+    // Race between loading and timeout
+    const game = await Promise.race([gamePromise, gameTimeout]);
+    if (!game) throw new Error(`Game not found or loading timed out: ${gameId}`);
+    
+    // Get actors using the optimized function with timeout
+    const actorsPromise = getGameActors(gameId);
+    const actorsTimeout = new Promise<Actor[]>((resolve) => {
+      setTimeout(() => {
+        log('getGameActors timed out after 3 seconds');
+        resolve([]);
+      }, 3000);
+    });
+    
+    const actors = await Promise.race([actorsPromise, actorsTimeout]);
     
     // Load cards and agreements
     let cards: Card[] = [];
