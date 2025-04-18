@@ -113,41 +113,53 @@
   // Fetch card data when playerRole changes
   $: {
     async function fetchCardData() {
-      if (playerRole && playerRole.card_id) {
-        // Check if we have a logged-in user
-        if ($userStore.user) {
-          // Use the optimized getUserCard function that combines getPlayerRole and getCard steps
-          console.log('Using getUserCard to fetch card data for user:', $userStore.user.user_id);
-          playerCard = await getUserCard(gameId, $userStore.user.user_id);
-        } else {
-          // Fallback to direct card lookup if no user is logged in or for testing
-          console.log('Falling back to direct card lookup with card_id:', playerRole.card_id);
-          playerCard = await getCard(playerRole.card_id);
-        }
-        
-        console.log('Card data received:', playerCard);
-        
-        if (playerCard) {
-          // Card data retrieved successfully
-          console.log('Card values reference:', playerCard.values);
-          console.log('Card capabilities reference:', playerCard.capabilities);
+      // First, clear data to avoid stale data
+      playerCardValues = [];
+      playerCardCapabilities = [];
+      
+      try {
+        // CASE 1: We have a player role with a card_id assigned
+        if (playerRole && playerRole.card_id) {
+          console.log(`Player has role with card_id: ${playerRole.card_id}`);
           
-          // Get the value and capability names
-          playerCardValues = await getCardValueNames(playerCard);
-          console.log('Retrieved values for card:', playerCardValues);
+          // Check if we have a logged-in user
+          if ($userStore.user) {
+            // Use the optimized getUserCard function that combines getPlayerRole and getCard steps
+            console.log('Using getUserCard to fetch card data for user:', $userStore.user.user_id);
+            playerCard = await getUserCard(gameId, $userStore.user.user_id);
+          } else {
+            // Fallback to direct card lookup if no user is logged in or for testing
+            console.log('Falling back to direct card lookup with card_id:', playerRole.card_id);
+            playerCard = await getCard(playerRole.card_id);
+          }
           
-          playerCardCapabilities = await getCardCapabilityNames(playerCard);
-          console.log('Retrieved capabilities for card:', playerCardCapabilities);
-        } else {
-          console.error(`Failed to load card data for card_id: ${playerRole.card_id}`);
+          console.log('Card data received:', playerCard);
+          
+          if (playerCard) {
+            // Card data retrieved successfully
+            try {
+              // Get the value and capability names
+              playerCardValues = await getCardValueNames(playerCard);
+              console.log('Retrieved values for card:', playerCardValues);
+              
+              playerCardCapabilities = await getCardCapabilityNames(playerCard);
+              console.log('Retrieved capabilities for card:', playerCardCapabilities);
+            } catch (e) {
+              console.error('Error fetching card metadata:', e);
+            }
+          } else {
+            console.warn(`No card data found for card_id: ${playerRole.card_id}`);
+            playerCard = null;
+          }
+        } 
+        // CASE 2: No player role assigned yet or role without card
+        else {
+          console.log('No active player role or card assigned', playerRole);
           playerCard = null;
-          playerCardValues = [];
-          playerCardCapabilities = [];
         }
-      } else {
+      } catch (e) {
+        console.error('Error in fetchCardData:', e);
         playerCard = null;
-        playerCardValues = [];
-        playerCardCapabilities = [];
       }
     }
     
