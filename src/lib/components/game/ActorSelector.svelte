@@ -41,16 +41,41 @@
       
       // Load actors and cards concurrently for better performance
       log(`Loading data for game ${gameId}`);
-      const [userActors, cards] = await Promise.all([
+      const [allUserActors, cards] = await Promise.all([
         getUserActors(),
         getAvailableCardsForGame(gameId)
       ]);
       
-      // Filter actors for this game
-      existingActors = userActors.filter(actor => actor.game_id === gameId);
+      // Filter actors for this game with detailed logging
+      log(`Filtering ${allUserActors.length} user actors for game ${gameId}`);
+      
+      existingActors = allUserActors.filter(actor => {
+        const matches = actor.game_id === gameId;
+        log(`Actor ${actor.actor_id} game_id=${actor.game_id}, matches=${matches}`);
+        return matches;
+      });
+      
       availableCards = cards;
       
       log(`Found ${existingActors.length} actors and ${availableCards.length} cards for game ${gameId}`);
+      
+      // Retry if no actors found but expected some (retry with explicit getCurrentUser)
+      if (existingActors.length === 0 && allUserActors.length > 0) {
+        log('No actors found for this game, retrying with explicit user ID');
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          const userActorsRetry = await getUserActors(currentUser.user_id);
+          log(`Retry returned ${userActorsRetry.length} total actors`);
+          
+          existingActors = userActorsRetry.filter(actor => {
+            const matches = actor.game_id === gameId;
+            log(`Retry: Actor ${actor.actor_id} game_id=${actor.game_id}, matches=${matches}`);
+            return matches;
+          });
+          
+          log(`After retry: found ${existingActors.length} actors for game ${gameId}`);
+        }
+      }
       
       // Determine initial mode based on data
       if (existingActors.length === 0) {
@@ -80,19 +105,52 @@
   
   async function handleSelectActor() {
     try {
+      // Check if we have valid actors and a selection
+      if (existingActors.length === 0) {
+        errorMessage = 'No actors available to select';
+        return;
+      }
+      
+      if (!selectedActorId) {
+        errorMessage = 'Please select an actor';
+        return;
+      }
+      
       const actor = existingActors.find(a => a.actor_id === selectedActorId);
+      
       if (actor) {
         log(`Selected actor: ${actor.actor_id}`);
         
+        // Make sure the actor has a user_id (if not, use current user)
+        if (!actor.user_id) {
+          const currentUser = getCurrentUser();
+          if (currentUser) {
+            actor.user_id = currentUser.user_id;
+            log(`Adding missing user_id ${currentUser.user_id} to actor`);
+          } else {
+            logError('Cannot select actor: Missing user_id and no current user');
+            errorMessage = 'Actor data is incomplete. Please try creating a new actor instead.';
+            return;
+          }
+        }
+        
         // Set up real-time subscription to actor's card
         if (unsubscribe) unsubscribe();
-        unsubscribe = subscribeToUserCard(gameId, actor.user_id, (card) => {
-          log('Card data updated via subscription');
-          // Card updates would be handled here
-        });
         
+        try {
+          unsubscribe = subscribeToUserCard(gameId, actor.user_id, (card) => {
+            log('Card data updated via subscription');
+            // Card updates would be handled here
+          });
+        } catch (subErr) {
+          // Non-fatal error, just log it
+          logError('Error setting up card subscription:', subErr);
+        }
+        
+        // Call the parent handler with selected actor
         onSelectActor(actor);
       } else {
+        log(`Actor with ID ${selectedActorId} not found in existingActors array`);
         errorMessage = 'Selected actor not found';
       }
     } catch (err) {
@@ -106,35 +164,84 @@
       creatingActor = true;
       errorMessage = '';
       
+      // Validate required fields
       if (!selectedCardId) {
         errorMessage = 'Please select a card';
         return;
       }
       
+      if (!actorType) {
+        errorMessage = 'Please select an actor type';
+        return;
+      }
+      
+      // Implement retry logic for actor creation (similar to game creation)
       log(`Creating actor with card ${selectedCardId} for game ${gameId}`);
-      const newActor = await createActor(
-        gameId,
-        selectedCardId,
-        actorType,
-        customName || undefined
-      );
+      
+      let newActor = null;
+      let attempts = 0;
+      const maxAttempts = 3;
+      const backoffMs = [500, 1000, 2000]; // Exponential backoff
+      
+      while (!newActor && attempts < maxAttempts) {
+        attempts++;
+        
+        try {
+          log(`Actor creation attempt ${attempts}/${maxAttempts}`);
+          const startTime = performance.now();
+          
+          newActor = await createActor(
+            gameId,
+            selectedCardId,
+            actorType,
+            customName || undefined
+          );
+          
+          const duration = performance.now() - startTime;
+          log(`Actor creation attempt ${attempts} took ${duration.toFixed(4)}ms`);
+          
+          if (newActor) {
+            log(`Actor created successfully: ${newActor.actor_id}`);
+            break;
+          } else {
+            log(`Actor creation attempt ${attempts} failed`);
+            
+            if (attempts < maxAttempts) {
+              // Wait with exponential backoff before retrying
+              await new Promise(resolve => setTimeout(resolve, backoffMs[attempts - 1]));
+            }
+          }
+        } catch (attemptErr) {
+          logError(`Actor creation attempt ${attempts} error:`, attemptErr);
+          
+          if (attempts < maxAttempts) {
+            // Wait with exponential backoff before retrying
+            await new Promise(resolve => setTimeout(resolve, backoffMs[attempts - 1]));
+          }
+        }
+      }
       
       if (newActor) {
-        log(`Actor created successfully: ${newActor.actor_id}`);
-        
-        // Set up subscription for real-time updates
+        // Set up subscription for real-time updates (non-blocking, with error handling)
         if (unsubscribe) unsubscribe();
-        unsubscribe = subscribeToUserCard(gameId, newActor.user_id, (card) => {
-          log('Card data updated via subscription');
-          // Card updates would be handled here
-        });
         
+        try {
+          unsubscribe = subscribeToUserCard(gameId, newActor.user_id, (card) => {
+            log('Card data updated via subscription');
+            // Card updates would be handled here
+          });
+        } catch (subErr) {
+          // Non-fatal error, just log it and continue
+          logError('Error setting up card subscription:', subErr);
+        }
+        
+        // Complete the actor selection
         onSelectActor(newActor);
       } else {
-        errorMessage = 'Failed to create actor';
+        errorMessage = 'Failed to create actor after multiple attempts';
       }
     } catch (err) {
-      logError('Error creating actor:', err);
+      logError('Error in handleCreateActor:', err);
       errorMessage = 'Failed to create actor';
     } finally {
       creatingActor = false;

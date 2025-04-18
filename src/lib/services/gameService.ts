@@ -1178,8 +1178,6 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
     return new Promise((resolve) => {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
-      let method1Complete = false;
-      let method2Complete = false;
       
       // Method 1: Try to get actors from user->actors relationship first (more direct)
       gun.get(nodes.users).get(userToCheck).get('actors').map().once((actorValue: any, actorId: string) => {
@@ -1209,24 +1207,64 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
       log(`[IMPORTANT] Scanning all actors for user_id = ${userToCheck}`);
       
       gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
-        // Debug every actor found to see if our condition is working
-        log(`Checking actor ${actorId}: user_id=${actorData?.user_id || 'none'} vs ${userToCheck}`);
-        
-        if (actorData && actorData.user_id === userToCheck && !uniqueIds.has(actorId)) {
-          log(`★★★ Found actor with matching user_id: ${actorId} (${actorData.custom_name || 'Unnamed'})`);
-          uniqueIds.add(actorId);
+        if (actorData) {
+          // Debug every actor found to see if our condition is working
+          log(`Checking actor ${actorId}: user_id=${actorData?.user_id || 'none'} vs ${userToCheck}`);
           
-          if (!actorData.actor_id) {
-            actorData.actor_id = actorId;
+          // Handle string or object comparison for user_id
+          const userIdMatches = 
+            // Direct equality for string values
+            actorData.user_id === userToCheck || 
+            // Handle case where it might be stored as an object reference
+            (typeof actorData.user_id === 'object' && 
+             actorData.user_id && 
+             actorData.user_id['#'] === `${nodes.users}/${userToCheck}`);
+          
+          if (userIdMatches && !uniqueIds.has(actorId)) {
+            log(`★★★ Found actor with matching user_id: ${actorId} (${actorData.custom_name || 'Unnamed'})`);
+            uniqueIds.add(actorId);
+            
+            if (!actorData.actor_id) {
+              actorData.actor_id = actorId;
+            }
+            
+            const actor = { ...actorData, actor_id: actorId };
+            actors.push(actor);
+            cacheActor(actorId, actor);
           }
-          
-          const actor = { ...actorData, actor_id: actorId };
-          actors.push(actor);
-          cacheActor(actorId, actor);
         }
       });
       
-      // Wait a bit longer for both methods to complete
+      // Method 3: Look at games' role_assignment for this user
+      log(`[ALTERNATIVE] Checking role assignments for user ${userToCheck}`);
+      
+      gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
+        if (gameData && gameData.role_assignment) {
+          // Check if user has a role in this game
+          gun.get(nodes.games).get(gameId).get('role_assignment').get(userToCheck).once((actorId: string) => {
+            if (actorId && actorId !== '_' && !uniqueIds.has(actorId)) {
+              log(`Found role assignment for user ${userToCheck} in game ${gameId}: ${actorId}`);
+              
+              gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+                if (actorData && !uniqueIds.has(actorId)) {
+                  uniqueIds.add(actorId);
+                  
+                  if (!actorData.actor_id) {
+                    actorData.actor_id = actorId;
+                  }
+                  
+                  const actor = { ...actorData, actor_id: actorId, game_id: gameId };
+                  actors.push(actor);
+                  cacheActor(actorId, actor);
+                  log(`Retrieved actor data from role assignment: ${actorId}`);
+                }
+              });
+            }
+          });
+        }
+      });
+      
+      // Wait a bit longer for all methods to complete
       setTimeout(() => {
         log(`Completed actor scan. Found ${actors.length} actors for user ${userToCheck}`);
         
@@ -1248,9 +1286,15 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
         
         Promise.all(processedActors).then(enhancedActors => {
           log(`Enhanced ${enhancedActors.length} actors with actor properties`);
+          
+          // Sort actors by creation date (newest first) for better UX
+          enhancedActors.sort((a, b) => {
+            return (b.created_at || 0) - (a.created_at || 0);
+          });
+          
           resolve(enhancedActors);
         });
-      }, 500);
+      }, 800); // Increased timeout to give more time for all methods
     });
   } catch (error) {
     logError('Get user actors error:', error);
