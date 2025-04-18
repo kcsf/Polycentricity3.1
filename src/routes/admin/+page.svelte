@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, tick } from 'svelte';
+  import { tick } from 'svelte';
   import * as icons from 'lucide-svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
@@ -554,41 +554,47 @@
     }
   }
   
-  onMount(async () => {
+  $effect(() => {
     isMounted = true;
     
-    // Fetch basic Gun.js database stats
-    if (typeof window !== 'undefined') {
-      try {
-        await fetchDatabaseStats();
-        
-        // Check for URL parameters to set initial tab
-        if (browser) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const tabParam = urlParams.get('tab');
-          const deckIdParam = urlParams.get('deckId');
+    // Initialize app asynchronously
+    async function initializeApp() {
+      // Fetch basic Gun.js database stats
+      if (typeof window !== 'undefined') {
+        try {
+          await fetchDatabaseStats();
           
-          // If deckId is present, switch to overview tab
-          if (deckIdParam) {
-            activeTab = 'overview';
-          } 
-          // Otherwise use the tab parameter if present
-          else if (tabParam) {
-            activeTab = tabParam;
+          // Check for URL parameters to set initial tab
+          if (browser) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            const deckIdParam = urlParams.get('deckId');
+            
+            // If deckId is present, switch to overview tab
+            if (deckIdParam) {
+              activeTab = 'overview';
+            } 
+            // Otherwise use the tab parameter if present
+            else if (tabParam) {
+              activeTab = tabParam;
+            }
+            
+            // Initialize visualization if needed
+            if (activeTab === 'visualize') {
+              loadGraphVisualization();
+            }
           }
-          
-          // Initialize visualization if needed
-          if (activeTab === 'visualize') {
-            loadGraphVisualization();
-          }
+        } catch (err) {
+          console.error('Error loading database stats:', err);
+          error = 'Failed to load database information.';
+        } finally {
+          isLoading = false;
         }
-      } catch (err) {
-        console.error('Error loading database stats:', err);
-        error = 'Failed to load database information.';
-      } finally {
-        isLoading = false;
       }
     }
+    
+    // Execute initialization
+    initializeApp();
   });
   
   // Fetch basic database stats
