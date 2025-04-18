@@ -32,7 +32,6 @@ const iconNameMap: Record<string, string> = {
 };
 
 import type { ComponentType } from 'svelte';
-import type { User } from 'lucide-svelte';
 
 // Define a type that accepts both lucide-svelte icons and generic Svelte components
 type IconComponent = ComponentType<any>;
@@ -92,8 +91,10 @@ export async function loadIcons(iconNames: string[]) {
       }
     } catch (error) {
       // Only log the error message, not the full error object
-      console.warn(`Failed to load icon ${pascalName} for ${name}, using User fallback`);
-      newIcons.set(name, { name, component: User });
+      console.warn(`Failed to load icon ${pascalName} for ${name}, using default fallback`);
+      // Try to get the User icon from the module or use any available icon as fallback
+      const fallbackIcon = module.User || module.Box || Object.values(module)[0];
+      newIcons.set(name, { name, component: fallbackIcon });
     }
   }
   
