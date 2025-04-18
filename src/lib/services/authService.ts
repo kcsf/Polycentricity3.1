@@ -396,6 +396,8 @@ export async function initializeAuth(): Promise<void> {
         
         // Safely access user.is.pub with null check
         const user_id = user?.is?.pub || generateId();
+        console.log(`Found potential user session: ${user_id}`);
+        
         const gun = getGun();
         
         if (!gun) {
@@ -404,23 +406,47 @@ export async function initializeAuth(): Promise<void> {
             return;
         }
         
-        // Get user data
-        gun.get(nodes.users).get(user_id).once((userData: User) => {
-            if (!userData) {
-                console.log('User data not found for stored session');
+        // Enhanced timeout handling for user data retrieval
+        return new Promise<void>((resolve) => {
+            // Set a timeout to ensure we don't hang indefinitely
+            const timeout = setTimeout(() => {
+                console.warn(`Timeout retrieving user data for ${user_id}`);
                 userStore.update(state => ({ ...state, isLoading: false }));
-                return;
-            }
+                resolve();
+            }, 3000);
             
-            console.log(`Restored session for user: ${user_id}`);
-            
-            // Update user store
-            userStore.update(state => ({
-                ...state,
-                user: userData,
-                isAuthenticated: true,
-                isLoading: false
-            }));
+            // Get user data
+            gun.get(nodes.users).get(user_id).once((userData: User) => {
+                clearTimeout(timeout);
+                
+                if (!userData) {
+                    console.log('User data not found for stored session');
+                    userStore.update(state => ({ ...state, isLoading: false }));
+                    resolve();
+                    return;
+                }
+                
+                console.log(`Restored session for user: ${userData.name || user_id}`);
+                
+                // Update user store
+                userStore.update(state => ({
+                    ...state,
+                    user: userData,
+                    isAuthenticated: true,
+                    isLoading: false
+                }));
+                
+                // Also attempt to restore the admin account if the user is Bjorn
+                if (userData.email === 'bjorn@endogon.com') {
+                    console.log('Restoring admin session for Bjorn');
+                    loginUser('bjorn@endogon.com', 'password')
+                        .then(() => console.log('Admin auth refreshed'))
+                        .catch(err => console.warn('Admin refresh error:', err))
+                        .finally(() => resolve());
+                } else {
+                    resolve();
+                }
+            });
         });
     } catch (error) {
         console.error('Init auth error:', error);

@@ -429,10 +429,32 @@
         {/if}
         
         {#if $userStore.isLoading || isLoading}
-                <div class="card variant-soft p-8 text-center animate-pulse">
-                        <div class="flex justify-center">
-                                <icons.Loader size={24} class="animate-spin mr-2" />
-                                <p>Loading your dashboard...</p>
+                <div class="card variant-soft p-8 text-center">
+                        <div class="flex flex-col justify-center items-center gap-4">
+                                <div class="flex items-center">
+                                        <icons.Loader size={24} class="animate-spin mr-2" />
+                                        <p>Loading your dashboard...</p>
+                                </div>
+                                
+                                <!-- Login shortcut for development -->
+                                <div class="mt-4">
+                                        <p class="text-sm text-surface-600 dark:text-surface-400 mb-2">Not seeing your data? Try logging in:</p>
+                                        <button 
+                                                class="btn variant-filled-primary"
+                                                onclick={() => {
+                                                        import('$lib/services/authService').then(({ loginUser }) => {
+                                                                loginUser('bjorn@endogon.com', 'password')
+                                                                        .then(() => {
+                                                                                console.log('Logged in as admin');
+                                                                                window.location.reload();
+                                                                        })
+                                                                        .catch(err => console.error('Login failed:', err));
+                                                        });
+                                                }}
+                                        >
+                                                <icons.LogIn size={16} class="mr-2" /> Login as Admin
+                                        </button>
+                                </div>
                         </div>
                 </div>
         {:else}

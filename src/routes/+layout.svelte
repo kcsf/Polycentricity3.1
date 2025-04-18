@@ -5,9 +5,11 @@
   import Footer from '$lib/components/Footer.svelte';
   import { onMount } from 'svelte';
   import { initializeGun } from '$lib/services/gunService';
+  import { initializeAuth } from '$lib/services/authService';
+  import { userStore } from '$lib/stores/userStore';
   import { toggleTheme } from '$lib/stores/themeStore';
 
-  onMount(() => {
+  onMount(async () => {
     // Initialize Gun.js when app loads
     initializeGun();
     
@@ -29,6 +31,18 @@
       // Otherwise, pass through to the original console.log
       originalConsoleLog.apply(console, args);
     };
+    
+    // Initialize authentication from saved session
+    console.log('Initializing app authentication');
+    try {
+      await initializeAuth();
+      console.log(`Authentication status: ${$userStore.isAuthenticated ? 'Logged In' : 'Not Logged In'}`);
+      if ($userStore.user) {
+        console.log(`Authenticated as: ${$userStore.user.name} (${$userStore.user.user_id})`);
+      }
+    } catch (error) {
+      console.error('Error initializing authentication:', error);
+    }
   });
 </script>
 
