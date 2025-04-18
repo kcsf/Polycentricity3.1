@@ -5,7 +5,7 @@
     import { userStore } from '$lib/stores/userStore';
     import { currentGameStore } from '$lib/stores/gameStore';
     import { activeActorId } from '$lib/stores/enhancedGameStore';
-    import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame } from '$lib/services/gameService';
+    import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame, getPlayerRole } from '$lib/services/gameService';
     import type { Game, Actor } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from 'lucide-svelte';
@@ -117,7 +117,7 @@
             if (savedActorId) {
                 log(`Checking saved actor ID from localStorage: ${savedActorId}`);
                 
-                // Look up this actor in the game
+                // Look up this actor in the game actors list
                 const savedActor = actors.find(a => a.actor_id === savedActorId);
                 if (savedActor) {
                     log(`Found actor from localStorage: ${savedActor.actor_id}`);
@@ -125,6 +125,58 @@
                     activeActorId.set(savedActor.actor_id);
                     return savedActor;
                 }
+                
+                // Check if we just joined with an actor from a different game
+                // This is a critical check for actors being reused across games
+                if (game.player_actor_map && game.player_actor_map[userId] === savedActorId) {
+                    log(`Found actor ${savedActorId} in game's player_actor_map`);
+                    
+                    // Import the actor into this game's context
+                    try {
+                        // Get the complete actor data
+                        const importedActor = await getPlayerRole(gameId, userId, savedActorId);
+                        
+                        if (importedActor) {
+                            log(`Successfully retrieved actor ${importedActor.actor_id}`);
+                            playerRole = importedActor;
+                            activeActorId.set(importedActor.actor_id);
+                            return importedActor;
+                        }
+                    } catch (importErr) {
+                        log('Error importing actor:', importErr);
+                    }
+                }
+            }
+            
+            // Check game's player_actor_map as a last resort
+            if (game.player_actor_map) {
+                log('Checking game.player_actor_map:', JSON.stringify(game.player_actor_map));
+                
+                if (game.player_actor_map[userId]) {
+                    const mappedActorId = game.player_actor_map[userId];
+                    log(`Found actor mapping in game: user ${userId} -> actor ${mappedActorId}`);
+                    
+                    try {
+                        // Get the complete actor data
+                        log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
+                        const mappedActor = await getPlayerRole(gameId, userId, mappedActorId);
+                        
+                        if (mappedActor) {
+                            log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
+                            playerRole = mappedActor;
+                            activeActorId.set(mappedActor.actor_id);
+                            return mappedActor;
+                        } else {
+                            log(`getPlayerRole returned null for actor ${mappedActorId}`);
+                        }
+                    } catch (mappingErr) {
+                        log('Error retrieving mapped actor:', mappingErr);
+                    }
+                } else {
+                    log(`No mapping found for user ${userId} in player_actor_map`);
+                }
+            } else {
+                log('Game does not have a player_actor_map property');
             }
             
             log('No actor found for current user');

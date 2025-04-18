@@ -122,6 +122,15 @@
             console.log(`Setting active actor in store: ${actor.actor_id}`);
             activeActorId.set(actor.actor_id);
             
+            // Double-check that the player_actor_map was updated
+            const updatedGame = await getGame(gameId);
+            if (updatedGame && updatedGame.player_actor_map) {
+                console.log('Updated player_actor_map:', updatedGame.player_actor_map);
+                if (updatedGame.player_actor_map[$userStore.user.user_id] === actor.actor_id) {
+                    console.log(`✅ player_actor_map correctly set for user ${$userStore.user.user_id} -> actor ${actor.actor_id}`);
+                }
+            }
+            
             // Now we can redirect straight to the game page - no need for a second click
             console.log(`Actor selected and role assigned - redirecting to game page`);
             goto(`/games/${gameId}`);
