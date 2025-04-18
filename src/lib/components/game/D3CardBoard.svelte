@@ -58,7 +58,7 @@
     const gun = getGun();
     const cards: CardWithPosition[] = [];
     await new Promise<void>((resolve) => {
-      gun.get(deckId).get('cards').map().once((cardData, cardId) => {
+      gun.get(deckId).get('cards').map().once((cardData: any, cardId: string) => {
         if (cardData && cardId.startsWith('cards/')) {
           const cardPath = `${nodes.cards}/${cardId.replace('cards/', '')}`;
           gun.get(cardPath).once((fullCardData: Card) => {
@@ -131,7 +131,7 @@
     return { cards, agreements: agreementData, actors };
   }
 
-  async function loadGameAgreements(game: any): Promise<AgreementWithPosition[]> {
+  async function loadGameAgreements(game: { agreement_ids?: Record<string, boolean> }): Promise<AgreementWithPosition[]> {
     if (!game || !game.agreement_ids) return [];
     
     const agreementIds = typeof game.agreement_ids === 'object' ? Object.keys(game.agreement_ids) : [];
