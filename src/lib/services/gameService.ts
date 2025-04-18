@@ -64,15 +64,21 @@ export async function createGame(
     }
 
     const game_id = generateId();
-    const gameData: Game = {
+    // Get appropriate deck ID based on type
+    const deck_id = deckType === 'eco-village' ? 'd1' : 
+                    deckType === 'community-garden' ? 'd2' : 'd1'; // default to d1
+    
+    // Create the game data (with type casting for custom properties)
+    const gameData = {
       game_id,
       name,
       creator: currentUser.user_id,
       deck_type: deckType,
+      deck_id, // This is required by the Game interface
       deck: {},
       role_assignment: 'random' as 'random' | 'choice',
       // Custom property for UI only - not in Game interface
-      role_assignment_type: roleAssignmentType as any,
+      role_assignment_type: roleAssignmentType,
       players: { [currentUser.user_id]: true },
       created_at: Date.now(),
       status: GameStatus.CREATED
@@ -86,7 +92,9 @@ export async function createGame(
           name,
           creator: currentUser.user_id,
           deck_type: deckType,
-          role_assignment_type: roleAssignmentType,
+          deck_id, // Add the deck_id here too
+          // Store custom property in database
+          role_assignment_type: roleAssignmentType as any,
           created_at: Date.now(),
           status: GameStatus.CREATED
         }, (ack: any) => (ack.err ? reject(ack.err) : resolve()));
@@ -110,21 +118,31 @@ export async function createGame(
 
     // Create relationships for graph visualization
     await Promise.all([
-      new Promise<void>((resolve) => {
-        gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id as any, resolve);
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.users).get(currentUser.user_id).get('games').set(game_id as any, (ack: any) => 
+          ack.err ? reject(ack.err) : resolve()
+        );
       }),
-      gun.get(nodes.games).get(game_id).get('creator_ref').put({ '#': `${nodes.users}/${currentUser.user_id}` }),
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.games).get(game_id).get('creator_ref').put({ '#': `${nodes.users}/${currentUser.user_id}` }, (ack: any) => 
+          ack.err ? reject(ack.err) : resolve()
+        );
+      }),
       deckType === 'eco-village' || deckType === 'community-garden'
-        ? gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` })
+        ? new Promise<void>((resolve, reject) => {
+            gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` }, (ack: any) => 
+              ack.err ? reject(ack.err) : resolve()
+            );
+          })
         : Promise.resolve()
     ]);
 
     // Cache the game and update current game store
-    cacheGame(game_id, gameData);
-    currentGameStore.set(gameData);
+    cacheGame(game_id, gameData as Game);
+    currentGameStore.set(gameData as Game);
     log(`Game created: ${game_id}`);
     
-    return gameData;
+    return gameData as Game;
   } catch (error) {
     logError('Create game error:', error);
     return null;
