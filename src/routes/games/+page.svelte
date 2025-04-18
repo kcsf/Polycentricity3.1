@@ -31,6 +31,26 @@
                 }
         }
         
+        // Status message for background operations
+        let backgroundMessage = $state('');
+        
+        // Check for background game creation operation
+        function checkBackgroundGameCreation() {
+                const backgroundCreating = localStorage.getItem('game_creating_background');
+                if (backgroundCreating === 'true') {
+                        // Remove the flag
+                        localStorage.removeItem('game_creating_background');
+                        
+                        // Show the user a notification that's helpful, not alarming
+                        backgroundMessage = 'Your game is being created in the background and should appear soon. If you don\'t see it, click the Refresh Games button.';
+                        
+                        // Trigger a refresh after a delay to check for the new game
+                        setTimeout(() => {
+                                loadGames();
+                        }, 5000);
+                }
+        }
+        
         // Load games when component mounts
         onMount(() => {
                 // Temporarily disabled authentication check for development
@@ -40,6 +60,7 @@
                 // }
                 
                 loadGames();
+                checkBackgroundGameCreation();
         });
 </script>
 
@@ -72,6 +93,15 @@
                         <span class="ml-2">{isLoading ? 'Refreshing...' : 'Refresh Games'}</span>
                 </button>
         </div>
+        
+        {#if backgroundMessage}
+                <div class="alert variant-filled-secondary p-4 mb-4">
+                        <div class="flex items-center">
+                                <span class="mr-2">ℹ️</span>
+                                <p>{backgroundMessage}</p>
+                        </div>
+                </div>
+        {/if}
         
         {#if isLoading}
                 <div class="card p-8 text-center bg-surface-100-800-token">

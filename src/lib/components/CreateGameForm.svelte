@@ -32,16 +32,20 @@
                 // Update creator status through event
                 dispatch('statusUpdate', { status: 'creating' });
                 
-                // Set a timeout to handle stalled game creation - increased to 20 seconds
+                // Set a timeout to handle stalled game creation - but keep allowing background operation
                 const timeoutId = setTimeout(() => {
                         if (isCreating) {
-                                // Force navigation to games page if taking too long
-                                console.log('Game creation is taking too long, redirecting to games list');
+                                // Don't abort creation, just tell the user it's taking time
+                                console.log('Game creation is taking longer than expected but continuing in background');
                                 isCreating = false;
-                                dispatch('statusUpdate', { status: 'timeout' });
-                                dispatch('created', { gameId: 'timeout' });
+                                dispatch('statusUpdate', { status: 'background' });
+                                
+                                // Don't redirect immediately - set a flag to indicate background operation
+                                // and let the game continue creating in the background
+                                localStorage.setItem('game_creating_background', 'true');
+                                dispatch('created', { gameId: 'background' });
                         }
-                }, 20000); // Increased from 5000 to 20000 ms to allow more time for Gun.js operations
+                }, 10000); // Reduced from 20000 to 10000 ms - provide faster feedback but don't kill the operation
                 
                 try {
                         // If custom deck is selected but no implementation yet, fallback to predefined

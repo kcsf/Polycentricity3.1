@@ -20,11 +20,12 @@
         async function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
                 const { gameId } = event.detail;
                 
-                // Handle timeout case
-                if (gameId === 'timeout') {
-                    console.log('Game creation timed out, redirecting to games list');
-                    creationStatus = 'timeout';
-                    // Wait a moment to show the timeout message before redirecting
+                // Handle timeout or background operation case
+                if (gameId === 'timeout' || gameId === 'background') {
+                    console.log('Game creation continuing in background, redirecting to games list');
+                    creationStatus = gameId === 'timeout' ? 'timeout' : 'background';
+                    
+                    // Wait a moment to show the status message before redirecting
                     setTimeout(() => {
                         goto('/games');
                     }, 3000);
@@ -91,13 +92,13 @@
                                                 </div>
                                         </div>
                                 </div>
-                        {:else if creationStatus === 'timeout'}
+                        {:else if creationStatus === 'timeout' || creationStatus === 'background'}
                                 <div class="card p-4 mb-4 variant-filled-warning">
                                         <div class="flex items-center">
                                                 <div class="mr-2">⚠️</div>
                                                 <div>
-                                                        <p class="font-semibold">Game creation is taking longer than expected</p>
-                                                        <p class="text-sm">Redirecting to games list. Your game may still be created in the background.</p>
+                                                        <p class="font-semibold">Game creation is continuing in the background</p>
+                                                        <p class="text-sm">You'll be redirected to games list. Your game will appear there when completed.</p>
                                                 </div>
                                         </div>
                                 </div>
