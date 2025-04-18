@@ -254,7 +254,7 @@
         .filter((value, index, self) => self.indexOf(value) === index);
       await loadIcons(iconNames);
 
-      nodeElements.each(function (node) {
+      nodeElements.each(function (node: D3Node) {
         if (node.type === 'actor') {
           const centerGroup = d3.select(this).append('g').attr('class', 'center-group center-icon-container');
           const iconContainer = document.createElement('div');
