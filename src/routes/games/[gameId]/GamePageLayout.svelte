@@ -36,30 +36,28 @@
   export let gameId: string;
   export let playerRole: Actor | null = null;
   
-  // Local state
-  let viewMode: 'actors' | 'cards' = 'cards';
-  let leftSidebarOpen = false;
-  let rightSidebarOpen = false;
-  let currentZoom = 1;
-  let searchQuery = '';
-  let gameInfoExpanded = false;
-  let yourRoleExpanded = false;
-  let boardViewExpanded = false;
-  let playersExpanded = false;
-  let chatExpanded = true;
+  // Local state with Svelte 5 Runes
+  let viewMode = $state<'actors' | 'cards'>('cards');
+  let leftSidebarOpen = $state(false);
+  let rightSidebarOpen = $state(false);
+  let currentZoom = $state(1);
+  let searchQuery = $state('');
+  let gameInfoExpanded = $state(false);
+  let yourRoleExpanded = $state(false);
+  let boardViewExpanded = $state(false);
+  let playersExpanded = $state(false);
+  let chatExpanded = $state(true);
   
   // Card data for the player role
-  let playerCard: Card | null = null;
-  let playerCardValues: string[] = [];
-  let playerCardCapabilities: string[] = [];
-  
-  // Using imported getCardValueNames and getCardCapabilityNames from services
+  let playerCard = $state<Card | null>(null);
+  let playerCardValues = $state<string[]>([]);
+  let playerCardCapabilities = $state<string[]>([]);
   
   // References to sidebar elements for click-outside detection
-  let leftSidebarElement: HTMLElement;
-  let rightSidebarElement: HTMLElement;
-  let leftToggleButton: HTMLElement;
-  let rightToggleButton: HTMLElement;
+  let leftSidebarElement = $state<HTMLElement | null>(null);
+  let rightSidebarElement = $state<HTMLElement | null>(null);
+  let leftToggleButton = $state<HTMLElement | null>(null);
+  let rightToggleButton = $state<HTMLElement | null>(null);
   
   // Handle click outside to close sidebars
   function handleClickOutside(event: MouseEvent) {
@@ -92,26 +90,26 @@
     };
   });
   
-  // Subscribe to changes in left sidebar state
-  $: {
+  // Subscribe to changes in left sidebar state using $effect for Runes mode
+  $effect(() => {
     if (leftSidebarOpen) {
       console.log('Left sidebar is now OPEN');
     } else {
       console.log('Left sidebar is now CLOSED');
     }
-  }
+  });
   
-  // Subscribe to changes in right sidebar state
-  $: {
+  // Subscribe to changes in right sidebar state using $effect for Runes mode
+  $effect(() => {
     if (rightSidebarOpen) {
       console.log('Right sidebar is now OPEN');
     } else {
       console.log('Right sidebar is now CLOSED');
     }
-  }
+  });
   
-  // Fetch card data when playerRole changes
-  $: {
+  // Fetch card data when playerRole changes using $effect for Runes mode
+  $effect(() => {
     async function fetchCardData() {
       // First, clear data to avoid stale data
       playerCardValues = [];
