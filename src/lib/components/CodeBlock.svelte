@@ -1,20 +1,19 @@
 <script lang="ts">
-  // Simple code block component for displaying code examples
-  // This helps to avoid Svelte trying to parse code examples as actual template code
-  
-  // Props
-  const { code = '', language = 'typescript' } = $props<{
-    code?: string;
-    language?: string;
-  }>();
+  // Simple code block component with syntax highlighting
+  const { code } = $props<{ code: string }>();
 </script>
 
-<div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm whitespace-pre-wrap overflow-x-auto">
-  {code}
+<div class="code-block font-mono text-xs rounded overflow-hidden">
+  <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto whitespace-pre-wrap">{code}</pre>
 </div>
 
 <style>
   .code-block {
+    position: relative;
+    margin: 0.5rem 0;
+  }
+  
+  pre {
     tab-size: 2;
   }
 </style>
