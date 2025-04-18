@@ -27,7 +27,6 @@
   
   // Functions to manipulate state
   function increment(): void {
-    // For $state, we need to use assignment - not increment operator with const
     count = count + 1;
   }
   
@@ -342,13 +341,13 @@ function notify() {
               <div class="flex space-x-2">
                 <button 
                   class="btn variant-filled-primary" 
-                  onclick={() => increment()}
+                  onclick={increment}
                 >
                   Increment
                 </button>
                 <button 
                   class="btn variant-filled-surface" 
-                  onclick={() => resetCount()}
+                  onclick={resetCount}
                 >
                   Reset
                 </button>
@@ -367,7 +366,7 @@ function notify() {
                   />
                   <button 
                     class="btn variant-filled-primary rounded-l-none" 
-                    onclick={() => addItem()}
+                    onclick={addItem}
                   >
                     Add
                   </button>
@@ -378,7 +377,7 @@ function notify() {
                 <div class="mt-2">
                   <button 
                     class="btn variant-ghost-primary btn-sm"
-                    onclick={() => fetchData()}
+                    onclick={fetchData}
                     disabled={isLoading}
                   >
                     {#if isLoading}
