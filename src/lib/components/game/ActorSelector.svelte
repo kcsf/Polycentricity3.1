@@ -148,30 +148,22 @@
           log(`Actor ${actor.actor_id} is from game ${actor.game_id}, adding to new game ${gameId}`);
           
           try {
-            // Join the game first to ensure the user is registered as a player
-            const joinSuccess = await joinGame(gameId);
-            if (!joinSuccess) {
-              logError(`Failed to join game ${gameId}`);
-              errorMessage = 'Failed to join the game. Please try again.';
-              creatingActor = false;
-              return;
-            }
-            
-            // Create relationship between actor and new game (Gun.js edge)
-            await createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
+            // Using fire-and-forget approach for these operations to avoid blocking UI
+            // 1. Create relationship between actor and new game (Gun.js edge)
+            createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
             log(`Created relationship: Actor ${actor.actor_id} -> Game ${gameId}`);
             
-            // Assign the actor to the user in the game's role assignment
-            await assignRole(gameId, actor.user_id, actor.actor_id);
-            log(`Assigned role: User ${actor.user_id} -> Actor ${actor.actor_id} in Game ${gameId}`);
+            // 2. Store original game_id for reference before we modify it
+            const originalGameId = actor.game_id;
             
-            // Update the actor's game_id to the current game for proper display
+            // 3. Update the actor's game_id to the current game for proper display
             actor.game_id = gameId;
+            
+            // 4. Log the cross-game usage for debugging
+            log(`Reusing actor from game ${originalGameId} in new game ${gameId}`);
           } catch (relErr) {
-            logError('Error creating game relationship:', relErr);
-            errorMessage = 'Failed to associate actor with this game. Please try again.';
-            creatingActor = false;
-            return;
+            // Log error but continue - the join+assign process in the parent will handle this
+            logError('Error setting up cross-game actor relationship:', relErr);
           }
         }
         
@@ -188,7 +180,7 @@
           logError('Error setting up card subscription:', subErr);
         }
         
-        // Call the parent handler with selected actor
+        // Call the parent handler with selected actor - this will handle joinGame and assignRole
         onSelectActor(actor);
       } else {
         log(`Actor with ID ${selectedActorId} not found in existingActors array`);
