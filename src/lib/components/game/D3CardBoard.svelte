@@ -553,7 +553,16 @@
             const card = node.data as Card;
             if (!card) return;
 
-          const iconName = card.icon || 'user';
+          // Extract proper icon from card data or role type
+          // First try explicit icon, then role-based icon, then fallback to 'user'
+          const iconName = card.icon || 
+                          (card.role_title?.toLowerCase().includes('funder') ? 'funder' : 
+                           card.role_title?.toLowerCase().includes('farmer') ? 'farmer' :
+                           card.role_title?.toLowerCase().includes('steward') ? 'steward' :
+                           card.role_title?.toLowerCase().includes('builder') ? 'builder' : 'user');
+          
+          log(`Using icon '${iconName}' for card ${card.card_id} with title ${card.role_title}`);
+          
           const isActive = node.id === activeCardId;
           const iconSize = isActive ? 36 : 24;
           

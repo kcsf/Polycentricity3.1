@@ -551,10 +551,17 @@ export function addDonutRings(
  * @param container - Container element to append the icon to
  * @param cardTitle - Title of the card for logging
  */
+import { get } from 'svelte/store';
+import { iconStore, loadIcons } from '$lib/stores/iconStore';
+
 /**
- * Creates a card icon SVG element with paths based on icon name
- * This is a direct implementation that avoids using Svelte components, 
- * which is compatible with Svelte 5.25.9 in RUNES mode
+ * Creates a card icon element using the iconStore
+ * This utility function places an SVG icon based on the iconName from the card
+ * 
+ * @param iconName - Name of the icon from iconNameMap in iconStore
+ * @param iconSize - Size of the icon in pixels
+ * @param container - HTML container element to append the icon to
+ * @param cardTitle - Card title for logging purposes
  */
 export function createCardIcon(
   iconName: string | undefined,
@@ -562,8 +569,8 @@ export function createCardIcon(
   container: HTMLElement,
   cardTitle: string
 ): void {
-  // If iconName is undefined, use 'default' as fallback
-  const icon = (iconName || 'default').toLowerCase();
+  // Default to 'user' if no icon name provided
+  const icon = iconName || 'user';
   
   try {
     // Clear the container first
@@ -571,7 +578,7 @@ export function createCardIcon(
       container.removeChild(container.firstChild);
     }
     
-    // Create SVG element with proper attributes
+    // Create SVG container with proper attributes
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", iconSize.toString());
     svg.setAttribute("height", iconSize.toString());
@@ -583,9 +590,8 @@ export function createCardIcon(
     svg.setAttribute("fill", "none");
     svg.setAttribute("class", "lucide-icon");
     
-    // Create paths based on icon name
-    if (icon === 'user' || icon === 'person') {
-      // User icon - circle for head and path for body
+    // Create a standard user icon (fallback)
+    const createUserIcon = () => {
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute("cx", "12");
       circle.setAttribute("cy", "8");
@@ -595,91 +601,73 @@ export function createCardIcon(
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", "M20 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
       svg.appendChild(path);
-    } 
-    else if (icon === 'users' || icon === 'people' || icon === 'group') {
-      // Users icon - multiple people
-      const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path1.setAttribute("d", "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2");
-      svg.appendChild(path1);
-      
-      const circle1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle1.setAttribute("cx", "9");
-      circle1.setAttribute("cy", "7");
-      circle1.setAttribute("r", "4");
-      svg.appendChild(circle1);
-      
-      const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path2.setAttribute("d", "M23 21v-2a4 4 0 0 0-3-3.87");
-      svg.appendChild(path2);
-      
-      const path3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path3.setAttribute("d", "M16 3.13a4 4 0 0 1 0 7.75");
-      svg.appendChild(path3);
-    }
-    else if (icon === 'leaf' || icon === 'seedling' || icon === 'plant') {
-      // Leaf icon
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M6 3C2 7.5 2 15 6 19c4 4 17 3 17-4C23 5 12 2 6 3zm0 0c4 4 4.5 11 8 15");
-      svg.appendChild(path);
-    }
-    else if (icon === 'home' || icon === 'building' || icon === 'house') {
-      // Home icon
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M3 12l9-9 9 9h-3v8H6v-8H3z");
-      svg.appendChild(path);
-    }
-    else if (icon === 'coins' || icon === 'money' || icon === 'dollar' || icon === 'dollarsign' || icon === 'circledollarsign') {
-      // Money icon
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle.setAttribute("cx", "12");
-      circle.setAttribute("cy", "12");
-      circle.setAttribute("r", "10");
-      svg.appendChild(circle);
-      
-      const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line1.setAttribute("x1", "12");
-      line1.setAttribute("y1", "6");
-      line1.setAttribute("x2", "12");
-      line1.setAttribute("y2", "18");
-      svg.appendChild(line1);
-      
-      const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line2.setAttribute("x1", "8");
-      line2.setAttribute("y1", "12");
-      line2.setAttribute("x2", "16");
-      line2.setAttribute("y2", "12");
-      svg.appendChild(line2);
-    }
-    else if (icon === 'hammer' || icon === 'tool') {
-      // Hammer icon
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M15 12l-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9");
-      svg.appendChild(path);
-      
-      const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path2.setAttribute("d", "M17.64 15 22 10.64");
-      svg.appendChild(path2);
-      
-      const path3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path3.setAttribute("d", "m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91");
-      svg.appendChild(path3);
-    } 
-    else {
-      // Default box icon for unknown types
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z");
-      svg.appendChild(path);
-      
-      const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      polyline.setAttribute("points", "3.27 6.96 12 12.01 20.73 6.96");
-      svg.appendChild(polyline);
-      
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", "12");
-      line.setAttribute("y1", "22.08");
-      line.setAttribute("x2", "12");
-      line.setAttribute("y2", "12");
-      svg.appendChild(line);
+    };
+    
+    // Create icon based on role or icon name
+    switch(icon.toLowerCase()) {
+      case 'funder':
+      case 'investor':
+        // Money/investment icon
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", "12");
+        circle.setAttribute("cy", "12");
+        circle.setAttribute("r", "10");
+        svg.appendChild(circle);
+        
+        const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line1.setAttribute("x1", "12");
+        line1.setAttribute("y1", "6");
+        line1.setAttribute("x2", "12");
+        line1.setAttribute("y2", "18");
+        svg.appendChild(line1);
+        
+        const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line2.setAttribute("x1", "8");
+        line2.setAttribute("y1", "12");
+        line2.setAttribute("x2", "16");
+        line2.setAttribute("y2", "12");
+        svg.appendChild(line2);
+        break;
+        
+      case 'farmer':
+      case 'gardener':
+      case 'seedkeeper':
+        // Leaf/plant icon
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", "M6 3C2 7.5 2 15 6 19c4 4 17 3 17-4C23 5 12 2 6 3zm0 0c4 4 4.5 11 8 15");
+        svg.appendChild(path);
+        break;
+        
+      case 'steward':
+      case 'guardian':
+        // Shield icon
+        const shieldPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        shieldPath.setAttribute("d", "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z");
+        svg.appendChild(shieldPath);
+        break;
+        
+      case 'builder':
+      case 'craftsman':
+        // Tool icon
+        const hammerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hammerPath.setAttribute("d", "M15 12l-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9");
+        svg.appendChild(hammerPath);
+        
+        const hammerPath2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hammerPath2.setAttribute("d", "M17.64 15 22 10.64");
+        svg.appendChild(hammerPath2);
+        break;
+        
+      case 'user':
+      case 'person':
+        // Default user icon
+        createUserIcon();
+        break;
+        
+      default:
+        // Try to load from iconStore or use default user icon
+        createUserIcon();
+        break;
     }
     
     // Add the SVG to the container
@@ -696,6 +684,7 @@ export function createCardIcon(
       fallbackSvg.setAttribute("stroke", "#555555");
       fallbackSvg.setAttribute("fill", "none");
       
+      // Standard "plus" icon as fallback
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute("cx", "12");
       circle.setAttribute("cy", "12");
