@@ -6,6 +6,7 @@
     import { currentGameStore } from '$lib/stores/gameStore';
     import { activeActorId } from '$lib/stores/enhancedGameStore';
     import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame, getPlayerRole } from '$lib/services/gameService';
+    import { getGun, nodes } from '$lib/services/gunService';
     import type { Game, Actor } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from 'lucide-svelte';
@@ -241,7 +242,7 @@
                             log('Error with direct Gun.js access:', directErr);
                         }
                     }
-                    }
+                    
                     // Normal object (not a reference)
                     else if (game.player_actor_map[userId]) {
                         const mappedActorId = game.player_actor_map[userId];
@@ -296,7 +297,7 @@
                             });
                             
                             // Map the user to the actor
-                            const userActorMap = {};
+                            const userActorMap: Record<string, string> = {};
                             userActorMap[userId] = savedActorId;
                             
                             log(`Setting player_actor_map with ${userId} -> ${savedActorId}`);
