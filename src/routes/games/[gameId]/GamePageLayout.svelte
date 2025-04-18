@@ -382,7 +382,7 @@
                   <!-- Card header with gradient background based on category -->
                   <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
                     <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
-                      <svelte:component this={User} class="w-5 h-5" />
+                      <User class="w-5 h-5" />
                     </div>
                     <div class="flex items-center justify-between pl-10">
                       <h3 class="text-base font-bold truncate">
@@ -516,11 +516,11 @@
                 </div>
               {:else}
                 <div class="card p-4 bg-surface-200-800/90 border border-surface-300-600 text-center">
-                  <svelte:component this={User} class="w-12 h-12 mx-auto mb-3 text-surface-500-400" />
+                  <User class="w-12 h-12 mx-auto mb-3 text-surface-500-400" />
                   <h3 class="text-base font-bold text-surface-900-50 mb-2">No Role Card Assigned</h3>
                   <p class="text-xs text-surface-700-300 mb-4">Join this game to select a role card and start playing</p>
                   <a href="/games/{gameId}/join" class="btn btn-sm variant-filled-primary w-full">
-                    <svelte:component this={UserPlus} class="w-4 h-4 mr-2" />
+                    <UserPlus class="w-4 h-4 mr-2" />
                     Join Game
                   </a>
                 </div>

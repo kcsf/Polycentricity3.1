@@ -31,9 +31,11 @@ const iconNameMap: Record<string, string> = {
   investor: "TrendingUp"
 };
 
+import type { SvelteComponent } from 'svelte';
+
 interface IconData {
   name: string;
-  component: any;
+  component: typeof SvelteComponent;
 }
 
 export const iconStore = writable<Map<string, IconData>>(new Map());
