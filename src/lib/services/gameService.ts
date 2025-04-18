@@ -592,13 +592,14 @@ export async function getUserGames(): Promise<Game[]> {
   // Get games where user is directly listed as a player
   const directGames = await new Promise<Game[]>((resolve) => {
     const games: Game[] = [];
+    const gamePromises: Promise<Game | null>[] = [];
     log(`Looking for games in user ${currentUser.user_id} data`);
     
     // First, check if the user has any games
     gun.get(nodes.users).get(currentUser.user_id).once((userData: any) => {
       log(`User data found: ${userData ? 'yes' : 'no'}`);
       if (userData && userData.games) {
-        log(`User has games field: ${typeof userData.games}`);
+        log(`User has games field: ${typeof userData.games}, value:`, JSON.stringify(userData.games));
       } else {
         log(`No games field found in user data`);
       }
@@ -606,24 +607,31 @@ export async function getUserGames(): Promise<Game[]> {
     
     // Then try to map through games
     gun.get(nodes.users).get(currentUser.user_id).get('games').map().once((gameValue: any, gameId: string) => {
-      log(`Game found for user: ${gameId}, type: ${typeof gameValue}`);
+      log(`Game found for user: ${gameId}, type: ${typeof gameValue}, value: ${JSON.stringify(gameValue)}`);
       if (typeof gameId === 'string' && gameId !== '_') {
-        getGame(gameId).then(game => {
+        // Store the promise instead of awaiting it here
+        const gamePromise = getGame(gameId).then(game => {
           if (game) {
             log(`Retrieved game: ${game.name} (${gameId})`);
             games.push(game);
+            return game;
           } else {
             log(`Game exists in user data but not retrievable: ${gameId}`);
+            return null;
           }
         });
+        gamePromises.push(gamePromise);
       }
     });
     
-    // Use a separate promise that resolves after the Gun.js operations complete
-    Promise.resolve().then(() => {
-      log(`Retrieved ${games.length} games for user ${currentUser.user_id}`);
-      resolve(games);
-    });
+    // Give some time for the initial scan to register the promises
+    setTimeout(() => {
+      // Wait for all game promises to resolve
+      Promise.all(gamePromises).then(() => {
+        log(`Retrieved ${games.length} games for user ${currentUser.user_id}`);
+        resolve(games);
+      });
+    }, 300);
   });
 
   userGames.push(...directGames);
@@ -1058,7 +1066,7 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
     const userToCheck = userId || (currentUser?.user_id);
     
     if (!userToCheck) {
-      logWarn('No user ID available. Using mock user ID for development.');
+      logWarn('No user ID available. Cannot retrieve actors without a user ID.');
       return [];
     }
     
@@ -1067,6 +1075,8 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
     return new Promise((resolve) => {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
+      let method1Complete = false;
+      let method2Complete = false;
       
       // Method 1: Try to get actors from user->actors relationship first (more direct)
       gun.get(nodes.users).get(userToCheck).get('actors').map().once((actorValue: any, actorId: string) => {
@@ -1090,9 +1100,17 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
         }
       });
       
-      // Method 2: Fallback to scanning all actors (less efficient)
+      // Method 2: Primary method - scan all actors for this user_id 
+      // This is critical because the user->actors relationship might not exist
+      // but the actor.user_id field should always be set
+      log(`[IMPORTANT] Scanning all actors for user_id = ${userToCheck}`);
+      
       gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
+        // Debug every actor found to see if our condition is working
+        log(`Checking actor ${actorId}: user_id=${actorData?.user_id || 'none'} vs ${userToCheck}`);
+        
         if (actorData && actorData.user_id === userToCheck && !uniqueIds.has(actorId)) {
+          log(`★★★ Found actor with matching user_id: ${actorId} (${actorData.custom_name || 'Unnamed'})`);
           uniqueIds.add(actorId);
           
           if (!actorData.actor_id) {
@@ -1102,16 +1120,19 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
           const actor = { ...actorData, actor_id: actorId };
           actors.push(actor);
           cacheActor(actorId, actor);
-          log(`Found actor by scanning: ${actorId}`);
         }
       });
-      // Use Promise.resolve() to handle completion instead of setTimeout
-      Promise.resolve().then(() => {
-        log(`Found ${actors.length} actors for user ${userToCheck}`);
+      
+      // Wait a bit longer for both methods to complete
+      setTimeout(() => {
+        log(`Completed actor scan. Found ${actors.length} actors for user ${userToCheck}`);
         
         // Add caching layer to enhance future queries
         const processedActors = actors.map(async actor => {
           if (actor.card_id) {
+            // Log card information to help with debugging
+            log(`Actor ${actor.actor_id} has card_id: ${actor.card_id}`);
+            
             // Pre-cache cards for actors
             const card = await getCard(actor.card_id);
             if (card) {
@@ -1126,7 +1147,7 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
           log(`Enhanced ${enhancedActors.length} actors with actor properties`);
           resolve(enhancedActors);
         });
-      });
+      }, 500);
     });
   } catch (error) {
     logError('Get user actors error:', error);
