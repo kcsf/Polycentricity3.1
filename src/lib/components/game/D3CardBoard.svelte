@@ -54,35 +54,92 @@
     }
   });
 
+  // Card cache to avoid redundant fetches
+  const cardCache = new Map<string, Card>();
+  
   async function loadCardData(deckId: string): Promise<CardWithPosition[]> {
     log(`Loading cards for deck: ${deckId}`);
-    const gun = getGun();
-    const cards: CardWithPosition[] = [];
     
-    // Create a promise that includes timeout
-    const dataPromise = new Promise<CardWithPosition[]>((resolve) => {
-      gun.get(deckId).get('cards').map().once((cardData: any, cardId: string) => {
-        if (cardData && cardId.startsWith('cards/')) {
-          const cardPath = `${nodes.cards}/${cardId.replace('cards/', '')}`;
-          gun.get(cardPath).once((fullCardData: Card) => {
-            if (fullCardData) {
+    // First try to get cards from the gameService
+    try {
+      const cards = await getAvailableCardsForGame(gameId);
+      log(`Loaded ${cards.length} cards from gameService`);
+      
+      // Cache cards for future reference
+      cards.forEach(card => {
+        if (card.card_id) cardCache.set(card.card_id, card);
+      });
+      
+      // Add position data
+      return cards.map(card => ({
+        ...card,
+        position: { x: Math.random() * width, y: Math.random() * height }
+      }));
+    } catch (error) {
+      log(`Error loading cards from gameService: ${error}`);
+      
+      // Fallback to direct Gun.js loading with batching
+      const gun = getGun();
+      const cards: CardWithPosition[] = [];
+      
+      return new Promise<CardWithPosition[]>((resolve) => {
+        // Use a counter to track when all data is loaded
+        let pendingFetches = 0;
+        let fetched = false;
+        
+        gun.get(deckId).get('cards').map().once((cardData: any, cardId: string) => {
+          if (cardData && cardId.startsWith('cards/')) {
+            const cardId = cardId.replace('cards/', '');
+            
+            // Check cache first
+            if (cardCache.has(cardId)) {
+              const cachedCard = cardCache.get(cardId);
               cards.push({
-                ...fullCardData,
+                ...cachedCard,
                 position: { x: Math.random() * width, y: Math.random() * height }
               });
+              return;
             }
-          });
-        }
-      }).then(() => resolve(cards));
-      
-      // Set a timeout to resolve anyway after 3 seconds
-      setTimeout(() => {
-        log(`loadCardData timed out after 3 seconds, returning ${cards.length} cards`);
-        resolve(cards);
-      }, 3000);
-    });
-    
-    return dataPromise;
+            
+            // Fetch from Gun.js
+            pendingFetches++;
+            const cardPath = `${nodes.cards}/${cardId}`;
+            
+            gun.get(cardPath).once((fullCardData: Card) => {
+              pendingFetches--;
+              
+              if (fullCardData) {
+                // Cache for future use
+                if (fullCardData.card_id) {
+                  cardCache.set(fullCardData.card_id, fullCardData);
+                }
+                
+                cards.push({
+                  ...fullCardData,
+                  position: { x: Math.random() * width, y: Math.random() * height }
+                });
+              }
+              
+              // If all pending fetches are done, resolve
+              if (pendingFetches === 0 && fetched) {
+                resolve(cards);
+              }
+            });
+          }
+        }).then(() => {
+          fetched = true;
+          if (pendingFetches === 0) {
+            resolve(cards);
+          }
+        });
+        
+        // Set a reasonable timeout to resolve anyway after 2 seconds
+        setTimeout(() => {
+          log(`loadCardData fallback timed out after 2 seconds, returning ${cards.length} cards`);
+          resolve(cards);
+        }, 2000);
+      });
+    }
   }
 
   async function loadAgreementData(agreementId: string): Promise<AgreementWithPosition | null> {
@@ -171,6 +228,9 @@
     return { cards, agreements: agreementData, actors };
   }
 
+  // Cache of agreement data to prevent redundant fetches
+  const agreementCache = new Map<string, AgreementWithPosition | null>();
+  
   async function loadGameAgreements(game: { agreement_ids?: string[] | Record<string, boolean> | Record<string, any> }): Promise<AgreementWithPosition[]> {
     if (!game || !game.agreement_ids) return [];
     
@@ -183,74 +243,259 @@
         
     if (agreementIdList.length === 0) return [];
     
-    const agreements = await Promise.all(agreementIdList.map(loadAgreementData));
-    return agreements.filter((a): a is AgreementWithPosition => a !== null);
+    // Split into cached and uncached agreements
+    const cachedAgreementIds = agreementIdList.filter(id => agreementCache.has(id));
+    const uncachedAgreementIds = agreementIdList.filter(id => !agreementCache.has(id));
+    
+    // Get cached agreements
+    const cachedAgreements = cachedAgreementIds
+      .map(id => agreementCache.get(id))
+      .filter((a): a is AgreementWithPosition => a !== null);
+    
+    // Limit concurrent Gun.js lookups to prevent overloading
+    const maxConcurrent = 10;
+    const agreements: AgreementWithPosition[] = [...cachedAgreements];
+    
+    // Process uncached agreements in batches
+    for (let i = 0; i < uncachedAgreementIds.length; i += maxConcurrent) {
+      const batch = uncachedAgreementIds.slice(i, i + maxConcurrent);
+      
+      const batchResults = await Promise.all(batch.map(async (agreementId) => {
+        const agreement = await loadAgreementData(agreementId);
+        // Cache the result (even if null)
+        agreementCache.set(agreementId, agreement);
+        return agreement;
+      }));
+      
+      // Add non-null results
+      agreements.push(...batchResults.filter((a): a is AgreementWithPosition => a !== null));
+    }
+    
+    return agreements;
   }
 
+  // Caches for values and capabilities
+  const valueCache = new Map<string, string>();
+  const capabilityCache = new Map<string, string>();
+  
   async function enhanceCardData(cards: CardWithPosition[]): Promise<CardWithPosition[]> {
     log(`Enhancing ${cards.length} cards`);
+    
+    // Batch process the cards to reduce Gun.js load
     return Promise.all(
       cards.map(async (card) => {
-        const valueNames = card.values
-          ? await Promise.all(
-              Object.keys(card.values).map(async (valueId) =>
-                valueId.startsWith('value_')
-                  ? (await getValue(valueId))?.name || valueId.replace('value_', '').replace(/-/g, ' ')
-                  : valueId.replace(/-/g, ' ')
-              )
-            )
-          : [];
-        const capabilityNames = card.capabilities
-          ? await Promise.all(
-              Object.keys(card.capabilities).map(async (capabilityId) =>
-                capabilityId.startsWith('capability_')
-                  ? (await getCapability(capabilityId))?.name || capabilityId.replace('capability_', '').replace(/-/g, ' ')
-                  : capabilityId.replace(/-/g, ' ')
-              )
-            )
-          : [];
+        // Process values with caching
+        const valueNames = [];
+        if (card.values) {
+          const valueIds = Object.keys(card.values);
+          
+          // Split into cached and uncached values
+          const cachedValueIds = valueIds.filter(id => valueCache.has(id) || !id.startsWith('value_'));
+          const uncachedValueIds = valueIds.filter(id => !valueCache.has(id) && id.startsWith('value_'));
+          
+          // Add cached values
+          for (const valueId of cachedValueIds) {
+            if (valueCache.has(valueId)) {
+              valueNames.push(valueCache.get(valueId));
+            } else {
+              // For non-value_ IDs, just clean up the format
+              const cleanName = valueId.replace(/-/g, ' ');
+              valueCache.set(valueId, cleanName);
+              valueNames.push(cleanName);
+            }
+          }
+          
+          // Batch request uncached values in small groups (max 5 at a time)
+          const batchSize = 5;
+          for (let i = 0; i < uncachedValueIds.length; i += batchSize) {
+            const batch = uncachedValueIds.slice(i, i + batchSize);
+            
+            await Promise.all(
+              batch.map(async (valueId) => {
+                try {
+                  const value = await getValue(valueId);
+                  const name = value?.name || valueId.replace('value_', '').replace(/-/g, ' ');
+                  valueCache.set(valueId, name);
+                  valueNames.push(name);
+                } catch (error) {
+                  // Fallback to formatted value ID
+                  const fallbackName = valueId.replace('value_', '').replace(/-/g, ' ');
+                  valueCache.set(valueId, fallbackName);
+                  valueNames.push(fallbackName);
+                }
+              })
+            );
+          }
+        }
+        
+        // Process capabilities with caching
+        const capabilityNames = [];
+        if (card.capabilities) {
+          const capabilityIds = Object.keys(card.capabilities);
+          
+          // Split into cached and uncached capabilities
+          const cachedCapabilityIds = capabilityIds.filter(id => capabilityCache.has(id) || !id.startsWith('capability_'));
+          const uncachedCapabilityIds = capabilityIds.filter(id => !capabilityCache.has(id) && id.startsWith('capability_'));
+          
+          // Add cached capabilities
+          for (const capabilityId of cachedCapabilityIds) {
+            if (capabilityCache.has(capabilityId)) {
+              capabilityNames.push(capabilityCache.get(capabilityId));
+            } else {
+              // For non-capability_ IDs, just clean up the format
+              const cleanName = capabilityId.replace(/-/g, ' ');
+              capabilityCache.set(capabilityId, cleanName);
+              capabilityNames.push(cleanName);
+            }
+          }
+          
+          // Batch request uncached capabilities in small groups (max 5 at a time)
+          const batchSize = 5;
+          for (let i = 0; i < uncachedCapabilityIds.length; i += batchSize) {
+            const batch = uncachedCapabilityIds.slice(i, i + batchSize);
+            
+            await Promise.all(
+              batch.map(async (capabilityId) => {
+                try {
+                  const capability = await getCapability(capabilityId);
+                  const name = capability?.name || capabilityId.replace('capability_', '').replace(/-/g, ' ');
+                  capabilityCache.set(capabilityId, name);
+                  capabilityNames.push(name);
+                } catch (error) {
+                  // Fallback to formatted capability ID
+                  const fallbackName = capabilityId.replace('capability_', '').replace(/-/g, ' ');
+                  capabilityCache.set(capabilityId, fallbackName);
+                  capabilityNames.push(fallbackName);
+                }
+              })
+            );
+          }
+        }
+        
         return { ...card, _valueNames: valueNames, _capabilityNames: capabilityNames };
       })
     );
   }
 
+  // Track the last update time to avoid redundant operations
+  let lastGameUpdateTime = 0;
+  let lastAgreementUpdateTime = 0;
+  let lastActorUpdateTime = 0;
+  
+  // Game cache for tracking changes
+  const gameCache = new Map<string, any>();
+  const actorCache = new Map<string, Actor>();
+  
   function subscribeToGameData() {
     log(`Subscribing to game data: ${gameId}`);
     
     // Subscribe to game updates using our optimized service function
     unsubscribe.push(
       subscribeToGame(gameId, (game) => {
-        // When game data changes, update agreements
-        if (game) {
-          loadGameAgreements(game).then((ags) => {
-            agreements = ags;
-          });
+        if (!game) return;
+        
+        const currentTime = Date.now();
+        
+        // Check if this is a meaningful update (at least 1 second since last update)
+        if (currentTime - lastGameUpdateTime < 1000) {
+          log('Skipping redundant game update (too frequent)');
+          return;
+        }
+        
+        lastGameUpdateTime = currentTime;
+        log(`Game subscription received update at ${new Date(currentTime).toISOString()}`);
+        
+        // Track if game structure changed to determine if we need a full refresh
+        let needsFullRefresh = false;
+        
+        if (!gameCache.has(gameId)) {
+          gameCache.set(gameId, game);
+          needsFullRefresh = true;
+        } else {
+          const cachedGame = gameCache.get(gameId);
           
-          // If game data changes dramatically, refresh the visualization
-          if (game.deck_id && game.status === GameStatus.ACTIVE) {
-            // This helps ensure we have the latest data without redundant direct Gun.js calls
-            loadGameData().then(({ cards, agreements: loadedAgreements, actors: loadedActors }) => {
-              log(`Game subscription received update, reloading data: ${cards.length} cards, ${loadedAgreements.length} agreements`);
-              
-              // Update the visualization with the latest data
-              enhanceCardData(cards).then(enhancedCards => {
-                cardsWithPosition = enhancedCards;
-                agreements = loadedAgreements;
-                actors = loadedActors;
-                
-                // Update actor-card mappings
-                cardsWithPosition.forEach((card) => {
-                  if (card.actor_id) actorCardMap.set(card.actor_id, card.card_id);
-                });
-                actors.forEach((actor) => {
-                  if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
-                });
-              });
-            }).catch(error => {
-              console.error('Error refreshing game data:', error);
-            });
+          // Check if critical game properties have changed
+          if (
+            cachedGame.deck_id !== game.deck_id || 
+            cachedGame.status !== game.status
+          ) {
+            needsFullRefresh = true;
+            gameCache.set(gameId, game);
           }
         }
+        
+        // Always check for agreement updates since they're lightweight
+        if (game.agreement_ids && currentTime - lastAgreementUpdateTime > 2000) {
+          lastAgreementUpdateTime = currentTime;
+          loadGameAgreements(game).then((ags) => {
+            agreements = ags;
+            log(`Updated ${ags.length} agreements`);
+          });
+        }
+        
+        // Only do full refresh if needed or significant time has passed
+        if (needsFullRefresh || currentTime - lastActorUpdateTime > 10000) {
+          lastActorUpdateTime = currentTime;
+          
+          log('Performing selective game data refresh');
+          
+          // Get actors separately without reloading cards if possible
+          getGameActors(gameId).then(loadedActors => {
+            actors = loadedActors;
+            log(`Updated ${loadedActors.length} actors`);
+            
+            // Update actor-card mappings
+            actors.forEach((actor) => {
+              actorCache.set(actor.actor_id, actor);
+              if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
+            });
+            
+            // Only reload cards if we don't have any or deck ID changed
+            if (cardsWithPosition.length === 0 || needsFullRefresh) {
+              const deckId = game.deck_id;
+              if (deckId) {
+                loadCardData(deckId).then(cards => {
+                  enhanceCardData(cards).then(enhancedCards => {
+                    cardsWithPosition = enhancedCards;
+                    log(`Updated ${enhancedCards.length} cards`);
+                    
+                    // Update card-actor mappings
+                    cardsWithPosition.forEach((card) => {
+                      if (card.actor_id) actorCardMap.set(card.actor_id, card.card_id);
+                    });
+                  });
+                }).catch(error => {
+                  console.error('Error refreshing card data:', error);
+                });
+              }
+            }
+          }).catch(error => {
+            console.error('Error refreshing actor data:', error);
+          });
+        }
+      })
+    );
+    
+    // Also subscribe to actors to catch new actors joining
+    unsubscribe.push(
+      subscribeToGameActors(gameId, (updatedActors) => {
+        if (!updatedActors || updatedActors.length === 0) return;
+        
+        const currentTime = Date.now();
+        if (currentTime - lastActorUpdateTime < 2000) {
+          log('Skipping redundant actor update (too frequent)');
+          return;
+        }
+        
+        log(`Actor subscription received update with ${updatedActors.length} actors`);
+        lastActorUpdateTime = currentTime;
+        
+        // Update our actor list and mappings
+        actors = updatedActors;
+        updatedActors.forEach((actor) => {
+          actorCache.set(actor.actor_id, actor);
+          if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
+        });
       })
     );
   }
