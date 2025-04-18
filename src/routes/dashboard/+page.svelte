@@ -193,8 +193,9 @@
             });
         }
         
-        // Using onMount with proper error handling for Svelte 5.25.9 Runes mode
-        onMount(async () => {
+        // Function to load all dashboard data
+        async function loadDashboardData() {
+                console.log(`Loading dashboard data for user ${$userStore.user?.user_id || 'unknown'}`);
                 // Fetch user's games and actors
                 try {
                         // Get all user's actors first
@@ -288,6 +289,36 @@
                         userGamesStore.set([]); // Ensure we always set a valid array
                 } finally {
                         isLoading = false;
+                }
+                
+                // Dashboard data has been loaded successfully
+        }
+        
+        // Using onMount with proper error handling for Svelte 5.25.9 Runes mode
+        onMount(async () => {
+                // Ensure user is authenticated before loading data
+                if (!$userStore.user?.user_id) {
+                    console.log("User not authenticated yet, waiting for auth state");
+                    
+                    // Set a watcher for user state changes
+                    const unsubscribe = userStore.subscribe(state => {
+                        if (state.user?.user_id) {
+                            console.log(`User authenticated: ${state.user.user_id}, loading dashboard data`);
+                            unsubscribe();
+                            loadDashboardData();
+                        }
+                    });
+                    
+                    // Set a timeout to prevent hanging indefinitely
+                    setTimeout(() => {
+                        if (!$userStore.user?.user_id) {
+                            console.warn("User authentication timeout, attempting to load anyway");
+                            loadDashboardData();
+                        }
+                    }, 5000);
+                } else {
+                    // User is already authenticated, load data immediately
+                    await loadDashboardData();
                 }
                 
                 // Add a cleanup function to prevent memory leaks
