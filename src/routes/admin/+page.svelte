@@ -12,6 +12,7 @@
   import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
   import DatabaseTools from '$lib/components/admin/DatabaseTools.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
+  import SvelteRunesGuide from '$lib/components/admin/SvelteRunesGuide.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   
@@ -706,6 +707,13 @@
         <svelte:component this={icons.Wrench} class="w-4 h-4 mr-2" />
         Maintenance
       </button>
+      <button 
+        class="admin-tab {activeTab === 'dev' ? 'active' : ''}" 
+        on:click={() => handleTabChange('dev')}
+      >
+        <svelte:component this={icons.Settings} class="w-4 h-4 mr-2" />
+        Dev
+      </button>
     </div>
     
     <div class="p-4">
@@ -863,6 +871,10 @@
           fetchDatabaseStats();
           loadGraphVisualization();
         }} />
+      {:else if activeTab === 'dev'}
+        <div class="p-2">
+          <SvelteRunesGuide />
+        </div>
       {:else if activeTab === 'data'}
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
