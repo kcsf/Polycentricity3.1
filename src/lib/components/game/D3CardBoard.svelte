@@ -553,15 +553,11 @@
             const card = node.data as Card;
             if (!card) return;
 
-          // Extract proper icon from card data or role type
-          // First try explicit icon, then role-based icon, then fallback to 'user'
-          const iconName = card.icon || 
-                          (card.role_title?.toLowerCase().includes('funder') ? 'funder' : 
-                           card.role_title?.toLowerCase().includes('farmer') ? 'farmer' :
-                           card.role_title?.toLowerCase().includes('steward') ? 'steward' :
-                           card.role_title?.toLowerCase().includes('builder') ? 'builder' : 'user');
+          // Simply use the icon name directly from the card data in the database
+          // This is already the Lucide icon name (e.g., "sun", "link", etc.)
+          const iconName = card.icon || 'user';
           
-          log(`Using icon '${iconName}' for card ${card.card_id} with title ${card.role_title}`);
+          log(`Using icon '${iconName}' for card ${card.card_id}`);
           
           const isActive = node.id === activeCardId;
           const iconSize = isActive ? 36 : 24;
