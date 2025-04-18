@@ -673,7 +673,15 @@
                                 {/if}
                             </button>
                             
-                            <button class="btn variant-ghost" onclick={() => goto(`/games/${gameId}/details`)}>
+                            <button class="btn variant-ghost" onclick={async () => {
+                                try {
+                                    await goto(`/games/${gameId}/details`);
+                                    log('Navigation to details page successful');
+                                } catch (navError) {
+                                    log('Navigation error going to details page:', navError);
+                                    window.location.href = `/games/${gameId}/details`;
+                                }
+                            }}>
                                 <icons.Info size={18} class="mr-2" />
                                 Game Details
                             </button>
