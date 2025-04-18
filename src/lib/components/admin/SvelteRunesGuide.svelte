@@ -272,13 +272,13 @@ let inputElement = $state<HTMLInputElement | null>(null);
           <h3 class="text-lg font-semibold mb-3">3. Dynamic Components</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// Old way (Svelte 4)
-&lt;svelte:component this={componentType} {...props} /&gt;</pre>
+              <pre>{`// Old way (Svelte 4)
+<svelte:component this={componentType} {...props} />`}</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// New way (Svelte 5 Runes)
-&lt;!-- Components are dynamic by default --&gt;
-&lt;{componentType} {...props} /&gt;</pre>
+              <pre>{`// New way (Svelte 5 Runes)
+<!-- Components are dynamic by default -->
+<{componentType} {...props} />`}</pre>
             </div>
           </div>
         </div>
@@ -287,7 +287,7 @@ let inputElement = $state<HTMLInputElement | null>(null);
           <h3 class="text-lg font-semibold mb-3">4. Component Events</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// Old way (Svelte 4)
+              <pre>{`// Old way (Svelte 4)
 // Child component
 import { createEventDispatcher } from 'svelte';
 const dispatch = createEventDispatcher();
@@ -296,10 +296,10 @@ function notify() {
 }
 
 // Parent
-&lt;Child on:message={handleMessage} /&gt;</pre>
+<Child on:message={handleMessage} />`}</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>// New way (Svelte 5 Runes)
+              <pre>{`// New way (Svelte 5 Runes)
 // Child component
 const { onMessage } = $props();
 function notify() {
@@ -307,7 +307,7 @@ function notify() {
 }
 
 // Parent
-&lt;Child onMessage={handleMessage} /&gt;</pre>
+<Child onMessage={handleMessage} />`}</pre>
             </div>
           </div>
         </div>
@@ -429,13 +429,13 @@ function notify() {
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Data Loading Pattern</h3>
           <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>// Load data from Gun.js with Runes reactivity
+            <pre>{`// Load data from Gun.js with Runes reactivity
 import { getGun, nodes } from '$lib/services/gunService';
 
 // State for data and loading
-let userData = $state&lt;User | null&gt;(null);
+let userData = $state<User | null>(null);
 let isLoading = $state(true);
-let error = $state&lt;string | null&gt;(null);
+let error = $state<string | null>(null);
 
 // Load data on mount
 onMount(async () => {
@@ -448,7 +448,7 @@ onMount(async () => {
     }
     
     // Using Promise for cleaner async handling
-    const result = await new Promise&lt;User | null&gt;((resolve) => {
+    const result = await new Promise<User | null>((resolve) => {
       // Set a timeout to prevent indefinite waiting
       const timeout = setTimeout(() => {
         console.warn("Gun query timed out");
@@ -473,18 +473,18 @@ onMount(async () => {
   } finally {
     isLoading = false;
   }
-});</pre>
+});`}</pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Reactive Subscriptions</h3>
           <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>// Subscribe to real-time Gun.js data with proper cleanup
+            <pre>{`// Subscribe to real-time Gun.js data with proper cleanup
 import { getGun, nodes } from '$lib/services/gunService';
 
 // State for subscription data
-let liveData = $state&lt;any[]&gt;([]);
+let liveData = $state<any[]>([]);
 
 onMount(() => {
   const gun = getGun();
@@ -507,19 +507,19 @@ onMount(() => {
       subscription.off();
     }
   };
-});</pre>
+});`}</pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Saving Data</h3>
           <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>// Save data to Gun.js with proper state handling
+            <pre>{`// Save data to Gun.js with proper state handling
 import { getGun, nodes } from '$lib/services/gunService';
 
 // State for save operation
 let isSaving = $state(false);
-let saveError = $state&lt;string | null&gt;(null);
+let saveError = $state<string | null>(null);
 let formData = $state({
   name: "",
   description: ""
@@ -537,7 +537,7 @@ async function saveToGun() {
     }
     
     // Generate ID if needed
-    const newId = `item_${Date.now()}`;
+    const newId = \`item_\${Date.now()}\`;
     
     // Create item data
     const itemData = {
@@ -549,7 +549,7 @@ async function saveToGun() {
     
     // Save with promise wrapper for better async handling
     await new Promise((resolve, reject) => {
-      console.log(`Starting save to ${nodes.items}.${newId}`);
+      console.log(\`Starting save to \${nodes.items}.\${newId}\`);
       gun.get(nodes.items).get(newId).put(itemData, (ack) => {
         if (ack.err) {
           console.error("Save error:", ack.err);
@@ -573,7 +573,7 @@ async function saveToGun() {
   } finally {
     isSaving = false;
   }
-}</pre>
+}`}</pre>
           </div>
         </div>
         
@@ -587,7 +587,7 @@ async function saveToGun() {
             <li><strong>Implement retry logic</strong> for critical operations</li>
             <li><strong>Always check for Gun initialization</strong> before using it</li>
             <li><strong>Use our utility functions</strong> in gameService.ts for common operations</li>
-            <li><strong>Remember to handle Gun.js references</strong> structured as {"#": "path"}</li>
+            <li><strong>Remember to handle Gun.js references</strong> structured as {"{#}": "path"}</li>
             <li><strong>For collections, use object format</strong> with {id: true} pattern, not arrays</li>
           </ul>
         </div>
