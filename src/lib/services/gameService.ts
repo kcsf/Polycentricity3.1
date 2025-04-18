@@ -70,19 +70,19 @@ export async function createGame(
     const deck_id = deckType === 'eco-village' ? 'd1' : 
                     deckType === 'community-garden' ? 'd2' : 'd1'; // default to d1
     
-    // Create the game data (with type casting for custom properties)
-    const gameData = {
+    // Create the game data with proper types
+    const gameData: Game = {
       game_id,
       name,
       creator: currentUser.user_id,
       deck_type: deckType,
       deck_id,
-      role_assignment_type: roleAssignmentType,
-      role_assignment: {}, // Add empty role_assignment to satisfy the type
+      role_assignment_type: roleAssignmentType, 
+      role_assignment: {}, // Add empty role_assignment object, not the enum value
       players: { [currentUser.user_id]: true },
       created_at: Date.now(),
-      status: GameStatus.CREATED
-    } as Game;
+      status: GameStatus.ACTIVE // Set to ACTIVE by default (not CREATED)
+    };
 
     // Cache immediately to provide faster responses
     cacheGame(game_id, gameData);
@@ -102,7 +102,7 @@ export async function createGame(
           deck_id,
           role_assignment_type: roleAssignmentType,
           created_at: Date.now(),
-          status: GameStatus.CREATED
+          status: GameStatus.ACTIVE // Set to ACTIVE, not CREATED
         }, (ack: any) => ack.err ? reject(ack.err) : resolve());
       }),
       

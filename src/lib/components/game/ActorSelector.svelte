@@ -4,8 +4,11 @@
     import type { Actor, Card } from '$lib/types';
     import * as icons from 'lucide-svelte';
     
-    export let gameId: string;
-    export let onSelectActor: (actor: Actor) => void;
+    // Use Svelte 5 $props() syntax instead of export let
+    const { gameId, onSelectActor } = $props<{
+        gameId: string;
+        onSelectActor: (actor: Actor) => void;
+    }>();
     
     // Use Svelte 5 RUNES state
     let isLoading = $state(true);

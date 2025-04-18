@@ -32,10 +32,11 @@
                 // Update creator status through event
                 dispatch('statusUpdate', { status: 'creating' });
                 
-                // Set a timeout to handle stalled game creation - but keep allowing background operation
+                // Set a very short timeout just for safety in case something goes wrong
+                // This timeout should never be triggered in normal operation
                 const timeoutId = setTimeout(() => {
                         if (isCreating) {
-                                // Don't abort creation, just tell the user it's taking time
+                                // This should only happen if there's a serious error
                                 console.log('Game creation is taking longer than expected but continuing in background');
                                 isCreating = false;
                                 dispatch('statusUpdate', { status: 'background' });
@@ -45,7 +46,7 @@
                                 localStorage.setItem('game_creating_background', 'true');
                                 dispatch('created', { gameId: 'background' });
                         }
-                }, 10000); // Reduced from 20000 to 10000 ms - provide faster feedback but don't kill the operation
+                }, 30000); // Much longer timeout as a safety fallback only
                 
                 try {
                         // If custom deck is selected but no implementation yet, fallback to predefined
