@@ -12,7 +12,7 @@
   import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
   import DatabaseTools from '$lib/components/admin/DatabaseTools.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
-  import SvelteRunesGuide from '$lib/components/admin/SvelteRunesGuide.svelte';
+  // SvelteRunesGuide moved to src/lib/components/guides/SvelteRunesGuide.svelte
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   

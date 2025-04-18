@@ -40,5 +40,8 @@
 	],
 	"/register": [
 		"src/routes/+layout.ts"
+	],
+	"/runes-guide": [
+		"src/routes/+layout.ts"
 	]
 }
