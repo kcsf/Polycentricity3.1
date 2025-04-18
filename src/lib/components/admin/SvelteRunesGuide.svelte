@@ -4,15 +4,15 @@
   import * as icons from 'lucide-svelte';
   
   // Example for state (runes mode) - proper TypeScript typing
-  const count = $state<number>(0);
-  const inputText = $state<string>("");
-  const items = $state<string[]>([]);
-  const isLoading = $state<boolean>(false);
-  const activeTab = $state<string>("basics");
+  let count = $state<number>(0);
+  let inputText = $state<string>("");
+  let items = $state<string[]>([]);
+  let isLoading = $state<boolean>(false);
+  let activeTab = $state<string>("basics");
   
   // Demonstration of derived state with $derived
-  const doubledCount = $derived<number>(count * 2);
-  const itemCount = $derived<number>(items.length);
+  let doubledCount = $derived<number>(count * 2);
+  let itemCount = $derived<number>(items.length);
   
   // Example effect that runs when dependencies change
   $effect(() => {
@@ -21,7 +21,7 @@
   });
   
   // Example of a computed value using $derived
-  const displayMessage = $derived<string>(
+  let displayMessage = $derived<string>(
     count > 10 ? "Count is getting high!" : "Count is still low"
   );
   
@@ -124,8 +124,8 @@ $: doubled = count * 2;</pre>
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>// New way (Svelte 5 Runes)
-const count = $state<number>(0);
-const doubled = $derived<number>(count * 2);</pre>
+let count = $state<number>(0);
+let doubled = $derived<number>(count * 2);</pre>
             </div>
           </div>
         </div>
@@ -194,7 +194,7 @@ let inputElement;
             </div>
             <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
               <pre>{`// New way (Svelte 5 Runes)
-const inputElement = $state<HTMLInputElement | null>(null);
+let inputElement = $state<HTMLInputElement | null>(null);
 <input bind:this={inputElement}>`}</pre>
             </div>
           </div>
@@ -217,11 +217,11 @@ const inputElement = $state<HTMLInputElement | null>(null);
   const { title = "Default", options = [] } = $props();
   
   // State declarations
-  const isExpanded = $state<boolean>(false);
-  const selectedIndex = $state<number>(-1);
+  let isExpanded = $state<boolean>(false);
+  let selectedIndex = $state<number>(-1);
   
   // Derived state
-  const hasSelection = $derived<boolean>(selectedIndex >= 0);
+  let hasSelection = $derived<boolean>(selectedIndex >= 0);
   
   // Effects
   $effect(() => {
