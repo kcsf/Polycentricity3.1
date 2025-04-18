@@ -19,7 +19,7 @@
   import gameStore, { activeActorId } from '$lib/stores/enhancedGameStore';
   import { userStore } from '$lib/stores/userStore';
   import type { Game, Actor, Card } from '$lib/types';
-  import { getCard } from '$lib/services/gameService';
+  import { getCard, getUserCard } from '$lib/services/gameService';
   import { getCardValueNames } from '$lib/services/valueService';
   import { getCardCapabilityNames } from '$lib/services/capabilityService';
   
@@ -114,10 +114,17 @@
   $: {
     async function fetchCardData() {
       if (playerRole && playerRole.card_id) {
-        // Fetching card data for player role
-        // Get the card data
-        console.log('Fetching card data for player role with card_id:', playerRole.card_id);
-        playerCard = await getCard(playerRole.card_id);
+        // Check if we have a logged-in user
+        if ($userStore.user) {
+          // Use the optimized getUserCard function that combines getPlayerRole and getCard steps
+          console.log('Using getUserCard to fetch card data for user:', $userStore.user.user_id);
+          playerCard = await getUserCard(gameId, $userStore.user.user_id);
+        } else {
+          // Fallback to direct card lookup if no user is logged in or for testing
+          console.log('Falling back to direct card lookup with card_id:', playerRole.card_id);
+          playerCard = await getCard(playerRole.card_id);
+        }
+        
         console.log('Card data received:', playerCard);
         
         if (playerCard) {

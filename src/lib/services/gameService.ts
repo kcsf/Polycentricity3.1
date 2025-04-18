@@ -815,13 +815,10 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
                 if (actorData && actorData.game_id === gameId) {
                     actors.push({...actorData, actor_id: actorId});
                 }
-            });
-            
-            // Use setTimeout to give Gun time to fetch data
-            setTimeout(() => {
+            }).then(() => {
                 console.log(`Found ${actors.length} actors for game ${gameId}`);
                 resolve(actors);
-            }, 500);
+            });
         });
     } catch (error) {
         console.error('Get game actors error:', error);
@@ -1001,4 +998,26 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
         console.error('Fix game relationships error:', error);
         return {success: false, gamesFixed: 0};
     }
+}
+
+// Get the card assigned to a user in a game
+export async function getUserCard(gameId: string, userId: string): Promise<Card | null> {
+    console.log(`Fetching card for user ${userId} in game ${gameId}`);
+    const gun = getGun();
+    if (!gun) {
+        console.error('Gun not initialized');
+        return null;
+    }
+    const actor = await getPlayerRole(gameId, userId);
+    if (!actor || !actor.card_id) {
+        console.log(`No actor or card found for user ${userId} in game ${gameId}`);
+        return null;
+    }
+    const card = await getCard(actor.card_id);
+    if (!card) {
+        console.log(`Card ${actor.card_id} not found`);
+        return null;
+    }
+    console.log(`Found card ${actor.card_id} for user ${userId}`);
+    return card;
 }
