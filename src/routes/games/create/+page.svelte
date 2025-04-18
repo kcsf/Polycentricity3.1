@@ -20,13 +20,15 @@
         async function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
                 const { gameId } = event.detail;
                 
-                // Normal case - immediately show success and redirect
-                console.log(`Game created, navigating to game: ${gameId}`);
+                // Update UI immediately, then navigate after a brief delay
+                console.log(`Game created, preparing to navigate to: ${gameId}`);
                 creationStatus = 'success';
                 createdGameId = gameId;
                 
-                // Redirect immediately
-                goto(`/games/${gameId}`);
+                // Brief delay to ensure the UI shows success before redirecting
+                setTimeout(() => {
+                    goto(`/games/${gameId}`);
+                }, 500);
         }
 </script>
 
