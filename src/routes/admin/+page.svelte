@@ -672,44 +672,44 @@
     <div class="admin-tabs">
       <button 
         class="admin-tab {activeTab === 'overview' ? 'active' : ''}" 
-        on:click={() => handleTabChange('overview')}
+        onclick={() => handleTabChange('overview')}
       >
-        <svelte:component this={icons.Eye} class="w-4 h-4 mr-2" />
+        <icons.Eye class="w-4 h-4 mr-2" />
         Overview
       </button>
       <button 
         class="admin-tab {activeTab === 'data' ? 'active' : ''}" 
-        on:click={() => handleTabChange('data')}
+        onclick={() => handleTabChange('data')}
       >
-        <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
+        <icons.Database class="w-4 h-4 mr-2" />
         Data
       </button>
       <button 
         class="admin-tab {activeTab === 'decks' ? 'active' : ''}" 
-        on:click={() => handleTabChange('decks')}
+        onclick={() => handleTabChange('decks')}
       >
-        <svelte:component this={icons.Cards} class="w-4 h-4 mr-2" />
+        <icons.Cards class="w-4 h-4 mr-2" />
         Decks
       </button>
       <button 
         class="admin-tab {activeTab === 'visualize' ? 'active' : ''}" 
-        on:click={() => handleTabChange('visualize')}
+        onclick={() => handleTabChange('visualize')}
       >
-        <svelte:component this={icons.Network} class="w-4 h-4 mr-2" />
+        <icons.Network class="w-4 h-4 mr-2" />
         Visualize
       </button>
       <button 
         class="admin-tab {activeTab === 'maintenance' ? 'active' : ''}" 
-        on:click={() => handleTabChange('maintenance')}
+        onclick={() => handleTabChange('maintenance')}
       >
-        <svelte:component this={icons.Wrench} class="w-4 h-4 mr-2" />
+        <icons.Wrench class="w-4 h-4 mr-2" />
         Maintenance
       </button>
       <button 
         class="admin-tab {activeTab === 'dev' ? 'active' : ''}" 
-        on:click={() => handleTabChange('dev')}
+        onclick={() => handleTabChange('dev')}
       >
-        <svelte:component this={icons.Settings} class="w-4 h-4 mr-2" />
+        <icons.Settings class="w-4 h-4 mr-2" />
         Dev
       </button>
     </div>
