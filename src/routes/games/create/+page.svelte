@@ -20,27 +20,13 @@
         async function handleGameCreated(event: CustomEvent<{ gameId: string }>) {
                 const { gameId } = event.detail;
                 
-                // Handle timeout or background operation case
-                if (gameId === 'timeout' || gameId === 'background') {
-                    console.log('Game creation continuing in background, redirecting to games list');
-                    creationStatus = gameId === 'timeout' ? 'timeout' : 'background';
-                    
-                    // Wait a moment to show the status message before redirecting
-                    setTimeout(() => {
-                        goto('/games');
-                    }, 3000);
-                    return;
-                }
-                
-                // Normal case - wait a second to ensure Gun.js has time to sync
+                // Normal case - immediately show success and redirect
                 console.log(`Game created, navigating to game: ${gameId}`);
                 creationStatus = 'success';
                 createdGameId = gameId;
                 
-                // Wait a short time to ensure Gun.js has synced data before navigating
-                setTimeout(() => {
-                    goto(`/games/${gameId}`);
-                }, 2000);
+                // Redirect immediately
+                goto(`/games/${gameId}`);
         }
 </script>
 
