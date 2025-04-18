@@ -5,10 +5,11 @@
   import { User } from 'lucide-svelte';
   import { iconStore, loadIcons } from '$lib/stores/iconStore';
   import { getGun, nodes } from '$lib/services/gunService';
-  import { getGameActors, getUserCard, subscribeToGame } from '$lib/services/gameService';
+  import { getGameActors, getUserCard, subscribeToGame, getGame } from '$lib/services/gameService';
   import { getValue } from '$lib/services/valueService';
   import { getCapability } from '$lib/services/capabilityService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
+  import { GameStatus } from '$lib/types';
   import {
     createNodes,
     createLinks,
@@ -91,25 +92,41 @@
     actors: Actor[];
   }> {
     log(`Loading game data for: ${gameId}`);
-    const gun = getGun();
-    const gamePath = `${nodes.games}/${gameId}`;
-
-    const [deckData, agreementIds, actors] = await Promise.all([
-      new Promise<any>((resolve) => gun.get(gamePath).get('deck').once(resolve)),
-      new Promise<any>((resolve) => gun.get(gamePath).get('agreement_ids').once(resolve)),
-      getGameActors(gameId)
-    ]);
-
-    if (!deckData) throw new Error(`No deck found for game: ${gameId}`);
-    const deckId = Object.keys(deckData).find((key) => key.startsWith('decks/'));
-    if (!deckId) throw new Error(`Invalid deck reference for game: ${gameId}`);
-
-    const [cards, agreementData] = await Promise.all([
-      loadCardData(deckId),
-      agreementIds && typeof agreementIds === 'object'
-        ? Promise.all(Object.keys(agreementIds).map(loadAgreementData)).then((ags) => ags.filter((a): a is AgreementWithPosition => a !== null))
-        : Promise.resolve([])
-    ]);
+    
+    // Use getGame from gameService to get all game data
+    const game = await getGame(gameId);
+    if (!game) throw new Error(`Game not found: ${gameId}`);
+    
+    // Get actors using the optimized function
+    const actors = await getGameActors(gameId);
+    
+    // Load cards and agreements
+    let cards: Card[] = [];
+    let agreementData: AgreementWithPosition[] = [];
+    
+    // Get deck ID from game
+    const deckId = game.deck_id;
+    if (!deckId) throw new Error(`No deck ID found for game: ${gameId}`);
+    
+    // Load cards
+    try {
+      cards = await loadCardData(deckId);
+    } catch (error) {
+      console.error('Error loading card data:', error);
+      cards = [];
+    }
+    
+    // Load agreements if any
+    try {
+      if (game.agreement_ids && typeof game.agreement_ids === 'object') {
+        agreementData = await Promise.all(
+          Object.keys(game.agreement_ids).map(loadAgreementData)
+        ).then((ags) => ags.filter((a): a is AgreementWithPosition => a !== null));
+      }
+    } catch (error) {
+      console.error('Error loading agreement data:', error);
+      agreementData = [];
+    }
 
     return { cards, agreements: agreementData, actors };
   }
@@ -153,58 +170,43 @@
 
   function subscribeToGameData() {
     log(`Subscribing to game data: ${gameId}`);
-    const gun = getGun();
-    if (!gun) return;
-
+    
+    // Subscribe to game updates using our optimized service function
     unsubscribe.push(
       subscribeToGame(gameId, (game) => {
-        loadGameAgreements(game).then((ags) => {
-          agreements = ags;
-        });
+        // When game data changes, update agreements
+        if (game) {
+          loadGameAgreements(game).then((ags) => {
+            agreements = ags;
+          });
+          
+          // If game data changes dramatically, refresh the visualization
+          if (game.deck_id && game.status === GameStatus.ACTIVE) {
+            // This helps ensure we have the latest data without redundant direct Gun.js calls
+            loadGameData().then(({ cards, agreements: loadedAgreements, actors: loadedActors }) => {
+              log(`Game subscription received update, reloading data: ${cards.length} cards, ${loadedAgreements.length} agreements`);
+              
+              // Update the visualization with the latest data
+              enhanceCardData(cards).then(enhancedCards => {
+                cardsWithPosition = enhancedCards;
+                agreements = loadedAgreements;
+                actors = loadedActors;
+                
+                // Update actor-card mappings
+                cardsWithPosition.forEach((card) => {
+                  if (card.actor_id) actorCardMap.set(card.actor_id, card.card_id);
+                });
+                actors.forEach((actor) => {
+                  if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
+                });
+              });
+            }).catch(error => {
+              console.error('Error refreshing game data:', error);
+            });
+          }
+        }
       })
     );
-
-    gun.get(nodes.games).get(gameId).get('deck').once((deckData) => {
-      if (!deckData) return;
-      const deckId = Object.keys(deckData).find((key) => key.startsWith('decks/'));
-      if (!deckId) return;
-
-      gun.get(deckId).get('cards').map().on((cardData, cardId) => {
-        if (cardData && cardId.startsWith('cards/')) {
-          const cardPath = `${nodes.cards}/${cardId.replace('cards/', '')}`;
-          gun.get(cardPath).on(async (fullCardData: Card) => {
-            if (fullCardData) {
-              const existing = cardsWithPosition.find((c) => c.card_id === fullCardData.card_id);
-              const updatedCard: CardWithPosition = {
-                ...fullCardData,
-                position: existing?.position || { x: Math.random() * width, y: Math.random() * height },
-                _valueNames: await Promise.all(
-                  fullCardData.values
-                    ? Object.keys(fullCardData.values).map(async (valueId) =>
-                        valueId.startsWith('value_')
-                          ? (await getValue(valueId))?.name || valueId.replace('value_', '').replace(/-/g, ' ')
-                          : valueId.replace(/-/g, ' ')
-                      )
-                    : []
-                ),
-                _capabilityNames: await Promise.all(
-                  fullCardData.capabilities
-                    ? Object.keys(fullCardData.capabilities).map(async (capabilityId) =>
-                        capabilityId.startsWith('capability_')
-                          ? (await getCapability(capabilityId))?.name || capabilityId.replace('capability_', '').replace(/-/g, ' ')
-                          : capabilityId.replace(/-/g, ' ')
-                      )
-                    : []
-                )
-              };
-              cardsWithPosition = existing
-                ? cardsWithPosition.map((c) => (c.card_id === fullCardData.card_id ? updatedCard : c))
-                : [...cardsWithPosition, updatedCard];
-            }
-          });
-        }
-      });
-    });
   }
 
   async function initializeVisualization() {
