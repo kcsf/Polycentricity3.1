@@ -197,14 +197,45 @@
                 // Fetch user's games and actors
                 try {
                         // Get all user's actors first
-                        const userActors = await getUserActors();
-                        console.log(`Found ${userActors.length} actors for user`);
-                        
-                        // Load detailed actor information
-                        actorStats = await loadFullActorDetails(userActors || []);
+                        try {
+                            const userActors = await getUserActors();
+                            console.log(`Found ${userActors.length} actors for user ${$userStore.user?.user_id || 'unknown'}`);
+                            
+                            // Debug each actor found
+                            if (userActors.length > 0) {
+                                userActors.forEach((actor, index) => {
+                                    console.log(`Actor ${index + 1}: ID=${actor.actor_id}, Game=${actor.game_id}, Card=${actor.card_id || 'none'}`);
+                                });
+                            } else {
+                                console.warn(`No actors found for user ${$userStore.user?.user_id || 'unknown'} - this suggests a possible connectivity issue with Gun.js`);
+                            }
+                            
+                            // Load detailed actor information
+                            actorStats = await loadFullActorDetails(userActors || []);
+                        } catch (error) {
+                            console.error("Error retrieving user actors:", error);
+                            actorStats = [];
+                        }
                         
                         // Get games directly through user relationship
-                        const directUserGames = await getUserGames();
+                        let directUserGames = [];
+                        try {
+                            console.log(`Attempting to get games for user ${$userStore.user?.user_id || 'unknown'}`);
+                            directUserGames = await getUserGames();
+                            
+                            // Debug each game found
+                            if (directUserGames.length > 0) {
+                                console.log(`Found ${directUserGames.length} direct games for user ${$userStore.user?.user_id || 'unknown'}`);
+                                directUserGames.forEach((game, index) => {
+                                    console.log(`Game ${index + 1}: ID=${game.game_id}, Name=${game.name || 'Unnamed'}`);
+                                });
+                            } else {
+                                console.warn(`No direct games found for user ${$userStore.user?.user_id || 'unknown'} - this suggests a possible connectivity issue with Gun.js`);
+                            }
+                        } catch (error) {
+                            console.error("Error retrieving user games:", error);
+                            directUserGames = [];
+                        }
                         
                         // Also get games through actors (deeper traversal)
                         const actorLinkedGames = await getGamesFromActors(actorStats);
