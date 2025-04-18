@@ -10,14 +10,16 @@
     import * as icons from 'lucide-svelte';
     import { GameStatus } from '$lib/types';
     
+    // Extract gameId from URL parameter
     const gameId = $page.params.gameId;
     
-    let game: Game | null = null;
-    let isLoading = true;
-    let errorMessage = '';
-    let isFull = false;
-    let actorSelected = false;
-    let selectedActor: Actor | null = null;
+    // Use Svelte 5 RUNES state management
+    let game = $state<Game | null>(null);
+    let isLoading = $state(true);
+    let errorMessage = $state('');
+    let isFull = $state(false);
+    let actorSelected = $state(false);
+    let selectedActor = $state<Actor | null>(null);
     
     onMount(async () => {
         try {
@@ -147,7 +149,7 @@
                     {/if}
                 </p>
             </div>
-            <button class="btn variant-ghost-surface" on:click={goBack}>
+            <button class="btn variant-ghost-surface" onclick={goBack}>
                 <icons.ArrowLeft size={20} class="mr-2" />
                 Back to Games
             </button>
@@ -167,7 +169,7 @@
             <span>{errorMessage}</span>
         </div>
         <div class="flex justify-center mt-4">
-            <button class="btn variant-filled-primary" on:click={goBack}>
+            <button class="btn variant-filled-primary" onclick={goBack}>
                 <icons.ArrowLeft size={20} class="mr-2" />
                 Back to Games
             </button>
@@ -177,7 +179,7 @@
             <icons.UserX size={40} class="mx-auto mb-4 text-error-500" />
             <h2 class="h2 mb-2">Game is Full</h2>
             <p class="mb-4">This game has reached its maximum player capacity.</p>
-            <button class="btn variant-filled-primary" on:click={goBack}>
+            <button class="btn variant-filled-primary" onclick={goBack}>
                 Find Another Game
             </button>
         </div>

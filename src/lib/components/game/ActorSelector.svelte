@@ -144,7 +144,7 @@
         <div class="flex border-b border-surface-300-600-token mb-4">
             <button 
                 class="px-4 py-2 {mode === 'select' ? 'border-b-2 border-primary-500 text-primary-500' : 'text-surface-600'}" 
-                on:click={() => setMode('select')}
+                onclick={() => setMode('select')}
                 disabled={existingActors.length === 0}
             >
                 <span class="flex items-center">
@@ -154,7 +154,7 @@
             </button>
             <button 
                 class="px-4 py-2 {mode === 'create' ? 'border-b-2 border-primary-500 text-primary-500' : 'text-surface-600'}" 
-                on:click={() => setMode('create')}
+                onclick={() => setMode('create')}
                 disabled={availableCards.length === 0}
             >
                 <span class="flex items-center">
@@ -176,7 +176,7 @@
             {#if existingActors.length === 0}
                 <div class="card p-4 text-center">
                     <p>You don't have any existing actors to use.</p>
-                    <button class="btn variant-ghost-primary mt-2" on:click={() => setMode('create')}>
+                    <button class="btn variant-ghost-primary mt-2" onclick={() => setMode('create')}>
                         Create a new actor instead
                     </button>
                 </div>
@@ -199,7 +199,7 @@
                     
                     <button 
                         class="btn variant-filled-primary w-full" 
-                        on:click={handleSelectActor}
+                        onclick={handleSelectActor}
                         disabled={!selectedActorId}
                     >
                         Continue with Selected Actor
@@ -214,7 +214,7 @@
                 <div class="card p-4 text-center">
                     <p>No cards available for this game. All cards have been assigned to players.</p>
                     {#if existingActors.length > 0}
-                        <button class="btn variant-ghost-primary mt-2" on:click={() => setMode('select')}>
+                        <button class="btn variant-ghost-primary mt-2" onclick={() => setMode('select')}>
                             Use an existing actor instead
                         </button>
                     {/if}
@@ -269,7 +269,7 @@
                     
                     <button 
                         class="btn variant-filled-primary w-full" 
-                        on:click={handleCreateActor}
+                        onclick={handleCreateActor}
                         disabled={!selectedCardId || creatingActor}
                     >
                         {#if creatingActor}
