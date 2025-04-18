@@ -55,9 +55,9 @@ export async function createGame(
     let currentUser = getCurrentUser();
 
     if (!currentUser) {
-      logWarn('No authenticated user. Using mock user.');
+      logWarn('No authenticated user. Using mock user for development');
       currentUser = {
-        user_id: 'u838', // Using a consistent ID for development to make debugging easier
+        user_id: 'u838', // Consistent ID for development to make debugging easier
         name: 'Development User',
         email: 'dev@example.com',
         created_at: Date.now(),
@@ -84,35 +84,32 @@ export async function createGame(
       role_assignment_type: roleAssignmentType,
       role_assignment: {},
       players: { [currentUser.user_id]: true },
-      // Initialize the player_actor_map (empty at first - will be populated when roles are assigned)
+      // IMPORTANT: Always initialize player_actor_map as empty object
       player_actor_map: {},
       created_at: Date.now(),
       status: GameStatus.ACTIVE // Always set to ACTIVE immediately
     };
 
-    // Immediately cache the game data and update the current game store
+    // CRITICAL OPTIMIZATION: Immediately cache the game data and update current game store
     // This ensures the UI can update immediately without waiting for Gun.js
     cacheGame(game_id, gameData);
     currentGameStore.set(gameData);
 
-    // FIRE-AND-FORGET APPROACH
-    // We'll save to the database but not wait for confirmation
-    // This guarantees the UI doesn't hang waiting for Gun.js operations
-    
-    // Only the local sync is critical for UI flow
-    // Do database writes without waiting for callbacks
+    // TRUE FIRE-AND-FORGET APPROACH
+    // Only use a single promise for the core game data, all other writes 
+    // happen in the background without waiting
     const gameNode = gun.get(nodes.games).get(game_id);
-    
-    // Create game data with a single put operation
     const writeStart = performance.now();
     
     try {
-      // 1. Primary write - must succeed or retry
-      await new Promise<void>((resolve, reject) => {
+      // ONLY PRIMARY WRITE with very short timeout - must store the core game data
+      // All other operations are truly fire-and-forget
+      await new Promise<void>((resolve) => {
+        // Set a very short timeout to prevent UI hanging
         const writeTimeout = setTimeout(() => {
-          log('Game data write timed out, using fallback');
-          resolve(); // Resolve anyway to prevent UI hanging
-        }, 1000);
+          log('Primary game data write timed out, proceeding anyway');
+          resolve(); // Always resolve to prevent UI hanging
+        }, 800); // Reduced timeout for better UI responsiveness
         
         gameNode.put({
           game_id,
@@ -122,39 +119,59 @@ export async function createGame(
           deck_id: deckType === 'eco-village' ? 'd1' : deckType === 'community-garden' ? 'd2' : 'd1',
           role_assignment_type: roleAssignmentType,
           created_at: Date.now(),
-          status: GameStatus.ACTIVE,
+          status: GameStatus.ACTIVE, // Always ACTIVE immediately
           players: { [currentUser.user_id]: true },
-          player_actor_map: {}
-        }, (ack: any) => {
+          player_actor_map: {} // Initialize empty but consistent object
+        }, () => {
           clearTimeout(writeTimeout);
-          if (ack.err) {
-            logWarn('Game data write ack returned error:', ack.err);
-            reject(ack.err);
-          } else {
-            log('Game data write ack received successfully');
-            resolve();
-          }
+          log('Primary game data write completed');
+          resolve();
         });
       });
       
       log(`Primary game data wrote in ${performance.now() - writeStart}ms`);
       
-      // 2. Secondary writes - can be truly fire and forget
-      // Use proper type cast for Gun.js set operation
+      // ALL SECONDARY WRITES - completely fire and forget (pure optimistic approach)
+      // No need to wait for any of these to complete - they happen in the background
+      
+      // User → game relationship
       gun.get(nodes.users).get(currentUser.user_id).get('games').set(gun.get(nodes.games).get(game_id) as any);
       
-      // 3. Add empty deck and role_assignment nodes to avoid undefined errors
-      gameNode.get('deck').put({});
+      // Empty nodes to avoid undefined errors - purely fire and forget
       gameNode.get('role_assignment').put({});
+      gameNode.get('player_actor_map').put({}); // Explicitly ensure player_actor_map exists
       
-      // 4. Create necessary references in background
+      // Create references - fire and forget
       gun.get(nodes.games).get(game_id).get('creator_ref').put({ '#': `${nodes.users}/${currentUser.user_id}` });
       
-      if (deckType === 'eco-village' || deckType === 'community-garden') {
-        gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deckType === 'eco-village' ? 'd1' : 'd2'}` });
+      // Add user to player_actor_map as null (reserved but not assigned) - important optimization
+      gun.get(nodes.games).get(game_id).get('player_actor_map').get(currentUser.user_id).put(null);
+      
+      // Handle deck type
+      const deckId = deckType === 'eco-village' ? 'd1' : deckType === 'community-garden' ? 'd2' : null;
+      if (deckId) {
+        gun.get(nodes.games).get(game_id).get('deck_ref').put({ '#': `${nodes.decks}/${deckId}` });
       }
       
-      // Setup predefined deck in the background
+      // DELAYED BACKGROUND OPERATIONS - lowest priority
+      
+      // Secondary delayed operation for reliability
+      setTimeout(() => {
+        try {
+          // Double-check player_actor_map exists
+          gun.get(nodes.games).get(game_id).get('player_actor_map').once((map: any) => {
+            if (!map) {
+              gun.get(nodes.games).get(game_id).get('player_actor_map').put({});
+              log(`Fixed missing player_actor_map for game ${game_id}`);
+            }
+          });
+        } catch (e) {
+          // Non-fatal error
+          logWarn(`Error in delayed player_actor_map verification: ${e}`);
+        }
+      }, 500);
+      
+      // Lowest priority: Setup predefined deck if needed
       if (deckType === 'eco-village' || deckType === 'community-garden') {
         setTimeout(() => {
           (async () => {
@@ -162,23 +179,24 @@ export async function createGame(
               log(`Setting up predefined deck (background): ${deckType} for game ${game_id}`);
               const actors = getPredefinedDeck(deckType);
               await setGameActors(game_id, actors as Actor[]);
-              log(`Completed background deck setup for game: ${game_id}`);
+              log(`Completed deck setup for game: ${game_id}`);
             } catch (error) {
-              logWarn(`Background deck setup error for game ${game_id}:`, error);
-              // We still consider the game created successfully even if deck setup fails
+              logWarn(`Background deck setup error: ${error}`);
+              // Non-fatal error, game is still created successfully
             }
           })();
-        }, 200); // Small delay to prioritize primary data syncing
+        }, 700); // Increased delay to let core data sync first
       }
       
       log(`Game created successfully: ${game_id} (${performance.now() - writeStart}ms)`);
       return gameData;
       
     } catch (error) {
-      logError(`Error during game creation process: ${error}`);
+      logError(`Error during game creation: ${error}`);
       
       // IMPORTANT: Even on error, we return the game data anyway
-      // This ensures the UI flow doesn't block, and we can retry the database operations if needed
+      // This ensures the UI flow doesn't block - the user sees the game created
+      // even if the database operations failed
       return gameData;
     }
   } catch (error) {
@@ -1348,81 +1366,86 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
     
     log(`Getting actors for user: ${userToCheck}`);
     
+    // OPTIMIZATION: Always use Promise with timeout to avoid UI freezing
     return new Promise((resolve) => {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
       let methodsCompleted = 0;
-      const totalMethods = 2; // Removed full actor scan method
+      const totalMethods = 2; // Only using role_assignment and direct actor lookups
       
-      // Set a short global timeout to ensure we return something
+      // Shorter global timeout to ensure we return something quickly
       const globalTimeout = setTimeout(() => {
-        if (actors.length > 0) {
-          log(`Global timeout reached with ${actors.length} actors found`);
-          finishCollection();
-        } else {
-          log(`Global timeout reached with no actors, waiting a bit longer`);
-          // Give a bit more time if we have nothing
-          setTimeout(finishCollection, 500);
-        }
-      }, 1500);
+        log(`Global timeout reached with ${actors.length} actors found`);
+        finishCollection();
+      }, 1000); // Reduced from 1500ms for better UI responsiveness
       
-      // Method 1: Check actor cache first (instant retrieval)
+      // Method 1: Check actor cache FIRST for instant retrieval
       for (const [actorId, actor] of actorCache.entries()) {
         if (actor.user_id === userToCheck && !uniqueIds.has(actorId)) {
-          log(`Found actor ${actorId} in cache for user ${userToCheck}`);
+          log(`Cache hit: actor ${actorId} for user ${userToCheck}`);
           uniqueIds.add(actorId);
           actors.push(actor);
         }
       }
       
-      // Method 2: PRIORITY - Look at games' role_assignment for this user
-      // This should be the most reliable source of actor assignments
-      log(`[PRIMARY] Checking role assignments for user ${userToCheck}`);
-      let roleAssignmentsComplete = false;
+      // Fast return if we found actors in cache
+      if (actors.length > 0) {
+        log(`Found ${actors.length} actors in cache, continuing search in background`);
+        // We'll go ahead and continue searching, but we can resolve early
+        setTimeout(() => {
+          resolve([...actors]); // Create a copy
+        }, 0);
+      }
       
-      // Start tracking role assignment checks
+      // Method 2: PRIORITY - Check player_actor_map first (most reliable)
+      // This is now our primary lookup method as it's more reliable in practice
+      log(`[PRIMARY] Checking player_actor_map for user ${userToCheck}`);
+      let method1Complete = false;
+      
+      // Direct lookup on each game's player_actor_map
       gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
-        if (!gameData) return;
+        if (!gameData || gameId === '_') return;
         
-        // Check both role_assignment and player_actor_map since player_actor_map is more reliable
-        
-        // Check player_actor_map first (preferred)
-        if (gameData.player_actor_map) {
-          // Handle both direct object and Gun.js reference formats
-          if (typeof gameData.player_actor_map === 'object' && gameData.player_actor_map['#']) {
-            // It's a reference - resolve it by doing a direct get with user ID as key
-            const mapPath = gameData.player_actor_map['#'];
-            
-            gun.get(mapPath).get(userToCheck).once((actorId: string) => {
-              if (actorId && actorId !== '_' && !uniqueIds.has(actorId)) {
-                log(`Found player_actor_map reference: ${userToCheck} -> ${actorId} in game ${gameId}`);
+        // Fast check for direct access to player_actor_map
+        const directCheck = () => {
+          try {
+            if (gameData.player_actor_map && typeof gameData.player_actor_map === 'object') {
+              const actorId = gameData.player_actor_map[userToCheck];
+              if (actorId && typeof actorId === 'string' && !uniqueIds.has(actorId)) {
+                log(`Direct hit: player_actor_map[${userToCheck}] = ${actorId} in game ${gameId}`);
                 fetchActor(actorId, gameId);
+                return true;
               }
-            });
-          } else {
-            // It's a direct object
-            const actorId = gameData.player_actor_map[userToCheck];
-            if (actorId && !uniqueIds.has(actorId)) {
-              log(`Found player_actor_map direct: ${userToCheck} -> ${actorId} in game ${gameId}`);
-              fetchActor(actorId, gameId);
             }
+            return false;
+          } catch (e) {
+            return false;
           }
-        }
+        };
         
-        // Also check role_assignment for completeness (backup)
-        if (gameData.role_assignment) {
-          gun.get(nodes.games).get(gameId).get('role_assignment').get(userToCheck).once((actorId: string) => {
+        // Try direct object access first (fastest)
+        if (!directCheck()) {
+          // Then try map lookup (optimized path)
+          gun.get(nodes.games).get(gameId).get('player_actor_map').get(userToCheck).once((actorId: string) => {
             if (actorId && actorId !== '_' && !uniqueIds.has(actorId)) {
-              log(`Found role_assignment: ${userToCheck} -> ${actorId} in game ${gameId}`);
+              log(`Found player_actor_map: ${userToCheck} -> ${actorId} in game ${gameId}`);
               fetchActor(actorId, gameId);
             }
           });
         }
+        
+        // Also check role_assignment as fallback
+        gun.get(nodes.games).get(gameId).get('role_assignment').get(userToCheck).once((actorId: string) => {
+          if (actorId && actorId !== '_' && !uniqueIds.has(actorId)) {
+            log(`Found role_assignment: ${userToCheck} -> ${actorId} in game ${gameId}`);
+            fetchActor(actorId, gameId);
+          }
+        });
       });
       
       // Set a reasonable timeout to complete this method
       setTimeout(() => {
-        roleAssignmentsComplete = true;
+        method1Complete = true;
         methodComplete();
       }, 500);
       
@@ -1495,7 +1518,7 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
         log(`Method completed. ${methodsCompleted}/${totalMethods} done`);
         
         if (methodsCompleted >= totalMethods || 
-            (roleAssignmentsComplete && userActorsComplete)) {
+            (method1Complete && userActorsComplete)) {
           finishCollection();
         }
       }
