@@ -233,12 +233,17 @@ export async function joinGame(gameId: string): Promise<boolean> {
       );
     }),
     new Promise<void>((resolve) => {
-      gun.get(nodes.users).get(currentUser.user_id).get('games').set(gameId as any, resolve);
+      // Note: GunJS expects a callback function with ack parameter, not a Promise resolve
+      gun.get(nodes.users).get(currentUser.user_id).get('games').set(gameId, (ack) => {
+        resolve(); // Ignore potential ack.err here since this is optional
+      });
     }),
     new Promise<void>((resolve) => {
       gun.get(nodes.games).get(gameId).get('player_refs').set({ 
         '#': `${nodes.users}/${currentUser.user_id}` 
-      } as any, resolve);
+      }, (ack) => {
+        resolve(); // Ignore potential ack.err here since this is optional
+      });
     })
   ]);
 
