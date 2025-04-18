@@ -22,7 +22,7 @@
     type CardWithPosition,
     type AgreementWithPosition
   } from '$lib/utils/d3GraphUtils';
-
+  
   const { gameId, activeActorId = undefined } = $props<{
     gameId: string;
     activeActorId?: string;
@@ -84,20 +84,6 @@
       });
     });
   }
-  
-  async function loadGameAgreements(game: any): Promise<AgreementWithPosition[]> {
-    log(`Loading agreements for game: ${gameId}`);
-    const agreementIds = game?.agreement_ids || [];
-    if (!Array.isArray(agreementIds) || !agreementIds.length) {
-      return [];
-    }
-    
-    const loadedAgreements = await Promise.all(
-      agreementIds.map(loadAgreementData)
-    );
-    
-    return loadedAgreements.filter((a): a is AgreementWithPosition => a !== null);
-  }
 
   async function loadGameData(): Promise<{
     cards: CardWithPosition[];
@@ -120,12 +106,22 @@
 
     const [cards, agreementData] = await Promise.all([
       loadCardData(deckId),
-      agreementIds && Array.isArray(agreementIds)
-        ? Promise.all(agreementIds.map(loadAgreementData)).then((ags) => ags.filter((a): a is AgreementWithPosition => a !== null))
+      agreementIds && typeof agreementIds === 'object'
+        ? Promise.all(Object.keys(agreementIds).map(loadAgreementData)).then((ags) => ags.filter((a): a is AgreementWithPosition => a !== null))
         : Promise.resolve([])
     ]);
 
     return { cards, agreements: agreementData, actors };
+  }
+
+  async function loadGameAgreements(game: any): Promise<AgreementWithPosition[]> {
+    if (!game || !game.agreement_ids) return [];
+    
+    const agreementIds = typeof game.agreement_ids === 'object' ? Object.keys(game.agreement_ids) : [];
+    if (agreementIds.length === 0) return [];
+    
+    const agreements = await Promise.all(agreementIds.map(loadAgreementData));
+    return agreements.filter((a): a is AgreementWithPosition => a !== null);
   }
 
   async function enhanceCardData(cards: CardWithPosition[]): Promise<CardWithPosition[]> {
@@ -360,3 +356,27 @@
     </div>
   {/if}
 </div>
+
+<style>
+  :global(.icon-container) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+  
+  :global(.link.obligation) {
+    stroke: #4f46e5; /* indigo-600 */
+  }
+  
+  :global(.link.benefit) {
+    stroke: #10b981; /* emerald-500 */
+    stroke-dasharray: 4 2;
+  }
+  
+  :global(.node.active circle) {
+    stroke: #4ade80; /* green-400 */
+    stroke-width: 3px;
+  }
+</style>
