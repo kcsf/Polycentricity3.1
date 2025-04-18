@@ -341,7 +341,11 @@ export async function assignRole(gameId: string, userId: string, actorId: string
           ack.err ? reject(ack.err) : resolve()
         );
       }),
-      gun.get(nodes.actors).get(actorId).get('user_id').put(userId)
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.actors).get(actorId).get('user_id').put(userId, (ack: any) =>
+          ack.err ? reject(ack.err) : resolve()
+        );
+      })
     ]);
 
     // Update cache
@@ -366,10 +370,18 @@ async function removePlayerRole(gameId: string, userId: string): Promise<boolean
 
   const actor = await getPlayerRole(gameId, userId);
   if (actor) {
-    await gun.get(nodes.actors).get(actor.actor_id).get('user_id').put(null);
+    await new Promise<void>((resolve, reject) => {
+      gun.get(nodes.actors).get(actor.actor_id).get('user_id').put(null, (ack: any) =>
+        ack.err ? reject(ack.err) : resolve()
+      );
+    });
   }
 
-  await gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(null);
+  await new Promise<void>((resolve, reject) => {
+    gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(null, (ack: any) =>
+      ack.err ? reject(ack.err) : resolve()
+    );
+  });
   
   // Clear cache
   const key = `${gameId}:${userId}`;
@@ -580,11 +592,28 @@ export async function getUserGames(): Promise<Game[]> {
   // Get games where user is directly listed as a player
   const directGames = await new Promise<Game[]>((resolve) => {
     const games: Game[] = [];
-    gun.get(nodes.users).get(currentUser.user_id).get('games').map().once((gameId: string) => {
+    log(`Looking for games in user ${currentUser.user_id} data`);
+    
+    // First, check if the user has any games
+    gun.get(nodes.users).get(currentUser.user_id).once((userData: any) => {
+      log(`User data found: ${userData ? 'yes' : 'no'}`);
+      if (userData && userData.games) {
+        log(`User has games field: ${typeof userData.games}`);
+      } else {
+        log(`No games field found in user data`);
+      }
+    });
+    
+    // Then try to map through games
+    gun.get(nodes.users).get(currentUser.user_id).get('games').map().once((gameValue: any, gameId: string) => {
+      log(`Game found for user: ${gameId}, type: ${typeof gameValue}`);
       if (typeof gameId === 'string' && gameId !== '_') {
         getGame(gameId).then(game => {
           if (game) {
+            log(`Retrieved game: ${game.name} (${gameId})`);
             games.push(game);
+          } else {
+            log(`Game exists in user data but not retrievable: ${gameId}`);
           }
         });
       }
@@ -1039,6 +1068,29 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
       
+      // Method 1: Try to get actors from user->actors relationship first (more direct)
+      gun.get(nodes.users).get(userToCheck).get('actors').map().once((actorValue: any, actorId: string) => {
+        if (actorId && actorId !== '_') {
+          log(`Found actor link from user: ${actorId}`);
+          
+          gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+            if (actorData && !uniqueIds.has(actorId)) {
+              uniqueIds.add(actorId);
+              
+              if (!actorData.actor_id) {
+                actorData.actor_id = actorId;
+              }
+              
+              const actor = { ...actorData, actor_id: actorId };
+              actors.push(actor);
+              cacheActor(actorId, actor);
+              log(`Retrieved actor data for: ${actorId}`);
+            }
+          });
+        }
+      });
+      
+      // Method 2: Fallback to scanning all actors (less efficient)
       gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
         if (actorData && actorData.user_id === userToCheck && !uniqueIds.has(actorId)) {
           uniqueIds.add(actorId);
@@ -1050,6 +1102,7 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
           const actor = { ...actorData, actor_id: actorId };
           actors.push(actor);
           cacheActor(actorId, actor);
+          log(`Found actor by scanning: ${actorId}`);
         }
       });
       // Use Promise.resolve() to handle completion instead of setTimeout
