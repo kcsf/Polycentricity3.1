@@ -736,7 +736,7 @@
             </div>
           {:else if g6Error}
             <div class="alert variant-filled-error">
-              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <icons.AlertTriangle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Error</h3>
                 <p>{g6Error}</p>
@@ -877,7 +877,7 @@
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
-              <svelte:component this={icons.Database} class="text-primary-500" />
+              <icons.Database class="text-primary-500" />
               <div>
                 <h3 class="h4 text-surface-900-50">Database Data</h3>
                 <p class="text-sm text-surface-700-300">Browse and explore the raw data stored in your Gun.js database.</p>
@@ -892,7 +892,7 @@
             </div>
           {:else if error}
             <div class="alert variant-filled-error">
-              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <icons.AlertTriangle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Error</h3>
                 <p>{error}</p>
@@ -999,7 +999,7 @@
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
-              <svelte:component this={icons.Info} class="text-primary-500" />
+              <icons.Info class="text-primary-500" />
               <div>
                 <h3 class="h4 text-surface-900-50">Database Information</h3>
                 <p class="text-sm text-surface-700-300">This dashboard allows you to view and manage your Gun.js database.</p>
@@ -1014,7 +1014,7 @@
             </div>
           {:else if error}
             <div class="alert variant-filled-error">
-              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <icons.AlertTriangle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Error</h3>
                 <p>{error}</p>
@@ -1054,7 +1054,7 @@
             
             {#if databaseNodes.length === 0}
               <div class="card p-8 bg-surface-200-800 border border-surface-300-600 text-center">
-                <svelte:component this={icons.Database} class="w-16 h-16 mx-auto mb-4 text-surface-500" />
+                <icons.Database class="w-16 h-16 mx-auto mb-4 text-surface-500" />
                 <h4 class="h4 mb-2">No Data Found</h4>
                 <p class="text-sm max-w-lg mx-auto">
                   There's no data in your Gun.js database yet. As you create games, users, and interact with 
