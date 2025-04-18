@@ -453,9 +453,8 @@
                                                                                                             title="Edit Actor" 
                                                                                                             onclick={() => openActorEditModal(actor)}
                                                                                                         >
-                                                                                                            {#key icons.Pencil}
-                                                                                                                {icons.Pencil ? icons.Pencil({ size: 14 }) : null}
-                                                                                                            {/key}
+                                                                                                            <!-- Simply use the Pencil component directly since it's imported -->
+                                                                                                            <icons.Pencil size={14} />
                                                                                                         </button>
                                                                                                 </div>
                                                                                         </div>
