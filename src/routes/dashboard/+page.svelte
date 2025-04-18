@@ -209,15 +209,18 @@
                         // Also get games through actors (deeper traversal)
                         const actorLinkedGames = await getGamesFromActors(actorStats);
                         
-                        // Combine both game lists, removing duplicates
-                        const allUserGames = [...directUserGames];
+                        // Combine both game lists, removing duplicates using Map
+                        const gamesMap = new Map();
                         
-                        // Add actor-linked games if they're not already in the user games
-                        actorLinkedGames.forEach(game => {
-                            if (!allUserGames.some(g => g.game_id === game.game_id)) {
-                                allUserGames.push(game);
+                        // Add all games to the map, keyed by game_id
+                        [...directUserGames, ...actorLinkedGames].forEach(game => {
+                            if (game && game.game_id) {
+                                gamesMap.set(game.game_id, game);
                             }
                         });
+                        
+                        // Convert map back to array
+                        const allUserGames = Array.from(gamesMap.values());
                         
                         console.log(`Combined ${directUserGames.length} direct games with ${actorLinkedGames.length} actor games for total of ${allUserGames.length} games`);
                         
@@ -482,7 +485,7 @@
                                         </div>
                                 {:else}
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                {#each $userGamesStore as game (game.game_id)}
+                                                {#each [...new Map($userGamesStore.map(g => [g.game_id, g])).values()] as game (game.game_id)}
                                                         <div class="relative">
                                                             <!-- Force "View Game" by setting isUserInGame prop directly -->
                                                             <a href={`/games/${game.game_id}`} class="block">
