@@ -4,12 +4,12 @@
         import { loginUser } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
         
-        // Pre-populate with Bjorn's credentials for easy testing
-        let email = 'bjorn@endogon.com';
-        let password = 'admin123';
-        let isLoggingIn = false;
-        let error = '';
-        let rememberMe = true;
+        // Pre-populate with Bjorn's credentials for easy testing (using Svelte 5.25.9 Runes mode)
+        let email = $state('bjorn@endogon.com');
+        let password = $state('admin123');
+        let isLoggingIn = $state(false);
+        let error = $state('');
+        let rememberMe = $state(true);
         
         onMount(() => {
                 // Check if user is already logged in, redirect to dashboard if true
@@ -24,6 +24,24 @@
                 }
         });
         
+        // Using $effect to monitor login state in Svelte 5.25.9 Runes mode
+        $effect(() => {
+            if (isLoggingIn) {
+                console.log('Login attempt in progress...');
+            }
+        });
+        
+        // Using $effect to monitor error state in Svelte 5.25.9 Runes mode
+        $effect(() => {
+            if (error) {
+                console.warn('Login error detected:', error);
+            }
+        });
+        
+        /**
+         * Handle form submission with better error handling
+         * Using async/await with proper error management
+         */
         async function handleSubmit() {
                 // Reset error
                 error = '';
@@ -50,7 +68,14 @@
                                         localStorage.removeItem('polycentricity_email');
                                 }
                                 
-                                goto('/dashboard');
+                                // Navigate to dashboard with error handling
+                                try {
+                                    await goto('/dashboard');
+                                } catch (navError) {
+                                    console.error('Navigation error:', navError);
+                                    // Fallback to window.location if navigation fails
+                                    window.location.href = '/dashboard';
+                                }
                         } else {
                                 error = 'Invalid email or password';
                         }
@@ -71,7 +96,7 @@
                 </header>
                 
                 <section class="p-4">
-                        <form method="post" on:submit|preventDefault={handleSubmit} class="space-y-4" id="login-form" name="login-form">
+                        <form method="post" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4" id="login-form" name="login-form">
                                 {#if error}
                                         <div class="alert variant-ghost-warning">
                                                 <div class="alert-message">

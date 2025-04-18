@@ -4,24 +4,56 @@
         import { registerUser } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
         
-        let name = '';
-        let email = '';
-        let password = '';
-        let isRegistering = false;
-        let error = '';
+        // Using Svelte 5.25.9 Runes mode for reactive state
+        let name = $state('');
+        let email = $state('');
+        let password = $state('');
+        let isRegistering = $state(false);
+        let error = $state('');
         
-        onMount(() => {
-                // Check if user is already logged in, redirect to dashboard if true
+        // Check authentication status using $effect instead of onMount for better reactivity
+        $effect(() => {
                 if ($userStore.user) {
+                        console.log('User already authenticated, redirecting to dashboard');
                         goto('/dashboard');
                 }
         });
         
+        // Monitor form values for validation using $effect
+        $effect(() => {
+                if (name && email && password) {
+                        // Perform lightweight validation as user types
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (email && !emailRegex.test(email)) {
+                                // Only show validation error if they've entered something
+                                if (email.length > 3) {
+                                        error = 'Please enter a valid email address';
+                                }
+                        } else {
+                                // Clear error when valid
+                                if (error === 'Please enter a valid email address') {
+                                        error = '';
+                                }
+                        }
+                }
+        });
+        
+        // Watch registration status with $effect
+        $effect(() => {
+                if (isRegistering) {
+                        console.log('Registration in progress...');
+                }
+        });
+        
+        /**
+         * Handle form submission with robust error handling
+         * Using async/await with structured error management
+         */
         async function handleSubmit() {
-                // Reset error
+                // Reset error state
                 error = '';
                 
-                // Validate form
+                // Validate form - more comprehensive validation here
                 if (!name.trim() || !email.trim() || !password) {
                         error = 'All fields are required';
                         return;
@@ -34,6 +66,12 @@
                         return;
                 }
                 
+                // Password strength validation
+                if (password.length < 6) {
+                        error = 'Password must be at least 6 characters long';
+                        return;
+                }
+                
                 // Set loading state
                 isRegistering = true;
                 
@@ -42,7 +80,15 @@
                         
                         if (user) {
                                 console.log(`Registered user: ${user.user_id}`);
-                                goto('/dashboard');
+                                
+                                // Navigate with error handling
+                                try {
+                                        await goto('/dashboard');
+                                } catch (navError) {
+                                        console.error('Navigation error:', navError);
+                                        // Fallback if navigation fails
+                                        window.location.href = '/dashboard';
+                                }
                         } else {
                                 error = 'Registration failed. Please try again.';
                         }
@@ -53,7 +99,7 @@
                                (err.message || 'An error occurred during registration');
                         
                         // Add more specific error message for common cases
-                        if (err.includes && err.includes('User already created')) {
+                        if (err?.includes && err.includes('User already created')) {
                                 error = 'This email is already registered. Please log in or use a different email.';
                         }
                 } finally {
@@ -70,7 +116,7 @@
                 </header>
                 
                 <section class="p-4">
-                        <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+                        <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
                                 {#if error}
                                         <div class="alert variant-ghost-warning">
                                                 <div class="alert-message">
