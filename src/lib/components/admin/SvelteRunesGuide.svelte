@@ -277,9 +277,9 @@ let inputElement = $state<HTMLInputElement | null>(null);
               <pre>{`// New way (Svelte 5 Runes)
 <div class="container">
   <!-- Content rendered from slots would appear here -->
-  {#render headerSlot} Header content {/render}
-  {#render defaultSlot || 'Default content'} Content {/render}
-  {#render footerSlot} Footer content {/render}
+  {#render headerSlot?.()} Header content {/render}
+  {#render defaultSlot?.() || 'Default content'} Content {/render}
+  {#render footerSlot?.()} Footer content {/render}
 </div>`}</pre>
             </div>
           </div>
@@ -454,8 +454,8 @@ let userData = $state<User | null>(null);
 let isLoading = $state(true);
 let error = $state<string | null>(null);
 
-// Load data on mount
-onMount(async () => {
+// Effect for data loading (Svelte 5 Runes mode)
+$effect(async () => {
   try {
     isLoading = true;
     const gun = getGun();
@@ -503,7 +503,8 @@ import { getGun, nodes } from '$lib/services/gunService';
 // State for subscription data
 let liveData = $state<any[]>([]);
 
-onMount(() => {
+// Svelte 5 Runes effect with cleanup
+$effect(() => {
   const gun = getGun();
   if (!gun) return;
   
@@ -518,7 +519,7 @@ onMount(() => {
                  { ...gameData, game_id: gameId }];
     });
   
-  // Clean up subscription on component destroy
+  // Clean up subscription on component teardown
   return () => {
     if (subscription && subscription.off) {
       subscription.off();
@@ -598,7 +599,7 @@ async function saveToGun() {
           <h3 class="text-lg font-semibold mb-3">4. Best Practices with Gun.js</h3>
           <ul class="list-disc pl-6 space-y-2">
             <li><strong>Always use timeouts</strong> with Gun.js queries to prevent indefinite waiting</li>
-            <li><strong>Clean up subscriptions</strong> in onDestroy or return from onMount</li>
+            <li><strong>Clean up subscriptions</strong> by returning a cleanup function from $effect</li>
             <li><strong>Use immutable patterns</strong> when updating arrays or objects in state</li>
             <li><strong>Add proper error handling</strong> with specific error states</li>
             <li><strong>Implement retry logic</strong> for critical operations</li>
@@ -648,7 +649,7 @@ async function saveToGun() {
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>$: doubled = count * 2;</code></td>
-                <td class="p-2"><code>let doubled = $derived(count * 2);</code></td>
+                <td class="p-2"><code>let doubled = $derived(() => count * 2);</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>$: console.log(count);</code></td>
@@ -660,7 +661,7 @@ async function saveToGun() {
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
-                <td class="p-2"><code>&#123;#render slotName&#125; content &#123;/render&#125;</code></td>
+                <td class="p-2"><code>&#123;#render slotName?.()&#125; content &#123;/render&#125;</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;svelte:component this={Comp} /&gt;</code></td>
