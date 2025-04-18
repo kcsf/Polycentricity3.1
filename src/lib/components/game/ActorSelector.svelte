@@ -4,8 +4,11 @@
     getUserActors, 
     getAvailableCardsForGame, 
     createActor, 
-    subscribeToUserCard 
+    subscribeToUserCard,
+    joinGame,
+    assignRole
   } from '$lib/services/gameService';
+  import { nodes, createRelationship } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
   import type { Actor, Card } from '$lib/types';
   import * as icons from 'lucide-svelte';
@@ -117,10 +120,14 @@
         return;
       }
       
+      // Set UI feedback
+      creatingActor = true;
+      errorMessage = '';
+      
       const actor = existingActors.find(a => a.actor_id === selectedActorId);
       
       if (actor) {
-        log(`Selected actor: ${actor.actor_id}`);
+        log(`Selected actor: ${actor.actor_id} from game ${actor.game_id}`);
         
         // Make sure the actor has a user_id (if not, use current user)
         if (!actor.user_id) {
@@ -131,6 +138,39 @@
           } else {
             logError('Cannot select actor: Missing user_id and no current user');
             errorMessage = 'Actor data is incomplete. Please try creating a new actor instead.';
+            creatingActor = false;
+            return;
+          }
+        }
+        
+        // If actor was from a different game, we need to set up relationships with the new game
+        if (actor.game_id !== gameId) {
+          log(`Actor ${actor.actor_id} is from game ${actor.game_id}, adding to new game ${gameId}`);
+          
+          try {
+            // Join the game first to ensure the user is registered as a player
+            const joinSuccess = await joinGame(gameId);
+            if (!joinSuccess) {
+              logError(`Failed to join game ${gameId}`);
+              errorMessage = 'Failed to join the game. Please try again.';
+              creatingActor = false;
+              return;
+            }
+            
+            // Create relationship between actor and new game (Gun.js edge)
+            await createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
+            log(`Created relationship: Actor ${actor.actor_id} -> Game ${gameId}`);
+            
+            // Assign the actor to the user in the game's role assignment
+            await assignRole(gameId, actor.user_id, actor.actor_id);
+            log(`Assigned role: User ${actor.user_id} -> Actor ${actor.actor_id} in Game ${gameId}`);
+            
+            // Update the actor's game_id to the current game for proper display
+            actor.game_id = gameId;
+          } catch (relErr) {
+            logError('Error creating game relationship:', relErr);
+            errorMessage = 'Failed to associate actor with this game. Please try again.';
+            creatingActor = false;
             return;
           }
         }
@@ -157,6 +197,8 @@
     } catch (err) {
       logError('Error selecting actor:', err);
       errorMessage = 'Failed to select actor';
+    } finally {
+      creatingActor = false;
     }
   }
   
@@ -258,6 +300,24 @@
   function formatCardTitle(card: Card): string {
     return `${card.role_title || 'Card'} ${card.card_category ? `(${card.card_category})` : ''}`;
   }
+  
+  // Helper function to show proper game origin for actors
+  function formatActorOrigin(actor: Actor): string {
+    if (actor.game_id === gameId) {
+      return '';
+    }
+    
+    // Try to get a short display ID
+    const shortId = actor.game_id.substring(0, 4);
+    return ` [from other game: ${shortId}...]`;
+  }
+  
+  // Helper function to check if selected actor is from another game
+  function isSelectedActorFromOtherGame(): boolean {
+    if (!selectedActorId) return false;
+    const actor = existingActors.find(a => a.actor_id === selectedActorId);
+    return actor ? actor.game_id !== gameId : false;
+  }
 </script>
 
 <div class="p-4 bg-surface-100-800-token rounded-lg">
@@ -322,17 +382,32 @@
               {#each existingActors as actor}
                 <option value={actor.actor_id}>
                   {actor.custom_name || 'Actor'} ({actor.actor_type || 'Unknown Type'})
+                  {formatActorOrigin(actor)}
                 </option>
               {/each}
             </select>
           </label>
           
+          <!-- Show spinner when working -->
           <button
             class="btn variant-filled-primary w-full"
             onclick={handleSelectActor}
-            disabled={!selectedActorId}
+            disabled={!selectedActorId || creatingActor}
           >
-            Continue with Selected Actor
+            {#if creatingActor}
+              <span class="spinner-third w-4 h-4 mr-2"></span>
+              {#if isSelectedActorFromOtherGame()}
+                Associating Actor with this Game...
+              {:else}
+                Selecting Actor...
+              {/if}
+            {:else}
+              {#if isSelectedActorFromOtherGame()}
+                Use Actor from Other Game
+              {:else}
+                Continue with Selected Actor
+              {/if}
+            {/if}
           </button>
         </div>
       {/if}
