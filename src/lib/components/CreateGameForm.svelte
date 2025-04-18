@@ -3,7 +3,8 @@
         import { createGame } from '$lib/services/gameService';
         
         const dispatch = createEventDispatcher<{
-                created: { gameId: string }
+                created: { gameId: string };
+                statusUpdate: { status: string };
         }>();
         
         // Use Svelte 5 RUNES state
@@ -37,6 +38,7 @@
                                 // Force navigation to games page if taking too long
                                 console.log('Game creation is taking too long, redirecting to games list');
                                 isCreating = false;
+                                dispatch('statusUpdate', { status: 'timeout' });
                                 dispatch('created', { gameId: 'timeout' });
                         }
                 }, 20000); // Increased from 5000 to 20000 ms to allow more time for Gun.js operations
@@ -57,15 +59,18 @@
                         
                         if (game) {
                                 console.log(`Game created successfully: ${game.game_id}`);
+                                dispatch('statusUpdate', { status: 'success' });
                                 dispatch('created', { gameId: game.game_id });
                         } else {
                                 console.error('Game creation returned null');
+                                dispatch('statusUpdate', { status: 'error' });
                                 error = 'Failed to create game. Please try again.';
                         }
                 } catch (err) {
                         // Clear the timeout since we got a response
                         clearTimeout(timeoutId);
                         console.error('Error creating game:', err);
+                        dispatch('statusUpdate', { status: 'error' });
                         error = 'An error occurred while creating the game';
                 } finally {
                         // Clear the timeout as a backup

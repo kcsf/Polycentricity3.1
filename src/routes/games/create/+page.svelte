@@ -101,6 +101,26 @@
                                                 </div>
                                         </div>
                                 </div>
+                        {:else if creationStatus === 'error'}
+                                <div class="card p-4 mb-4 variant-filled-error">
+                                        <div class="flex items-center">
+                                                <div class="mr-2">✗</div>
+                                                <div>
+                                                        <p class="font-semibold">Failed to create game</p>
+                                                        <p class="text-sm">Please check the form for errors and try again.</p>
+                                                </div>
+                                        </div>
+                                </div>
+                        {:else if creationStatus === 'creating'}
+                                <div class="card p-4 mb-4 variant-filled-primary">
+                                        <div class="flex items-center">
+                                                <div class="mr-2 spinner-third w-4 h-4"></div>
+                                                <div>
+                                                        <p class="font-semibold">Creating your game...</p>
+                                                        <p class="text-sm">This may take a few moments.</p>
+                                                </div>
+                                        </div>
+                                </div>
                         {/if}
                         
                         <CreateGameForm 

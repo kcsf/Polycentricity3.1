@@ -305,10 +305,35 @@ export async function getAllGames(): Promise<Game[]> {
     // Use a longer timeout to allow more time for Gun.js data to arrive
     // The timeout is longer for the first time (when hasReceivedData is false)
     // and shorter if we've already received some data
+    let timeoutDelay = hasReceivedData ? 2000 : 5000; // Increased timeout values
+    log(`Setting timeout for ${timeoutDelay}ms to wait for Gun.js data`);
+    
     setTimeout(() => {
       log(`Retrieved ${games.length} games (timeout ${hasReceivedData ? 'with' : 'without'} data)`);
-      resolve(games);
-    }, hasReceivedData ? 1000 : 3000); // Wait longer if no data received
+      
+      // If we still don't have any games, try to get them one more time
+      if (games.length === 0) {
+        log('No games retrieved on first attempt, trying again with direct fetch');
+        // Use Gun.js 'gun.then()' pattern to try to ensure we have data
+        gun.get(nodes.games).map().once((gameData: Game, gameId: string) => {
+          if (gameData && gameId !== '_' && !uniqueIds.has(gameId)) {
+            uniqueIds.add(gameId);
+            const game = { ...gameData, game_id: gameId };
+            games.push(game);
+            cacheGame(gameId, game);
+            log(`Found game in second pass: ${gameId}`);
+          }
+        });
+        
+        // Resolve after a short timeout to allow second pass to complete
+        setTimeout(() => {
+          log(`Final games retrieved: ${games.length}`);
+          resolve(games);
+        }, 1000);
+      } else {
+        resolve(games);
+      }
+    }, timeoutDelay);
   });
 }
 

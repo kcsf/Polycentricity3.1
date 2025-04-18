@@ -5,28 +5,41 @@
         import { getAllGames } from '$lib/services/gameService';
         import type { Game } from '$lib/types';
         import GameCard from '$lib/components/GameCard.svelte';
+        import { RefreshCcw } from 'lucide-svelte';
         
-        let allGames: Game[] = [];
-        let isLoading = true;
-        let error = '';
+        let allGames = $state<Game[]>([]);
+        let isLoading = $state(true);
+        let error = $state('');
+        let lastRefreshed = $state(new Date());
         
-        onMount(async () => {
-                // Temporarily disabled authentication check for development
-                // if (!$userStore.user) {
-                //         goto('/login');
-                //         return;
-                // }
+        // Function to load games
+        async function loadGames() {
+                isLoading = true;
+                error = '';
                 
-                // Fetch all games
                 try {
+                        console.log('Fetching all games...');
                         const games = await getAllGames();
                         allGames = games;
+                        console.log(`Retrieved ${games.length} games`);
+                        lastRefreshed = new Date();
                 } catch (err) {
                         console.error('Error fetching games:', err);
                         error = 'Failed to load games. Please try again.';
                 } finally {
                         isLoading = false;
                 }
+        }
+        
+        // Load games when component mounts
+        onMount(() => {
+                // Temporarily disabled authentication check for development
+                // if (!$userStore.user) {
+                //         goto('/login');
+                //         return;
+                // }
+                
+                loadGames();
         });
 </script>
 
@@ -43,6 +56,23 @@
                 </div>
         </div>
         
+        <!-- Refresh controls -->
+        <div class="flex justify-between items-center mb-4">
+                <div class="text-sm text-surface-500">
+                        {#if !isLoading}
+                                Last refreshed: {lastRefreshed.toLocaleTimeString()}
+                        {/if}
+                </div>
+                <button 
+                        class="btn variant-soft-primary" 
+                        onclick={loadGames} 
+                        disabled={isLoading}
+                >
+                        <RefreshCcw size={18} class={isLoading ? 'animate-spin' : ''} />
+                        <span class="ml-2">{isLoading ? 'Refreshing...' : 'Refresh Games'}</span>
+                </button>
+        </div>
+        
         {#if isLoading}
                 <div class="card p-8 text-center bg-surface-100-800-token">
                         <div class="flex justify-center items-center h-32">
@@ -51,8 +81,14 @@
                         </div>
                 </div>
         {:else if error}
-                <div class="alert variant-filled-error">
-                        <p>{error}</p>
+                <div class="alert variant-filled-error p-4 mb-4">
+                        <div class="flex items-center">
+                                <span class="mr-2">✗</span>
+                                <p>{error}</p>
+                        </div>
+                        <div class="mt-2">
+                                <button class="btn btn-sm variant-filled" onclick={loadGames}>Try Again</button>
+                        </div>
                 </div>
         {:else if allGames.length === 0}
                 <div class="card p-10 text-center bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
@@ -60,9 +96,15 @@
                                 <div class="text-5xl text-primary-400 mb-4">🎮</div>
                                 <h2 class="h2 mb-2">No Games Available</h2>
                                 <p class="mb-6 text-surface-600 dark:text-surface-400">Be the first one to create a game and invite others to play!</p>
-                                <a href="/games/create" class="btn variant-filled-primary">
-                                        <span class="mr-2">+</span> Create the First Game
-                                </a>
+                                <div class="flex space-x-4">
+                                        <a href="/games/create" class="btn variant-filled-primary">
+                                                <span class="mr-2">+</span> Create the First Game
+                                        </a>
+                                        <button class="btn variant-soft" onclick={loadGames}>
+                                                <RefreshCcw size={16} />
+                                                <span class="ml-2">Refresh</span>
+                                        </button>
+                                </div>
                         </div>
                 </div>
         {:else}
