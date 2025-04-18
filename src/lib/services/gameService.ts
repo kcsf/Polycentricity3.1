@@ -1340,8 +1340,7 @@ export async function createActor(
 }
 
 // Get a user's actors from all games
-
-async function getUserActors(userId?: string): Promise<Actor[]> {
+export async function getUserActors(userId?: string): Promise<Actor[]> {
   try {
     const gun = getGun();
     const currentUser = getCurrentUser();
