@@ -99,7 +99,7 @@ export interface Game {
     end_date?: number;
     max_players?: number;
     password?: string;
-    agreement_ids?: string[];
+    agreement_ids?: Record<string, boolean>;
     
     // Legacy fields used in older data - may be accessed via type casting
     deck?: Record<string, any>;
