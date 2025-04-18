@@ -605,7 +605,7 @@
     <div class="absolute bottom-4 left-4">
       <CardDetailsPopover 
         node={selectedNode} 
-        onClose={() => (selectedNode = null)} 
+        onClose={() => selectedNode = null} 
       />
     </div>
   {/if}
