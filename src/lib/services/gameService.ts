@@ -77,6 +77,8 @@ export async function createGame(
       role_assignment_type: roleAssignmentType,
       role_assignment: {},
       players: { [currentUser.user_id]: true },
+      // Initialize the player_actor_map (empty at first - will be populated when roles are assigned)
+      player_actor_map: {},
       created_at: Date.now(),
       status: GameStatus.ACTIVE // Always set to ACTIVE immediately
     };
@@ -114,7 +116,8 @@ export async function createGame(
           role_assignment_type: roleAssignmentType,
           created_at: Date.now(),
           status: GameStatus.ACTIVE,
-          players: { [currentUser.user_id]: true }
+          players: { [currentUser.user_id]: true },
+          player_actor_map: {}
         }, (ack: any) => {
           clearTimeout(writeTimeout);
           if (ack.err) {
@@ -440,14 +443,45 @@ export async function assignRole(gameId: string, userId: string, actorId: string
   }
 
   try {
+    // Get current game data to make sure we have the latest version
+    const game = await getGame(gameId);
+    if (!game) {
+      logError('Game not found during role assignment');
+      return false;
+    }
+
+    // Initialize player_actor_map if it doesn't exist
+    const currentPlayerActorMap = game.player_actor_map || {};
+    
+    // Update player_actor_map with the new mapping
+    const updatedPlayerActorMap = { ...currentPlayerActorMap, [userId]: actorId };
+    
+    // Perform all updates in parallel for performance
     await Promise.all([
+      // Update role_assignment (traditional way)
       new Promise<void>((resolve, reject) => {
         gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId, (ack: any) =>
           ack.err ? reject(ack.err) : resolve()
         );
       }),
+      
+      // Update player_actor_map in the game document
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap, (ack: any) =>
+          ack.err ? reject(ack.err) : resolve()
+        );
+      }),
+      
+      // Set the user_id on the actor
       new Promise<void>((resolve, reject) => {
         gun.get(nodes.actors).get(actorId).get('user_id').put(userId, (ack: any) =>
+          ack.err ? reject(ack.err) : resolve()
+        );
+      }),
+      
+      // Also set the game_id on the actor if it's from another game
+      new Promise<void>((resolve, reject) => {
+        gun.get(nodes.actors).get(actorId).get('game_id').put(gameId, (ack: any) =>
           ack.err ? reject(ack.err) : resolve()
         );
       })
@@ -455,7 +489,18 @@ export async function assignRole(gameId: string, userId: string, actorId: string
 
     // Update cache
     cacheRole(gameId, userId, actorId);
+    
+    // Update game cache with new player_actor_map
+    if (gameCache.has(gameId)) {
+      const cachedGame = gameCache.get(gameId)!;
+      gameCache.set(gameId, { 
+        ...cachedGame, 
+        player_actor_map: updatedPlayerActorMap 
+      });
+    }
+    
     log(`Role assigned: ${actorId} to user ${userId} in game ${gameId}`);
+    log(`Updated player_actor_map:`, updatedPlayerActorMap);
     return true;
   } catch (error) {
     logError(`Error assigning role ${actorId} to user ${userId}:`, error);
