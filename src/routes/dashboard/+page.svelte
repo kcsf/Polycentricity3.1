@@ -10,6 +10,7 @@
         import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
         import ActorEditModal from '$lib/components/ActorEditModal.svelte';
         import * as icons from 'lucide-svelte';
+        import { state } from 'svelte';  // Import state instead of inspect
         // Dashboard specific imports
         
         // Dashboard state using Svelte 5.25.9 Runes mode
@@ -300,7 +301,7 @@
         // Add a Runes $effect to log when dashboard data changes
         $effect(() => {
             if (!isLoading) {
-                console.log('Dashboard data loaded with stats:', dashboardStats);
+                console.log('%c[snapshot]', 'color: grey', 'Dashboard data loaded with stats:', $inspect(dashboardStats));
             }
         });
         
