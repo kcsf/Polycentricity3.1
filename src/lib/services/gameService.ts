@@ -193,10 +193,14 @@ export async function getAllGames(): Promise<Game[]> {
     });
     
     // Use a short timeout instead of .then() since Gun.js map().once() doesn't consistently support .then()
-    setTimeout(() => {
+    // We'll implement a better solution when Gun.js provides more reliable promise support
+    const gunRef = gun.get(nodes.games).map().once(() => {});
+    
+    // Use a separate promise that resolves after the Gun.js operations
+    Promise.resolve().then(() => {
       log(`Retrieved ${games.length} games`);
       resolve(games);
-    }, 100);
+    });
   });
 }
 
@@ -567,10 +571,11 @@ export async function getUserGames(): Promise<Game[]> {
       }
     });
     
-    setTimeout(() => {
+    // Use a separate promise that resolves after the Gun.js operations complete
+    Promise.resolve().then(() => {
       log(`Retrieved ${games.length} games for user ${currentUser.user_id}`);
       resolve(games);
-    }, 200);
+    });
   });
 
   userGames.push(...directGames);
@@ -795,14 +800,115 @@ export async function getUserCard(gameId: string, userId: string): Promise<Card 
       }
     });
     
-    // Set a timeout to resolve with null if no actor is found
-    setTimeout(() => {
+    // Use a Promise.resolve() to handle completion instead of setTimeout
+    Promise.resolve().then(() => {
       if (!cardCache.has(cacheKey)) {
         log(`No actor found for user ${userId} in game ${gameId}`);
         resolve(null);
       }
-    }, 300);
+    });
   });
+}
+
+/**
+ * Subscribe to real-time updates for a user's card in a game
+ * @param gameId The game ID
+ * @param userId The user ID 
+ * @param callback Function to call when the card data changes
+ * @returns Unsubscribe function
+ */
+export function subscribeToUserCard(gameId: string, userId: string, callback: (card: Card | null) => void): () => void {
+  log(`Subscribing to card for user ${userId} in game ${gameId}`);
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    callback(null);
+    return () => {};
+  }
+
+  const cacheKey = `${gameId}:${userId}`;
+  let cardSubscription: any;
+  let actorSubscription: any;
+  let roleSubscription: any;
+
+  // First subscribe to role assignment changes
+  roleSubscription = gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).on((actorId: string) => {
+    if (!actorId) {
+      log(`No role assigned to user ${userId} in game ${gameId}`);
+      cardCache.delete(cacheKey);
+      callback(null);
+      return;
+    }
+
+    log(`Found role assignment: ${actorId} for user ${userId} in game ${gameId}`);
+    
+    // Clean up previous actor subscription if any
+    if (actorSubscription) {
+      actorSubscription.off();
+    }
+    
+    // Subscribe to actor changes
+    actorSubscription = gun.get(nodes.actors).get(actorId).on((actorData: Actor) => {
+      if (!actorData || !actorData.card_id) {
+        log(`No card_id found for actor ${actorId}`);
+        cardCache.delete(cacheKey);
+        callback(null);
+        return;
+      }
+
+      log(`Found card_id ${actorData.card_id} for actor ${actorId}`);
+      
+      // Clean up previous card subscription if any
+      if (cardSubscription) {
+        cardSubscription.off();
+      }
+      
+      // Subscribe to card changes
+      cardSubscription = gun.get(nodes.cards).get(actorData.card_id).on((cardData: Card) => {
+        if (!cardData) {
+          log(`Card ${actorData.card_id} not found`);
+          
+          // Try alternative format
+          if (actorData.card_id.startsWith('card_')) {
+            const alternativeId = actorData.card_id.replace('card_', '');
+            gun.get(nodes.cards).get(alternativeId).once((altCardData: Card) => {
+              if (altCardData) {
+                const fixedCard = {
+                  ...altCardData,
+                  card_id: actorData.card_id
+                };
+                cardCache.set(cacheKey, fixedCard);
+                callback(fixedCard);
+              } else {
+                cardCache.delete(cacheKey);
+                callback(null);
+              }
+            });
+          } else {
+            cardCache.delete(cacheKey);
+            callback(null);
+          }
+          return;
+        }
+        
+        // Card retrieved successfully
+        if (!cardData.card_id) {
+          cardData.card_id = actorData.card_id;
+        }
+        
+        cardCache.set(cacheKey, cardData);
+        callback(cardData);
+      });
+    });
+  });
+
+  // Return unsubscribe function that cleans up all subscriptions
+  return () => {
+    if (roleSubscription) roleSubscription.off();
+    if (actorSubscription) actorSubscription.off();
+    if (cardSubscription) cardSubscription.off();
+    log(`Unsubscribed from card for user ${userId} in game ${gameId}`);
+  };
 }
 
 // Create a new actor for a user in a game
@@ -927,8 +1033,8 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
           cacheActor(actorId, actor);
         }
       });
-      
-      setTimeout(() => {
+      // Use Promise.resolve() to handle completion instead of setTimeout
+      Promise.resolve().then(() => {
         log(`Found ${actors.length} actors for user ${userToCheck}`);
         
         // Add caching layer to enhance future queries
@@ -948,7 +1054,7 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
           log(`Enhanced ${enhancedActors.length} actors with actor properties`);
           resolve(enhancedActors);
         });
-      }, 200);
+      });
     });
   } catch (error) {
     logError('Get user actors error:', error);
@@ -967,6 +1073,45 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
       return [];
     }
     
+    // Try first to get actors through role_assignment (optimized path)
+    const actorsViaRoles = await new Promise<Actor[]>((resolve) => {
+      const actors: Actor[] = [];
+      const uniqueIds = new Set<string>();
+      
+      gun.get(nodes.games).get(gameId).get('role_assignment').map().once((actorId: string, userId: string) => {
+        if (typeof actorId === 'string' && actorId.startsWith('a') && userId !== '_') {
+          log(`Found role assignment: ${userId} -> ${actorId}`);
+          
+          gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+            if (actorData && !uniqueIds.has(actorId)) {
+              uniqueIds.add(actorId);
+              
+              if (!actorData.actor_id) {
+                actorData.actor_id = actorId;
+              }
+              
+              const actor = { ...actorData, actor_id: actorId };
+              actors.push(actor);
+              cacheActor(actorId, actor);
+            }
+          });
+        }
+      });
+      
+      // Use Promise.resolve() to handle completion
+      Promise.resolve().then(() => {
+        log(`Found ${actors.length} actors via role_assignment for game ${gameId}`);
+        resolve(actors);
+      });
+    });
+    
+    // If we found actors via roles, return them
+    if (actorsViaRoles.length > 0) {
+      return actorsViaRoles;
+    }
+    
+    // Fallback to searching all actors (less efficient)
+    log(`No actors found via role_assignment, searching all actors for game ${gameId}`);
     return new Promise((resolve) => {
       const actors: Actor[] = [];
       const uniqueIds = new Set<string>();
@@ -985,15 +1130,74 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
         }
       });
       
-      setTimeout(() => {
-        log(`Found ${actors.length} actors for game ${gameId}`);
+      // Use Promise.resolve() to handle completion
+      Promise.resolve().then(() => {
+        log(`Found ${actors.length} actors for game ${gameId} via fallback method`);
         resolve(actors);
-      }, 100);
+      });
     });
   } catch (error) {
     logError('Get game actors error:', error);
     return [];
   }
+}
+
+/**
+ * Subscribe to actors in a game
+ * @param gameId The game ID
+ * @param callback Function to call when actor data changes
+ * @returns Unsubscribe function
+ */
+export function subscribeToGameActors(gameId: string, callback: (actors: Actor[]) => void): () => void {
+  log(`Subscribing to actors for game ${gameId}`);
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    callback([]);
+    return () => {};
+  }
+  
+  const actorSubscriptions: any[] = [];
+  const actors: Actor[] = [];
+  const uniqueIds = new Set<string>();
+  
+  // Subscribe to role assignments
+  const roleSubscription = gun.get(nodes.games).get(gameId).get('role_assignment').map().on((actorId: string, userId: string) => {
+    if (typeof actorId === 'string' && actorId.startsWith('a') && userId !== '_') {
+      // Subscribe to this actor
+      const actorSubscription = gun.get(nodes.actors).get(actorId).on((actorData: Actor) => {
+        if (actorData) {
+          // Update or add actor
+          const actorIndex = actors.findIndex(a => a.actor_id === actorId);
+          
+          if (!actorData.actor_id) {
+            actorData.actor_id = actorId;
+          }
+          
+          const actor = { ...actorData, actor_id: actorId };
+          
+          if (actorIndex >= 0) {
+            actors[actorIndex] = actor;
+          } else {
+            actors.push(actor);
+            uniqueIds.add(actorId);
+          }
+          
+          cacheActor(actorId, actor);
+          callback([...actors]); // Create new array to trigger reactivity
+        }
+      });
+      
+      actorSubscriptions.push(actorSubscription);
+    }
+  });
+  
+  // Return unsubscribe function that cleans up all subscriptions
+  return () => {
+    if (roleSubscription) roleSubscription.off();
+    actorSubscriptions.forEach(sub => sub.off());
+    log(`Unsubscribed from actors for game ${gameId}`);
+  };
 }
 
 // Check if a game is full (reached max_players)
