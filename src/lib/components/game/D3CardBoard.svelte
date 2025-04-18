@@ -474,33 +474,84 @@
         if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
       });
 
-      const graphState = initializeD3Graph(
-        svgElement,
-        cardsWithPosition,
-        agreements,
-        width,
-        height,
-        activeCardId,
-        (node) => (selectedNode = node),
-        actorCardMap
-      );
-      simulation = graphState.simulation;
-      nodeElements = graphState.nodeElements;
+      try {
+        // Initialize the D3 graph visualization
+        log('Initializing D3 graph with cards:', cardsWithPosition.length);
+        if (cardsWithPosition.length === 0) {
+          log('Warning: No cards to render, graph may appear empty');
+        }
+        
+        const graphState = initializeD3Graph(
+          svgElement,
+          cardsWithPosition,
+          agreements,
+          width,
+          height,
+          activeCardId,
+          (node) => (selectedNode = node),
+          actorCardMap
+        );
+        
+        // Check if we got valid results back
+        if (!graphState || !graphState.simulation || !graphState.nodeElements) {
+          throw new Error('D3 graph initialization returned invalid state');
+        }
+        
+        simulation = graphState.simulation;
+        nodeElements = graphState.nodeElements;
+        log('D3 graph initialized successfully');
+      } catch (graphError) {
+        console.error('Failed to initialize D3 graph:', graphError);
+        return; // Exit to avoid further errors
+      }
 
-      addDonutRings(nodeElements, activeCardId);
+      // Add donut rings for values and capabilities (with null safety)
+      if (nodeElements) {
+        try {
+          addDonutRings(nodeElements, activeCardId);
+          log('Added donut rings to nodes');
+        } catch (donutError) {
+          console.error('Error adding donut rings:', donutError);
+          // Continue anyway, donut rings are visual enhancements only
+        }
+      } else {
+        log('No node elements available, skipping donut rings');
+      }
 
+      // Skip if no cards to render
+      if (cardsWithPosition.length === 0) {
+        log('No cards available to render, skipping icon loading');
+        return; // Exit early to avoid errors
+      }
+      
+      // Get unique icon names from cards
       const iconNames = cardsWithPosition
         .map((card) => card.icon || 'user')
         .filter((value, index, self) => self.indexOf(value) === index);
-      await loadIcons(iconNames);
+      
+      // Preload icons
+      try {
+        await loadIcons(iconNames);
+        log(`Successfully loaded ${iconNames.length} icons`);
+      } catch (iconError) {
+        log(`Error loading icons: ${iconError}`);
+        // Continue anyway - our createCardIcon function has fallbacks
+      }
 
-      nodeElements.each(function (node: D3Node) {
-        if (node.type === 'actor') {
-          const centerGroup = d3.select(this).append('g').attr('class', 'center-group center-icon-container');
-          const iconContainer = document.createElement('div');
-          iconContainer.className = 'icon-container';
-          const card = node.data as Card;
-          if (!card) return;
+      // Add icons to nodes (with null safety)
+      if (!nodeElements) {
+        log('No node elements available, skipping icon rendering');
+        return;
+      }
+      
+      try {
+        nodeElements.each(function (node: D3Node) {
+          if (node.type === 'actor') {
+            const centerGroup = d3.select(this).append('g').attr('class', 'center-group center-icon-container');
+            const iconContainer = document.createElement('div');
+            iconContainer.className = 'icon-container';
+            const card = node.data as Card;
+            if (!card) return;
 
           const iconName = card.icon || 'user';
           const isActive = node.id === activeCardId;
@@ -520,6 +571,9 @@
           foreignObject.node()?.appendChild(iconContainer);
         }
       });
+      } catch (nodeError) {
+        console.error('Error rendering node icons:', nodeError);
+      }
 
       subscribeToGameData();
     } catch (error) {
