@@ -9,11 +9,8 @@
   import { getValue } from '$lib/services/valueService';
   import { getCapability } from '$lib/services/capabilityService';
   import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
-  
-  // Add logging utility for debugging
-  const isDev = process.env.NODE_ENV !== 'production';
-  const log = (...args: any[]) => isDev && console.log('[D3CardBoard]', ...args);
   import { GameStatus } from '$lib/types';
+  import CardDetailsPopover from './CardDetailsPopover.svelte';
   import {
     createNodes,
     createLinks,
@@ -27,6 +24,10 @@
     type CardWithPosition,
     type AgreementWithPosition
   } from '$lib/utils/d3GraphUtils';
+  
+  // Add logging utility for debugging
+  const isDev = process.env.NODE_ENV !== 'production';
+  const log = (...args: any[]) => isDev && console.log('[D3CardBoard]', ...args);
   
   const { gameId, activeActorId = undefined } = $props<{
     gameId: string;
@@ -596,65 +597,16 @@
   });
 </script>
 
+
+
 <div class="w-full h-full relative overflow-hidden">
   <svg bind:this={svgElement} width="100%" height="100%" class="d3-graph"></svg>
   {#if selectedNode}
-    <div class="absolute bottom-4 left-4 p-4 bg-surface-100 rounded-xl shadow-lg max-w-lg">
-      {#if selectedNode.type === 'actor'}
-        <h3 class="text-lg font-semibold mb-2">{selectedNode.name}</h3>
-        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-          {#if selectedNode._valueNames?.length}
-            <div>
-              <h4 class="text-sm font-medium text-primary-700">Values</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode._valueNames as value}
-                  <li>{value}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          {#if selectedNode._capabilityNames?.length}
-            <div>
-              <h4 class="text-sm font-medium text-primary-700">Capabilities</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode._capabilityNames as capability}
-                  <li>{capability}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-        </div>
-      {:else if selectedNode.type === 'agreement'}
-        <h3 class="text-lg font-semibold mb-2">{selectedNode.name}</h3>
-        <div class="grid grid-cols-1 gap-2">
-          {#if selectedNode.data?.obligations?.length}
-            <div>
-              <h4 class="text-sm font-medium text-indigo-700">Obligations</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode.data.obligations as obligation}
-                  <li>{obligation.text}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          {#if selectedNode.data?.benefits?.length}
-            <div>
-              <h4 class="text-sm font-medium text-emerald-700">Benefits</h4>
-              <ul class="list-disc pl-5 text-sm">
-                {#each selectedNode.data.benefits as benefit}
-                  <li>{benefit.text}</li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-        </div>
-      {/if}
-      <button
-        class="mt-2 px-2 py-1 text-xs bg-surface-200 rounded hover:bg-surface-300"
-        onclick={() => (selectedNode = null)}
-      >
-        Close
-      </button>
+    <div class="absolute bottom-4 left-4">
+      <CardDetailsPopover 
+        node={selectedNode} 
+        onClose={() => (selectedNode = null)} 
+      />
     </div>
   {/if}
 </div>

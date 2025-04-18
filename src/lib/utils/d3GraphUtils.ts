@@ -552,7 +552,7 @@ export function addDonutRings(
  * @param cardTitle - Title of the card for logging
  */
 import { get } from 'svelte/store';
-import { iconStore, loadIcons, iconNameMap } from '$lib/stores/iconStore';
+import { iconStore, loadIcons } from '$lib/stores/iconStore';
 
 /**
  * Creates a card icon SVG element with paths based on icon name
