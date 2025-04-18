@@ -110,8 +110,22 @@
             const userId = $userStore.user.user_id;
             log(`Loading user ${userId} actor for game ${gameId}`);
             
-            // First look for the user's actor among game actors
-            const actors = await getGameActors(gameId);
+            // Create a timeout for the entire function
+            const globalTimeout = setTimeout(() => {
+                log('loadUserActor timed out globally after 10 seconds');
+                isLoading = false; // Force loading to complete even if actor not found
+            }, 10000);
+            
+            // First look for the user's actor among game actors with timeout protection
+            const actorsPromise = getGameActors(gameId);
+            const actorsTimeout = new Promise<Actor[]>((resolve) => {
+                setTimeout(() => {
+                    log('getGameActors timed out after 3 seconds');
+                    resolve([]);
+                }, 3000);
+            });
+            
+            const actors = await Promise.race([actorsPromise, actorsTimeout]);
             log(`Found ${actors.length} actors in game`);
             
             // Find actor assigned to the current user
@@ -190,7 +204,16 @@
                         // Let's try to use getPlayerRole function directly first (safer)
                         try {
                             if (savedActorId) {
-                                const actorFromRole = await getPlayerRole(gameId, userId, savedActorId);
+                                // Add timeout protection for getPlayerRole
+                                const rolePromise = getPlayerRole(gameId, userId, savedActorId);
+                                const roleTimeout = new Promise<null>((resolve) => {
+                                    setTimeout(() => {
+                                        log('getPlayerRole timed out after 2 seconds');
+                                        resolve(null);
+                                    }, 2000);
+                                });
+                                
+                                const actorFromRole = await Promise.race([rolePromise, roleTimeout]);
                                 if (actorFromRole) {
                                     log(`Found actor via getPlayerRole: ${actorFromRole.actor_id}`);
                                     playerRole = actorFromRole;
@@ -238,9 +261,17 @@
                                 log(`Found actor mapping via direct Gun.js lookup: user ${userId} -> actor ${mappedActorId}`);
                                 
                                 try {
-                                    // Get the complete actor data
+                                    // Get the complete actor data with timeout protection
                                     log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
-                                    const mappedActor = await getPlayerRole(gameId, userId, mappedActorId);
+                                    const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
+                                    const roleTimeout = new Promise<null>((resolve) => {
+                                        setTimeout(() => {
+                                            log('getPlayerRole for mappedActor timed out after 2 seconds');
+                                            resolve(null);
+                                        }, 2000);
+                                    });
+                                    
+                                    const mappedActor = await Promise.race([rolePromise, roleTimeout]);
                                     
                                     if (mappedActor) {
                                         log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
@@ -269,9 +300,17 @@
                         log(`Found actor mapping in game object: user ${userId} -> actor ${mappedActorId}`);
                         
                         try {
-                            // Get the complete actor data
+                            // Get the complete actor data with timeout protection
                             log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
-                            const mappedActor = await getPlayerRole(gameId, userId, mappedActorId);
+                            const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
+                            const roleTimeout = new Promise<null>((resolve) => {
+                                setTimeout(() => {
+                                    log('getPlayerRole for normal object timed out after 2 seconds');
+                                    resolve(null);
+                                }, 2000);
+                            });
+                            
+                            const mappedActor = await Promise.race([rolePromise, roleTimeout]);
                             
                             if (mappedActor) {
                                 log(`Successfully retrieved mapped actor ${mappedActor.actor_id}`);
@@ -339,7 +378,16 @@
                             
                             // Now try to get the actor data
                             try {
-                                const actor = await getPlayerRole(gameId, userId, savedActorId);
+                                // Add timeout protection
+                                const rolePromise = getPlayerRole(gameId, userId, savedActorId);
+                                const roleTimeout = new Promise<null>((resolve) => {
+                                    setTimeout(() => {
+                                        log('getPlayerRole for final actor lookup timed out after 2 seconds');
+                                        resolve(null);
+                                    }, 2000);
+                                });
+                                
+                                const actor = await Promise.race([rolePromise, roleTimeout]);
                                 if (actor) {
                                     log(`Successfully retrieved actor after fixing player_actor_map: ${actor.actor_id}`);
                                     playerRole = actor;
