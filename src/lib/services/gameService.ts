@@ -1380,13 +1380,15 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
       }, 1000); // Reduced from 1500ms for better UI responsiveness
       
       // Method 1: Check actor cache FIRST for instant retrieval
-      for (const [actorId, actor] of actorCache.entries()) {
+      // Use Array.from for better TypeScript compatibility instead of for...of with entries()
+      Array.from(actorCache.keys()).forEach(actorId => {
+        const actor = actorCache.get(actorId)!;
         if (actor.user_id === userToCheck && !uniqueIds.has(actorId)) {
           log(`Cache hit: actor ${actorId} for user ${userToCheck}`);
           uniqueIds.add(actorId);
           actors.push(actor);
         }
-      }
+      });
       
       // Fast return if we found actors in cache
       if (actors.length > 0) {
