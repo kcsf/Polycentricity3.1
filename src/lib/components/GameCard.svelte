@@ -67,8 +67,20 @@
             }
         }
         
-        function enterGame() {
-                goto(`/games/${game.game_id}`);
+        async function enterGame() {
+                try {
+                        // If the user is already in the game, use the regular game page
+                        if (isUserInGame) {
+                                goto(`/games/${game.game_id}`);
+                        } else {
+                                // If not in the game yet, redirect to the details page instead of join
+                                // This avoids issues with the join page when accessed directly from dashboard
+                                goto(`/games/${game.game_id}/details`);
+                        }
+                } catch (err) {
+                        console.error('Error navigating to game:', err);
+                        actionError = 'Failed to navigate to game. Please try again.';
+                }
         }
         
         async function handleJoinGame() {
