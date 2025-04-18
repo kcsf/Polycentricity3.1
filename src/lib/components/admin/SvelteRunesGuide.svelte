@@ -31,6 +31,10 @@
     count = count + 1;
   }
   
+  function resetCount(): void {
+    count = 0;
+  }
+  
   function addItem(): void {
     if (inputText.trim()) {
       // Create new array immutably
@@ -344,7 +348,7 @@ function notify() {
                 </button>
                 <button 
                   class="btn variant-filled-surface" 
-                  onclick={() => count = 0}
+                  onclick={() => resetCount()}
                 >
                   Reset
                 </button>
