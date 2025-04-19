@@ -5,7 +5,7 @@
  * of cards, actors, and agreements in the Polycentricity application.
  */
 import * as d3 from 'd3';
-import { Card, Actor, Agreement } from '$lib/types';
+import type { Card, Actor, Agreement } from '$lib/types';
 import type { SvelteComponent } from 'svelte';
 import { getCardValueNames } from '$lib/services/valueService';
 import { getCardCapabilityNames } from '$lib/services/capabilityService';
