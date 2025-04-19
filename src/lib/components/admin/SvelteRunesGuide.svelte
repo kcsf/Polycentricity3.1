@@ -2,59 +2,61 @@
   // SvelteRunesGuide.svelte - Svelte 5 Runes Mode Pattern Guide
   // No imports needed for built-in Svelte 5 Runes ($state, $effect, $derived)
   import * as icons from 'lucide-svelte';
-  
+  import hljs from 'highlight.js';
+  import 'highlight.js/styles/default.css'; // Using default theme for visibility
+
   // Example for state (runes mode) - proper TypeScript typing
   let count = $state<number>(0);
   let inputText = $state<string>("");
   let items = $state<string[]>([]);
   let isLoading = $state<boolean>(false);
   let activeTab = $state<string>("basics");
-  
+
   // Demonstration of derived state with $derived
   let doubledCount = $derived(() => count * 2);
   let itemCount = $derived(() => items.length);
-  
+
   // Example effect that runs when dependencies change
   $effect(() => {
     // Use $inspect instead of console.log for state variables
     $inspect({
-      count, 
+      count,
       doubledCount,
-      displayMessage, 
+      displayMessage,
       activeTab,
       items: items.length,
       isLoading
     });
     // Effects should NOT directly set state
   });
-  
+
   // Example of a computed value using $derived
   let displayMessage = $derived(
     () => count > 10 ? "Count is getting high!" : "Count is still low"
   );
-  
+
   // Functions to manipulate state
   function increment(): void {
     count = count + 1;
   }
-  
+
   function resetCount(): void {
     count = 0;
   }
-  
+
   function addItem(): void {
     if (inputText.trim()) {
       // Create new array immutably
-      items = [...items, inputText]; 
+      items = [...items, inputText];
       // Reset input
-      inputText = ""; 
+      inputText = "";
     }
   }
-  
+
   function removeItem(index: number): void {
     items = items.filter((_, i) => i !== index);
   }
-  
+
   // Example function to simulate async operations
   async function fetchData(): Promise<void> {
     isLoading = true;
@@ -66,14 +68,13 @@
       isLoading = false;
     }
   }
-  
+
   function setTab(tab: string): void {
     activeTab = tab;
   }
-  
+
   // Initialize component
   $effect(() => {
-    // Using a string here, not state variables, so console.log is fine
     console.log("SvelteRunesGuide component initialized");
   });
 </script>
@@ -83,35 +84,35 @@
   <p class="text-surface-700 dark:text-surface-300">
     This guide demonstrates standard patterns for Svelte 5.25.9 Runes mode development in Polycentricity3.
   </p>
-  
+
   <!-- Tab Navigation -->
   <div class="border-b border-surface-200 dark:border-surface-700">
     <nav class="flex space-x-4" aria-label="Tabs">
-      <button 
+      <button
         class="py-2 px-3 border-b-2 font-medium text-sm {activeTab === 'basics' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'}"
         onclick={() => setTab('basics')}
       >
         Basics
       </button>
-      <button 
+      <button
         class="py-2 px-3 border-b-2 font-medium text-sm {activeTab === 'components' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'}"
         onclick={() => setTab('components')}
       >
         Components
       </button>
-      <button 
+      <button
         class="py-2 px-3 border-b-2 font-medium text-sm {activeTab === 'reactive' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'}"
         onclick={() => setTab('reactive')}
       >
         Reactivity
       </button>
-      <button 
+      <button
         class="py-2 px-3 border-b-2 font-medium text-sm {activeTab === 'gunjs' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'}"
         onclick={() => setTab('gunjs')}
       >
         Gun.js Integration
       </button>
-      <button 
+      <button
         class="py-2 px-3 border-b-2 font-medium text-sm {activeTab === 'migration' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'}"
         onclick={() => setTab('migration')}
       >
@@ -119,132 +120,200 @@
       </button>
     </nav>
   </div>
-  
+
   <!-- Tab Content -->
   <div class="tab-content">
     {#if activeTab === 'basics'}
       <div class="space-y-6">
-        <h2 class="text-xl font-bold">Svelte 5 Runes Mode Basics</h2>
-        
+        <h2 class="text-xl font-bold">Svelte 5 Runes Mode Basics 2</h2>
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. State Declaration</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
+            <!-- Raw text fallback for debugging -->
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
               <pre>// Old way (Svelte 4)
 let count = 0;
 $: doubled = count * 2;</pre>
             </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
+            <!-- Highlighted version -->
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// Old way (Svelte 4)
+let count = 0;
+$: doubled = count * 2;`, { language: 'javascript' }).value}</code>
+            </pre>
+            <!-- Raw text fallback for debugging -->
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
               <pre>// New way (Svelte 5 Runes)
 let count = $state<number>(0);
 let doubled = $derived(() => count * 2);</pre>
             </div>
+            <!-- Highlighted version -->
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// New way (Svelte 5 Runes)
+let count = $state<number>(0);
+let doubled = $derived(() => count * 2);`, { language: 'javascript' }).value}</code>
+            </pre>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Component Props</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
               <pre>// Old way (Svelte 4)
 export let name = "default";
 export let count = 0;</pre>
             </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// Old way (Svelte 4)
+export let name = "default";
+export let count = 0;`, { language: 'javascript' }).value}</code>
+            </pre>
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
               <pre>// New way (Svelte 5 Runes)
-const { name = "default", count = 0 } 
-  = $props();</pre>
+const { name = "default", count = 0 } = $props();</pre>
             </div>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// New way (Svelte 5 Runes)
+const { name = "default", count = 0 } = $props();`, { language: 'javascript' }).value}</code>
+            </pre>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Reactive Statements</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// Old way (Svelte 4)
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
+              <pre>// Old way (Svelte 4)
 $: {
   console.log('Count is ' + count);
   calculateSomething(count);
-}`}</pre>
+}</pre>
             </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// New way (Svelte 5 Runes)
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// Old way (Svelte 4)
+$: {
+  console.log('Count is ' + count);
+  calculateSomething(count);
+}`, { language: 'javascript' }).value}</code>
+            </pre>
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
+              <pre>// New way (Svelte 5 Runes)
 $effect(() => {
   console.log('Count is ' + count);
   calculateSomething(count);
-});`}</pre>
+});</pre>
             </div>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// New way (Svelte 5 Runes)
+$effect(() => {
+  console.log('Count is ' + count);
+  calculateSomething(count);
+});`, { language: 'javascript' }).value}</code>
+            </pre>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Event Handlers</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// Old way (Svelte 4)
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
+              <pre>// Old way (Svelte 4)
 <button on:click={handleClick}>
   Click me
-</button>`}</pre>
+</button></pre>
             </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// New way (Svelte 5 Runes)
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-html">{@html hljs.highlight(`// Old way (Svelte 4)
+<button on:click={handleClick}>
+  Click me
+</button>`, { language: 'html' }).value}</code>
+            </pre>
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
+              <pre>// New way (Svelte 5 Runes)
 <button onclick={handleClick}>
   Click me
-</button>`}</pre>
+</button></pre>
             </div>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-html">{@html hljs.highlight(`// New way (Svelte 5 Runes)
+<button onclick={handleClick}>
+  Click me
+</button>`, { language: 'html' }).value}</code>
+            </pre>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">5. DOM References</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// Old way (Svelte 4)
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
+              <pre>// Old way (Svelte 4)
 let inputElement;
-<input bind:this={inputElement}>`}</pre>
+<input bind:this={inputElement}></pre>
             </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// New way (Svelte 5 Runes)
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// Old way (Svelte 4)
+let inputElement;
+<input bind:this={inputElement}>`, { language: 'javascript' }).value}</code>
+            </pre>
+            <div class="debug-raw p-3 bg-gray-200 rounded">
+              <h4>Raw Text (Debug):</h4>
+              <pre>// New way (Svelte 5 Runes)
 let inputElement = $state<HTMLInputElement | null>(null);
-<input bind:this={inputElement}>`}</pre>
+<input bind:this={inputElement}></pre>
             </div>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// New way (Svelte 5 Runes)
+let inputElement = $state<HTMLInputElement | null>(null);
+<input bind:this={inputElement}>`, { language: 'javascript' }).value}</code>
+            </pre>
           </div>
         </div>
       </div>
     {/if}
-    
+
     {#if activeTab === 'components'}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Component Patterns</h2>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Component Structure</h3>
-          <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>{`<script lang="ts">
+          <pre class="code-block p-3 rounded overflow-x-auto">
+            <code class="language-javascript">{@html hljs.highlight(`<script lang="ts">
   // No imports needed for Svelte 5 Runes
   // ($state, $effect, $derived, $props)
-  
+
   // Component props
   const { title = "Default", options = [] } = $props();
-  
+
   // State declarations
   let isExpanded = $state<boolean>(false);
   let selectedIndex = $state<number>(-1);
-  
+
   // Derived state
   let hasSelection = $derived(() => selectedIndex >= 0);
-  
+
   // Effects
   $effect(() => {
     // Side effects when state changes
   });
-  
+
   // Methods
   function toggle() {
     isExpanded = !isExpanded;
   }
-  
+
   // Lifecycle - with Svelte 5 Runes syntax
   $effect(() => {
     // Setup on initialization
@@ -259,53 +328,53 @@ let inputElement = $state<HTMLInputElement | null>(null);
 <div class="component">
   <h2>{title}</h2>
   <!-- Component template -->
-</div>`}</pre>
-          </div>
+</div>`, { language: 'javascript' }).value}</code>
+          </pre>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Slot Rendering</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// Old way (Svelte 4)
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-html">{@html hljs.highlight(`// Old way (Svelte 4)
 <div class="container">
   <slot name="header"></slot>
   <slot>Default content</slot>
   <slot name="footer"></slot>
-</div>`}</pre>
-            </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// New way (Svelte 5 Runes)
+</div>`, { language: 'html' }).value}</code>
+            </pre>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-html">{@html hljs.highlight(`// New way (Svelte 5 Runes)
 <div class="container">
   <!-- Content rendered from slots would appear here -->
   {#render headerSlot?.()} Header content {/render}
   {#render defaultSlot?.() || 'Default content'} Content {/render}
   {#render footerSlot?.()} Footer content {/render}
-</div>`}</pre>
-            </div>
+</div>`, { language: 'html' }).value}</code>
+            </pre>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Dynamic Components</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// Old way (Svelte 4)
-<svelte:component this={componentType} {...props} />`}</pre>
-            </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// New way (Svelte 5 Runes)
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-html">{@html hljs.highlight(`// Old way (Svelte 4)
+<svelte:component this={componentType} {...props} />`, { language: 'html' }).value}</code>
+            </pre>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-html">{@html hljs.highlight(`// New way (Svelte 5 Runes)
 <!-- Components are dynamic by default -->
-<{componentType} {...props} />`}</pre>
-            </div>
+<{componentType} {...props} />`, { language: 'html' }).value}</code>
+            </pre>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Component Events</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// Old way (Svelte 4)
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// Old way (Svelte 4)
 // Child component
 import { createEventDispatcher } from 'svelte';
 const dispatch = createEventDispatcher();
@@ -314,10 +383,10 @@ function notify() {
 }
 
 // Parent
-<Child on:message={handleMessage} />`}</pre>
-            </div>
-            <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-              <pre>{`// New way (Svelte 5 Runes)
+<Child on:message={handleMessage} />`, { language: 'javascript' }).value}</code>
+            </pre>
+            <pre class="code-block p-3 rounded overflow-x-auto">
+              <code class="language-javascript">{@html hljs.highlight(`// New way (Svelte 5 Runes)
 // Child component
 const { onMessage } = $props();
 function notify() {
@@ -325,17 +394,17 @@ function notify() {
 }
 
 // Parent
-<Child onMessage={handleMessage} />`}</pre>
-            </div>
+<Child onMessage={handleMessage} />`, { language: 'javascript' }).value}</code>
+            </pre>
           </div>
         </div>
       </div>
     {/if}
-    
+
     {#if activeTab === 'reactive'}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Reactivity Patterns</h2>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">Live Demo</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -349,33 +418,33 @@ function notify() {
                 </div>
               </div>
               <div class="flex space-x-2">
-                <button 
-                  class="btn variant-filled-primary" 
+                <button
+                  class="btn variant-filled-primary"
                   onclick={increment}
                 >
                   Increment
                 </button>
-                <button 
-                  class="btn variant-filled-surface" 
+                <button
+                  class="btn variant-filled-surface"
                   onclick={resetCount}
                 >
                   Reset
                 </button>
               </div>
             </div>
-            
+
             <div class="p-4 bg-surface-50 dark:bg-surface-900 rounded-lg">
               <h4 class="font-medium mb-2">List Example</h4>
               <div class="mb-4">
                 <div class="flex mb-2">
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     bind:value={inputText}
                     class="input w-full border border-surface-300 dark:border-surface-700 rounded-l-lg"
                     placeholder="Add an item..."
                   />
-                  <button 
-                    class="btn variant-filled-primary rounded-l-none" 
+                  <button
+                    class="btn variant-filled-primary rounded-l-none"
                     onclick={addItem}
                   >
                     Add
@@ -385,7 +454,7 @@ function notify() {
                   Total items: {itemCount}
                 </div>
                 <div class="mt-2">
-                  <button 
+                  <button
                     class="btn variant-ghost-primary btn-sm"
                     onclick={fetchData}
                     disabled={isLoading}
@@ -406,7 +475,7 @@ function notify() {
                 {#each items as item, i}
                   <li class="flex justify-between items-center p-2 bg-surface-100 dark:bg-surface-800 rounded">
                     <span>{item}</span>
-                    <button 
+                    <button
                       class="btn-icon variant-ghost-error btn-sm"
                       onclick={() => removeItem(i)}
                     >
@@ -423,7 +492,7 @@ function notify() {
             </div>
           </div>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">Best Practices</h3>
           <ul class="list-disc pl-6 space-y-2">
@@ -433,21 +502,21 @@ function notify() {
             <li><strong>Remember that $effect may run multiple times</strong> - add cleanup if needed</li>
             <li><strong>Don't set state inside $effect</strong> to avoid infinite loops</li>
             <li><strong>Create new arrays/objects</strong> when updating complex state</li>
-            <li><strong>Use proper type annotations</strong> with $state&lt;Type&gt;(initialValue)</li>
+            <li><strong>Use proper type annotations</strong> with $state<Type>(initialValue)</li>
             <li><strong>Console debugging:</strong> Use $inspect(value) instead of console.log for $state variables</li>
           </ul>
         </div>
       </div>
     {/if}
-    
+
     {#if activeTab === 'gunjs'}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Gun.js Integration with Svelte 5 Runes</h2>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Data Loading Pattern</h3>
-          <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>{`// Load data from Gun.js with Runes reactivity
+          <pre class="code-block p-3 rounded overflow-x-auto">
+            <code class="language-javascript">{@html hljs.highlight(`// Load data from Gun.js with Runes reactivity
 import { getGun, nodes } from '$lib/services/gunService';
 
 // State for data and loading
@@ -460,11 +529,11 @@ $effect(async () => {
   try {
     isLoading = true;
     const gun = getGun();
-    
+
     if (!gun) {
       throw new Error("Gun not initialized");
     }
-    
+
     // Using Promise for cleaner async handling
     const result = await new Promise<User | null>((resolve) => {
       // Set a timeout to prevent indefinite waiting
@@ -472,14 +541,14 @@ $effect(async () => {
         console.warn("Gun query timed out");
         resolve(null);
       }, 5000);
-      
+
       // Query Gun database
       gun.get(nodes.users).get(userId).once((data: User) => {
         clearTimeout(timeout);
         resolve(data);
       });
     });
-    
+
     // Create a separate function to handle state updates to avoid state_unsafe_mutation
     const updateUserData = (data) => {
       if (data) {
@@ -488,7 +557,7 @@ $effect(async () => {
         error = "Data not found";
       }
     };
-    
+
     // Call the function with our result
     updateUserData(result);
   } catch (err) {
@@ -505,14 +574,14 @@ $effect(async () => {
     };
     setLoading(false);
   }
-});`}</pre>
-          </div>
+});`, { language: 'javascript' }).value}</code>
+          </pre>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Reactive Subscriptions</h3>
-          <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>{`// Subscribe to real-time Gun.js data with proper cleanup
+          <pre class="code-block p-3 rounded overflow-x-auto">
+            <code class="language-javascript">{@html hljs.highlight(`// Subscribe to real-time Gun.js data with proper cleanup
 import { getGun, nodes } from '$lib/services/gunService';
 
 // State for subscription data
@@ -522,35 +591,35 @@ let liveData = $state<any[]>([]);
 $effect(() => {
   const gun = getGun();
   if (!gun) return;
-  
+
   // Create subscription
   const subscription = gun.get(nodes.games)
     .map()
     .on((gameData, gameId) => {
       if (!gameData) return;
-      
+
       // Update state safely with immutable pattern and a separate function
       // Avoiding direct state mutation in the callback to prevent state_unsafe_mutation errors
-      const updatedData = [...liveData.filter(g => g.game_id !== gameData.game_id), 
+      const updatedData = [...liveData.filter(g => g.game_id !== gameData.game_id),
                         { ...gameData, game_id: gameId }];
       // Update state with the new array
       liveData = updatedData;
     });
-  
+
   // Clean up subscription on component teardown
   return () => {
     if (subscription && subscription.off) {
       subscription.off();
     }
   };
-});`}</pre>
-          </div>
+});`, { language: 'javascript' }).value}</code>
+          </pre>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Saving Data</h3>
-          <div class="code-block bg-surface-800 text-white p-3 rounded-md font-mono text-sm">
-            <pre>{`// Save data to Gun.js with proper state handling
+          <pre class="code-block p-3 rounded overflow-x-auto">
+            <code class="language-javascript">{@html hljs.highlight(`// Save data to Gun.js with proper state handling
 import { getGun, nodes } from '$lib/services/gunService';
 
 // State for save operation
@@ -569,21 +638,21 @@ async function saveToGun() {
       isSaving = state;
     };
     setSavingState(true);
-    
+
     // Clear error with a separate function
     const clearError = () => {
       saveError = null;
     };
     clearError();
-    
+
     const gun = getGun();
     if (!gun) {
       throw new Error("Gun not initialized");
     }
-    
+
     // Generate ID if needed
     const newId = \`item_\${Date.now()}\`;
-    
+
     // Create item data
     const itemData = {
       item_id: newId,
@@ -591,7 +660,7 @@ async function saveToGun() {
       description: formData.description,
       created_at: Date.now()
     };
-    
+
     // Save with promise wrapper for better async handling
     await new Promise((resolve, reject) => {
       // Use regular string instead of interpolated string with state variables
@@ -606,17 +675,17 @@ async function saveToGun() {
           resolve(true);
         }
       });
-      
+
       // Also resolve after timeout to prevent hanging
       setTimeout(resolve, 2000);
     });
-    
+
     // Reset form on success with a separate function
     const resetForm = () => {
       formData = { name: "", description: "" };
     };
     resetForm();
-    
+
   } catch (err) {
     console.error("Error saving data:", err);
     // Set error state with a separate function
@@ -631,10 +700,10 @@ async function saveToGun() {
     };
     setSavingState(false);
   }
-}`}</pre>
-          </div>
+}`, { language: 'javascript' }).value}</code>
+          </pre>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Best Practices with Gun.js</h3>
           <ul class="list-disc pl-6 space-y-2">
@@ -651,15 +720,15 @@ async function saveToGun() {
         </div>
       </div>
     {/if}
-    
+
     {#if activeTab === 'migration'}
       <div class="space-y-6">
         <h2 class="text-xl font-bold">Migration Tips</h2>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Incremental Approach</h3>
           <p class="mb-4">For the Polycentricity3 project, we recommend an incremental migration approach rather than using the automated migration script. This helps maintain stability while adopting Svelte 5 features.</p>
-          
+
           <ol class="list-decimal pl-6 space-y-2">
             <li><strong>Start with new components</strong> - Use Runes mode for all new components</li>
             <li><strong>Focus on isolated components first</strong> - Components with fewer dependencies</li>
@@ -668,7 +737,7 @@ async function saveToGun() {
             <li><strong>Test thoroughly after each migration</strong> - Especially for critical paths</li>
           </ol>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Common Conversion Patterns</h3>
           <table class="w-full">
@@ -696,16 +765,16 @@ async function saveToGun() {
                 <td class="p-2"><code>$effect(() => console.log(count));</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
-                <td class="p-2"><code>&lt;on:click={handler}&gt;</code></td>
-                <td class="p-2"><code>&lt;onclick={handler}&gt;</code></td>
+                <td class="p-2"><code><on:click={handler}></code></td>
+                <td class="p-2"><code><onclick={handler}></code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
-                <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
-                <td class="p-2"><code>&#123;#render slotName?.()&#125; content &#123;/render&#125;</code></td>
+                <td class="p-2"><code><slot>Default</slot></code></td>
+                <td class="p-2"><code>{#render slotName?.()} content {/render}</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
-                <td class="p-2"><code>&lt;svelte:component this={Comp} /&gt;</code></td>
-                <td class="p-2"><code>&lt;{Comp} /&gt;</code></td>
+                <td class="p-2"><code><svelte:component this={Comp} /></code></td>
+                <td class="p-2"><code><{Comp} /></code></td>
               </tr>
               <tr>
                 <td class="p-2"><code>createEventDispatcher()</code></td>
@@ -714,7 +783,7 @@ async function saveToGun() {
             </tbody>
           </table>
         </div>
-        
+
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Migration Checklist</h3>
           <ul class="list-disc pl-6 space-y-2">
@@ -730,7 +799,7 @@ async function saveToGun() {
             <li>☐ Fix event handler types for DOM events</li>
           </ul>
         </div>
-        
+
         <div class="alert variant-ghost-warning p-4 my-4">
           <div class="flex items-center gap-4">
             <div>
@@ -745,7 +814,7 @@ async function saveToGun() {
       </div>
     {/if}
   </div>
-  
+
   <div class="mt-8 p-4 border border-dashed border-surface-300 dark:border-surface-600 rounded-lg">
     <h3 class="text-lg font-semibold mb-2">Resources</h3>
     <ul class="list-disc pl-6 space-y-1">
@@ -756,3 +825,30 @@ async function saveToGun() {
     </ul>
   </div>
 </div>
+
+<style>
+  .code-block {
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    min-height: 50px;
+    overflow-x: auto;
+  }
+  .code-block code {
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.875rem !important;
+    color: #333 !important;
+  }
+  .hljs {
+    background: transparent !important;
+    color: #333 !important;
+  }
+  .debug-raw {
+    background: #e0e0e0;
+    border: 1px solid #ccc;
+    min-height: 50px;
+  }
+  .debug-raw pre {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+</style>
