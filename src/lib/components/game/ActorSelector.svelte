@@ -275,6 +275,17 @@
       }
       
       if (newActor) {
+        // Update game status to ensure it's active
+        try {
+          // Use direct Gun.js write to update game status to active immediately
+          const gun = getGun();
+          gun.get(nodes.games).get(gameId).get('status').put('active');
+          log(`Directly updated game status to active`);
+        } catch (statusErr) {
+          // Non-fatal error, just log it
+          logError('Error updating game status:', statusErr);
+        }
+        
         // Set up subscription for real-time updates (non-blocking, with error handling)
         if (unsubscribe) unsubscribe();
         
