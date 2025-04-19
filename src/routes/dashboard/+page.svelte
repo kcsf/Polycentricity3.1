@@ -504,7 +504,7 @@
                                                                                         
                                                                                         {#if actor.game_id}
                                                                                                 <div class="mt-4">
-                                                                                                        <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary w-full">
+                                                                                                        <a href="/games/{actor.game_id}" class="btn btn-sm variant-soft-primary w-full" data-sveltekit-preload-data="off">
                                                                                                                 <icons.ExternalLink size={14} class="mr-2" />
                                                                                                                 View Game
                                                                                                         </a>
@@ -565,7 +565,7 @@
                                                 {#each [...new Map($userGamesStore.map(g => [g.game_id, g])).values()] as game (game.game_id)}
                                                         <div class="relative">
                                                             <!-- Force "View Game" by setting isUserInGame prop directly -->
-                                                            <a href={`/games/${game.game_id}`} class="block">
+                                                            <a href={`/games/${game.game_id}`} class="block" data-sveltekit-preload-data="off">
                                                                 <div class="card p-0 shadow-xl hover:shadow-2xl transition-all duration-200 bg-surface-50 dark:bg-surface-900 border border-surface-200-700-token overflow-hidden flex flex-col h-full">
                                                                     <!-- Game Banner & Header -->
                                                                     <div class="relative bg-primary-500/10 dark:bg-primary-500/20 p-5 border-b border-surface-200-700-token">
