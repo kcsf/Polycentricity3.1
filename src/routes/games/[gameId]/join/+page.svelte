@@ -241,9 +241,15 @@
             
             // Now redirect to the game page
             console.log(`[JoinPage] Actor selected and role assigned - redirecting to game page: /games/${gameId}`);
+            // Set actorSelected to true for better UI feedback
+            actorSelected = true;
+            
+            // Use immediate redirection for better UX
             try {
-                // Use goto with navigation error handling
-                await goto(`/games/${gameId}`);
+                console.log(`[JoinPage] Redirecting to game page: /games/${gameId}`);
+                
+                // Try the SvelteKit navigation first (preferred)
+                await goto(`/games/${gameId}`, { replaceState: true });
                 console.log(`[JoinPage] Navigation to game page successful`);
             } catch (navError) {
                 // Log navigation errors specifically

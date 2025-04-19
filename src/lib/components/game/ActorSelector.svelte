@@ -198,6 +198,9 @@
           logError('Error setting up card subscription:', subErr);
         }
         
+        // Reset creating flag before calling parent handler to ensure instant UI update
+        creatingActor = false;
+        
         // Call the parent handler with selected actor
         onSelectActor(actor);
       } else {
@@ -298,6 +301,9 @@
           // Non-fatal error, just log it and continue
           logError('Error setting up card subscription:', subErr);
         }
+        
+        // Reset creating flag before calling parent handler to ensure instant UI update
+        creatingActor = false;
         
         // Complete the actor selection
         onSelectActor(newActor);
