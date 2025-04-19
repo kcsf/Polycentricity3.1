@@ -585,6 +585,49 @@
     }
     
     // Check if the current user is part of this game
+    // Function to create a temporary actor from localStorage data
+    function createTemporaryActor(savedActorId: string, userId: string): Actor {
+        log('Creating temporary playerRole from localStorage data');
+        // Create a minimal Actor object to allow game access
+        return {
+            actor_id: savedActorId,
+            user_id: userId,
+            game_id: gameId,
+            actor_type: 'National Identity',
+            created_at: Date.now()
+        };
+    }
+    
+    // Function to enhance actor data in the background (safe to call from template)
+    function enhanceActorInBackground(gameId: string, userId: string): void {
+        setTimeout(() => {
+            getPlayerRole(gameId, userId)
+                .then(fullActor => {
+                    if (fullActor) {
+                        log('Enhanced minimal actor with full data');
+                        playerRole = fullActor;
+                    }
+                })
+                .catch(err => log('Background actor enhancement failed:', err));
+        }, 1000);
+    }
+    
+    // Separate function to fetch actor data from player_actor_map
+    function fetchPlayerRoleFromMapping(gameId: string, userId: string): void {
+        setTimeout(() => {
+            getPlayerRole(gameId, userId)
+                .then(fullActor => {
+                    if (fullActor) {
+                        log('Retrieved actor from player_actor_map');
+                        playerRole = fullActor;
+                        activeActorId.set(fullActor.actor_id);
+                        localStorage.setItem(`game_${gameId}_actor`, fullActor.actor_id);
+                    }
+                })
+                .catch(err => log('Background actor fetch failed:', err));
+        }, 500);
+    }
+    
     function isCurrentUserInGame(): boolean {
         if (!game || !$userStore.user) return false;
         
@@ -597,32 +640,17 @@
             log(`Found saved actor ID in localStorage: ${savedActorId}`);
             
             // If we have a saved actor ID but no playerRole, force-set a temporary one
-            // This ensures the player can access the game even if actor loading failed
+            // in a separate function call (not inside the template expression)
             if (!playerRole) {
-                log('Setting temporary playerRole from localStorage data');
-                // Create a minimal Actor object to allow game access
-                playerRole = {
-                    actor_id: savedActorId,
-                    user_id: userId,
-                    game_id: gameId,
-                    actor_type: 'National Identity',
-                    created_at: Date.now()
-                };
+                // Create a temporary actor object
+                playerRole = createTemporaryActor(savedActorId, userId);
                 
                 // Also set the activeActorId to ensure consistency
                 activeActorId.set(savedActorId);
                 
                 // Schedule a background check to enhance this minimal actor data
-                setTimeout(() => {
-                    getPlayerRole(gameId, userId)
-                        .then(fullActor => {
-                            if (fullActor) {
-                                log('Enhanced minimal actor with full data');
-                                playerRole = fullActor;
-                            }
-                        })
-                        .catch(err => log('Background actor enhancement failed:', err));
-                }, 1000);
+                // Using a separate function to avoid template mutations
+                enhanceActorInBackground(gameId, userId);
             }
             
             return true;
@@ -647,20 +675,10 @@
             hasMapping = true;
             
             // If we have a mapping but no role, schedule a background fetch
+            // Using a safe approach that doesn't mutate state in a template expression
             if (!playerRole) {
                 log('Found player_actor_map entry but no playerRole, fetching in background');
-                setTimeout(() => {
-                    getPlayerRole(gameId, userId)
-                        .then(fullActor => {
-                            if (fullActor) {
-                                log('Retrieved actor from player_actor_map');
-                                playerRole = fullActor;
-                                activeActorId.set(fullActor.actor_id);
-                                localStorage.setItem(`game_${gameId}_actor`, fullActor.actor_id);
-                            }
-                        })
-                        .catch(err => log('Background actor fetch failed:', err));
-                }, 500);
+                fetchPlayerRoleFromMapping(gameId, userId);
             }
         }
         
