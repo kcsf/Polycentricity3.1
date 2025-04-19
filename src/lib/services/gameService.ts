@@ -1693,11 +1693,11 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
       let methodsCompleted = 0;
       const totalMethods = 2; // Only using role_assignment and direct actor lookups
       
-      // Allow a longer global timeout to find more actors
+      // Allow a longer global timeout to find more actors - increased for dashboard
       const globalTimeout = setTimeout(() => {
         log(`Global timeout reached with ${actors.length} actors found`);
         finishCollection();
-      }, 2500); // Increased to ensure a more comprehensive search
+      }, 4000); // Significantly increased for dashboard to ensure we find ALL actors
       
       // Method 1: Check actor cache FIRST for instant retrieval
       // Use Array.from for better TypeScript compatibility instead of for...of with entries()
@@ -1771,29 +1771,55 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
         methodComplete();
       }, 1500); // Increased from 500 to ensure we get more results
       
-      // Method 3: Try to get actors from user->actors relationship (fallback)
-      log(`[SECONDARY] Checking user->actors links for user ${userToCheck}`);
+      // Method 3: Try to get actors from user->actors relationship AND direct search by user_id
+      log(`[SECONDARY] Checking user->actors links and direct user_id search for user ${userToCheck}`);
       let userActorsComplete = false;
       let foundActorsFromUser = false;
       
+      // First check: user->actors links (relationship-based)
       gun.get(nodes.users).get(userToCheck).get('actors').map().once((actorValue: any, actorId: string) => {
         if (actorId && actorId !== '_' && !uniqueIds.has(actorId)) {
           foundActorsFromUser = true;
-          log(`Found actor link from user: ${actorId}`);
+          log(`Found actor link from user->actors: ${actorId}`);
           fetchActor(actorId);
         }
       });
       
-      // Set timeout for user actors method completion - longer if we found actors to give time to fetch
+      // NEW SEARCH METHOD: Direct search all actors by user_id field (most reliable)
+      log(`[CRITICAL] Searching all actors directly by user_id field for ${userToCheck}`);
+      gun.get(nodes.actors).map().once((actorData: Actor, actorId: string) => {
+        if (!actorData || actorId === '_') return;
+        
+        // Check if this actor belongs to our user
+        if (actorData.user_id === userToCheck && !uniqueIds.has(actorId)) {
+          foundActorsFromUser = true;
+          log(`Found actor by direct user_id search: ${actorId}`);
+          
+          // Create a complete actor object
+          const completeActor = {
+            ...actorData,
+            actor_id: actorId, // Ensure actor_id is set
+            game_id: actorData.game_id || 'unknown' // Use 'unknown' instead of null for TypeScript compatibility
+          };
+          
+          uniqueIds.add(actorId);
+          actors.push(completeActor);
+          
+          // Cache for future use
+          actorCache.set(actorId, completeActor);
+        }
+      });
+      
+      // Set timeout for user actors method completion - longer timeout for comprehensive search
       setTimeout(() => {
         userActorsComplete = true;
         if (foundActorsFromUser) {
-          log(`Completing user->actors search with actors found`);
+          log(`Completing user->actors and direct search with actors found`);
         } else {
-          log(`No actors found via user->actors links`);
+          log(`No actors found via user->actors links or direct search`);
         }
         methodComplete();
-      }, foundActorsFromUser ? 1500 : 800); // Longer timeout if we found actors to fetch
+      }, 2000); // Extended timeout for more thorough search
       
       // Helper to fetch an actor with timeout protection
       function fetchActor(actorId: string, gameId?: string) {
