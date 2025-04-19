@@ -37,7 +37,12 @@
     });
     
     onMount(() => {
-        loadGameData();
+        loadGameData().then(() => {
+            // Once game data is loaded, safely set up user in game status
+            if (game) {
+                setupUserInGame();
+            }
+        });
         
         return () => {
             if (unsubscribe) {
@@ -628,31 +633,19 @@
         }, 500);
     }
     
-    function isCurrentUserInGame(): boolean {
+    // State to track if user is in game - separate from the checking logic
+    let userInGame = $state(false);
+    
+    // Function to CHECK if user is in game WITHOUT modifying state
+    // This returns boolean only, doesn't modify any state
+    function checkIfUserInGame(): boolean {
         if (!game || !$userStore.user) return false;
         
         const userId = $userStore.user.user_id;
         
-        // ENHANCED CHECK: First check localStorage for a saved actor ID for this game
-        // This is the most reliable method, as it persists through page refreshes
+        // Check localStorage for a saved actor ID for this game
         const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
         if (savedActorId) {
-            log(`Found saved actor ID in localStorage: ${savedActorId}`);
-            
-            // If we have a saved actor ID but no playerRole, force-set a temporary one
-            // in a separate function call (not inside the template expression)
-            if (!playerRole) {
-                // Create a temporary actor object
-                playerRole = createTemporaryActor(savedActorId, userId);
-                
-                // Also set the activeActorId to ensure consistency
-                activeActorId.set(savedActorId);
-                
-                // Schedule a background check to enhance this minimal actor data
-                // Using a separate function to avoid template mutations
-                enhanceActorInBackground(gameId, userId);
-            }
-            
             return true;
         }
         
@@ -673,16 +666,49 @@
         let hasMapping = false;
         if (game.player_actor_map && game.player_actor_map[userId]) {
             hasMapping = true;
-            
-            // If we have a mapping but no role, schedule a background fetch
-            // Using a safe approach that doesn't mutate state in a template expression
-            if (!playerRole) {
-                log('Found player_actor_map entry but no playerRole, fetching in background');
-                fetchPlayerRoleFromMapping(gameId, userId);
-            }
         }
         
         return isInPlayers || hasRole || hasMapping;
+    }
+    
+    // Function to SETUP user in game - handles all state mutations
+    // This can be called from outside template expressions
+    function setupUserInGame() {
+        if (!game || !$userStore.user) return;
+        
+        const userId = $userStore.user.user_id;
+        
+        // ENHANCED CHECK: First check localStorage for a saved actor ID for this game
+        const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
+        if (savedActorId) {
+            log(`Found saved actor ID in localStorage: ${savedActorId}`);
+            
+            // If we have a saved actor ID but no playerRole, force-set a temporary one
+            if (!playerRole) {
+                // Create a temporary actor object
+                playerRole = createTemporaryActor(savedActorId, userId);
+                
+                // Also set the activeActorId to ensure consistency
+                activeActorId.set(savedActorId);
+                
+                // Schedule a background check to enhance this minimal actor data
+                enhanceActorInBackground(gameId, userId);
+            }
+            
+            userInGame = true;
+            return;
+        }
+        
+        // Check for player_actor_map entry as a fallback
+        if (game.player_actor_map && game.player_actor_map[userId] && !playerRole) {
+            log('Found player_actor_map entry but no playerRole, fetching in background');
+            fetchPlayerRoleFromMapping(gameId, userId);
+            userInGame = true;
+            return;
+        }
+        
+        // Update the userInGame state based on the other checks
+        userInGame = checkIfUserInGame();
     }
 </script>
 
@@ -712,7 +738,7 @@
             </div>
         </div>
     {:else if game}
-        {#if isCurrentUserInGame()}
+        {#if userInGame}
             <GamePageLayout {game} {gameId} {playerRole} />
         {:else}
             <div class="flex justify-center items-center h-full">
