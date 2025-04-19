@@ -8,7 +8,7 @@
     joinGame,
     assignRole
   } from '$lib/services/gameService';
-  import { nodes, createRelationship } from '$lib/services/gunService';
+  import { nodes, createRelationship, getGun } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
   import type { Actor, Card } from '$lib/types';
   import * as icons from 'lucide-svelte';

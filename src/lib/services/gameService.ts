@@ -1569,7 +1569,7 @@ export async function createActor(
     });
     
     // Check if user is in game players and add if needed - fire and forget
-    if (!game.players || !game.players[currentUser.user_id]) {
+    if (game && (!game.players || !game.players[currentUser.user_id])) {
       // Add user to game players first (fire and forget)
       gun.get(nodes.games).get(gameId).get('players').get(currentUser.user_id).put(true);
       log(`Added user ${currentUser.user_id} to game ${gameId} players (fire-and-forget)`);
@@ -1580,6 +1580,10 @@ export async function createActor(
         const updatedPlayers = { ...(cachedGame.players || {}), [currentUser.user_id]: true };
         gameCache.set(gameId, { ...cachedGame, players: updatedPlayers });
       }
+    } else if (!game) {
+      // Always add user to players if game wasn't found
+      gun.get(nodes.games).get(gameId).get('players').get(currentUser.user_id).put(true);
+      log(`Added user ${currentUser.user_id} to game ${gameId} players (no game data available)`);
     }
     
     // FIRE-AND-FORGET GUN.JS WRITES - Non-blocking operations
