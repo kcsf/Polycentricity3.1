@@ -166,7 +166,7 @@
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Component Structure</h3>
-          <CodeBlock code={'<script lang="ts">\n  // No imports needed for Svelte 5 Runes\n  // ($state, $effect, $derived, $props)\n  \n  // Component props\n  const { title = "Default", options = [] } = $props();\n  \n  // State declarations\n  let isExpanded = $state<boolean>(false);\n  let selectedIndex = $state<number>(-1);\n  \n  // Derived state\n  let hasSelection = $derived(() => selectedIndex >= 0);\n  \n  // Effects\n  $effect(() => {\n    // Side effects when state changes\n    console.log(`Selection changed: ${selectedIndex}`);\n  });\n  \n  // Methods\n  function toggle(): void {\n    isExpanded = !isExpanded;\n  }\n  \n  function select(index: number): void {\n    selectedIndex = index;\n    isExpanded = false;\n  }\n</script>'} />
+          <CodeBlock code={'<script lang="ts">\n  // No imports needed for Svelte 5 Runes\n  // ($state, $effect, $derived, $props)\n  \n  // Component props\n  const { title = "Default", options = [] } = $props();\n  \n  // State declarations\n  let isExpanded = $state<boolean>(false);\n  let selectedIndex = $state<number>(-1);\n  \n  // Derived state\n  let hasSelection = $derived(() => selectedIndex >= 0);\n  \n  // Effects\n  $effect(() => {\n    // Side effects when state changes\n    console.log("Selection changed: " + selectedIndex);\n  });\n  \n  // Methods\n  function toggle(): void {\n    isExpanded = !isExpanded;\n  }\n  \n  function select(index: number): void {\n    selectedIndex = index;\n    isExpanded = false;\n  }\n</script>'} />
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
@@ -179,7 +179,7 @@
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Snippet Rendering</h3>
-          <CodeBlock code={'// Svelte 5 Runes Snippet Example\n<script lang="ts">\n  let items = $state<string[]>(["Item 1", "Item 2"]);\n</script>\n\n&#123;#snippet itemRenderer(item)&#125;\n  <li class="p-2 bg-surface-100">&#123;item&#125;</li>\n&#123;/snippet&#125;\n\n<ul>\n  &#123;#each items as item&#125;\n    &#123;@render itemRenderer(item)&#125;\n  &#123;/each&#125;\n</ul>'} />
+          <CodeBlock code={'// Svelte 5 Runes Snippet Example\n<script lang="ts">\n  let items = $state<string[]>(["Item 1", "Item 2"]);\n</script>\n\n{#snippet itemRenderer(item)}\n  <li class="p-2 bg-surface-100">{item}</li>\n{/snippet}\n\n<ul>\n  {#each items as item}\n    {@render itemRenderer(item)}\n  {/each}\n</ul>'} />
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
@@ -388,8 +388,8 @@
                 <td class="p-2"><code>$effect(() => console.log(count));</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
-                <td class="p-2"><code>&lt;on:click={handler}&gt;</code></td>
-                <td class="p-2"><code>&lt;onclick={handler}&gt;</code></td>
+                <td class="p-2"><code>&lt;on:click={myHandler}&gt;</code></td>
+                <td class="p-2"><code>&lt;onclick={myHandler}&gt;</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
