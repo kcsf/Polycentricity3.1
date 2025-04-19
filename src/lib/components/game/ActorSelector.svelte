@@ -107,6 +107,7 @@
     if (unsubscribe) unsubscribe();
   });
   
+  // Modified with fire-and-forget pattern to avoid navigation issues
   async function handleSelectActor() {
     try {
       // Check if we have valid actors and a selection
@@ -126,95 +127,97 @@
       
       const actor = existingActors.find(a => a.actor_id === selectedActorId);
       
-      if (actor) {
-        log(`Selected actor: ${actor.actor_id} from game ${actor.game_id}`);
-        
-        // Make sure the actor has a user_id (if not, use current user)
-        if (!actor.user_id) {
-          const currentUser = getCurrentUser();
-          if (currentUser) {
-            actor.user_id = currentUser.user_id;
-            log(`Adding missing user_id ${currentUser.user_id} to actor`);
-          } else {
-            logError('Cannot select actor: Missing user_id and no current user');
-            errorMessage = 'Actor data is incomplete. Please try creating a new actor instead.';
-            creatingActor = false;
-            return;
-          }
-        }
-        
-        // If actor was from a different game, we need to set up relationships with the new game
-        if (actor.game_id !== gameId) {
-          log(`Actor ${actor.actor_id} is from game ${actor.game_id}, adding to new game ${gameId}`);
-          
-          try {
-            // 1. Store original game_id for reference before we modify it
-            const originalGameId = actor.game_id;
-            
-            // 2. Update the actor's game_id to the current game for proper display
-            actor.game_id = gameId;
-            
-            // 3. Create Actor->Game relationship with delayed execution to ensure fire-and-forget approach
-            setTimeout(() => {
-              createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
-              log(`Created relationship: Actor ${actor.actor_id} -> Game ${gameId}`);
-            }, 200);
-            
-            // 4. Create Actor->Card relationship explicitly
-            setTimeout(() => {
-              if (actor.card_id) {
-                createRelationship(`${nodes.actors}/${actor.actor_id}`, 'card', `${nodes.cards}/${actor.card_id}`);
-                log(`Created relationship: Actor ${actor.actor_id} -> Card ${actor.card_id}`);
-              }
-            }, 200);
-            
-            // 5. Log the cross-game usage for debugging
-            log(`Reusing actor from game ${originalGameId} in new game ${gameId}`);
-            
-            // 6. Assign role in the new game with retry logic
-            try {
-              await assignRole(gameId, actor.user_id, actor.actor_id);
-              log(`Assigned actor ${actor.actor_id} to user ${actor.user_id} in game ${gameId}`);
-            } catch (assignErr) {
-              // Just log the error, we'll handle this via joinGame in the parent component
-              logError('Error during initial assignRole call:', assignErr);
-            }
-          } catch (relErr) {
-            // Log error but continue - the join+assign process in the parent will handle this
-            logError('Error setting up cross-game actor relationship:', relErr);
-          }
-        }
-        
-        // Set up real-time subscription to actor's card
-        if (unsubscribe) unsubscribe();
-        
-        try {
-          unsubscribe = subscribeToUserCard(gameId, actor.user_id, (card) => {
-            log('Card data updated via subscription');
-            // Card updates would be handled here
-          });
-        } catch (subErr) {
-          // Non-fatal error, just log it
-          logError('Error setting up card subscription:', subErr);
-        }
-        
-        // Reset creating flag before calling parent handler to ensure instant UI update
-        creatingActor = false;
-        
-        // Call the parent handler with selected actor
-        onSelectActor(actor);
-      } else {
+      if (!actor) {
         log(`Actor with ID ${selectedActorId} not found in existingActors array`);
         errorMessage = 'Selected actor not found';
+        creatingActor = false;
+        return;
       }
+      
+      log(`Selected actor: ${actor.actor_id} from game ${actor.game_id}`);
+      
+      // Make sure the actor has a user_id (if not, use current user)
+      if (!actor.user_id) {
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          actor.user_id = currentUser.user_id;
+          log(`Adding missing user_id ${currentUser.user_id} to actor`);
+        } else {
+          logError('Cannot select actor: Missing user_id and no current user');
+          errorMessage = 'Actor data is incomplete. Please try creating a new actor instead.';
+          creatingActor = false;
+          return;
+        }
+      }
+      
+      // If actor was from a different game, we need to set up relationships with the new game
+      if (actor.game_id !== gameId) {
+        log(`Actor ${actor.actor_id} is from game ${actor.game_id}, adding to new game ${gameId}`);
+        
+        // Store original game_id for reference before we modify it
+        const originalGameId = actor.game_id;
+        
+        // Update the actor's game_id to the current game for proper display
+        actor.game_id = gameId;
+        
+        // First update local state for immediate feedback
+        localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
+        
+        // Fire-and-forget background operations
+        setTimeout(() => {
+          try {
+            // 1. Create Actor->Game relationship
+            createRelationship(`${nodes.actors}/${actor.actor_id}`, 'game', `${nodes.games}/${gameId}`);
+            log(`Created relationship: Actor ${actor.actor_id} -> Game ${gameId}`);
+            
+            // 2. If the actor has a card_id, create the Actor->Card relationship
+            if (actor.card_id) {
+              createRelationship(`${nodes.actors}/${actor.actor_id}`, 'card', `${nodes.cards}/${actor.card_id}`);
+              log(`Created relationship: Actor ${actor.actor_id} -> Card ${actor.card_id}`);
+            }
+            
+            // 3. Assign role in the new game
+            try {
+              assignRole(gameId, actor.user_id, actor.actor_id);
+              log(`Assigned actor ${actor.actor_id} to user ${actor.user_id} in game ${gameId}`);
+            } catch (assignErr) {
+              logError('Error during background assignRole call:', assignErr);
+            }
+          } catch (err) {
+            logError('Error in background relationship setup:', err);
+          }
+        }, 100);
+      }
+      
+      // Set up subscription in the background
+      setTimeout(() => {
+        try {
+          if (unsubscribe) unsubscribe();
+          
+          unsubscribe = subscribeToUserCard(gameId, actor.user_id, (card) => {
+            log('Card data updated via subscription');
+          });
+        } catch (subErr) {
+          logError('Error setting up card subscription:', subErr);
+        }
+      }, 200);
+      
+      // Reset creating flag and immediately call parent handler
+      creatingActor = false;
+      
+      // Set actor to localStorage for persistence
+      localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
+      
+      // Call the parent handler with selected actor
+      onSelectActor(actor);
     } catch (err) {
       logError('Error selecting actor:', err);
       errorMessage = 'Failed to select actor';
-    } finally {
       creatingActor = false;
     }
   }
   
+  // Modified with fire-and-forget pattern to avoid navigation issues
   async function handleCreateActor() {
     try {
       creatingActor = true;
@@ -233,48 +236,69 @@
         return;
       }
       
-      // First attempt only - skip retry to be responsive
       log(`Creating actor with card ${selectedCardId} for game ${gameId}`);
       
       try {
-        const startTime = performance.now();
-        
-        // Create actor and immediately proceed 
-        const newActor = await createActor(
+        // Create actor without waiting for all operations to complete
+        // This improves responsiveness and prevents UI freezing
+        createActor(
           gameId,
           selectedCardId,
           actorType,
           customName || undefined
-        );
-        
-        const duration = performance.now() - startTime;
-        log(`Actor creation took ${duration.toFixed(4)}ms`);
-        
-        if (newActor) {
-          log(`Actor created successfully: ${newActor.actor_id}`);
-          
-          // Immediately update game status
-          try {
-            const gun = getGun();
-            gun.get(nodes.games).get(gameId).get('status').put('active');
-            log(`Directly updated game status to active`);
-          } catch (statusErr) {
-            logError('Error updating game status:', statusErr);
+        ).then(newActor => {
+          if (newActor) {
+            log(`Actor created successfully: ${newActor.actor_id}`);
+            
+            // First store actor ID in localStorage for persistence between page loads
+            localStorage.setItem(`game_${gameId}_actor`, newActor.actor_id);
+            
+            // Fire-and-forget: Update game status to active immediately
+            try {
+              const gun = getGun();
+              gun.get(nodes.games).get(gameId).get('status').put('active');
+              log(`Directly updated game status to active`);
+            } catch (statusErr) {
+              logError('Error updating game status:', statusErr);
+            }
+            
+            // Background relationship creation - non-blocking
+            setTimeout(() => {
+              try {
+                joinGame(gameId);
+                if (newActor.user_id) {
+                  assignRole(gameId, newActor.user_id, newActor.actor_id);
+                }
+                log('Background game joining and role assignment triggered');
+              } catch (bgErr) {
+                logError('Background join/assign operations error:', bgErr);
+              }
+            }, 100);
+            
+            // Call the parent handler immediately to proceed with navigation
+            // This avoids the page refresh issue
+            onSelectActor(newActor);
           }
-          
-          // Reset creating flag BEFORE proceeding
-          creatingActor = false;
-          
-          // Complete the actor selection immediately
-          onSelectActor(newActor);
-          return;
-        } else {
+        }).catch(actorErr => {
+          logError('Error in actor creation:', actorErr);
           errorMessage = 'Failed to create actor';
           creatingActor = false;
-        }
+        });
+        
+        // Set a maximum processing time to prevent UI from being stuck
+        setTimeout(() => {
+          if (creatingActor) {
+            creatingActor = false;
+            errorMessage = 'Actor creation is taking longer than expected. Please check the game page to see if it was successful.';
+          }
+        }, 5000);
+        
+        // Return immediately for responsiveness, the callback above will handle success
+        // This prevents the page refresh and allows smooth navigation
+        return;
       } catch (err) {
-        logError('Error creating actor:', err);
-        errorMessage = 'Failed to create actor';
+        logError('Error starting actor creation:', err);
+        errorMessage = 'Failed to start actor creation';
         creatingActor = false;
       }
     } catch (err) {
