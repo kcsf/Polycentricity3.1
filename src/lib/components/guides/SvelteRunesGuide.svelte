@@ -1,6 +1,5 @@
 <script lang="ts">
   // SvelteRunesGuide.svelte - Svelte 5 Runes Mode Pattern Guide
-  import { inspect } from 'svelte';
   import * as icons from 'lucide-svelte';
   import CodeBlock from '$lib/components/CodeBlock.svelte'; // Assume utility component
   
@@ -23,12 +22,12 @@
   
   // Debug effect
   $effect(() => {
-    inspect(count, { name: 'count' });
-    inspect(doubledCount, { name: 'doubledCount' });
-    inspect(displayMessage, { name: 'displayMessage' });
-    inspect(activeTab, { name: 'activeTab' });
-    inspect(items, { name: 'items' });
-    inspect(isLoading, { name: 'isLoading' });
+    console.log('count:', count);
+    console.log('doubledCount:', doubledCount);
+    console.log('displayMessage:', displayMessage);
+    console.log('activeTab:', activeTab);
+    console.log('items:', items);
+    console.log('isLoading:', isLoading);
   });
   
   // Functions
@@ -180,7 +179,7 @@
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Snippet Rendering</h3>
-          <CodeBlock code={'// Svelte 5 Runes Snippet Example\n<script lang="ts">\n  let items = $state<string[]>(["Item 1", "Item 2"]);\n</script>\n\n{#snippet itemRenderer(item)}\n  <li class="p-2 bg-surface-100">{item}</li>\n{/snippet}\n\n<ul>\n  {#each items as item}\n    {@render itemRenderer(item)}\n  {/each}\n</ul>'} />
+          <CodeBlock code={'// Svelte 5 Runes Snippet Example\n<script lang="ts">\n  let items = $state<string[]>(["Item 1", "Item 2"]);\n</script>\n\n&#123;#snippet itemRenderer(item)&#125;\n  <li class="p-2 bg-surface-100">&#123;item&#125;</li>\n&#123;/snippet&#125;\n\n<ul>\n  &#123;#each items as item&#125;\n    &#123;@render itemRenderer(item)&#125;\n  &#123;/each&#125;\n</ul>'} />
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
@@ -303,7 +302,7 @@
             <li><strong>Dont set state inside $effect</strong> to avoid infinite loops</li>
             <li><strong>Create new arrays/objects</strong> when updating complex state</li>
             <li><strong>Use proper type annotations</strong> with $state&lt;Type&gt;(initialValue)</li>
-            <li><strong>Console debugging:</strong> Use $inspect(value) or $state.snapshot(value) instead of console.log for $state variables</li>
+            <li><strong>Console debugging:</strong> Use debug tools like $state.snapshot(value) instead of console.log for $state variables</li>
           </ul>
         </div>
       </div>
