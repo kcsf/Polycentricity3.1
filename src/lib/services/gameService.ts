@@ -1513,6 +1513,7 @@ export async function createActor(
   customName?: string
 ): Promise<Actor | null> {
   try {
+    const startTime = performance.now();
     log(`Creating actor in game ${gameId} with card ${cardId}`);
     const gun = getGun();
     const currentUser = getCurrentUser();
@@ -1522,24 +1523,24 @@ export async function createActor(
       return null;
     }
 
-    const game = await getGame(gameId);
-    if (!game) {
-      logError(`Game not found: ${gameId}`);
-      return null;
-    }
+    // Fast check if game exists in cache first
+    let game = gameCache.has(gameId) ? gameCache.get(gameId) : null;
     
-    // Check if user is already in the game players
-    const playersObj = game.players as Record<string, boolean | string>;
-    if (!playersObj || !playersObj[currentUser.user_id]) {
-      // Add user to game players first
-      const success = await joinGame(gameId);
-      if (!success) {
-        logError(`Failed to join game ${gameId}`);
-        return null;
+    if (!game) {
+      try {
+        // Only fetch if not in cache, and don't block for long
+        game = await getGame(gameId);
+      } catch (err) {
+        logWarn(`Error fetching game in createActor: ${err}`);
+        // Create a minimal game object to continue with actor creation
+        game = { 
+          game_id: gameId,
+          status: GameStatus.ACTIVE 
+        } as Game;
       }
     }
     
-    // Create actor
+    // Create actor object immediately
     const actorId = generateId();
     const actor: Actor = {
       actor_id: actorId,
@@ -1552,48 +1553,104 @@ export async function createActor(
       status: 'active',
       agreements: {}
     };
-
-    // Concurrent operations for better performance
-    await Promise.all([
-      new Promise<void>((resolve, reject) => {
-        gun.get(nodes.actors).get(actorId).put(actor, (ack: any) => {
-          if (ack.err) {
-            logError('Error creating actor:', ack.err);
-            reject(ack.err);
-            return;
-          }
-          resolve();
-        });
-      }),
-      getCard(cardId) // Prefetch card into cache
-    ]);
     
-    // Update role assignment and create relationships
-    await Promise.all([
-      assignRole(gameId, currentUser.user_id, actorId),
-      createRelationship(`${nodes.users}/${currentUser.user_id}`, 'actors', `${nodes.actors}/${actorId}`),
-      createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`),
-      createRelationship(`${nodes.actors}/${actorId}`, 'game', `${nodes.games}/${gameId}`),
-      // Add user to chat participants using createRelationship
-      createRelationship(`${nodes.chat}/${gameId}_group/participants`, currentUser.user_id, `${nodes.users}/${currentUser.user_id}`)
-    ]);
+    // IMMEDIATE CACHE UPDATE for responsive UI
+    cacheActor(actorId, actor);
+    // Also cache the role for fast lookups
+    cacheRole(gameId, currentUser.user_id, actorId);
     
-    // Direct approach to ensure User->Actor edge exists (more reliable than createRelationship)
-    gun.get(nodes.users).get(currentUser.user_id).get('actors').get(actorId).put(true, (ack: any) => {
-      if (ack.err) {
-        logError(`Failed to create direct User->Actor edge: ${ack.err}`);
-      } else {
-        log(`Created direct User->Actor edge: ${currentUser.user_id} -> ${actorId}`);
+    // Start card prefetch in the background (don't wait for it)
+    getCard(cardId).then(card => {
+      if (card) {
+        log(`Prefetched card ${cardId} into cache`);
       }
+    }).catch(err => {
+      logWarn(`Error prefetching card: ${err}`);
     });
     
-    // Cache the actor
-    cacheActor(actorId, actor);
-    log(`Actor created: ${actorId} for user ${currentUser.user_id} in game ${gameId}`);
+    // Check if user is in game players and add if needed - fire and forget
+    if (!game.players || !game.players[currentUser.user_id]) {
+      // Add user to game players first (fire and forget)
+      gun.get(nodes.games).get(gameId).get('players').get(currentUser.user_id).put(true);
+      log(`Added user ${currentUser.user_id} to game ${gameId} players (fire-and-forget)`);
+      
+      // Update game cache
+      if (gameCache.has(gameId)) {
+        const cachedGame = gameCache.get(gameId)!;
+        const updatedPlayers = { ...(cachedGame.players || {}), [currentUser.user_id]: true };
+        gameCache.set(gameId, { ...cachedGame, players: updatedPlayers });
+      }
+    }
     
+    // FIRE-AND-FORGET GUN.JS WRITES - Non-blocking operations
+    
+    // 1. Core actor data - just fire it without waiting
+    gun.get(nodes.actors).get(actorId).put(actor);
+    log(`Core actor data write initiated for ${actorId}`);
+    
+    // 2. Use assignRole (which is already fire-and-forget) without awaiting
+    assignRole(gameId, currentUser.user_id, actorId)
+      .then(() => log(`Role assigned in background: ${actorId} to user ${currentUser.user_id}`))
+      .catch(err => logWarn(`Background role assignment error: ${err}`));
+    
+    // 3. Create relationships in the background - don't block on these
+    try {
+      // Fire and forget - no await, no callbacks
+      createRelationship(`${nodes.users}/${currentUser.user_id}`, 'actors', `${nodes.actors}/${actorId}`);
+      createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`);
+      createRelationship(`${nodes.actors}/${actorId}`, 'game', `${nodes.games}/${gameId}`);
+      createRelationship(`${nodes.chat}/${gameId}_group/participants`, currentUser.user_id, `${nodes.users}/${currentUser.user_id}`);
+      log(`Relationship creation initiated in background`);
+    } catch (relErr) {
+      // Non-fatal error for relationships
+      logWarn(`Error creating relationships: ${relErr}`);
+    }
+    
+    // 4. Direct approach to ensure User->Actor edge exists - fire and forget
+    gun.get(nodes.users).get(currentUser.user_id).get('actors').get(actorId).put(true);
+    log(`User->Actor edge creation initiated: ${currentUser.user_id} -> ${actorId}`);
+    
+    // DELAYED BACKGROUND VERIFICATION - ensure actor data exists
+    setTimeout(() => {
+      try {
+        // Verify actor was saved
+        gun.get(nodes.actors).get(actorId).once((savedActor: Actor) => {
+          if (!savedActor) {
+            log(`Actor ${actorId} verification failed, retrying write`);
+            // Retry the actor creation
+            gun.get(nodes.actors).get(actorId).put(actor);
+          }
+        });
+        
+        // Verify role assignment
+        gun.get(nodes.games).get(gameId).get('player_actor_map').get(currentUser.user_id).once((savedActorId: string) => {
+          if (savedActorId !== actorId) {
+            log(`Role assignment verification failed, retrying`);
+            gun.get(nodes.games).get(gameId).get('player_actor_map').get(currentUser.user_id).put(actorId);
+            gun.get(nodes.games).get(gameId).get('role_assignment').get(currentUser.user_id).put(actorId);
+          }
+        });
+        
+        // Verify user is in players list
+        gun.get(nodes.games).get(gameId).get('players').get(currentUser.user_id).once((isPlayer: boolean) => {
+          if (!isPlayer) {
+            log(`Player verification failed, retrying`);
+            gun.get(nodes.games).get(gameId).get('players').get(currentUser.user_id).put(true);
+          }
+        });
+        
+        log(`Background verification for actor ${actorId} completed in ${performance.now() - startTime}ms`);
+      } catch (verifyErr) {
+        // Non-fatal error
+        logWarn(`Actor verification error:`, verifyErr);
+      }
+    }, 500);
+    
+    log(`Actor creation initiated for ${actorId} (${performance.now() - startTime}ms)`);
     return actor;
+    
   } catch (error) {
-    logError('Create actor error:', error);
+    logError('Error in createActor:', error);
     return null;
   }
 }
