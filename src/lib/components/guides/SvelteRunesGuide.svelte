@@ -1,7 +1,6 @@
 <script lang="ts">
   // SvelteRunesGuide.svelte - Svelte 5 Runes Mode Pattern Guide
   import * as icons from 'lucide-svelte';
-  import CodeBlock from '$lib/components/CodeBlock.svelte'; // Assume utility component
   
   // Component props
   const {} = $props();
@@ -19,6 +18,16 @@
   let displayMessage = $derived(
     () => count > 10 ? "Count is getting high!" : "Count is still low"
   );
+  
+  // Function to escape HTML content for code blocks
+  function escapeHtml(code: string): string {
+    return code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
   
   // Debug effect
   $effect(() => {
@@ -121,40 +130,86 @@
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. State Declaration</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code="// Old way (Svelte 4)\nlet count = 0;\n$: doubled = count * 2;" />
-            <CodeBlock code="// New way (Svelte 5 Runes)\nlet count = $state<number>(0);\nlet doubled = $derived(() => count * 2);" />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+let count = 0;
+$: doubled = count * 2;`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+let count = $state<number>(0);
+let doubled = $derived(() => count * 2);`)}
+            </pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Component Props</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\nexport let name = "default";\nexport let count = 0;'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\nconst { name = "default", count = 0 } \n  = $props();'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+export let name = "default";
+export let count = 0;`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+const { name = "default", count = 0 } 
+  = $props();`)}
+            </pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Reactive Statements</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\n$: {\n  console.log("Count is " + count);\n  calculateSomething(count);\n}'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\n$effect(() => {\n  console.log("Count is " + count);\n  calculateSomething(count);\n});'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+$: {
+  console.log("Count is " + count);
+  calculateSomething(count);
+}`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+$effect(() => {
+  console.log("Count is " + count);
+  calculateSomething(count);
+});`)}
+            </pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Event Handlers</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\n<button on:click={handleClick}>\n  Click me\n</button>'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\n<button onclick={handleClick}>\n  Click me\n</button>'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+<button on:click={handleClick}>
+  Click me
+</button>`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+<button onclick={handleClick}>
+  Click me
+</button>`)}
+            </pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">5. DOM References</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\nlet inputElement;\n<input bind:this={inputElement}>'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\nlet inputElement = $state<HTMLInputElement | null>(null);\n<input bind:this={inputElement}>'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+let inputElement;
+<input bind:this={inputElement}>`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+let inputElement = $state<HTMLInputElement | null>(null);
+<input bind:this={inputElement}>`)}
+            </pre>
           </div>
         </div>
       </div>
@@ -166,14 +221,65 @@
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Component Structure</h3>
-          <CodeBlock code={'<script lang="ts">\n  // No imports needed for Svelte 5 Runes\n  // ($state, $effect, $derived, $props)\n  \n  // Component props\n  const { title = "Default", options = [] } = $props();\n  \n  // State declarations\n  let isExpanded = $state<boolean>(false);\n  let selectedIndex = $state<number>(-1);\n  \n  // Derived state\n  let hasSelection = $derived(() => selectedIndex >= 0);\n  \n  // Effects\n  $effect(() => {\n    // Side effects when state changes\n    console.log("Selection changed: " + selectedIndex);\n  });\n  \n  // Methods\n  function toggle(): void {\n    isExpanded = !isExpanded;\n  }\n  \n  function select(index: number): void {\n    selectedIndex = index;\n    isExpanded = false;\n  }\n</script>'} />
+          <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`<script lang="ts">
+  // No imports needed for Svelte 5 Runes
+  // ($state, $effect, $derived, $props)
+  
+  // Component props
+  const { title = "Default", options = [] } = $props();
+  
+  // State declarations
+  let isExpanded = $state<boolean>(false);
+  let selectedIndex = $state<number>(-1);
+  
+  // Derived state
+  let hasSelection = $derived(() => selectedIndex >= 0);
+  
+  // Effects
+  $effect(() => {
+    // Side effects when state changes
+    console.log("Selection changed: " + selectedIndex);
+  });
+  
+  // Methods
+  function toggle(): void {
+    isExpanded = !isExpanded;
+  }
+  
+  function select(index: number): void {
+    selectedIndex = index;
+    isExpanded = false;
+  }
+</script>`)}
+          </pre>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Slot Rendering</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\n<div class="container">\n  <slot name="header"></slot>\n  <slot>Default content</slot>\n  <slot name="footer"></slot>\n</div>'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\n<div class="container">\n  &#123;#render headerSlot?.()&#125;\n    Header content\n  &#123;/render&#125;\n  &#123;#render defaultSlot?.()&#125;\n    Default content\n  &#123;/render&#125;\n  &#123;#render footerSlot?.()&#125;\n    Footer content\n  &#123;/render&#125;\n</div>'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+<div class="container">
+  <slot name="header"></slot>
+  <slot>Default content</slot>
+  <slot name="footer"></slot>
+</div>`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+<div class="container">
+  {#render headerSlot?.()}
+    Header content
+  {/render}
+  {#render defaultSlot?.()}
+    Default content
+  {/render}
+  {#render footerSlot?.()}
+    Footer content
+  {/render}
+</div>`)}
+            </pre>
           </div>
         </div>
         
