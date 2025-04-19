@@ -1795,11 +1795,17 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
           foundActorsFromUser = true;
           log(`Found actor by direct user_id search: ${actorId}`);
           
-          // Create a complete actor object
-          const completeActor = {
+          // Create a complete actor object with properly typed properties
+          const completeActor: Actor = {
             ...actorData,
             actor_id: actorId, // Ensure actor_id is set
-            game_id: actorData.game_id || 'unknown' // Use 'unknown' instead of null for TypeScript compatibility
+            game_id: actorData.game_id || 'unknown', // Use 'unknown' instead of null for TypeScript compatibility
+            // Ensure required fields for Actor type are present
+            card_id: actorData.card_id || '',
+            user_id: actorData.user_id,
+            created_at: actorData.created_at || Date.now(),
+            actor_type: actorData.actor_type || 'National Identity',
+            status: actorData.status || 'active'
           };
           
           uniqueIds.add(actorId);
