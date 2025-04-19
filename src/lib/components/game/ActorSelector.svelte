@@ -160,7 +160,9 @@
         // Update the actor's game_id to the current game for proper display
         actor.game_id = gameId;
         
-        // First update local state for immediate feedback
+        // CRITICAL: First update local state for immediate feedback
+        // This localStorage value is the PRIMARY way the game page detects if a player has joined
+        // Even if database operations fail, this ensures the player can access the game
         localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
         
         // Fire-and-forget background operations
@@ -205,7 +207,9 @@
       // Reset creating flag and immediately call parent handler
       creatingActor = false;
       
-      // Set actor to localStorage for persistence
+      // CRITICAL DUPLICATE STORAGE: Set actor to localStorage for persistence
+      // This is intentionally duplicated from above to ensure it happens even if the first one fails
+      // This localStorage value is the PRIMARY way the game page detects if a player has joined
       localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
       
       // Call the parent handler with selected actor

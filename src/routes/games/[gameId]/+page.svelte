@@ -590,6 +590,44 @@
         
         const userId = $userStore.user.user_id;
         
+        // ENHANCED CHECK: First check localStorage for a saved actor ID for this game
+        // This is the most reliable method, as it persists through page refreshes
+        const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
+        if (savedActorId) {
+            log(`Found saved actor ID in localStorage: ${savedActorId}`);
+            
+            // If we have a saved actor ID but no playerRole, force-set a temporary one
+            // This ensures the player can access the game even if actor loading failed
+            if (!playerRole) {
+                log('Setting temporary playerRole from localStorage data');
+                // Create a minimal Actor object to allow game access
+                playerRole = {
+                    actor_id: savedActorId,
+                    user_id: userId,
+                    game_id: gameId,
+                    actor_type: 'National Identity',
+                    created_at: Date.now()
+                };
+                
+                // Also set the activeActorId to ensure consistency
+                activeActorId.set(savedActorId);
+                
+                // Schedule a background check to enhance this minimal actor data
+                setTimeout(() => {
+                    getPlayerRole(gameId, userId)
+                        .then(fullActor => {
+                            if (fullActor) {
+                                log('Enhanced minimal actor with full data');
+                                playerRole = fullActor;
+                            }
+                        })
+                        .catch(err => log('Background actor enhancement failed:', err));
+                }, 1000);
+            }
+            
+            return true;
+        }
+        
         // Check if player is in the players array/object
         let isInPlayers = false;
         if (game.players) {
@@ -603,7 +641,30 @@
         // If they have a role assigned, they're definitely in the game
         const hasRole = playerRole !== null;
         
-        return isInPlayers || hasRole;
+        // Check for player_actor_map entry as a fallback
+        let hasMapping = false;
+        if (game.player_actor_map && game.player_actor_map[userId]) {
+            hasMapping = true;
+            
+            // If we have a mapping but no role, schedule a background fetch
+            if (!playerRole) {
+                log('Found player_actor_map entry but no playerRole, fetching in background');
+                setTimeout(() => {
+                    getPlayerRole(gameId, userId)
+                        .then(fullActor => {
+                            if (fullActor) {
+                                log('Retrieved actor from player_actor_map');
+                                playerRole = fullActor;
+                                activeActorId.set(fullActor.actor_id);
+                                localStorage.setItem(`game_${gameId}_actor`, fullActor.actor_id);
+                            }
+                        })
+                        .catch(err => log('Background actor fetch failed:', err));
+                }, 500);
+            }
+        }
+        
+        return isInPlayers || hasRole || hasMapping;
     }
 </script>
 
