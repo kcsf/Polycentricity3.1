@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { gameStore } from '@/store/gameStore';
-  import type { Actor } from '@/store/gameStore';
+  import { gameStore } from '$lib/stores/gameStore';
+  import type { Actor } from '$lib/types';
   
   // Bind this to make it controllable from the parent component
   export let showSidebar = false;
