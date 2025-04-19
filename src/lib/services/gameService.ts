@@ -932,6 +932,31 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
     return false;
   }
 
+  // Helper function to convert arrays to Gun.js compatible objects
+  const convertArraysToObjects = (data: any): any => {
+    if (!data) return data;
+    
+    const result = { ...data };
+    
+    // Convert any array properties to objects with boolean values
+    Object.keys(result).forEach(key => {
+      if (Array.isArray(result[key])) {
+        log(`Converting array to object for property: ${key}`);
+        const objValue: Record<string, boolean> = {};
+        result[key].forEach((item: any) => {
+          const itemKey = typeof item === 'string' ? item : String(item);
+          objValue[itemKey] = true;
+        });
+        result[key] = objValue;
+      } else if (typeof result[key] === 'object' && result[key] !== null) {
+        // Recursively process nested objects
+        result[key] = convertArraysToObjects(result[key]);
+      }
+    });
+    
+    return result;
+  };
+
   // IMMEDIATE CACHE UPDATES and FIRE-AND-FORGET WRITES
   try {
     // Process first batch immediately for responsive UI
@@ -942,8 +967,12 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
     for (let i = 0; i < Math.min(batchSize, actors.length); i++) {
       const actor = actors[i];
       const actorId = actor.actor_id || generateId();
+      
+      // Convert any arrays to Gun.js compatible objects
+      const processedActor = convertArraysToObjects(actor);
+      
       const actorData = {
-        ...actor,
+        ...processedActor,
         actor_id: actorId,
         game_id: gameId,
         created_at: actor.created_at || Date.now(),
@@ -964,8 +993,12 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
       
       remainingActors.forEach(actor => {
         const actorId = actor.actor_id || generateId();
+        
+        // Convert any arrays to Gun.js compatible objects
+        const processedActor = convertArraysToObjects(actor);
+        
         const actorData = {
-          ...actor,
+          ...processedActor,
           actor_id: actorId,
           game_id: gameId,
           created_at: actor.created_at || Date.now(),
@@ -993,8 +1026,10 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
               gun.get(nodes.actors).get(actorId).once((savedActor: Actor) => {
                 if (!savedActor) {
                   log(`Verification failed for actor ${actorId}, retrying write`);
+                  // Ensure all arrays are converted to objects for this retry
+                  const processedActor = convertArraysToObjects(actor);
                   gun.get(nodes.actors).get(actorId).put({
-                    ...actor,
+                    ...processedActor,
                     actor_id: actorId,
                     game_id: gameId,
                     created_at: actor.created_at || Date.now(),
