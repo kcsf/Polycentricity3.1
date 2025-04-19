@@ -528,100 +528,71 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 export async function assignRole(gameId: string, userId: string, actorId: string): Promise<boolean> {
   log(`Assigning role ${actorId} to user ${userId} in game ${gameId}`);
   const gun = getGun();
+  const startTime = performance.now();
   
   if (!gun) {
     logError('Gun not initialized');
     return false;
   }
 
-  // Only use 2 attempts with small backoff to keep things responsive
-  const maxAttempts = 2;
-  const backoffMs = [500, 1000]; 
-  
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      log(`Role assignment attempt ${attempt}/${maxAttempts}`);
-      
-      // Use cached game data first for better performance
-      let game = gameCache.has(gameId) ? gameCache.get(gameId) : null;
-      
-      // Only fetch from database if needed
-      if (!game) {
-        try {
-          game = await getGame(gameId);
-        } catch (err) {
-          logWarn(`Error fetching game data: ${err}`);
-        }
-        
-        if (!game) {
-          if (attempt < maxAttempts) {
-            log(`Game not found, retrying in ${backoffMs[attempt-1]}ms...`);
-            await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
-            continue;
-          }
-          // Create minimal game data to continue
-          game = { game_id: gameId } as Game;
-        }
-      }
-
-      // Initialize player_actor_map if needed
-      const currentPlayerActorMap = game.player_actor_map || {};
-      const updatedPlayerActorMap = { ...currentPlayerActorMap, [userId]: actorId };
-      
-      // IMPORTANT: Update cache IMMEDIATELY for responsive UI
-      cacheRole(gameId, userId, actorId);
-      
-      if (gameCache.has(gameId)) {
-        const cachedGame = gameCache.get(gameId)!;
-        gameCache.set(gameId, { 
-          ...cachedGame, 
-          player_actor_map: updatedPlayerActorMap 
-        });
-      }
-      
-      // FIRE-AND-FORGET APPROACH - No waiting for acks or callbacks
-      // Write player_actor_map with both object and direct key/value approaches
-      gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap);
-      gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
-      
-      // Set role_assignment for backward compatibility
-      gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId);
-      
-      // Update actor properties
-      gun.get(nodes.actors).get(actorId).get('user_id').put(userId);
-      gun.get(nodes.actors).get(actorId).get('game_id').put(gameId);
-      
-      // Delayed retry with longer delay for better reliability
-      setTimeout(() => {
-        try {
-          log(`Delayed retry: updating player_actor_map[${userId}] = ${actorId}`);
-          // Try both approaches again for redundancy
-          gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
-          gun.get(nodes.games).get(gameId).get('player_actor_map').put(updatedPlayerActorMap);
-        } catch (err) {
-          // Non-fatal error
-          logWarn('Delayed player_actor_map update failed:', err);
-        }
-      }, 1000); // Use longer delay (1000ms) for better reliability
-
-      log(`Role assigned: ${actorId} to user ${userId} in game ${gameId}`);
-      log(`Updated player_actor_map:`, updatedPlayerActorMap);
-      return true;
-      
-    } catch (error) {
-      logError(`Error in role assignment attempt ${attempt}:`, error);
-      
-      if (attempt < maxAttempts) {
-        log(`Retrying in ${backoffMs[attempt-1]}ms...`);
-        await new Promise(resolve => setTimeout(resolve, backoffMs[attempt-1]));
-      }
+  try {
+    // IMMEDIATE CACHE UPDATES for responsive UI
+    cacheRole(gameId, userId, actorId);
+    
+    // Update actor cache if available
+    if (actorCache.has(actorId)) {
+      const actor = actorCache.get(actorId)!;
+      actorCache.set(actorId, { ...actor, user_id: userId, game_id: gameId });
     }
-  }
+    
+    // Update game cache if available
+    if (gameCache.has(gameId)) {
+      const game = gameCache.get(gameId)!;
+      const updatedPlayerActorMap = { ...(game.player_actor_map || {}), [userId]: actorId };
+      gameCache.set(gameId, { ...game, player_actor_map: updatedPlayerActorMap });
+    }
+    
+    // FIRE-AND-FORGET APPROACH - All operations non-blocking
+    
+    // 1. Update the player-actor map using our dedicated function
+    updatePlayerActorMap(gameId, userId, actorId);
+    
+    // 2. Update actor properties directly
+    gun.get(nodes.actors).get(actorId).get('user_id').put(userId);
+    gun.get(nodes.actors).get(actorId).get('game_id').put(gameId);
+    
+    // 3. Also update the full actor to ensure consistency
+    gun.get(nodes.actors).get(actorId).put({ user_id: userId, game_id: gameId });
+    
+    // 4. Set role_assignment for backward compatibility
+    gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId);
+    
+    // DELAYED VERIFICATION for reliability
+    setTimeout(() => {
+      try {
+        // Verify actor has user_id set correctly
+        gun.get(nodes.actors).get(actorId).once((actorData: Actor) => {
+          if (!actorData || actorData.user_id !== userId) {
+            log(`Actor user_id verification failed, retrying write`);
+            gun.get(nodes.actors).get(actorId).get('user_id').put(userId);
+            gun.get(nodes.actors).get(actorId).put({ user_id: userId, game_id: gameId });
+          }
+        });
+      } catch (err) {
+        // Non-fatal error
+        logWarn('Delayed actor verification failed:', err);
+      }
+    }, 500);
 
-  // Even if we failed all attempts, we can still return true
-  // because we've updated the cache and scheduled background retries
-  log(`Unable to verify role assignment success after ${maxAttempts} attempts, but proceeding anyway`);
-  return true;
+    log(`Role assigned (${performance.now() - startTime}ms): ${actorId} to user ${userId} in game ${gameId}`);
+    return true;
+  } catch (error) {
+    logError(`Error in assignRole:`, error);
+    
+    // Even if there's an error, we return true since we've updated the cache
+    // This ensures the UI remains responsive
+    return true;
+  }
 }
 
 // Remove a player's role
