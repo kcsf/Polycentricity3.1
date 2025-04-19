@@ -69,8 +69,8 @@
         
         function enterGame() {
                 try {
-                        // Always use the details page for safety, regardless of user status
-                        goto(`/games/${game.game_id}/details`);
+                        // Direct URL change to avoid preloading issues with Gun.js
+                        window.location.href = `/games/${game.game_id}/details`;
                 } catch (err) {
                         console.error('Error navigating to game:', err);
                         actionError = 'Failed to navigate to game. Please try again.';
@@ -79,7 +79,7 @@
         
         async function handleJoinGame() {
                 if (!$userStore.user) {
-                        goto('/login');
+                        window.location.href = '/login';
                         return;
                 }
                 
@@ -87,9 +87,9 @@
                         isJoining = true;
                         actionError = '';
                         
-                        // Direct to game join page instead of directly joining
-                        // This will allow for actor selection/creation
-                        goto(`/games/${game.game_id}/join`);
+                        // Direct to game join page using direct location change
+                        // to avoid preloading issues with Gun.js
+                        window.location.href = `/games/${game.game_id}/join`;
                 } catch (err) {
                         console.error('Error joining game:', err);
                         actionError = 'Failed to join game. Please try again.';
@@ -100,7 +100,7 @@
         
         async function handleLeaveGame() {
             if (!$userStore.user) {
-                goto('/login');
+                window.location.href = '/login';
                 return;
             }
             
@@ -112,6 +112,11 @@
                 if (success) {
                     // Update UI to reflect the user has left
                     // This will be handled by reactivity once the game store updates
+                    
+                    // Force reload the page to ensure fresh data
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
                 } else {
                     actionError = 'Failed to leave game. Please try again.';
                 }
