@@ -285,22 +285,64 @@ let inputElement = $state<HTMLInputElement | null>(null);
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Snippet Rendering</h3>
-          <CodeBlock code={'// Svelte 5 Runes Snippet Example\n<script lang="ts">\n  let items = $state<string[]>(["Item 1", "Item 2"]);\n</script>\n\n{#snippet itemRenderer(item)}\n  <li class="p-2 bg-surface-100">{item}</li>\n{/snippet}\n\n<ul>\n  {#each items as item}\n    {@render itemRenderer(item)}\n  {/each}\n</ul>'} />
+          <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Svelte 5 Runes Snippet Example
+<script lang="ts">
+  let items = $state<string[]>(["Item 1", "Item 2"]);
+</script>
+
+{#snippet itemRenderer(item)}
+  <li class="p-2 bg-surface-100">{item}</li>
+{/snippet}
+
+<ul>
+  {#each items as item}
+    {@render itemRenderer(item)}
+  {/each}
+</ul>`)}
+          </pre>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">4. Dynamic Components</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\n<svelte:component this={componentType} {...props} />'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\n<{componentType} {...props} />'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+<svelte:component this={componentType} {...props} />`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+<{componentType} {...props} />`)}
+            </pre>
           </div>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">5. Component Events</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CodeBlock code={'// Old way (Svelte 4)\n// Child component\nimport { createEventDispatcher } from "svelte";\nconst dispatch = createEventDispatcher();\nfunction notify() {\n  dispatch("message", { text: "Hello" });\n}\n\n// Parent\n<Child on:message={handleMessage} />'} />
-            <CodeBlock code={'// New way (Svelte 5 Runes)\n// Child component\nconst { onMessage } = $props();\nfunction notify() {\n  onMessage?.({ text: "Hello" });\n}\n\n// Parent\n<Child onMessage={handleMessage} />'} />
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Old way (Svelte 4)
+// Child component
+import { createEventDispatcher } from "svelte";
+const dispatch = createEventDispatcher();
+function notify() {
+  dispatch("message", { text: "Hello" });
+}
+
+// Parent
+<Child on:message={handleMessage} />`)}
+            </pre>
+            <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// New way (Svelte 5 Runes)
+// Child component
+const { onMessage } = $props();
+function notify() {
+  onMessage?.({ text: "Hello" });
+}
+
+// Parent
+<Child onMessage={handleMessage} />`)}
+            </pre>
           </div>
         </div>
       </div>
@@ -420,17 +462,197 @@ let inputElement = $state<HTMLInputElement | null>(null);
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">1. Data Loading Pattern</h3>
-          <CodeBlock code={'// Load data from Gun.js with Runes reactivity\nimport { getGun, nodes } from "$lib/services/gunService";\n\n// State for data and loading\nlet userData = $state<User | null>(null);\nlet isLoading = $state(true);\nlet error = $state<string | null>(null);\n\n// Effect for data loading\n$effect(async () => {\n  try {\n    // Create function to update loading state\n    const setLoading = (state: boolean) => {\n      isLoading = state;\n    };\n    setLoading(true);\n    \n    const gun = getGun();\n    if (!gun) {\n      throw new Error("Gun not initialized");\n    }\n    \n    // Using Promise for cleaner async handling\n    const result = await new Promise<User | null>((resolve) => {\n      // Set a timeout to prevent indefinite waiting\n      const timeout = setTimeout(() => {\n        console.log("Gun query timed out");\n        resolve(null);\n      }, 5000);\n      \n      // Query Gun database\n      gun.get(nodes.users).get(userId).once((data: User) => {\n        clearTimeout(timeout);\n        resolve(data);\n      });\n    });\n    \n    // Function to update state safely\n    const updateUserData = (data: User | null) => {\n      if (data) {\n        userData = data;\n      } else {\n        error = "Data not found";\n      }\n    };\n    \n    // Call the function with our result\n    updateUserData(result);\n  } catch (err) {\n    console.error("Error loading data:", err);\n    // Function to set error state\n    const setError = (err: any) => {\n      error = err instanceof Error ? err.message : "Unknown error";\n    };\n    setError(err);\n  } finally {\n    // Set loading state with separate function\n    const setLoading = (state: boolean) => {\n      isLoading = state;\n    };\n    setLoading(false);\n  }\n});'} />
+          <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Load data from Gun.js with Runes reactivity
+import { getGun, nodes } from "$lib/services/gunService";
+
+// State for data and loading
+let userData = $state<User | null>(null);
+let isLoading = $state(true);
+let error = $state<string | null>(null);
+
+// Effect for data loading
+$effect(async () => {
+  try {
+    // Create function to update loading state
+    const setLoading = (state: boolean) => {
+      isLoading = state;
+    };
+    setLoading(true);
+    
+    const gun = getGun();
+    if (!gun) {
+      throw new Error("Gun not initialized");
+    }
+    
+    // Using Promise for cleaner async handling
+    const result = await new Promise<User | null>((resolve) => {
+      // Set a timeout to prevent indefinite waiting
+      const timeout = setTimeout(() => {
+        console.log("Gun query timed out");
+        resolve(null);
+      }, 5000);
+      
+      // Query Gun database
+      gun.get(nodes.users).get(userId).once((data: User) => {
+        clearTimeout(timeout);
+        resolve(data);
+      });
+    });
+    
+    // Function to update state safely
+    const updateUserData = (data: User | null) => {
+      if (data) {
+        userData = data;
+      } else {
+        error = "Data not found";
+      }
+    };
+    
+    // Call the function with our result
+    updateUserData(result);
+  } catch (err) {
+    console.error("Error loading data:", err);
+    // Function to set error state
+    const setError = (err: any) => {
+      error = err instanceof Error ? err.message : "Unknown error";
+    };
+    setError(err);
+  } finally {
+    // Set loading state with separate function
+    const setLoading = (state: boolean) => {
+      isLoading = state;
+    };
+    setLoading(false);
+  }
+});`)}
+          </pre>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">2. Reactive Subscriptions</h3>
-          <CodeBlock code={'// Subscribe to real-time Gun.js data with proper cleanup\nimport { getGun, nodes } from "$lib/services/gunService";\n\n// State for subscription data\nlet liveData = $state<any[]>([]);\n\n// Svelte 5 Runes effect with cleanup\n$effect(() => {\n  const gun = getGun();\n  if (!gun) return;\n  \n  // Create subscription\n  const subscription = gun.get(nodes.games)\n    .map()\n    .on((gameData, gameId) => {\n      if (!gameData) return;\n      \n      // Update state safely with immutable pattern and a separate function\n      // Avoiding direct state mutation in the callback to prevent state_unsafe_mutation errors\n      const updatedData = [...liveData.filter(g => g.game_id !== gameData.game_id), \n                      { ...gameData, game_id: gameId }];\n      // Update state with the new array\n      liveData = updatedData;\n    });\n  \n  // Clean up subscription on component teardown\n  return () => {\n    if (subscription && subscription.off) {\n      subscription.off();\n    }\n  };\n});'} />
+          <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Subscribe to real-time Gun.js data with proper cleanup
+import { getGun, nodes } from "$lib/services/gunService";
+
+// State for subscription data
+let liveData = $state<any[]>([]);
+
+// Svelte 5 Runes effect with cleanup
+$effect(() => {
+  const gun = getGun();
+  if (!gun) return;
+  
+  // Create subscription
+  const subscription = gun.get(nodes.games)
+    .map()
+    .on((gameData, gameId) => {
+      if (!gameData) return;
+      
+      // Update state safely with immutable pattern and a separate function
+      // Avoiding direct state mutation in the callback to prevent state_unsafe_mutation errors
+      const updatedData = [...liveData.filter(g => g.game_id !== gameData.game_id), 
+                      { ...gameData, game_id: gameId }];
+      // Update state with the new array
+      liveData = updatedData;
+    });
+  
+  // Clean up subscription on component teardown
+  return () => {
+    if (subscription && subscription.off) {
+      subscription.off();
+    }
+  };
+});`)}
+          </pre>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
           <h3 class="text-lg font-semibold mb-3">3. Saving Data</h3>
-          <CodeBlock code={'// Save data to Gun.js with proper state handling\nimport { getGun, nodes } from "$lib/services/gunService";\n\n// State for save operation\nlet isSaving = $state(false);\nlet saveError = $state<string | null>(null);\nlet formData = $state({\n  name: "",\n  description: ""\n});\n\n// Save function\nasync function saveToGun() {\n  try {\n    // Set saving state with a separate function\n    const setSavingState = (state: boolean) => {\n      isSaving = state;\n    };\n    setSavingState(true);\n    \n    // Clear error with a separate function\n    const clearError = () => {\n      saveError = null;\n    };\n    clearError();\n    \n    const gun = getGun();\n    if (!gun) {\n      throw new Error("Gun not initialized");\n    }\n    \n    // Generate ID if needed\n    const newId = `item_${Date.now()}`;\n    \n    // Create item data\n    const itemData = {\n      item_id: newId,\n      name: formData.name,\n      description: formData.description,\n      created_at: Date.now()\n    };\n    \n    // Save with promise wrapper for better async handling\n    await new Promise((resolve, reject) => {\n      // Use regular string instead of interpolated string with state variables\n      console.log("Starting save to items node");\n      gun.get(nodes.items).get(newId).put(itemData, (ack) => {\n        if (ack.err) {\n          console.error("Save error:", ack.err);\n          reject(new Error(ack.err));\n        } else {\n          // Simple string log without state variables\n          console.log("Item saved successfully");\n          resolve(true);\n        }\n      });\n      \n      // Also resolve after timeout to prevent hanging\n      setTimeout(resolve, 2000);\n    });\n    \n    // Reset form on success with a separate function\n    const resetForm = () => {\n      formData = { name: "", description: "" };\n    };\n    resetForm();\n    \n  } catch (err) {\n    console.error("Error saving data:", err);\n    // Set error state with a separate function\n    const setErrorState = (err: any) => {\n      saveError = err instanceof Error ? err.message : "Unknown error";\n    };\n    setErrorState(err);\n  } finally {\n    // Set saving state with a separate function (reuse from above)\n    const setSavingState = (state: boolean) => {\n      isSaving = state;\n    };\n    setSavingState(false);\n  }\n}'} />
+          <pre class="p-3 bg-surface-800 text-surface-200 overflow-x-auto rounded">
+{@html escapeHtml(`// Save data to Gun.js with proper state handling
+import { getGun, nodes } from "$lib/services/gunService";
+
+// State for save operation
+let isSaving = $state(false);
+let saveError = $state<string | null>(null);
+let formData = $state({
+  name: "",
+  description: ""
+});
+
+// Save function
+async function saveToGun() {
+  try {
+    // Set saving state with a separate function
+    const setSavingState = (state: boolean) => {
+      isSaving = state;
+    };
+    setSavingState(true);
+    
+    // Clear error with a separate function
+    const clearError = () => {
+      saveError = null;
+    };
+    clearError();
+    
+    const gun = getGun();
+    if (!gun) {
+      throw new Error("Gun not initialized");
+    }
+    
+    // Generate ID if needed
+    const newId = \`item_\${Date.now()}\`;
+    
+    // Create item data
+    const itemData = {
+      item_id: newId,
+      name: formData.name,
+      description: formData.description,
+      created_at: Date.now()
+    };
+    
+    // Save with promise wrapper for better async handling
+    await new Promise((resolve, reject) => {
+      // Use regular string instead of interpolated string with state variables
+      console.log("Starting save to items node");
+      gun.get(nodes.items).get(newId).put(itemData, (ack) => {
+        if (ack.err) {
+          console.error("Save error:", ack.err);
+          reject(new Error(ack.err));
+        } else {
+          // Simple string log without state variables
+          console.log("Item saved successfully");
+          resolve(true);
+        }
+      });
+      
+      // Also resolve after timeout to prevent hanging
+      setTimeout(resolve, 2000);
+    });
+    
+    // Reset form on success with a separate function
+    const resetForm = () => {
+      formData = { name: "", description: "" };
+    };
+    resetForm();
+    
+  } catch (err) {
+    console.error("Error saving data:", err);
+    // Set error state with a separate function
+    const setErrorState = (err: any) => {
+      saveError = err instanceof Error ? err.message : "Unknown error";
+    };
+    setErrorState(err);
+  } finally {
+    // Set saving state with a separate function (reuse from above)
+    const setSavingState = (state: boolean) => {
+      isSaving = state;
+    };
+    setSavingState(false);
+  }
+}`)}
+          </pre>
         </div>
         
         <div class="card p-4 bg-surface-100-800-token">
@@ -526,7 +748,7 @@ let inputElement = $state<HTMLInputElement | null>(null);
             <li>☐ Update event dispatchers to use props callbacks</li>
             <li>☐ Add proper type annotations to $state variables</li>
             <li>☐ Fix event handler types for DOM events</li>
-            <li>☐ Escape code blocks with CodeBlock component or HTML entities</li>
+            <li>☐ Escape code blocks with {@html escapeHtml()} directive</li>
           </ul>
         </div>
         
