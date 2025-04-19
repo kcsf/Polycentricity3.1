@@ -107,10 +107,10 @@
     if (unsubscribe) unsubscribe();
   });
   
-  // Modified for Svelte 5.25.9 Runes mode to avoid state_unsafe_mutation errors
+  // Cleaned up for Svelte 5.28.1 - avoids state mutations in template expressions
   async function handleSelectActor() {
     try {
-      // Check if we have valid actors and a selection
+      // Input validation
       if (existingActors.length === 0) {
         errorMessage = 'No actors available to select';
         return;
@@ -121,14 +121,14 @@
         return;
       }
       
-      // Set UI feedback
+      // Update UI state
       creatingActor = true;
       errorMessage = '';
       
+      // Find the selected actor in our list
       const actor = existingActors.find(a => a.actor_id === selectedActorId);
-      
       if (!actor) {
-        log(`Actor with ID ${selectedActorId} not found in existingActors array`);
+        log(`Actor with ID ${selectedActorId} not found`);
         errorMessage = 'Selected actor not found';
         creatingActor = false;
         return;
@@ -136,104 +136,86 @@
       
       log(`Selected actor: ${actor.actor_id} from game ${actor.game_id}`);
       
-      // Make sure the actor has a user_id (if not, use current user)
+      // Handle missing user_id by creating a new actor object (no direct mutation)
       const currentUser = getCurrentUser();
-      let actorToUse = actor; // Create a new variable we can reassign
-      
-      if (!actor.user_id && currentUser) {
-        // Create a new actor object with the user_id added (avoid direct mutation)
-        actorToUse = { 
-          ...actor,
-          user_id: currentUser.user_id 
-        };
-        log(`Adding missing user_id ${currentUser.user_id} to actor`);
-      } else if (!actor.user_id) {
+      const actorWithUser = !actor.user_id && currentUser?.user_id
+        ? { ...actor, user_id: currentUser.user_id }
+        : actor;
+        
+      if (!actorWithUser.user_id) {
         logError('Cannot select actor: Missing user_id and no current user');
-        errorMessage = 'Actor data is incomplete. Please try creating a new actor instead.';
+        errorMessage = 'Actor data is incomplete. Please try creating a new actor.';
         creatingActor = false;
         return;
       }
       
-      // If actor was from a different game, we need to set up relationships with the new game
-      if (actorToUse.game_id !== gameId) {
-        log(`Actor ${actorToUse.actor_id} is from game ${actorToUse.game_id}, adding to new game ${gameId}`);
+      // If actor is from a different game, handle the transfer
+      const isCrossGameTransfer = actorWithUser.game_id !== gameId;
+      const finalActor = isCrossGameTransfer
+        ? { ...actorWithUser, game_id: gameId }
+        : actorWithUser;
+      
+      // Always store in localStorage - critical for game page detection
+      localStorage.setItem(`game_${gameId}_actor`, finalActor.actor_id);
+      
+      // Handle actors from other games
+      if (isCrossGameTransfer) {
+        log(`Transferring actor from game ${actorWithUser.game_id} to ${gameId}`);
         
-        // Store original game_id for reference before we modify it
-        const originalGameId = actorToUse.game_id;
-        
-        // Create a new actor object with updated game_id (avoid direct mutation)
-        actorToUse = {
-          ...actorToUse,
-          game_id: gameId
-        };
-        
-        // CRITICAL: First update local state for immediate feedback
-        // This localStorage value is the PRIMARY way the game page detects if a player has joined
-        // Even if database operations fail, this ensures the player can access the game
-        localStorage.setItem(`game_${gameId}_actor`, actorToUse.actor_id);
-        
-        // Fire-and-forget background operations
+        // Background operations for cross-game transfer
         setTimeout(() => {
           try {
-            // 1. Create Actor->Game relationship
-            createRelationship(`${nodes.actors}/${actorToUse.actor_id}`, 'game', `${nodes.games}/${gameId}`);
-            log(`Created relationship: Actor ${actorToUse.actor_id} -> Game ${gameId}`);
+            // Create relationships
+            createRelationship(
+              `${nodes.actors}/${finalActor.actor_id}`, 
+              'game', 
+              `${nodes.games}/${gameId}`
+            );
             
-            // 2. If the actor has a card_id, create the Actor->Card relationship
-            if (actorToUse.card_id) {
-              createRelationship(`${nodes.actors}/${actorToUse.actor_id}`, 'card', `${nodes.cards}/${actorToUse.card_id}`);
-              log(`Created relationship: Actor ${actorToUse.actor_id} -> Card ${actorToUse.card_id}`);
+            if (finalActor.card_id) {
+              createRelationship(
+                `${nodes.actors}/${finalActor.actor_id}`, 
+                'card', 
+                `${nodes.cards}/${finalActor.card_id}`
+              );
             }
             
-            // 3. Call Gun.js gameService functions in chain
-            joinGame(gameId).then(joinSuccess => {
-              log(`Background joinGame complete: ${joinSuccess}`);
-              
-              // Assign role in the new game
-              if (joinSuccess && actorToUse.user_id) {
-                return assignRole(gameId, actorToUse.user_id, actorToUse.actor_id);
-              }
-              return false;
-            }).then(assignSuccess => {
-              log(`Background assignRole complete: ${assignSuccess}`);
-              
-              // 4. Update player_actor_map
-              if (assignSuccess && actorToUse.user_id) {
-                updatePlayerActorMap(gameId, actorToUse.user_id, actorToUse.actor_id);
-                log(`Updated player_actor_map for ${actorToUse.user_id}`);
-              }
-            }).catch(err => {
-              logError('Error in background operations:', err);
-            });
+            // Chain join operations
+            joinGame(gameId)
+              .then(joinSuccess => {
+                log(`Background joinGame complete: ${joinSuccess}`);
+                return joinSuccess && finalActor.user_id
+                  ? assignRole(gameId, finalActor.user_id, finalActor.actor_id)
+                  : false;
+              })
+              .then(assignSuccess => {
+                log(`Background assignRole complete: ${assignSuccess}`);
+                if (assignSuccess && finalActor.user_id) {
+                  updatePlayerActorMap(gameId, finalActor.user_id, finalActor.actor_id);
+                }
+              })
+              .catch(err => logError('Background operations error:', err));
           } catch (err) {
-            logError('Error in background relationship setup:', err);
+            logError('Error in background setup:', err);
           }
         }, 100);
       }
       
-      // Set up subscription in the background
+      // Set up card subscription
       setTimeout(() => {
         try {
           if (unsubscribe) unsubscribe();
-          
-          unsubscribe = subscribeToUserCard(gameId, actorToUse.user_id, (card) => {
+          unsubscribe = subscribeToUserCard(gameId, finalActor.user_id, card => {
             log('Card data updated via subscription');
           });
         } catch (subErr) {
-          logError('Error setting up card subscription:', subErr);
+          logError('Subscription error:', subErr);
         }
       }, 200);
       
-      // Reset creating flag and immediately call parent handler
+      // Finish up
       creatingActor = false;
-      
-      // CRITICAL DUPLICATE STORAGE: Set actor to localStorage for persistence
-      // This is intentionally duplicated from above to ensure it happens even if the first one fails
-      // This localStorage value is the PRIMARY way the game page detects if a player has joined
-      localStorage.setItem(`game_${gameId}_actor`, actorToUse.actor_id);
-      
-      // Call the parent handler with selected actor
-      onSelectActor(actorToUse);
+      onSelectActor(finalActor);
     } catch (err) {
       logError('Error selecting actor:', err);
       errorMessage = 'Failed to select actor';
@@ -242,14 +224,15 @@
   }
   
   // Modified with fire-and-forget pattern to avoid navigation issues
+  // Streamlined actor creation function for Svelte 5.28.1
   async function handleCreateActor() {
     try {
       creatingActor = true;
       errorMessage = '';
       
-      // Get the current user - we need this for creating actor
+      // Get the current user - required for creating actor
       const user = getCurrentUser();
-      if (!user || !user.user_id) {
+      if (!user?.user_id) {
         errorMessage = 'You must be logged in to create an actor';
         creatingActor = false;
         return;
@@ -271,8 +254,7 @@
       log(`Creating actor with card ${selectedCardId} for game ${gameId}`);
       
       try {
-        // Fixed parameter order based on gameService.ts definition
-        // createActor(gameId, cardId, actorType, customName)
+        // Create actor with proper parameters
         const newActor = await createActor(
           gameId,
           selectedCardId,
@@ -286,14 +268,14 @@
         
         log(`Actor created successfully: ${newActor.actor_id}`);
         
-        // Make sure actor has user_id set
-        if (!newActor.user_id) {
-          newActor.user_id = user.user_id;
-        }
+        // Ensure actor has user_id set - create a new object if needed (avoid direct mutation)
+        const actorWithUser = newActor.user_id 
+          ? newActor 
+          : { ...newActor, user_id: user.user_id };
         
         // CRITICAL: Store actor ID in localStorage for persistence between page loads
         // This is the PRIMARY way the game page detects if a player has joined
-        localStorage.setItem(`game_${gameId}_actor`, newActor.actor_id);
+        localStorage.setItem(`game_${gameId}_actor`, actorWithUser.actor_id);
         
         // Fire-and-forget: Update game status to active immediately
         try {
@@ -308,33 +290,27 @@
         
         // Background relationship creation - non-blocking
         setTimeout(() => {
-          try {
-            joinGame(gameId).then(joinSuccess => {
+          // Chain all the operations with proper error handling
+          joinGame(gameId)
+            .then(joinSuccess => {
               log(`Background joinGame complete: ${joinSuccess}`);
-              
-              if (joinSuccess && newActor.user_id) {
-                return assignRole(gameId, newActor.user_id, newActor.actor_id);
-              }
-              return false;
-            }).then(assignSuccess => {
+              return joinSuccess && actorWithUser.user_id
+                ? assignRole(gameId, actorWithUser.user_id, actorWithUser.actor_id)
+                : false;
+            })
+            .then(assignSuccess => {
               log(`Background assignRole complete: ${assignSuccess}`);
-              
-              if (assignSuccess && newActor.user_id) {
-                updatePlayerActorMap(gameId, newActor.user_id, newActor.actor_id);
+              if (assignSuccess && actorWithUser.user_id) {
+                updatePlayerActorMap(gameId, actorWithUser.user_id, actorWithUser.actor_id);
               }
-            }).catch(bgErr => {
-              logError('Background operations error:', bgErr);
-            });
-          } catch (bgErr) {
-            logError('Error initiating background operations:', bgErr);
-          }
+            })
+            .catch(bgErr => logError('Background operations error:', bgErr));
         }, 100);
         
         // Call the parent handler immediately to proceed with navigation
-        // This avoids the page refresh issue
-        onSelectActor(newActor);
+        onSelectActor(actorWithUser);
         
-        // Reset creating state since we're done with critical operations
+        // Reset creating state
         creatingActor = false;
       } catch (actorErr) {
         logError('Error in actor creation:', actorErr);
