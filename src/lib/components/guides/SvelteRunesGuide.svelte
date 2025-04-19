@@ -112,12 +112,7 @@
       >
         Gun.js Integration
       </button>
-      <button 
-        class="py-2 px-3 border-b-2 font-medium text-sm {activeTab === 'migration' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'}"
-        onclick={() => setTab('migration')}
-      >
-        Migration Tips
-      </button>
+
     </nav>
   </div>
   
