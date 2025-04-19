@@ -216,7 +216,7 @@
         try {
           if (unsubscribe) unsubscribe();
           
-          unsubscribe = subscribeToUserCard(gameId, actor.user_id, (card) => {
+          unsubscribe = subscribeToUserCard(gameId, actorToUse.user_id, (card) => {
             log('Card data updated via subscription');
           });
         } catch (subErr) {
@@ -230,10 +230,10 @@
       // CRITICAL DUPLICATE STORAGE: Set actor to localStorage for persistence
       // This is intentionally duplicated from above to ensure it happens even if the first one fails
       // This localStorage value is the PRIMARY way the game page detects if a player has joined
-      localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
+      localStorage.setItem(`game_${gameId}_actor`, actorToUse.actor_id);
       
       // Call the parent handler with selected actor
-      onSelectActor(actor);
+      onSelectActor(actorToUse);
     } catch (err) {
       logError('Error selecting actor:', err);
       errorMessage = 'Failed to select actor';
