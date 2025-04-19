@@ -2168,6 +2168,73 @@ export async function fixGameRelationships(): Promise<{success: boolean, gamesFi
 }
 
 // Add an implementation for assignCardToActor
+/**
+ * Update player-actor map using fire-and-forget approach
+ * @param gameId Game ID
+ * @param userId User ID
+ * @param actorId Actor ID
+ * @returns Promise resolving to true (always succeeds due to fire-and-forget approach)
+ */
+export function updatePlayerActorMap(gameId: string, userId: string, actorId: string): Promise<boolean> {
+  log(`Updating player_actor_map for user ${userId} -> actor ${actorId} in game ${gameId}`);
+  const gun = getGun();
+  
+  if (!gun) {
+    logError('Gun not initialized');
+    return Promise.resolve(false);
+  }
+  
+  try {
+    // IMMEDIATE CACHE UPDATE for responsive UI
+    // Try to update game cache if exists
+    if (gameCache.has(gameId)) {
+      const game = gameCache.get(gameId)!;
+      const updatedMap = { ...(game.player_actor_map || {}), [userId]: actorId };
+      gameCache.set(gameId, { ...game, player_actor_map: updatedMap });
+    }
+    
+    // Cache role mapping
+    cacheRole(gameId, userId, actorId);
+    
+    // FIRE-AND-FORGET GUN.JS WRITES - Non-blocking
+    // First ensure the player_actor_map node exists
+    gun.get(nodes.games).get(gameId).get('player_actor_map').put({});
+    
+    // Set mapping both ways for redundancy
+    const userActorMap = { [userId]: actorId };
+    gun.get(nodes.games).get(gameId).get('player_actor_map').put(userActorMap);
+    gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
+    
+    // Also update role_assignment for backward compatibility
+    gun.get(nodes.games).get(gameId).get('role_assignment').get(userId).put(actorId);
+    
+    // DELAYED BACKGROUND VERIFICATION for reliability
+    setTimeout(() => {
+      try {
+        // Verify the mapping was set correctly
+        gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).once((savedActorId: string) => {
+          if (savedActorId !== actorId) {
+            log(`Player-actor mapping verification failed, retrying`);
+            // Retry with both approaches for maximum reliability
+            gun.get(nodes.games).get(gameId).get('player_actor_map').get(userId).put(actorId);
+            gun.get(nodes.games).get(gameId).get('player_actor_map').put(userActorMap);
+          }
+        });
+      } catch (verifyErr) {
+        // Non-fatal error
+        logWarn(`Player-actor mapping verification error:`, verifyErr);
+      }
+    }, 500);
+    
+    log(`Player-actor mapping update initiated: ${userId} -> ${actorId}`);
+    return Promise.resolve(true);
+  } catch (error) {
+    logError(`Error in updatePlayerActorMap:`, error);
+    // Still return true since we've updated the cache and UI should proceed
+    return Promise.resolve(true);
+  }
+}
+
 export async function assignCardToActor(actorId: string, cardId: string): Promise<boolean> {
   log(`Assigning card ${cardId} to actor ${actorId}`);
   const gun = getGun();

@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGame, isGameFull, joinGame, getUserActors, assignRole } from '$lib/services/gameService';
+    import { getGame, isGameFull, joinGame, getUserActors, assignRole, updatePlayerActorMap } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
     import { activeActorId } from '$lib/stores/enhancedGameStore'; 
     import { getGun, nodes } from '$lib/services/gunService';
@@ -175,32 +175,11 @@
             console.log(`[JoinPage] Setting active actor in store: ${actor.actor_id}`);
             activeActorId.set(actor.actor_id);
             
-            // Step 5: Directly update player_actor_map in the game object
-            // This is a fire-and-forget operation as a backup to ensure the map is populated
+            // Step 5: Update player_actor_map using the optimized service function
+            // This is a fire-and-forget operation that handles caching and background verification
             try {
-                const gun = getGun();
-                
-                // First, make sure the player_actor_map node exists
-                gun.get(nodes.games).get(gameId).get('player_actor_map').put({}, (ack) => {
-                    if (ack.err) {
-                        console.error('[JoinPage] Error initializing player_actor_map:', ack.err);
-                    }
-                });
-                
-                // Then, after a short delay, set the user-actor mapping
-                setTimeout(() => {
-                    const userActorMap = {};
-                    userActorMap[$userStore.user.user_id] = actor.actor_id;
-                    
-                    console.log(`[JoinPage] Backup update to player_actor_map: user ${$userStore.user.user_id} -> actor ${actor.actor_id}`);
-                    gun.get(nodes.games).get(gameId).get('player_actor_map').put(userActorMap, (ack) => {
-                        if (ack.err) {
-                            console.error('[JoinPage] Error updating player_actor_map:', ack.err);
-                        } else {
-                            console.log('[JoinPage] Successfully updated player_actor_map via direct write');
-                        }
-                    });
-                }, 200);
+                console.log(`[JoinPage] Updating player_actor_map with optimized function: user ${$userStore.user.user_id} -> actor ${actor.actor_id}`);
+                updatePlayerActorMap(gameId, $userStore.user.user_id, actor.actor_id);
             } catch (mapErr) {
                 // Non-fatal error - the assignRole function should have handled this already
                 console.warn('[JoinPage] Backup player_actor_map update failed:', mapErr);
