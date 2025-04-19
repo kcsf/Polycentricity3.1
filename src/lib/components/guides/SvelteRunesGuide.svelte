@@ -388,16 +388,16 @@
                 <td class="p-2"><code>$effect(() => console.log(count));</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
-                <td class="p-2"><code>&lt;on:click={myHandler}&gt;</code></td>
-                <td class="p-2"><code>&lt;onclick={myHandler}&gt;</code></td>
+                <td class="p-2"><code>&lt;on:click=&#123;handleClick&#125;&gt;</code></td>
+                <td class="p-2"><code>&lt;onclick=&#123;handleClick&#125;&gt;</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
                 <td class="p-2"><code>&lt;slot&gt;Default&lt;/slot&gt;</code></td>
                 <td class="p-2"><code>&#123;#render slotName?.()&#125; content &#123;/render&#125;</code></td>
               </tr>
               <tr class="border-b border-surface-200 dark:border-surface-700">
-                <td class="p-2"><code>&lt;svelte:component this={Comp} /&gt;</code></td>
-                <td class="p-2"><code>&lt;{Comp} /&gt;</code></td>
+                <td class="p-2"><code>&lt;svelte:component this=&#123;Component&#125; /&gt;</code></td>
+                <td class="p-2"><code>&lt;&#123;Component&#125; /&gt;</code></td>
               </tr>
               <tr>
                 <td class="p-2"><code>createEventDispatcher()</code></td>
