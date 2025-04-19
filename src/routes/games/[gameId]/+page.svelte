@@ -85,6 +85,9 @@
                 if (updatedGame) {
                     game = updatedGame;
                     currentGameStore.set(updatedGame);
+                    
+                    // Check if user's game status changed
+                    setupUserInGame();
                 }
             });
             
@@ -99,6 +102,10 @@
             
             // Don't wait indefinitely for user actor
             await Promise.race([userActorPromise, userActorTimeout]);
+            
+            // After loading completes, determine if user is in game
+            // This is critical for correct page display
+            setupUserInGame();
         } catch (err) {
             log('Error loading game data:', err);
             error = 'Failed to load game data. Please try refreshing the page.';
