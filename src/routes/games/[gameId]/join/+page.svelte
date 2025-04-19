@@ -244,21 +244,11 @@
             // Set actorSelected to true for better UI feedback
             actorSelected = true;
             
-            // Use immediate redirection for better UX
-            try {
-                console.log(`[JoinPage] Redirecting to game page: /games/${gameId}`);
-                
-                // Try the SvelteKit navigation first (preferred)
-                await goto(`/games/${gameId}`, { replaceState: true });
-                console.log(`[JoinPage] Navigation to game page successful`);
-            } catch (navError) {
-                // Log navigation errors specifically
-                console.error('[JoinPage] Navigation error:', navError);
-                
-                // Try a fallback direct navigation
-                console.log('[JoinPage] Trying fallback direct navigation');
-                window.location.href = `/games/${gameId}`;
-            }
+            // Skip all async operations and redirect immediately
+            console.log(`[JoinPage] Redirecting immediately to game page: /games/${gameId}`);
+            window.location.href = `/games/${gameId}`;
+            
+            // No await/catch needed since we're using direct location change
         } catch (err) {
             console.error('[JoinPage] Error during actor selection:', err);
             errorMessage = 'Failed to process actor selection';

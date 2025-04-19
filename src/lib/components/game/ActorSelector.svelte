@@ -223,97 +223,63 @@
       // Validate required fields
       if (!selectedCardId) {
         errorMessage = 'Please select a card';
+        creatingActor = false;
         return;
       }
       
       if (!actorType) {
         errorMessage = 'Please select an actor type';
+        creatingActor = false;
         return;
       }
       
-      // Implement retry logic for actor creation (similar to game creation)
+      // First attempt only - skip retry to be responsive
       log(`Creating actor with card ${selectedCardId} for game ${gameId}`);
       
-      let newActor = null;
-      let attempts = 0;
-      const maxAttempts = 3;
-      const backoffMs = [500, 1000, 2000]; // Exponential backoff
-      
-      while (!newActor && attempts < maxAttempts) {
-        attempts++;
+      try {
+        const startTime = performance.now();
         
-        try {
-          log(`Actor creation attempt ${attempts}/${maxAttempts}`);
-          const startTime = performance.now();
+        // Create actor and immediately proceed 
+        const newActor = await createActor(
+          gameId,
+          selectedCardId,
+          actorType,
+          customName || undefined
+        );
+        
+        const duration = performance.now() - startTime;
+        log(`Actor creation took ${duration.toFixed(4)}ms`);
+        
+        if (newActor) {
+          log(`Actor created successfully: ${newActor.actor_id}`);
           
-          newActor = await createActor(
-            gameId,
-            selectedCardId,
-            actorType,
-            customName || undefined
-          );
-          
-          const duration = performance.now() - startTime;
-          log(`Actor creation attempt ${attempts} took ${duration.toFixed(4)}ms`);
-          
-          if (newActor) {
-            log(`Actor created successfully: ${newActor.actor_id}`);
-            break;
-          } else {
-            log(`Actor creation attempt ${attempts} failed`);
-            
-            if (attempts < maxAttempts) {
-              // Wait with exponential backoff before retrying
-              await new Promise(resolve => setTimeout(resolve, backoffMs[attempts - 1]));
-            }
+          // Immediately update game status
+          try {
+            const gun = getGun();
+            gun.get(nodes.games).get(gameId).get('status').put('active');
+            log(`Directly updated game status to active`);
+          } catch (statusErr) {
+            logError('Error updating game status:', statusErr);
           }
-        } catch (attemptErr) {
-          logError(`Actor creation attempt ${attempts} error:`, attemptErr);
           
-          if (attempts < maxAttempts) {
-            // Wait with exponential backoff before retrying
-            await new Promise(resolve => setTimeout(resolve, backoffMs[attempts - 1]));
-          }
+          // Reset creating flag BEFORE proceeding
+          creatingActor = false;
+          
+          // Complete the actor selection immediately
+          onSelectActor(newActor);
+          return;
+        } else {
+          errorMessage = 'Failed to create actor';
+          creatingActor = false;
         }
-      }
-      
-      if (newActor) {
-        // Update game status to ensure it's active
-        try {
-          // Use direct Gun.js write to update game status to active immediately
-          const gun = getGun();
-          gun.get(nodes.games).get(gameId).get('status').put('active');
-          log(`Directly updated game status to active`);
-        } catch (statusErr) {
-          // Non-fatal error, just log it
-          logError('Error updating game status:', statusErr);
-        }
-        
-        // Set up subscription for real-time updates (non-blocking, with error handling)
-        if (unsubscribe) unsubscribe();
-        
-        try {
-          unsubscribe = subscribeToUserCard(gameId, newActor.user_id, (card) => {
-            log('Card data updated via subscription');
-            // Card updates would be handled here
-          });
-        } catch (subErr) {
-          // Non-fatal error, just log it and continue
-          logError('Error setting up card subscription:', subErr);
-        }
-        
-        // Reset creating flag before calling parent handler to ensure instant UI update
+      } catch (err) {
+        logError('Error creating actor:', err);
+        errorMessage = 'Failed to create actor';
         creatingActor = false;
-        
-        // Complete the actor selection
-        onSelectActor(newActor);
-      } else {
-        errorMessage = 'Failed to create actor after multiple attempts';
       }
     } catch (err) {
       logError('Error in handleCreateActor:', err);
       errorMessage = 'Failed to create actor';
-    } finally {
       creatingActor = false;
     }
   }
@@ -509,7 +475,7 @@
           >
             {#if creatingActor}
               <span class="spinner-third w-4 h-4 mr-2"></span>
-              Creating Actor...
+              Processing...
             {:else}
               Create New Actor
             {/if}
