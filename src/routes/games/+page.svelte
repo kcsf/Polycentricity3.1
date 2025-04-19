@@ -13,22 +13,33 @@
         let lastRefreshed = $state(new Date());
         
         // Function to load games
-        async function loadGames() {
+        // Optimized loadGames with fire-and-forget pattern
+        function loadGames() {
                 isLoading = true;
                 error = '';
+                lastRefreshed = new Date();
                 
-                try {
-                        console.log('Fetching all games...');
-                        const games = await getAllGames();
+                // Immediately trigger the loading process
+                getAllGames()
+                    .then(games => {
                         allGames = games;
                         console.log(`Retrieved ${games.length} games`);
-                        lastRefreshed = new Date();
-                } catch (err) {
+                    })
+                    .catch(err => {
                         console.error('Error fetching games:', err);
                         error = 'Failed to load games. Please try again.';
-                } finally {
+                    })
+                    .finally(() => {
                         isLoading = false;
-                }
+                    });
+                
+                // Set a maximum loading time
+                setTimeout(() => {
+                    if (isLoading) {
+                        isLoading = false;
+                        console.log("Games loading timed out");
+                    }
+                }, 3000);
         }
         
         // Status message for background operations
