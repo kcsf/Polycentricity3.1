@@ -457,26 +457,40 @@
 
     try {
       if (activeActorId) {
-        // Add timeout protection for getUserCard with extended timeout (5s instead of 3s)
+        // First check localStorage for cached card ID which can be faster than fetching
+        const cachedCardId = localStorage.getItem(`actor_${activeActorId}_card`);
+        if (cachedCardId) {
+          log(`Found cached card ID for actor ${activeActorId}: ${cachedCardId}`);
+          activeCardId = cachedCardId;
+        }
+        
+        // Add timeout protection for getUserCard with extended timeout (8s instead of 5s)
         // to match the improved getUserCard implementation with better retry logic
         const cardPromise = getUserCard(gameId, activeActorId);
         const cardTimeout = new Promise<null>((resolve) => {
           setTimeout(() => {
-            log('getUserCard timed out after 5 seconds');
+            log('getUserCard timed out after 8 seconds');
             resolve(null);
-          }, 5000);
+          }, 8000);
         });
         
         // Use a longer timeout and log what's happening more clearly
         log(`Fetching card for actor ${activeActorId}`);
-        const card = await Promise.race([cardPromise, cardTimeout]);
         
-        if (card) {
-          log(`Successfully loaded card ${card.card_id}`);
-          activeCardId = card.card_id;
-        } else {
-          log(`No card found for actor ${activeActorId} after timeout`);
-        }
+        // Run card fetching in parallel with other initialization steps
+        // using Promise handling to avoid blocking visualization
+        cardPromise.then(card => {
+          if (card) {
+            log(`Successfully loaded card ${card.card_id}`);
+            activeCardId = card.card_id;
+            // Cache the card ID for quicker loading next time
+            localStorage.setItem(`actor_${activeActorId}_card`, card.card_id);
+          } else {
+            log(`No card found for actor ${activeActorId}`);
+          }
+        }).catch(err => {
+          log(`Error fetching card: ${err}`);
+        });
       }
 
       const { cards, agreements: loadedAgreements, actors: loadedActors } = await loadGameData();

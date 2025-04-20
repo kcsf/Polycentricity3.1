@@ -140,13 +140,33 @@
                 }, 15000); // Increased from 10000ms
             });
             
+            // Check localStorage first for the fastest possible response
+            const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
+            if (savedActorId) {
+                log(`Found saved actor ID in localStorage: ${savedActorId}`);
+                
+                // Create a temporary actor object to display something immediately
+                const tempActor = { 
+                    actor_id: savedActorId,
+                    user_id: userId,
+                    game_id: gameId,
+                    actor_type: "Unknown" // Will be replaced with actual data
+                } as Actor;
+                
+                log(`Creating temporary playerRole from localStorage data`);
+                playerRole = tempActor;
+                activeActorId.set(savedActorId);
+                
+                // We'll continue loading the complete actor data in the background
+            }
+            
             // First look for the user's actor among game actors with timeout protection
             const actorsPromise = getGameActors(gameId);
             const actorsTimeout = new Promise<Actor[]>((resolve) => {
                 setTimeout(() => {
-                    log('getGameActors timed out after 3 seconds');
+                    log('getGameActors timed out after 4 seconds');
                     resolve([]);
-                }, 3000);
+                }, 4000); // Extended from 3 seconds
             });
             
             const actors = await Promise.race([actorsPromise, actorsTimeout]);
@@ -171,15 +191,14 @@
                 }
             }
             
-            // If no actor found by direct lookup, try localStorage (from previous sessions)
-            const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
+            // If no actor found by direct lookup, check if the saved actor from localStorage exists in the actors list
             if (savedActorId) {
-                log(`Checking saved actor ID from localStorage: ${savedActorId}`);
+                log(`Checking if saved actor ${savedActorId} exists in actors list`);
                 
                 // Look up this actor in the game actors list
                 const savedActor = actors.find(a => a.actor_id === savedActorId);
                 if (savedActor) {
-                    log(`Found actor from localStorage: ${savedActor.actor_id}`);
+                    log(`Found actor ${savedActor.actor_id} in actors list`);
                     playerRole = savedActor;
                     activeActorId.set(savedActor.actor_id);
                     return savedActor;
