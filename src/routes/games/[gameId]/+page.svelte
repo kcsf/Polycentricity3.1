@@ -133,8 +133,19 @@
             const userId = $userStore.user.user_id;
             log(`[GamePage] Looking up actor for user ${userId} in game ${gameId} using cached data`);
             
+            // DEBUG: Log cache stats to verify loading
+            const allActors = Array.from(actorCache.values());
+            const gameActors = allActors.filter(a => a.game_id === gameId);
+            log(`[GamePage] Actor cache stats - Total: ${allActors.length}, Game specific: ${gameActors.length}`);
+            
+            // DEBUG: Dump cache contents
+            gameActors.forEach(actor => {
+                log(`[GamePage] Cached actor: id=${actor.actor_id}, user=${actor.user_id || 'none'}, card=${actor.card_id || 'none'}`);
+            });
+            
             // Define a helper function to set the actor data and return it
             const setActor = (actor: Actor) => {
+                log(`[GamePage] Found actor for user ${userId}: ${actor.actor_id}`);
                 playerRole = actor;
                 if (actor.actor_id) {
                     activeActorId.set(actor.actor_id);
@@ -149,9 +160,8 @@
             
             // 1. Check localStorage once and store the result
             const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
-            let savedActorValid = false;
             
-            // If we have a saved ID, log it only once and check if it's valid
+            // If we have a saved ID, check if it's valid
             if (savedActorId) {
                 log(`[GamePage] Found saved actor ID in localStorage: ${savedActorId}`);
                 
@@ -159,14 +169,17 @@
                 if (actorCache.has(savedActorId)) {
                     const cachedActor = actorCache.get(savedActorId);
                     // Valid if it belongs to this user or isn't claimed by anyone
-                    if (cachedActor && (cachedActor.user_id === userId || !cachedActor.user_id)) {
-                        return setActor(cachedActor);
-                    } else {
-                        // Invalid actor ID - remove from localStorage
-                        localStorage.removeItem(`game_${gameId}_actor`);
+                    if (cachedActor) {
+                        // Check both user_id equality and also if the actor isn't claimed
+                        if (cachedActor.user_id === userId || !cachedActor.user_id) {
+                            return setActor(cachedActor);
+                        } else {
+                            log(`[GamePage] Saved actor ${savedActorId} belongs to user ${cachedActor.user_id}, not ${userId}`);
+                            localStorage.removeItem(`game_${gameId}_actor`);
+                        }
                     }
                 } else {
-                    // Actor not in cache - remove from localStorage
+                    log(`[GamePage] Saved actor ${savedActorId} not found in cache`);
                     localStorage.removeItem(`game_${gameId}_actor`);
                 }
             }
@@ -176,27 +189,43 @@
                 // Make sure it's not a Gun.js reference
                 const isGunRef = game.player_actor_map['#'] && typeof game.player_actor_map['#'] === 'string';
                 
-                if (!isGunRef && game.player_actor_map[userId]) {
-                    const mappedActorId = game.player_actor_map[userId];
+                if (!isGunRef) {
+                    log(`[GamePage] Checking player_actor_map: ${JSON.stringify(game.player_actor_map)}`);
                     
-                    // Check if this actor ID is in the cache
-                    if (mappedActorId && actorCache.has(mappedActorId)) {
-                        const actor = actorCache.get(mappedActorId);
-                        if (actor) {
-                            return setActor(actor);
+                    if (game.player_actor_map[userId]) {
+                        const mappedActorId = game.player_actor_map[userId];
+                        log(`[GamePage] Found mapped actor ID for user ${userId}: ${mappedActorId}`);
+                        
+                        // Check if this actor ID is in the cache
+                        if (mappedActorId && actorCache.has(mappedActorId)) {
+                            const actor = actorCache.get(mappedActorId);
+                            if (actor) {
+                                return setActor(actor);
+                            }
+                        } else {
+                            log(`[GamePage] Mapped actor ${mappedActorId} not in cache`);
                         }
+                    } else {
+                        log(`[GamePage] No mapping for user ${userId} in player_actor_map`);
                     }
+                } else {
+                    log(`[GamePage] player_actor_map is a Gun reference`);
                 }
             }
             
             // 3. Use the filtered actors from cache
-            const actors = Array.from(actorCache.values()).filter(a => a.game_id === gameId);
-            
-            // Find actor assigned to the current user in the cached actors
-            if (actors.length > 0) {
-                const userActor = actors.find(a => a.user_id === userId);
+            if (gameActors.length > 0) {
+                // Find actor assigned to the current user in the cached actors
+                const userActor = gameActors.find(a => a.user_id === userId);
                 if (userActor) {
                     return setActor(userActor);
+                }
+                
+                // CASE: UNASSIGNED ACTOR
+                // If user doesn't have an actor, but there are unassigned actors, consider auto-assigning
+                const unassignedActors = gameActors.filter(a => !a.user_id);
+                if (unassignedActors.length > 0) {
+                    log(`[GamePage] Found ${unassignedActors.length} unassigned actors, could auto-assign`);
                 }
             }
             
