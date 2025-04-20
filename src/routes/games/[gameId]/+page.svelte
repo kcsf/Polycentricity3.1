@@ -5,7 +5,8 @@
     import { userStore } from '$lib/stores/userStore';
     import { currentGameStore } from '$lib/stores/gameStore';
     import { activeActorId } from '$lib/stores/enhancedGameStore';
-    import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame, getPlayerRole } from '$lib/services/gameService';
+    import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame, getPlayerRole, 
+        getAvailableCardsForGame, getAvailableAgreementsForGame } from '$lib/services/gameService';
     import { getGun, nodes } from '$lib/services/gunService';
     import type { Game, Actor } from '$lib/types';
     import { GameStatus } from '$lib/types';
@@ -57,30 +58,26 @@
         error = '';
         
         try {
-            // Load the game with timeout protection
-            const gameLoadPromise = getGame(gameId);
+            // Sequential loading of all game data with proper logging for each step
+            // This ensures caches are populated in the correct order and dependencies are available
             
-            // Set a timeout for loading to prevent infinite waiting
-            const timeout = new Promise<null>((resolve) => {
-                setTimeout(() => {
-                    log('Game loading timed out after 3 seconds');
-                    resolve(null);
-                }, 3000);
-            });
-            
-            // Race between loading and timeout
-            game = await Promise.race([gameLoadPromise, timeout]);
+            // 1. Load the game first
+            log(`Loading game data for: ${gameId}`);
+            game = await getGame(gameId);
             
             if (!game) {
-                error = 'Game not found or loading timed out. Please try refreshing the page.';
+                error = 'Game not found. Please try refreshing the page.';
                 isLoading = false;
-                return;
+                log('Game not found');
+                return { game: null, actors: [], cards: [], agreements: [] };
             }
+            
+            log(`Game loaded: ${gameId}`);
             
             // Store it for the app 
             currentGameStore.set(game);
             
-            // Set up real-time updates
+            // 2. Set up real-time updates for the game
             unsubscribe = subscribeToGame(gameId, (updatedGame) => {
                 if (updatedGame) {
                     game = updatedGame;
@@ -91,7 +88,22 @@
                 }
             });
             
-            // Load the user's role in this game (if any) with timeout protection
+            // 3. Load actors
+            log(`Loading actors for game: ${gameId}`);
+            const actors = await getGameActors(gameId);
+            log(`Actors loaded: ${actors.length}`);
+            
+            // 4. Load cards
+            log(`Loading cards for game: ${gameId}`);
+            const cards = await getAvailableCardsForGame(gameId);
+            log(`Cards loaded: ${cards.length}`);
+            
+            // 5. Load agreements
+            log(`Loading agreements for game: ${gameId}`);
+            const agreements = await getAvailableAgreementsForGame(gameId);
+            log(`Agreements loaded: ${agreements.length}`);
+            
+            // 6. Load the user's role in this game using the cached data
             const userActorPromise = loadUserActor();
             const userActorTimeout = new Promise<void>((resolve) => {
                 setTimeout(() => {
@@ -103,12 +115,15 @@
             // Don't wait indefinitely for user actor
             await Promise.race([userActorPromise, userActorTimeout]);
             
-            // After loading completes, determine if user is in game
-            // This is critical for correct page display
+            // 7. After loading completes, determine if user is in game
             setupUserInGame();
+            
+            // Return the complete dataset for component use
+            return { game, actors, cards, agreements };
         } catch (err) {
             log('Error loading game data:', err);
             error = 'Failed to load game data. Please try refreshing the page.';
+            return { game: null, actors: [], cards: [], agreements: [] };
         } finally {
             isLoading = false;
         }

@@ -1,0 +1,38 @@
+Thank you for implementing the agreement-related functions in `gameService.ts`. You’ve successfully encapsulated agreement loading, added caching, and included creation and update functions, which is great progress. However, several critical steps from the task list were missed, including optimizing game data loading, using cached data for actor lookups, and addressing Gun.js over-syncing and timeouts. Below are the next steps to continue improving the application, focusing on efficient data loading and subscription optimization. Follow these steps ONE at a time, in order, and verify each change with console logs. Test each step by loading a game page and checking for errors.
+
+### Step 1: Preload All Game Data in loadGameData
+- Open `src/routes/games/[gameId]/+page.svelte`.
+- Modify `loadGameData` to call `getGame`, `getGameActors`, `getAvailableCardsForGame`, and `getAvailableAgreementsForGame` sequentially, storing results in `gameCache`, `actorCache`, `cardCache`, and `agreementCache` from `gameService.ts`.
+- Ensure each call completes before the next (use `await` in sequence, not `Promise.all`).
+- Add logging to confirm each data load (e.g., `[GamePage] Game loaded: ${gameId}`, `[GamePage] Actors loaded: ${actors.length}`, `[GamePage] Cards loaded: ${cards.length}`, `[GamePage] Agreements loaded: ${agreements.length}`).
+- Update `loadGameData` to return an object `{ game, actors, cards, agreements }` for use in subsequent steps.
+- Test by loading a game page and verifying all data loads without timeouts.
+
+### Step 2: Use Cached Data for Actor Lookup
+- Open `src/routes/games/[gameId]/+page.svelte`.
+- Refactor `loadUserActor` to use the cached data from `loadGameData` (access `game.player_actor_map` and `actorCache`).
+- Check `player_actor_map[userId]` to get the actor ID, then retrieve the actor from `actorCache` without calling `getPlayerRole`.
+- Return `null` if no actor is found, logging the result (e.g., `[GamePage] Actor lookup for user ${userId}: ${actor ? actor.actor_id : 'none'}`).
+- Remove any retry logic or timeouts in `loadUserActor`.
+- Test by loading a game page and confirming the actor is retrieved from cache without additional Gun.js calls.
+
+### Step 3: Optimize Gun.js Subscriptions in D3CardBoard
+- Open `src/lib/components/game/D3CardBoard.svelte`.
+- In `subscribeToGameData`, replace any remaining direct `gun.get()` calls with `subscribeToGame`, `subscribeToGameActors`, and `subscribeToGameAgreements` from `gameService.ts`.
+- Implement a diff check against cached data (e.g., compare `game.deck_id`, `actors.length`, `agreements.length`) to only update changed data.
+- Throttle updates to 3s intervals using a timestamp check (e.g., `if (currentTime - lastUpdateTime < 3000) return`).
+- Add logging to confirm subscription activity (e.g., `[D3CardBoard] Subscribed to ${node} with ${changes.length} changes`).
+- Test by loading a game page and checking for reduced subscription activity and no over-syncing warnings.
+
+### Step 4: Retest with Clean State
+- Clear `localStorage` using `localStorage.clear()` in the browser console.
+- Restart the Replit environment.
+- Navigate to a game page and monitor the console logs.
+- Verify that:
+  - No Gun.js over-syncing warnings (e.g., "syncing 1K+ records") appear.
+  - Game data loads in the correct order (game, actors, cards, agreements) with logs confirming each step.
+  - No timeouts or retry errors occur.
+  - Actor lookups use cached data and return valid results.
+- Take a screenshot of the logs and create a checkpoint.
+
+**Note**: Complete only these four steps for now. After each step, test the game page, review the console logs, and confirm the issue is resolved before moving to the next step. If any step fails, log the error and pause for further instructions. Do not proceed to additional steps (e.g., profiling Gun.js queries, D3 initialization) until these are confirmed complete.
