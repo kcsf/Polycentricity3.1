@@ -142,164 +142,135 @@
             const userId = $userStore.user.user_id;
             log(`Looking up actor for user ${userId} in game ${gameId} using cached data`);
             
-            // Do not use localStorage to set temporary actor - this causes invalid data issues
-            // Instead, we'll validate and use the actor only if it exists in the database
+            // Import actorCache to access it directly
+            import { actorCache } from '$lib/services/gameService';
             
-            // Clear potentially invalid localStorage data
+            // Define a common function to set the actor data and return it
+            const setActor = (actor: Actor) => {
+                playerRole = actor;
+                if (actor.actor_id) {
+                    activeActorId.set(actor.actor_id);
+                    localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
+                }
+                return actor;
+            };
+            
+            // 1. First check if we have a valid actor ID in localStorage
+            // but don't trust it blindly - we'll validate it against the cache or database
             const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
             if (savedActorId) {
                 log(`Found actor ID in localStorage: ${savedActorId}, validating...`);
                 
-                // Don't set temporary actor yet - we'll validate it first using getPlayerRole
-                // which has proper caching and validation
+                // Check if this actor exists in the cache
+                if (actorCache.has(savedActorId)) {
+                    const cachedActor = actorCache.get(savedActorId);
+                    if (cachedActor && (cachedActor.user_id === userId || !cachedActor.user_id)) {
+                        log(`Found valid actor in cache: ${savedActorId}`);
+                        return setActor(cachedActor);
+                    }
+                }
             }
             
-            // First look for the user's actor among game actors with timeout protection
-            const actorsPromise = getGameActors(gameId);
-            const actorsTimeout = new Promise<Actor[]>((resolve) => {
-                setTimeout(() => {
-                    log('getGameActors timed out after 4 seconds');
-                    resolve([]);
-                }, 4000); // Extended from 3 seconds
-            });
-            
-            const actors = await Promise.race([actorsPromise, actorsTimeout]);
-            log(`Found ${actors.length} actors in game`);
+            // 2. Use the actors we already loaded in loadGameData
+            // This avoids making additional Gun.js queries
+            log(`Getting actors for game ${gameId} from cache`);
+            const actors = await getGameActors(gameId);
+            log(`Retrieved ${actors.length} actors from cache`);
             
             // Find actor assigned to the current user
             if (actors.length > 0) {
                 const userActor = actors.find(a => a.user_id === userId);
                 if (userActor) {
                     log(`Found user actor: ${userActor.actor_id}`);
-                    playerRole = userActor;
-                    
-                    // Store the active actor ID
-                    if (userActor.actor_id) {
-                        activeActorId.set(userActor.actor_id);
-                        
-                        // Also store in localStorage for persistence
-                        localStorage.setItem(`game_${gameId}_actor`, userActor.actor_id);
+                    return setActor(userActor);
+                }
+                
+                // If we have a saved actor ID, look for it in the actors list
+                if (savedActorId) {
+                    const savedActor = actors.find(a => a.actor_id === savedActorId);
+                    if (savedActor) {
+                        log(`Found saved actor ${savedActor.actor_id} in actors list`);
+                        return setActor(savedActor);
                     }
-                    
-                    return userActor;
                 }
             }
             
-            // If no actor found by direct lookup, check if the saved actor from localStorage exists in the actors list
-            if (savedActorId) {
-                log(`Checking if saved actor ${savedActorId} exists in actors list`);
+            // 3. Check if the game's player_actor_map has a mapping for this user
+            if (game.player_actor_map && typeof game.player_actor_map === 'object') {
+                // Check if it's a regular object (not a Gun reference)
+                const isGunRef = game.player_actor_map['#'] && typeof game.player_actor_map['#'] === 'string';
                 
-                // Look up this actor in the game actors list
-                const savedActor = actors.find(a => a.actor_id === savedActorId);
-                if (savedActor) {
-                    log(`Found actor ${savedActor.actor_id} in actors list`);
-                    playerRole = savedActor;
-                    activeActorId.set(savedActor.actor_id);
-                    return savedActor;
-                }
-                
-                // Check if we just joined with an actor from a different game
-                // This is a critical check for actors being reused across games
-                if (game.player_actor_map && game.player_actor_map[userId] === savedActorId) {
-                    log(`Found actor ${savedActorId} in game's player_actor_map`);
+                if (!isGunRef && userId in game.player_actor_map) {
+                    const mappedActorId = game.player_actor_map[userId];
+                    log(`Found actor ID ${mappedActorId} in player_actor_map`);
                     
-                    // Import the actor into this game's context
-                    try {
-                        // Get the complete actor data
-                        const importedActor = await getPlayerRole(gameId, userId, savedActorId);
-                        
-                        if (importedActor) {
-                            log(`Successfully retrieved actor ${importedActor.actor_id}`);
-                            playerRole = importedActor;
-                            activeActorId.set(importedActor.actor_id);
-                            return importedActor;
+                    // Check if this actor ID is already in the cache
+                    if (mappedActorId && actorCache.has(mappedActorId)) {
+                        const actor = actorCache.get(mappedActorId);
+                        if (actor) {
+                            log(`Found actor in cache: ${mappedActorId}`);
+                            return setActor(actor);
                         }
-                    } catch (importErr) {
-                        log('Error importing actor:', importErr);
                     }
-                }
-            }
-            
-            // Check game's player_actor_map as a last resort
-            try {
-                if (game.player_actor_map) {
-                    log('Checking game.player_actor_map:', JSON.stringify(game.player_actor_map));
                     
-                    // Check if player_actor_map is a Gun.js reference or regular object
-                    // These show up as an object with a # property: {"#": "games/gameId/player_actor_map"}
-                    const isGunRef = typeof game.player_actor_map === 'object' && 
-                                   game.player_actor_map['#'] && 
-                                   typeof game.player_actor_map['#'] === 'string';
-                    
-                    // There are two approaches to handle player_actor_map:
-                    // 1. If it's a Gun.js reference, we need to resolve it 
-                    // 2. If it's a regular object, we can access it directly
-                    
-                    if (isGunRef) {
-                        log('player_actor_map is a Gun.js reference, trying getPlayerRole first');
-                        
-                        // Let's try to use getPlayerRole function directly first (safer)
+                    // If not in cache, try to get it with getPlayerRole
+                    if (mappedActorId) {
                         try {
-                            if (savedActorId) {
-                                // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
-                                log(`Attempting getPlayerRole with retry logic - actor ${savedActorId}`);
-                                
-                                let actorFromRole = null;
-                                
-                                // Try up to maxAttempts times with backoff
-                                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                                    try {
-                                        log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
-                                        const rolePromise = getPlayerRole(gameId, userId, savedActorId);
-                                        const roleTimeout = new Promise<null>((resolve) => {
-                                            setTimeout(() => {
-                                                log(`getPlayerRole attempt ${attempt} timed out`);
-                                                resolve(null);
-                                            }, 2000);
-                                        });
-                                        
-                                        actorFromRole = await Promise.race([rolePromise, roleTimeout]);
-                                        
-                                        if (actorFromRole) {
-                                            log(`Successfully retrieved actor ${actorFromRole.actor_id} on attempt ${attempt}`);
-                                            break; // Success, exit the retry loop
-                                        } else if (attempt < maxAttempts) {
-                                            log(`Retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
-                                            await new Promise(resolve => setTimeout(resolve, backoffMs));
-                                        }
-                                    } catch (retryErr) {
-                                        log(`Error in getPlayerRole retry attempt ${attempt}:`, retryErr);
-                                        if (attempt < maxAttempts) {
-                                            log(`Will retry after ${backoffMs}ms`);
-                                            await new Promise(resolve => setTimeout(resolve, backoffMs));
-                                        }
-                                    }
-                                }
-                                
-                                // Do not create fallback actors with incomplete data
-                                if (!actorFromRole) {
-                                    log(`All getPlayerRole attempts failed for actor ${savedActorId}. Not creating fallback actor.`);
-                                    // Remove invalid actor ID from localStorage
-                                    localStorage.removeItem(`game_${gameId}_actor`);
-                                }
-                                
-                                if (actorFromRole) {
-                                    log(`Using actor ${actorFromRole.actor_id}`);
-                                    playerRole = actorFromRole;
-                                    activeActorId.set(actorFromRole.actor_id);
-                                    return actorFromRole;
-                                }
+                            const actor = await getPlayerRole(gameId, userId, mappedActorId);
+                            if (actor) {
+                                log(`Retrieved actor ${actor.actor_id} with getPlayerRole`);
+                                return setActor(actor);
                             }
-                        } catch (roleErr) {
-                            log('Error using getPlayerRole:', roleErr);
+                        } catch (err) {
+                            log(`Error getting actor: ${err}`);
                         }
-                        
-                        // Fall back to direct lookup only as a last resort
+                    }
+                }
+            }
+            
+            // 4. Handle Gun.js reference in player_actor_map (if needed)
+            try {
+                if (game.player_actor_map && typeof game.player_actor_map === 'object' && 
+                    game.player_actor_map['#'] && typeof game.player_actor_map['#'] === 'string') {
+                    
+                    log('player_actor_map is a Gun.js reference, trying getPlayerRole directly');
+                    
+                    // Use getPlayerRole directly if we have a valid actor ID in localStorage
+                    if (savedActorId) {
                         try {
-                            log('Falling back to direct Gun.js reference resolution');
+                            // Just try once with a timeout - we've already tried other methods
+                            log(`Attempting getPlayerRole once with actor ID ${savedActorId}`);
                             
-                            const mapPath = game.player_actor_map['#'];
-                            const gun = getGun();
+                            const rolePromise = getPlayerRole(gameId, userId, savedActorId);
+                            const roleTimeout = new Promise<null>((resolve) => {
+                                setTimeout(() => {
+                                    log('getPlayerRole timed out after 2 seconds');
+                                    resolve(null);
+                                }, 2000);
+                            });
+                            
+                            const actor = await Promise.race([rolePromise, roleTimeout]);
+                            
+                            if (actor) {
+                                log(`Successfully retrieved actor ${actor.actor_id} with getPlayerRole`);
+                                return setActor(actor);
+                            } else {
+                                log(`Could not retrieve actor ${savedActorId} - removing from localStorage`);
+                                localStorage.removeItem(`game_${gameId}_actor`);
+                            }
+                        } catch (error) {
+                            log(`Error using getPlayerRole: ${error}`);
+                            localStorage.removeItem(`game_${gameId}_actor`);
+                        }
+                    }
+                }
+                
+                // 5. As last resort, fall back to direct lookup against Gun.js
+                try {
+                    log('Falling back to direct Gun.js reference resolution');
+                    
+                    const mapPath = game.player_actor_map['#'];
+                    const gun = getGun();
                             
                             // Create a non-undefined player_actor_map if it doesn't exist
                             gun.get(mapPath).put({}, (ack) => {
