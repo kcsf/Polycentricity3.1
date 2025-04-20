@@ -2579,13 +2579,14 @@ export async function getAvailableAgreementsForGame(gameId: string): Promise<Agr
   
   // Extract agreement IDs from game data, handling different formats
   const agreementIds: string[] = [];
+  const agreementIdsData = game.agreement_ids as any;
   
-  if (Array.isArray(game.agreement_ids)) {
+  if (Array.isArray(agreementIdsData)) {
     // Handle array format
-    agreementIds.push(...game.agreement_ids);
-  } else if (typeof game.agreement_ids === 'object') {
+    agreementIds.push(...agreementIdsData);
+  } else if (typeof agreementIdsData === 'object') {
     // Handle object format (Gun.js style)
-    if (game.agreement_ids['#']) {
+    if (agreementIdsData['#']) {
       // This is a Gun.js reference, need to resolve it first
       log(`agreement_ids is a Gun.js reference, resolving: ${gameId}`);
       
@@ -2624,8 +2625,8 @@ export async function getAvailableAgreementsForGame(gameId: string): Promise<Agr
       });
     } else {
       // Handle object with keys as agreement IDs
-      Object.keys(game.agreement_ids).forEach(key => {
-        if (key !== '_' && game.agreement_ids[key]) {
+      Object.keys(agreementIdsData).forEach(key => {
+        if (key !== '_' && agreementIdsData[key]) {
           agreementIds.push(key);
         }
       });
@@ -2702,8 +2703,9 @@ export function subscribeToGameAgreements(gameId: string, callback: (agreements:
     if (!gameData) return;
     
     if (gameData.agreement_ids) {
-      if (typeof gameData.agreement_ids === 'object') {
-        if (gameData.agreement_ids['#']) {
+      const agreementIdsObj = gameData.agreement_ids as Record<string, any>;
+      if (typeof agreementIdsObj === 'object') {
+        if (agreementIdsObj['#']) {
           // This is a Gun.js reference, we need to listen directly on the agreements collection
           // Clear any existing subscriptions first to avoid duplicates
           agreementSubscriptions.forEach(unsub => unsub && unsub());
@@ -2783,7 +2785,8 @@ export function subscribeToGameAgreements(gameId: string, callback: (agreements:
         }
       } else if (Array.isArray(gameData.agreement_ids)) {
         // Array format
-        const newIds = [...gameData.agreement_ids];
+        const agreementIdsArray = gameData.agreement_ids as string[];
+        const newIds = [...agreementIdsArray];
         
         // Check if the IDs have changed
         if (JSON.stringify(newIds.sort()) !== JSON.stringify(agreementIds.sort())) {
