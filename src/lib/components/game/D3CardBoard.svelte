@@ -100,22 +100,49 @@
   const cardCache = new Map<string, Card>();
   
   async function loadCardData(deckId: string): Promise<CardWithPosition[]> {
-    log(`Loading cards for deck: ${deckId}`);
+    log(`[D3CardBoard] Loading cards for deck: ${deckId}`);
     
-    // Get cards using the optimized function from gameService
-    const cards = await getAvailableCardsForGame(gameId);
-    log(`Loaded ${cards.length} cards from gameService`);
-    
-    // Cache cards for future reference
-    cards.forEach(card => {
-      if (card.card_id) cardCache.set(card.card_id, card);
-    });
-    
-    // Add position data
-    return cards.map(card => ({
-      ...card,
-      position: { x: Math.random() * width, y: Math.random() * height }
-    }));
+    try {
+      // Get cards using the optimized function from gameService 
+      // This is a big improvement over direct Gun.js access
+      const cards = await getAvailableCardsForGame(gameId);
+      log(`[D3CardBoard] Loaded ${cards.length} cards from gameService`);
+      
+      // First look for any existing cached positions to maintain continuity
+      const existingPositions = new Map<string, {x: number, y: number}>();
+      cardsWithPosition.forEach(card => {
+        if (card.card_id && card.position) {
+          existingPositions.set(card.card_id, card.position);
+        }
+      });
+      
+      // Cache cards for future reference
+      cards.forEach(card => {
+        if (card.card_id) cardCache.set(card.card_id, card);
+      });
+      
+      // Add position data, preferring existing positions when available
+      return cards.map(card => {
+        let position;
+        
+        // Use existing position if we have one
+        if (card.card_id && existingPositions.has(card.card_id)) {
+          position = existingPositions.get(card.card_id);
+        } else {
+          // Or create a new random position
+          position = { x: Math.random() * width, y: Math.random() * height };
+        }
+        
+        return {
+          ...card,
+          position
+        };
+      });
+    } catch (error) {
+      log(`[D3CardBoard] Error loading cards for deck ${deckId}:`, error);
+      // Return empty array to prevent component from breaking
+      return [];
+    }
   }
 
   // Optimized to use gameService instead of direct Gun.js access
@@ -170,39 +197,56 @@
     agreements: AgreementWithPosition[];
     actors: Actor[];
   }> {
-    log(`Loading game data for: ${gameId}`);
+    log(`[D3CardBoard] Loading game data for: ${gameId}`);
     
-    // Check gameCache first for performance
-    let game;
-    if (gameCache.has(gameId)) {
-      log('Using cached game data');
-      game = gameCache.get(gameId);
-    } else {
-      // Load game data
-      game = await getGame(gameId);
-      if (game) gameCache.set(gameId, game);
-    }
-    
-    if (!game) throw new Error(`Game not found: ${gameId}`);
-    
-    // Get actors using the optimized function
-    const actors = await getGameActors(gameId);
-    
-    // Get deck ID from game
-    const deckId = game.deck_id;
-    if (!deckId) throw new Error(`No deck ID found for game: ${gameId}`);
-    
-    // Load cards
-    const cards = await loadCardData(deckId);
-    
-    // Load agreements if any, using our optimized function with 
-    // limit of 10 concurrent calls
-    let agreementData: AgreementWithPosition[] = [];
-    if (game.agreement_ids) {
-      agreementData = await loadGameAgreements(game);
-    }
+    try {
+      // Check gameCache first for performance
+      let game;
+      if (gameCache.has(gameId)) {
+        log('[D3CardBoard] Using cached game data');
+        game = gameCache.get(gameId);
+      } else {
+        // Load game data using optimized service function
+        game = await getGame(gameId);
+        if (game) gameCache.set(gameId, game);
+      }
+      
+      if (!game) throw new Error(`Game not found: ${gameId}`);
+      
+      // Get actors using the optimized function rather than direct Gun.js access
+      log('[D3CardBoard] Loading actors via optimized service function');
+      const actors = await getGameActors(gameId);
+      log(`[D3CardBoard] Loaded ${actors.length} actors`);
+      
+      // Cache actors for future diff checking
+      actors.forEach(actor => {
+        actorCache.set(actor.actor_id, actor);
+      });
+      
+      // Get deck ID from game
+      const deckId = game.deck_id;
+      if (!deckId) throw new Error(`No deck ID found for game: ${gameId}`);
+      
+      // Load cards 
+      const cards = await loadCardData(deckId);
+      
+      // Load agreements if any, using our optimized function with 
+      // limit of 10 concurrent calls to prevent Gun.js overload
+      let agreementData: AgreementWithPosition[] = [];
+      if (game.agreement_ids) {
+        log('[D3CardBoard] Loading agreements');
+        agreementData = await loadGameAgreements(game);
+        log(`[D3CardBoard] Loaded ${agreementData.length} agreements`);
+      } else {
+        log('[D3CardBoard] No agreements to load');
+      }
 
-    return { cards, agreements: agreementData, actors };
+      return { cards, agreements: agreementData, actors };
+    } catch (error) {
+      log(`[D3CardBoard] Error in loadGameData:`, error);
+      // Return empty data to prevent component from breaking
+      return { cards: [], agreements: [], actors: [] };
+    }
   }
 
   // Cache of agreement data to prevent redundant fetches
@@ -256,7 +300,7 @@
   const capabilityCache = new Map<string, string>();
   
   async function enhanceCardData(cards: CardWithPosition[]): Promise<CardWithPosition[]> {
-    log(`Enhancing ${cards.length} cards`);
+    log(`[D3CardBoard] Enhancing ${cards.length} cards with values and capabilities`);
     
     // Get all unique values and capabilities IDs that need fetching
     const valueIdsToFetch = new Set<string>();
@@ -374,7 +418,7 @@
   const actorCache = new Map<string, Actor>();
   
   function subscribeToGameData() {
-    log(`Subscribing to game data: ${gameId}`);
+    log(`[D3CardBoard] Subscribing to game data: ${gameId}`);
     
     // Subscribe to game updates using our optimized service function
     // with improved throttling to reduce Gun.js over-syncing
@@ -399,7 +443,7 @@
         
         // Check if it's a new game or changed significantly
         if (!gameCache.has(gameId)) {
-          log('New game detected - full data load required');
+          log('[D3CardBoard] New game detected - full data load required');
           gameCache.set(gameId, {...game}); // Use spread to avoid reference issues
           shouldUpdateCards = true;
           shouldUpdateActors = true;
@@ -410,13 +454,13 @@
           // Selective updates based on what changed - be very specific
           // to minimize unnecessary data fetching
           if (cachedGame.deck_id !== game.deck_id) {
-            log('Deck ID changed - updating cards');
+            log('[D3CardBoard] Deck ID changed - updating cards');
             shouldUpdateCards = true;
           }
           
           // Only update actors when game status changes or player count changes
           if (cachedGame.status !== game.status) {
-            log('Game status changed - updating actors');
+            log('[D3CardBoard] Game status changed - updating actors');
             shouldUpdateActors = true;
           } else if (game.players) {
             // Check if player count changed
@@ -430,7 +474,7 @@
               Object.keys(game.players).length;
               
             if (oldPlayerCount !== newPlayerCount) {
-              log('Player count changed - updating actors');
+              log('[D3CardBoard] Player count changed - updating actors');
               shouldUpdateActors = true;
             }
           }
@@ -447,7 +491,7 @@
               Object.keys(game.agreement_ids).length;
               
             if (oldAgreementCount !== newAgreementCount) {
-              log('Agreement count changed - updating agreements');
+              log('[D3CardBoard] Agreement count changed - updating agreements');
               shouldUpdateAgreements = true;
             }
           }
@@ -461,12 +505,12 @@
           lastAgreementUpdateTime = currentTime;
           
           if (game.agreement_ids) {
-            log('Loading agreements');
+            log('[D3CardBoard] Loading agreements');
             loadGameAgreements(game).then(loadedAgreements => {
               agreements = loadedAgreements;
-              log(`Updated ${loadedAgreements.length} agreements`);
+              log(`[D3CardBoard] Updated ${loadedAgreements.length} agreements`);
             }).catch(error => {
-              console.error('Error updating agreements:', error);
+              console.error('[D3CardBoard] Error updating agreements:', error);
             });
           }
         }
@@ -621,14 +665,14 @@
         // Only process if we have a different number of actors or new actor IDs
         if (updatedActors.length !== actors.length) {
           hasChanges = true;
-          log(`Actor count changed from ${actors.length} to ${updatedActors.length}`);
+          log(`[D3CardBoard] Actor count changed from ${actors.length} to ${updatedActors.length}`);
         } else {
           // If same count, check for new actor IDs
           const existingActorIds = new Set(actors.map(a => a.actor_id));
           for (const actor of updatedActors) {
             if (!existingActorIds.has(actor.actor_id)) {
               hasChanges = true;
-              log(`New actor detected: ${actor.actor_id}`);
+              log(`[D3CardBoard] New actor detected: ${actor.actor_id}`);
               break;
             }
           }
@@ -637,7 +681,7 @@
         // Only update if we detected changes or it's been a while (15 seconds)
         if (hasChanges || currentTime - lastActorUpdateTime > 15000) {
           lastActorUpdateTime = currentTime;
-          log(`Updating ${updatedActors.length} actors`);
+          log(`[D3CardBoard] Updating ${updatedActors.length} actors`);
           
           // Update our actor list with new data
           actors = updatedActors;
@@ -697,7 +741,7 @@
       
       // Process any card data we received
       if (userCard) {
-        log(`Successfully loaded card ${userCard.card_id}`);
+        log(`[D3CardBoard] Successfully loaded card ${userCard.card_id}`);
         activeCardId = userCard.card_id;
         // Cache the card ID for quicker loading next time
         if (activeActorId) {
@@ -720,9 +764,9 @@
 
       try {
         // Initialize the D3 graph visualization
-        log('Initializing D3 graph with cards:', cardsWithPosition.length);
+        log('[D3CardBoard] Initializing D3 graph with cards:', cardsWithPosition.length);
         if (cardsWithPosition.length === 0) {
-          log('Warning: No cards to render, graph may appear empty');
+          log('[D3CardBoard] Warning: No cards to render, graph may appear empty');
         }
         
         const graphState = initializeD3Graph(
@@ -743,9 +787,9 @@
         
         simulation = graphState.simulation;
         nodeElements = graphState.nodeElements;
-        log('D3 graph initialized successfully');
+        log('[D3CardBoard] D3 graph initialized successfully');
       } catch (graphError) {
-        console.error('Failed to initialize D3 graph:', graphError);
+        console.error('[D3CardBoard] Failed to initialize D3 graph:', graphError);
         return; // Exit to avoid further errors
       }
 
@@ -753,18 +797,18 @@
       if (nodeElements) {
         try {
           addDonutRings(nodeElements, activeCardId);
-          log('Added donut rings to nodes');
+          log('[D3CardBoard] Added donut rings to nodes');
         } catch (donutError) {
-          console.error('Error adding donut rings:', donutError);
+          console.error('[D3CardBoard] Error adding donut rings:', donutError);
           // Continue anyway, donut rings are visual enhancements only
         }
       } else {
-        log('No node elements available, skipping donut rings');
+        log('[D3CardBoard] No node elements available, skipping donut rings');
       }
 
       // Skip if no cards to render
       if (cardsWithPosition.length === 0) {
-        log('No cards available to render, skipping icon loading');
+        log('[D3CardBoard] No cards available to render, skipping icon loading');
         return; // Exit early to avoid errors
       }
       
@@ -776,15 +820,15 @@
       // Preload icons
       try {
         await loadIcons(iconNames);
-        log(`Successfully loaded ${iconNames.length} icons`);
+        log(`[D3CardBoard] Successfully loaded ${iconNames.length} icons`);
       } catch (iconError) {
-        log(`Error loading icons: ${iconError}`);
+        log(`[D3CardBoard] Error loading icons: ${iconError}`);
         // Continue anyway - our createCardIcon function has fallbacks
       }
 
       // Add icons to nodes (with null safety)
       if (!nodeElements) {
-        log('No node elements available, skipping icon rendering');
+        log('[D3CardBoard] No node elements available, skipping icon rendering');
         return;
       }
       
@@ -801,7 +845,7 @@
           // This is already the Lucide icon name (e.g., "sun", "link", etc.)
           const iconName = card.icon || 'user';
           
-          log(`Using icon '${iconName}' for card ${card.card_id}`);
+          log(`[D3CardBoard] Using icon '${iconName}' for card ${card.card_id}`);
           
           const isActive = node.id === activeCardId;
           const iconSize = isActive ? 36 : 24;
@@ -821,17 +865,17 @@
         }
       });
       } catch (nodeError) {
-        console.error('Error rendering node icons:', nodeError);
+        console.error('[D3CardBoard] Error rendering node icons:', nodeError);
       }
 
       subscribeToGameData();
     } catch (error) {
-      console.error('Error initializing visualization:', error);
+      console.error('[D3CardBoard] Error initializing visualization:', error);
     }
   }
 
   onMount(() => {
-    log('Component mounted');
+    log('[D3CardBoard] Component mounted');
     initializeVisualization();
     return () => {
       if (simulation) simulation.stop();
