@@ -335,15 +335,16 @@
     log(`Subscribing to game data: ${gameId}`);
     
     // Subscribe to game updates using our optimized service function
-    // This uses a selective update approach to avoid redundant data fetching
+    // with improved throttling to reduce Gun.js over-syncing
     unsubscribe.push(
       subscribeToGame(gameId, (game) => {
         if (!game) return;
         
         const currentTime = Date.now();
         
-        // Throttle updates (only process once per second)
-        if (currentTime - lastGameUpdateTime < 1000) {
+        // Increase throttle time to 3 seconds to reduce over-syncing issues
+        // This is critical to prevent excessive Gun.js data pulls (1K+ records warning)
+        if (currentTime - lastGameUpdateTime < 3000) {
           return;
         }
         
@@ -356,23 +357,43 @@
         
         // Check if it's a new game or changed significantly
         if (!gameCache.has(gameId)) {
-          gameCache.set(gameId, game);
+          log('New game detected - full data load required');
+          gameCache.set(gameId, {...game}); // Use spread to avoid reference issues
           shouldUpdateCards = true;
           shouldUpdateActors = true;
           shouldUpdateAgreements = true;
         } else {
           const cachedGame = gameCache.get(gameId);
           
-          // Selective updates based on what changed
+          // Selective updates based on what changed - be very specific
+          // to minimize unnecessary data fetching
           if (cachedGame.deck_id !== game.deck_id) {
+            log('Deck ID changed - updating cards');
             shouldUpdateCards = true;
           }
           
+          // Only update actors when game status changes or player count changes
           if (cachedGame.status !== game.status) {
+            log('Game status changed - updating actors');
             shouldUpdateActors = true;
+          } else if (game.players) {
+            // Check if player count changed
+            const oldPlayerCount = cachedGame.players ? 
+              (Array.isArray(cachedGame.players) ? 
+                cachedGame.players.length : 
+                Object.keys(cachedGame.players).length) : 0;
+                
+            const newPlayerCount = Array.isArray(game.players) ? 
+              game.players.length : 
+              Object.keys(game.players).length;
+              
+            if (oldPlayerCount !== newPlayerCount) {
+              log('Player count changed - updating actors');
+              shouldUpdateActors = true;
+            }
           }
           
-          // For agreements, check if they've been added or removed
+          // For agreements, only update when count changes to avoid redundant fetches
           if (game.agreement_ids) {
             const oldAgreementCount = cachedGame.agreement_ids ? 
               (Array.isArray(cachedGame.agreement_ids) ? 
@@ -384,19 +405,21 @@
               Object.keys(game.agreement_ids).length;
               
             if (oldAgreementCount !== newAgreementCount) {
+              log('Agreement count changed - updating agreements');
               shouldUpdateAgreements = true;
             }
           }
           
-          // Update cache
-          gameCache.set(gameId, game);
+          // Update cache with a deep copy to avoid reference issues
+          gameCache.set(gameId, {...game});
         }
         
-        // Update agreements if needed
-        if (shouldUpdateAgreements || currentTime - lastAgreementUpdateTime > 5000) {
+        // Update agreements if needed, but not too frequently (10 second minimum)
+        if (shouldUpdateAgreements || currentTime - lastAgreementUpdateTime > 10000) {
           lastAgreementUpdateTime = currentTime;
           
           if (game.agreement_ids) {
+            log('Loading agreements');
             loadGameAgreements(game).then(loadedAgreements => {
               agreements = loadedAgreements;
               log(`Updated ${loadedAgreements.length} agreements`);
@@ -406,10 +429,11 @@
           }
         }
         
-        // Update actors if needed
-        if (shouldUpdateActors || currentTime - lastActorUpdateTime > 5000) {
+        // Update actors if needed, but not too frequently (8 second minimum)
+        if (shouldUpdateActors || currentTime - lastActorUpdateTime > 8000) {
           lastActorUpdateTime = currentTime;
           
+          log('Loading actors');
           getGameActors(gameId).then(loadedActors => {
             actors = loadedActors;
             
@@ -423,21 +447,30 @@
           });
         }
         
-        // Update cards only if deck changed or not yet loaded
-        if (shouldUpdateCards || cardsWithPosition.length === 0) {
+        // Update cards only if deck changed or not yet loaded (10 second minimum)
+        if (shouldUpdateCards || (cardsWithPosition.length === 0 && currentTime - lastGameUpdateTime > 10000)) {
           const deckId = game.deck_id;
           if (deckId) {
+            log('Loading cards');
             loadCardData(deckId)
               .then(enhanceCardData)
               .then(enhancedCards => {
                 cardsWithPosition = enhancedCards;
                 
-                // Update card-actor mappings
+                // Update card cache and actor-card mappings
                 enhancedCards.forEach(card => {
-                  if (card.card_id && card.actor_id) {
-                    actorCardMap.set(card.actor_id, card.card_id);
+                  if (card.card_id) {
+                    // Update the card cache
+                    cardCache.set(card.card_id, card);
+                    
+                    // Update actor-card mapping if available
+                    if (card.actor_id) {
+                      actorCardMap.set(card.actor_id, card.card_id);
+                    }
                   }
                 });
+                
+                log(`Updated ${enhancedCards.length} cards with values and capabilities`);
               })
               .catch(error => {
                 console.error('Error updating cards:', error);
@@ -447,25 +480,49 @@
       })
     );
     
-    // Subscribe to actor changes
+    // Subscribe to actor changes with increased throttling to reduce Gun.js load
     unsubscribe.push(
       subscribeToGameActors(gameId, (updatedActors) => {
         if (!updatedActors || updatedActors.length === 0) return;
         
-        // Throttle updates to avoid excessive renders
+        // Throttle updates more aggressively (5 seconds) to avoid excessive Gun.js
+        // queries and 1K+ records warning
         const currentTime = Date.now();
-        if (currentTime - lastActorUpdateTime < 2000) return;
+        if (currentTime - lastActorUpdateTime < 5000) return;
         
-        lastActorUpdateTime = currentTime;
+        // Check if there are actually changes to the actors
+        let hasChanges = false;
         
-        // Update our actor list with new data
-        actors = updatedActors;
+        // Only process if we have a different number of actors or new actor IDs
+        if (updatedActors.length !== actors.length) {
+          hasChanges = true;
+          log(`Actor count changed from ${actors.length} to ${updatedActors.length}`);
+        } else {
+          // If same count, check for new actor IDs
+          const existingActorIds = new Set(actors.map(a => a.actor_id));
+          for (const actor of updatedActors) {
+            if (!existingActorIds.has(actor.actor_id)) {
+              hasChanges = true;
+              log(`New actor detected: ${actor.actor_id}`);
+              break;
+            }
+          }
+        }
         
-        // Cache actors and update mappings
-        updatedActors.forEach(actor => {
-          actorCache.set(actor.actor_id, actor);
-          if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
-        });
+        // Only update if we detected changes or it's been a while (15 seconds)
+        if (hasChanges || currentTime - lastActorUpdateTime > 15000) {
+          lastActorUpdateTime = currentTime;
+          log(`Updating ${updatedActors.length} actors`);
+          
+          // Update our actor list with new data
+          actors = updatedActors;
+          
+          // Cache actors and update mappings
+          updatedActors.forEach(actor => {
+            actorCache.set(actor.actor_id, actor);
+            if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
+          });
+        }
       })
     );
   }
@@ -478,6 +535,13 @@
     }
 
     try {
+      // Fetch the game data first, which is the most critical for initialization
+      log('Loading game data for: ' + gameId);
+      const gameDataPromise = loadGameData();
+      
+      // In parallel, if we have an active actor, start loading their card
+      let cardDataPromise: Promise<Card | null> | null = null;
+      
       if (activeActorId) {
         // First check localStorage for cached card ID which can be faster than fetching
         const cachedCardId = localStorage.getItem(`actor_${activeActorId}_card`);
@@ -486,36 +550,38 @@
           activeCardId = cachedCardId;
         }
         
-        // Add timeout protection for getUserCard with extended timeout (8s instead of 5s)
-        // to match the improved getUserCard implementation with better retry logic
-        const cardPromise = getUserCard(gameId, activeActorId);
-        const cardTimeout = new Promise<null>((resolve) => {
-          setTimeout(() => {
-            log('getUserCard timed out after 8 seconds');
-            resolve(null);
-          }, 8000);
-        });
-        
-        // Use a longer timeout and log what's happening more clearly
-        log(`Fetching card for actor ${activeActorId}`);
-        
-        // Run card fetching in parallel with other initialization steps
-        // using Promise handling to avoid blocking visualization
-        cardPromise.then(card => {
-          if (card) {
-            log(`Successfully loaded card ${card.card_id}`);
-            activeCardId = card.card_id;
-            // Cache the card ID for quicker loading next time
-            localStorage.setItem(`actor_${activeActorId}_card`, card.card_id);
-          } else {
-            log(`No card found for actor ${activeActorId}`);
+        // Prioritize fetching from existing local cache if available
+        if (cardCache.has(cachedCardId)) {
+          log(`Using cached card data for ${cachedCardId}`);
+          const cachedCard = cardCache.get(cachedCardId);
+          if (cachedCard) {
+            activeCardId = cachedCardId;
           }
-        }).catch(err => {
-          log(`Error fetching card: ${err}`);
-        });
+        } else {
+          // Start fetching card data in parallel with game data
+          log(`Fetching card for actor ${activeActorId}`);
+          cardDataPromise = getUserCard(gameId, activeActorId);
+        }
       }
 
-      const { cards, agreements: loadedAgreements, actors: loadedActors } = await loadGameData();
+      // Wait for both the game data and any card data promises
+      const [{ cards, agreements: loadedAgreements, actors: loadedActors }, userCard] = await Promise.all([
+        gameDataPromise,
+        cardDataPromise || Promise.resolve(null)
+      ]);
+      
+      // Process any card data we received
+      if (userCard) {
+        log(`Successfully loaded card ${userCard.card_id}`);
+        activeCardId = userCard.card_id;
+        // Cache the card ID for quicker loading next time
+        if (activeActorId) {
+          localStorage.setItem(`actor_${activeActorId}_card`, userCard.card_id);
+        }
+        // Also add to our in-memory cache
+        cardCache.set(userCard.card_id, userCard);
+      }
+      
       cardsWithPosition = await enhanceCardData(cards);
       agreements = loadedAgreements;
       actors = loadedActors;
