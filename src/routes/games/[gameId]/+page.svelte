@@ -131,16 +131,15 @@
     
     // Logic to load the current user's actor in this game
     /**
-     * Load the user's actor in the current game using cached data
-     * This implementation optimizes actor lookup by using the cached data from loadGameData
-     * instead of making redundant Gun.js requests
+     * Load the user's actor in the current game using cached data from loadGameData
+     * This implementation optimizes actor lookup by using cached data instead of making redundant Gun.js requests
      */
     async function loadUserActor() {
         if (!game || !$userStore.user) return null;
         
         try {
             const userId = $userStore.user.user_id;
-            log(`Looking up actor for user ${userId} in game ${gameId} using cached data`);
+            log(`[GamePage] Looking up actor for user ${userId} in game ${gameId} using cached data`);
             
             // We already imported actorCache at the top of the file
             
