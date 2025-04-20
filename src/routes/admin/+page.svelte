@@ -886,40 +886,16 @@
             </a>
           </div>
           
-          <!-- Database Explorer Section -->
+          <!-- Database Explorer Link -->
           <div class="card p-4 bg-surface-100-800-token border border-surface-300-600 mb-4">
-            <div class="flex items-center space-x-4 mb-4">
+            <div class="flex items-center space-x-4">
               <icons.Database class="text-primary-500" />
               <div>
                 <h3 class="h4">Database Explorer</h3>
-                <p class="text-sm">Use this tool to explore the Gun.js database structure and data.</p>
-              </div>
-            </div>
-            
-            <div class="accordion bg-surface-50-900-token border border-surface-200-700-token rounded-container-token overflow-hidden">
-              <div class="accordion-item">
-                <button 
-                  class="accordion-header p-4 flex items-center justify-between w-full text-left font-semibold"
-                  onclick={() => {
-                    const content = document.querySelector('#db-explorer-content');
-                    if (content) content.classList.toggle('hidden');
-                  }}
-                >
-                  <div class="flex items-center">
-                    <icons.Database class="w-5 h-5 mr-2" />
-                    <span>DB Explorer</span>
-                  </div>
-                  <icons.ChevronDown class="w-5 h-5 transition-transform" />
-                </button>
-                
-                <div id="db-explorer-content" class="accordion-body hidden p-4 bg-surface-100-800-token">
-                  <iframe 
-                    src="/db-explorer" 
-                    title="Database Explorer" 
-                    class="w-full h-[600px] border-0 rounded overflow-hidden"
-                    loading="lazy"
-                  ></iframe>
-                </div>
+                <p class="text-sm mb-4">Use this tool to explore the Gun.js database structure and data.</p>
+                <a href="/db-explorer" class="btn variant-filled-primary">
+                  Open DB Explorer
+                </a>
               </div>
             </div>
           </div>
