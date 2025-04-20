@@ -32,9 +32,31 @@
     type AgreementWithPosition
   } from '$lib/utils/d3GraphUtils';
   
-  // Add logging utility for debugging
+  // Add logging utility for debugging with proper $state handling for Svelte 5 Runes
   const isDev = process.env.NODE_ENV !== 'production';
-  const log = (...args: any[]) => isDev && console.log('[D3CardBoard]', ...args);
+  const log = (...args: any[]) => {
+    if (!isDev) return;
+  
+    // Process args to handle $state variables safely
+    const processedArgs = args.map(arg => {
+      if (arg && typeof arg === 'object' && '$state' in globalThis) {
+        try {
+          // For state objects that need snapshots
+          if (arg.$state) {
+            return arg.$state.snapshot();
+          }
+          // Clone other objects to avoid reactive binding issues
+          return structuredClone(arg);
+        } catch (e) {
+          // If not serializable, return a string representation
+          return String(arg);
+        }
+      }
+      return arg;
+    });
+    
+    console.log('[D3CardBoard]', ...processedArgs);
+  };
   
   const { gameId, activeActorId = undefined } = $props<{
     gameId: string;

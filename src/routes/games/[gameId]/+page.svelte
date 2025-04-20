@@ -140,24 +140,16 @@
                 }, 15000); // Increased from 10000ms
             });
             
-            // Check localStorage first for the fastest possible response
+            // Do not use localStorage to set temporary actor - this causes invalid data issues
+            // Instead, we'll validate and use the actor only if it exists in the database
+            
+            // Clear potentially invalid localStorage data
             const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
             if (savedActorId) {
-                log(`Found saved actor ID in localStorage: ${savedActorId}`);
+                log(`Found actor ID in localStorage: ${savedActorId}, validating...`);
                 
-                // Create a temporary actor object to display something immediately
-                const tempActor = { 
-                    actor_id: savedActorId,
-                    user_id: userId,
-                    game_id: gameId,
-                    actor_type: "Unknown" // Will be replaced with actual data
-                } as Actor;
-                
-                log(`Creating temporary playerRole from localStorage data`);
-                playerRole = tempActor;
-                activeActorId.set(savedActorId);
-                
-                // We'll continue loading the complete actor data in the background
+                // Don't set temporary actor yet - we'll validate it first using getPlayerRole
+                // which has proper caching and validation
             }
             
             // First look for the user's actor among game actors with timeout protection
@@ -282,15 +274,11 @@
                                     }
                                 }
                                 
-                                // Fall back to localStorage if all retry attempts failed
+                                // Do not create fallback actors with incomplete data
                                 if (!actorFromRole) {
-                                    log(`All getPlayerRole attempts failed, falling back to basic actor with savedActorId: ${savedActorId}`);
-                                    // This is a basic placeholder actor with just the ID
-                                    actorFromRole = { 
-                                        actor_id: savedActorId,
-                                        game_id: gameId,
-                                        user_id: userId
-                                    } as Actor;
+                                    log(`All getPlayerRole attempts failed for actor ${savedActorId}. Not creating fallback actor.`);
+                                    // Remove invalid actor ID from localStorage
+                                    localStorage.removeItem(`game_${gameId}_actor`);
                                 }
                                 
                                 if (actorFromRole) {
@@ -375,15 +363,11 @@
                                         }
                                     }
                                     
-                                    // Fall back to basic actor if all retry attempts failed
+                                    // Do not create fallback actors with incomplete data
                                     if (!mappedActor) {
-                                        log(`All getPlayerRole attempts failed, falling back to basic actor with mappedActorId: ${mappedActorId}`);
-                                        // This is a basic placeholder actor with just the ID
-                                        mappedActor = { 
-                                            actor_id: mappedActorId,
-                                            game_id: gameId,
-                                            user_id: userId
-                                        } as Actor;
+                                        log(`All getPlayerRole attempts failed for actor ${mappedActorId}. Not creating fallback actor.`);
+                                        // Remove invalid actor ID from localStorage
+                                        localStorage.removeItem(`game_${gameId}_actor`);
                                     }
                                     
                                     if (mappedActor) {
@@ -448,15 +432,11 @@
                                 }
                             }
                             
-                            // Fall back to localStorage if all retry attempts failed
+                            // Do not create fallback actors with incomplete data
                             if (!mappedActor && savedActorId) {
-                                log(`All getPlayerRole attempts failed, falling back to localStorage actorId: ${savedActorId}`);
-                                // This is a basic placeholder actor with just the ID
-                                mappedActor = { 
-                                    actor_id: savedActorId,
-                                    game_id: gameId,
-                                    user_id: userId
-                                } as Actor;
+                                log(`All getPlayerRole attempts failed for actor ${savedActorId}. Not creating fallback actor.`);
+                                // Remove invalid actor ID from localStorage
+                                localStorage.removeItem(`game_${gameId}_actor`);
                             }
                             
                             if (mappedActor) {
@@ -560,15 +540,11 @@
                                     }
                                 }
                                 
-                                // Fall back to basic actor if all retry attempts failed
+                                // Do not create fallback actors with incomplete data
                                 if (!actor) {
-                                    log(`All final getPlayerRole attempts failed, falling back to basic actor with savedActorId: ${savedActorId}`);
-                                    // This is a basic placeholder actor with just the ID
-                                    actor = { 
-                                        actor_id: savedActorId,
-                                        game_id: gameId,
-                                        user_id: userId
-                                    } as Actor;
+                                    log(`All final getPlayerRole attempts failed for actor ${savedActorId}. Not creating fallback actor.`);
+                                    // Remove invalid actor ID from localStorage
+                                    localStorage.removeItem(`game_${gameId}_actor`);
                                 }
                                 
                                 if (actor) {
@@ -624,18 +600,8 @@
     }
     
     // Check if the current user is part of this game
-    // Function to create a temporary actor from localStorage data
-    function createTemporaryActor(savedActorId: string, userId: string): Actor {
-        log('Creating temporary playerRole from localStorage data');
-        // Create a minimal Actor object to allow game access
-        return {
-            actor_id: savedActorId,
-            user_id: userId,
-            game_id: gameId,
-            actor_type: 'National Identity',
-            created_at: Date.now()
-        };
-    }
+    // Don't create temporary actors - they cause data inconsistency issues
+    // Instead, validate and fetch real Actor data from the database
     
     // Function to enhance actor data in the background (safe to call from template)
     function enhanceActorInBackground(gameId: string, userId: string): void {
@@ -717,16 +683,29 @@
         if (savedActorId) {
             log(`Found saved actor ID in localStorage: ${savedActorId}`);
             
-            // If we have a saved actor ID but no playerRole, force-set a temporary one
+            // If we have a saved actor ID but no playerRole, validate it
             if (!playerRole) {
-                // Create a temporary actor object
-                playerRole = createTemporaryActor(savedActorId, userId);
-                
-                // Also set the activeActorId to ensure consistency
+                // Set the activeActorId to retrieve data, but don't set the
+                // playerRole until we've validated the actor exists
                 activeActorId.set(savedActorId);
                 
-                // Schedule a background check to enhance this minimal actor data
-                enhanceActorInBackground(gameId, userId);
+                // Immediately start loading actual player data
+                getPlayerRole(gameId, userId, savedActorId)
+                    .then(fullActor => {
+                        if (fullActor) {
+                            log(`Retrieved complete actor data for ${savedActorId}`);
+                            playerRole = fullActor;
+                        } else {
+                            log(`Invalid actor ID in localStorage: ${savedActorId}, removing`);
+                            localStorage.removeItem(`game_${gameId}_actor`);
+                            userInGame = false;
+                        }
+                    })
+                    .catch(err => {
+                        log(`Error retrieving actor ${savedActorId}: ${err}`);
+                        localStorage.removeItem(`game_${gameId}_actor`);
+                        userInGame = false;
+                    });
             }
             
             userInGame = true;

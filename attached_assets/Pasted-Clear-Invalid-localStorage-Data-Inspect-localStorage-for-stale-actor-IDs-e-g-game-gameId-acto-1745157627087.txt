@@ -1,0 +1,30 @@
+Clear Invalid localStorage Data:
+Inspect localStorage for stale actor IDs (e.g., game_${gameId}_actor) and remove entries for non-existent actors like m9ogwfn70cdd52ex.
+Validate Actor ID Before Use:
+In loadUserActor (src/routes/games/[gameId]/+page.svelte), add a check to verify if the saved actor ID exists in the Gun.js database before creating a temporary actor.
+Optimize Game Data Loading:
+Modify loadGameData to call getGame and getAvailableCardsForGame sequentially at the start, caching results to prevent redundant fetches.
+Consolidate Actor Lookups:
+Refactor loadUserActor to use a single getPlayerRole call without retries, relying on cached game data from loadGameData.
+Reduce Gun.js Subscriptions:
+In subscribeToGameData (D3CardBoard.svelte), limit subscriptions to essential nodes (e.g., game, actors) and throttle updates to once every 2 seconds.
+Fix Svelte Runes Logging:
+Replace console.log calls with $state proxies in GamePageLayout.svelte and D3CardBoard.svelte with $inspect or $state.snapshot.
+Ensure Complete Actor Data:
+Update createTemporaryActor to include a default actor_type (e.g., 'National Identity') and validate against Actor interface.
+Remove Unnecessary Timeouts:
+In loadUserActor and initializeVisualization, remove or increase timeouts (e.g., to 30s) temporarily to diagnose if queries are the issue, then optimize queries.
+Prevent Over-Syncing:
+Audit subscribeToGame and subscribeToGameActors calls in D3CardBoard.svelte to ensure they only subscribe to changed data, using Gun.js once where possible.
+Disable Fallbacks:
+In loadUserActor, remove the fallback to basic actor creation and throw an error if getPlayerRole fails, logging the issue for debugging.
+Profile Gun.js Queries:
+Use Gun.js debugging tools (e.g., gun.stats) to identify and optimize queries causing 1K+ records/second sync warnings.
+Test Data Loading Order:
+Add logging in initializeVisualization to confirm getGame and getAvailableCardsForGame complete before actor and card rendering.
+Verify D3 Initialization:
+Ensure initializeD3Graph in D3CardBoard.svelte only runs after all game data is loaded, using a state flag to track completion.
+Clean Up Subscriptions:
+In onDestroy of D3CardBoard.svelte, ensure all unsubscribe functions are called to prevent memory leaks from Gun.js subscriptions.
+Retest with Clean State:
+Clear localStorage, restart the Replit environment, and reload the game page to verify all issues are resolved, checking console logs for errors.
