@@ -1,7 +1,7 @@
 import { getGun, nodes, generateId, createRelationship } from './gunService';
 import { getCurrentUser } from './authService';
 import type { Game, Actor, Card, Agreement, AgreementWithPosition } from '../types';
-import { GameStatus } from '../types';
+import { GameStatus, AgreementStatus } from '../types';
 import { getPredefinedDeck } from '../data/predefinedDecks';
 import { get } from 'svelte/store';
 import { currentGameStore, setUserGames } from '../stores/gameStore';
@@ -2913,7 +2913,7 @@ export async function createAgreement(
     created_by: currentUser.user_id,
     created_at: createdAt,
     updated_at: createdAt,
-    status: AgreementStatus.PROPOSED,
+    status: 'proposed' as AgreementStatus,
     parties: partiesRecord,
     obligations,
     benefits
@@ -2933,8 +2933,8 @@ export async function createAgreement(
     // The primary write to store the agreement data
     const startTime = performance.now();
     
-    gun.get(nodes.agreements).get(agreementId).put(agreement, (ack) => {
-      if (ack.err) {
+    gun.get(nodes.agreements).get(agreementId).put(agreement, (ack: any) => {
+      if (ack && 'err' in ack) {
         logError(`Error saving agreement: ${ack.err}`);
       } else {
         log(`Agreement saved successfully: ${agreementId}`);
@@ -3061,8 +3061,8 @@ export async function updateAgreement(
     const startTime = performance.now();
     
     // Update the agreement in Gun.js - fire and forget approach
-    gun.get(nodes.agreements).get(agreementId).put(updatedData, (ack) => {
-      if (ack.err) {
+    gun.get(nodes.agreements).get(agreementId).put(updatedData, (ack: any) => {
+      if (ack && 'err' in ack) {
         logError(`Error updating agreement: ${ack.err}`);
       } else {
         log(`Agreement updated successfully: ${agreementId}`);
@@ -3071,9 +3071,11 @@ export async function updateAgreement(
     
     // If parties have changed, update references
     if (updateData.parties) {
-      // Get previous parties to remove old references
-      const previousParties = existingAgreement.parties || [];
-      const newParties = updateData.parties;
+      // Get previous parties to remove old references - convert Record<string, boolean> to string[]
+      const previousParties = Object.keys(existingAgreement.parties || {});
+      // For new parties, ensure it's in the correct format (Record<string, boolean>)
+      const newPartiesRecord = updateData.parties as Record<string, boolean>;
+      const newParties = Object.keys(newPartiesRecord);
       
       // Find parties that need to be removed
       const partiesToRemove = previousParties.filter(actorId => !newParties.includes(actorId));
@@ -3102,14 +3104,14 @@ export async function updateAgreement(
     // DELAYED VERIFICATION - Check and fix if needed
     setTimeout(() => {
       try {
-        gun.get(nodes.agreements).get(agreementId).once((savedAgreement: Agreement) => {
+        gun.get(nodes.agreements).get(agreementId).once((savedAgreement: any) => {
           const fieldsToCheck = Object.keys(updatedData);
           let needsUpdate = false;
           
           fieldsToCheck.forEach(field => {
             // Skip checking updated_at since it's set differently
             if (field !== 'updated_at' && 
-                JSON.stringify(savedAgreement[field]) !== JSON.stringify(updatedData[field])) {
+                JSON.stringify(savedAgreement[field]) !== JSON.stringify((updatedData as any)[field])) {
               needsUpdate = true;
             }
           });
