@@ -2845,3 +2845,299 @@ export function subscribeToGameAgreements(gameId: string, callback: (agreements:
     agreementSubscriptions.forEach(unsub => unsub && unsub());
   };
 }
+
+/**
+ * Create a new agreement between parties in a game
+ * Handles storing the agreement in Gun.js and updating the game's reference
+ * 
+ * @param gameId - The ID of the game this agreement belongs to
+ * @param title - Title of the agreement
+ * @param description - Detailed description of the agreement
+ * @param parties - Array of actor IDs participating in the agreement
+ * @param terms - Object mapping actor IDs to their obligations and benefits
+ * @returns Promise resolving to the created agreement with position data or null if creation failed
+ */
+export async function createAgreement(
+  gameId: string,
+  title: string,
+  description: string,
+  parties: string[],
+  terms: Record<string, { obligations: string[]; benefits: string[] }>
+): Promise<AgreementWithPosition | null> {
+  log(`Creating agreement '${title}' for game: ${gameId}`);
+  
+  const gun = getGun();
+  const currentUser = getCurrentUser();
+  
+  if (!gun || !currentUser) {
+    logError('Gun or user not initialized');
+    return null;
+  }
+  
+  // Verify the game exists
+  const game = await getGame(gameId);
+  if (!game) {
+    logError(`Game not found: ${gameId}`);
+    return null;
+  }
+  
+  // Generate a unique ID for the agreement
+  const agreementId = generateId();
+  
+  // Create the agreement data structure
+  const createdAt = Date.now();
+  
+  // Convert the parties array to the required format (Record<string, boolean>)
+  const partiesRecord: Record<string, boolean> = {};
+  parties.forEach(actorId => {
+    partiesRecord[actorId] = true;
+  });
+  
+  // Convert terms format to the required structure
+  const obligations: Record<string, string> = {};
+  const benefits: Record<string, string> = {};
+  
+  // Process each party's terms
+  Object.entries(terms).forEach(([actorId, actorTerms]) => {
+    // Join obligations and benefits into strings
+    obligations[actorId] = actorTerms.obligations.join("; ");
+    benefits[actorId] = actorTerms.benefits.join("; ");
+  });
+  
+  const agreement: Agreement = {
+    agreement_id: agreementId,
+    game_id: gameId,
+    title,
+    summary: description, // Using description as summary
+    type: 'asymmetric', // Default type
+    created_by: currentUser.user_id,
+    created_at: createdAt,
+    updated_at: createdAt,
+    status: AgreementStatus.PROPOSED,
+    parties: partiesRecord,
+    obligations,
+    benefits
+  };
+  
+  // Create the position data for visualization
+  const agreementWithPosition: AgreementWithPosition = {
+    ...agreement,
+    position: { x: Math.random() * 800, y: Math.random() * 600 }
+  };
+  
+  // Update cache immediately for responsive UI
+  cacheAgreement(agreementId, agreementWithPosition);
+  
+  try {
+    // FIRE-AND-FORGET APPROACH - Non-blocking gun writes
+    // The primary write to store the agreement data
+    const startTime = performance.now();
+    
+    gun.get(nodes.agreements).get(agreementId).put(agreement, (ack) => {
+      if (ack.err) {
+        logError(`Error saving agreement: ${ack.err}`);
+      } else {
+        log(`Agreement saved successfully: ${agreementId}`);
+      }
+    });
+    
+    // Add agreement to the game's agreements collection - try multiple approaches for redundancy
+    
+    // Approach 1: Use set to add reference
+    gun.get(nodes.games).get(gameId).get('agreements').set(
+      gun.get(nodes.agreements).get(agreementId) as any
+    );
+    
+    // Approach 2: Update agreement_ids object map if it exists
+    gun.get(nodes.games).get(gameId).get('agreement_ids').once((ids: any) => {
+      if (ids) {
+        // Add this agreement ID to the existing map
+        const updatedIds = { ...(ids || {}), [agreementId]: true };
+        gun.get(nodes.games).get(gameId).get('agreement_ids').put(updatedIds);
+      } else {
+        // Create a new agreement_ids map
+        gun.get(nodes.games).get(gameId).get('agreement_ids').put({ [agreementId]: true });
+      }
+    });
+    
+    // Create references to the parties (actors)
+    parties.forEach(actorId => {
+      // Reference from agreement to actor
+      gun.get(nodes.agreements).get(agreementId).get('party_refs').set(
+        gun.get(nodes.actors).get(actorId) as any
+      );
+      
+      // Reference from actor to agreement
+      gun.get(nodes.actors).get(actorId).get('agreement_refs').set(
+        gun.get(nodes.agreements).get(agreementId) as any
+      );
+    });
+    
+    // DELAYED VERIFICATION - Check and fix if needed
+    setTimeout(() => {
+      try {
+        gun.get(nodes.agreements).get(agreementId).once((savedAgreement: Agreement) => {
+          if (!savedAgreement) {
+            // Retry the save if it failed
+            log(`Delayed verification: Agreement not found, retrying save for: ${agreementId}`);
+            gun.get(nodes.agreements).get(agreementId).put(agreement);
+          }
+        });
+        
+        // Also verify it's connected to the game
+        gun.get(nodes.games).get(gameId).get('agreement_ids').once((ids: any) => {
+          if (!ids || !ids[agreementId]) {
+            log(`Delayed verification: Agreement not connected to game, fixing: ${agreementId}`);
+            gun.get(nodes.games).get(gameId).get('agreement_ids').get(agreementId).put(true);
+          }
+        });
+      } catch (e) {
+        // Non-fatal error, just log it
+        logWarn(`Error in delayed verification for agreement: ${e}`);
+      }
+    }, 1000); // Check after 1 second
+    
+    log(`Agreement creation initiated: ${agreementId} (${performance.now() - startTime}ms)`);
+    return agreementWithPosition;
+    
+  } catch (error) {
+    logError(`Error in createAgreement: ${error}`);
+    
+    // Even if there's an error, we might have updated the cache successfully
+    // So, we can still return the cached object for UI purposes
+    if (agreementCache.has(agreementId)) {
+      return agreementCache.get(agreementId)!;
+    }
+    
+    return null;
+  }
+}
+
+/**
+ * Update an existing agreement with new data
+ * Only updates the specified fields while preserving position data
+ * 
+ * @param agreementId - The ID of the agreement to update
+ * @param updateData - Partial agreement data with fields to update
+ * @returns Promise resolving to the updated agreement with position or null if update failed
+ */
+export async function updateAgreement(
+  agreementId: string,
+  updateData: Partial<Agreement>
+): Promise<AgreementWithPosition | null> {
+  log(`Updating agreement: ${agreementId}`);
+  
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    return null;
+  }
+  
+  // First get the existing agreement to ensure it exists
+  const existingAgreement = await getAgreement(agreementId);
+  if (!existingAgreement) {
+    logError(`Agreement not found for update: ${agreementId}`);
+    return null;
+  }
+  
+  // Create updated agreement data, adding updated_at timestamp
+  const updatedData = {
+    ...updateData,
+    updated_at: Date.now()
+  };
+  
+  // Preserve position data from existing agreement
+  const updatedAgreement: AgreementWithPosition = {
+    ...existingAgreement,
+    ...updatedData,
+    // Ensure agreement_id is maintained
+    agreement_id: agreementId
+  };
+  
+  // Update cache immediately for responsive UI
+  cacheAgreement(agreementId, updatedAgreement);
+  
+  try {
+    const startTime = performance.now();
+    
+    // Update the agreement in Gun.js - fire and forget approach
+    gun.get(nodes.agreements).get(agreementId).put(updatedData, (ack) => {
+      if (ack.err) {
+        logError(`Error updating agreement: ${ack.err}`);
+      } else {
+        log(`Agreement updated successfully: ${agreementId}`);
+      }
+    });
+    
+    // If parties have changed, update references
+    if (updateData.parties) {
+      // Get previous parties to remove old references
+      const previousParties = existingAgreement.parties || [];
+      const newParties = updateData.parties;
+      
+      // Find parties that need to be removed
+      const partiesToRemove = previousParties.filter(actorId => !newParties.includes(actorId));
+      
+      // Find parties that need to be added
+      const partiesToAdd = newParties.filter(actorId => !previousParties.includes(actorId));
+      
+      // Remove old references
+      partiesToRemove.forEach(actorId => {
+        gun.get(nodes.actors).get(actorId).get('agreement_refs').get(agreementId).put(null);
+        gun.get(nodes.agreements).get(agreementId).get('party_refs').get(actorId).put(null);
+      });
+      
+      // Add new references
+      partiesToAdd.forEach(actorId => {
+        gun.get(nodes.agreements).get(agreementId).get('party_refs').set(
+          gun.get(nodes.actors).get(actorId) as any
+        );
+        
+        gun.get(nodes.actors).get(actorId).get('agreement_refs').set(
+          gun.get(nodes.agreements).get(agreementId) as any
+        );
+      });
+    }
+    
+    // DELAYED VERIFICATION - Check and fix if needed
+    setTimeout(() => {
+      try {
+        gun.get(nodes.agreements).get(agreementId).once((savedAgreement: Agreement) => {
+          const fieldsToCheck = Object.keys(updatedData);
+          let needsUpdate = false;
+          
+          fieldsToCheck.forEach(field => {
+            // Skip checking updated_at since it's set differently
+            if (field !== 'updated_at' && 
+                JSON.stringify(savedAgreement[field]) !== JSON.stringify(updatedData[field])) {
+              needsUpdate = true;
+            }
+          });
+          
+          if (needsUpdate) {
+            // Retry the update if it failed or was incomplete
+            log(`Delayed verification: Agreement update incomplete, retrying for: ${agreementId}`);
+            gun.get(nodes.agreements).get(agreementId).put(updatedData);
+          }
+        });
+      } catch (e) {
+        // Non-fatal error, just log it
+        logWarn(`Error in delayed verification for agreement update: ${e}`);
+      }
+    }, 1000); // Check after 1 second
+    
+    log(`Agreement update initiated: ${agreementId} (${performance.now() - startTime}ms)`);
+    return updatedAgreement;
+    
+  } catch (error) {
+    logError(`Error in updateAgreement: ${error}`);
+    
+    // Even if there's an error, we might have updated the cache successfully
+    // So, we can still return the cached object for UI purposes
+    if (agreementCache.has(agreementId)) {
+      return agreementCache.get(agreementId)!;
+    }
+    
+    return null;
+  }
+}
