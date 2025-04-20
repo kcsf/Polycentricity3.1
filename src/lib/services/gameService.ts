@@ -44,6 +44,10 @@ function cacheRole(gameId: string, userId: string, actorId: string): void {
   roleCache.set(key, actorId);
 }
 
+function cacheAgreement(agreementId: string, agreement: AgreementWithPosition): void {
+  agreementCache.set(agreementId, { ...agreement, agreement_id: agreementId });
+}
+
 // Create a new game with improved reliability and performance - FIRE AND FORGET approach
 export async function createGame(
   name: string,
@@ -236,6 +240,63 @@ export async function getGame(gameId: string): Promise<Game | null> {
       cacheGame(gameId, gameData);
       log(`Game retrieved: ${gameId}`);
       resolve(gameData);
+    });
+  });
+}
+
+/**
+ * Get an agreement by ID with caching
+ * This follows the same pattern as getGame and getCard for consistent API
+ * 
+ * @param agreementId - The ID of the agreement to retrieve
+ * @returns Promise resolving to the agreement with position data or null if not found
+ */
+export async function getAgreement(agreementId: string): Promise<AgreementWithPosition | null> {
+  log(`Getting agreement: ${agreementId}`);
+  
+  // Return from cache if available
+  if (agreementCache.has(agreementId)) {
+    log(`Cache hit for agreement: ${agreementId}`);
+    return agreementCache.get(agreementId)!;
+  }
+
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    // Set a timeout to ensure we don't hang indefinitely
+    const timeout = setTimeout(() => {
+      log(`Get agreement timed out after 2s: ${agreementId}`);
+      resolve(null);
+    }, 2000);
+    
+    gun.get(nodes.agreements).get(agreementId).once((agreement: Agreement) => {
+      clearTimeout(timeout);
+      
+      if (!agreement) {
+        log(`Agreement not found: ${agreementId}`);
+        resolve(null);
+        return;
+      }
+      
+      // Add agreement_id property if it's not already there
+      if (!agreement.agreement_id) {
+        agreement.agreement_id = agreementId;
+      }
+      
+      // Add position data for visualization
+      const agreementWithPosition: AgreementWithPosition = {
+        ...agreement,
+        position: { x: Math.random() * 800, y: Math.random() * 600 }
+      };
+      
+      // Cache for future use
+      cacheAgreement(agreementId, agreementWithPosition);
+      log(`Agreement retrieved: ${agreementId}`);
+      resolve(agreementWithPosition);
     });
   });
 }
@@ -2485,4 +2546,299 @@ export async function assignCardToActor(actorId: string, cardId: string): Promis
     // So, we can still return true for UI purposes
     return actorCache.has(actorId); // Return true if we at least cached the change
   }
+}
+
+/**
+ * Get all available agreements for a game
+ * Efficiently retrieves and caches agreements with batched processing
+ * 
+ * @param gameId - The ID of the game to get agreements for
+ * @returns Promise resolving to an array of AgreementWithPosition objects
+ */
+export async function getAvailableAgreementsForGame(gameId: string): Promise<AgreementWithPosition[]> {
+  log(`Getting all agreements for game: ${gameId}`);
+  
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    return [];
+  }
+  
+  // First get the game to access its agreement_ids
+  const game = await getGame(gameId);
+  if (!game) {
+    log(`Game not found: ${gameId}`);
+    return [];
+  }
+  
+  // If the game has no agreements, return empty array
+  if (!game.agreement_ids) {
+    log(`Game has no agreement_ids: ${gameId}`);
+    return [];
+  }
+  
+  // Extract agreement IDs from game data, handling different formats
+  const agreementIds: string[] = [];
+  
+  if (Array.isArray(game.agreement_ids)) {
+    // Handle array format
+    agreementIds.push(...game.agreement_ids);
+  } else if (typeof game.agreement_ids === 'object') {
+    // Handle object format (Gun.js style)
+    if (game.agreement_ids['#']) {
+      // This is a Gun.js reference, need to resolve it first
+      log(`agreement_ids is a Gun.js reference, resolving: ${gameId}`);
+      
+      return new Promise((resolve) => {
+        const agreementsList: AgreementWithPosition[] = [];
+        let hasReceivedData = false;
+        
+        // Set a timeout to prevent UI hanging
+        const timeout = setTimeout(() => {
+          log(`Agreement lookup timed out after 3s for game: ${gameId}`);
+          resolve(agreementsList);
+        }, 3000);
+        
+        // Look for all agreements belonging to this game
+        gun.get(nodes.agreements).map().once((agreement: Agreement, agreementId: string) => {
+          if (agreement && agreement.game_id === gameId && agreementId !== '_') {
+            hasReceivedData = true;
+            const agreementWithPos: AgreementWithPosition = {
+              ...agreement,
+              agreement_id: agreementId,
+              position: { x: Math.random() * 800, y: Math.random() * 600 }
+            };
+            
+            // Cache for future use
+            cacheAgreement(agreementId, agreementWithPos);
+            agreementsList.push(agreementWithPos);
+          }
+        });
+        
+        // Wait for some data or timeout
+        setTimeout(() => {
+          clearTimeout(timeout);
+          log(`Retrieved ${agreementsList.length} agreements for game: ${gameId}`);
+          resolve(agreementsList);
+        }, hasReceivedData ? 500 : 1500); // Adjust timing based on data received
+      });
+    } else {
+      // Handle object with keys as agreement IDs
+      Object.keys(game.agreement_ids).forEach(key => {
+        if (key !== '_' && game.agreement_ids[key]) {
+          agreementIds.push(key);
+        }
+      });
+    }
+  }
+  
+  // Process agreements in batches of 10 to avoid overwhelming Gun.js
+  log(`Processing ${agreementIds.length} agreement IDs for game: ${gameId}`);
+  
+  // Use cached agreements when available
+  const cachedAgreements: AgreementWithPosition[] = [];
+  const uncachedIds: string[] = [];
+  
+  agreementIds.forEach(id => {
+    if (agreementCache.has(id)) {
+      cachedAgreements.push(agreementCache.get(id)!);
+    } else {
+      uncachedIds.push(id);
+    }
+  });
+  
+  // If all agreements are cached, return them immediately
+  if (uncachedIds.length === 0) {
+    log(`All ${cachedAgreements.length} agreements found in cache for game: ${gameId}`);
+    return cachedAgreements;
+  }
+  
+  // Process uncached agreements in batches
+  const batchSize = 10;
+  const agreements = [...cachedAgreements];
+  
+  for (let i = 0; i < uncachedIds.length; i += batchSize) {
+    const batch = uncachedIds.slice(i, i + batchSize);
+    log(`Processing batch of ${batch.length} agreements (${i + 1} to ${Math.min(i + batchSize, uncachedIds.length)} of ${uncachedIds.length})`);
+    
+    const results = await Promise.all(
+      batch.map(id => getAgreement(id))
+    );
+    
+    // Add non-null results to the agreements array
+    results.forEach(agreement => {
+      if (agreement) {
+        agreements.push(agreement);
+      }
+    });
+  }
+  
+  log(`Retrieved ${agreements.length} agreements for game: ${gameId}`);
+  return agreements;
+}
+
+/**
+ * Subscribe to agreements in a game with real-time updates
+ * 
+ * @param gameId - The game ID to monitor for agreements
+ * @param callback - Function to call when agreement data changes
+ * @returns Function to unsubscribe
+ */
+export function subscribeToGameAgreements(gameId: string, callback: (agreements: AgreementWithPosition[]) => void): () => void {
+  log(`Setting up subscription to agreements for game: ${gameId}`);
+  
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    return () => {}; // Empty unsubscribe function
+  }
+  
+  let agreementSubscriptions: any[] = [];
+  let initialLoad = true;
+  let agreementIds: string[] = [];
+  
+  // Main subscription for the agreement_ids reference in the game
+  const gameSubscription = gun.get(nodes.games).get(gameId).on((gameData: Game) => {
+    if (!gameData) return;
+    
+    if (gameData.agreement_ids) {
+      if (typeof gameData.agreement_ids === 'object') {
+        if (gameData.agreement_ids['#']) {
+          // This is a Gun.js reference, we need to listen directly on the agreements collection
+          // Clear any existing subscriptions first to avoid duplicates
+          agreementSubscriptions.forEach(unsub => unsub && unsub());
+          agreementSubscriptions = [];
+          
+          // Set up a map subscription to catch all relevant agreements
+          const mapSubscription = gun.get(nodes.agreements).map().on((agreement: Agreement, agreementId: string) => {
+            if (agreement && agreement.game_id === gameId && agreementId !== '_') {
+              // Update cache with the latest data
+              const agreementWithPos: AgreementWithPosition = {
+                ...agreement,
+                agreement_id: agreementId,
+                // Maintain position if already cached, otherwise generate new position
+                position: agreementCache.has(agreementId) 
+                  ? agreementCache.get(agreementId)!.position
+                  : { x: Math.random() * 800, y: Math.random() * 600 }
+              };
+              
+              // Update cache
+              cacheAgreement(agreementId, agreementWithPos);
+              
+              // Collect all current agreements and send them to callback
+              const agreements = Array.from(agreementCache.values())
+                .filter(a => a.game_id === gameId);
+              
+              callback(agreements);
+            }
+          });
+          
+          agreementSubscriptions.push(() => gun.get(nodes.agreements).map().off());
+        } else {
+          // Regular object with keys as agreement IDs
+          const agreementIdsObj = gameData.agreement_ids as Record<string, any>;
+          const newIds = Object.keys(agreementIdsObj)
+            .filter(key => key !== '_' && agreementIdsObj[key]);
+          
+          // Check if the IDs have changed
+          if (JSON.stringify(newIds.sort()) !== JSON.stringify(agreementIds.sort())) {
+            agreementIds = [...newIds];
+            
+            // Clear existing subscriptions
+            agreementSubscriptions.forEach(unsub => unsub && unsub());
+            agreementSubscriptions = [];
+            
+            // Set up individual subscriptions for each agreement
+            agreementIds.forEach(agreementId => {
+              const subscription = gun.get(nodes.agreements).get(agreementId).on((agreement: Agreement) => {
+                if (agreement) {
+                  // Ensure agreement_id is set
+                  if (!agreement.agreement_id) {
+                    agreement.agreement_id = agreementId;
+                  }
+                  
+                  // Create AgreementWithPosition object
+                  const agreementWithPos: AgreementWithPosition = {
+                    ...agreement,
+                    position: agreementCache.has(agreementId)
+                      ? agreementCache.get(agreementId)!.position
+                      : { x: Math.random() * 800, y: Math.random() * 600 }
+                  };
+                  
+                  // Update cache
+                  cacheAgreement(agreementId, agreementWithPos);
+                  
+                  // Get all current agreements from cache
+                  const agreements = agreementIds
+                    .map(id => agreementCache.get(id))
+                    .filter((a): a is AgreementWithPosition => a !== undefined);
+                  
+                  callback(agreements);
+                }
+              });
+              
+              agreementSubscriptions.push(() => gun.get(nodes.agreements).get(agreementId).off());
+            });
+          }
+        }
+      } else if (Array.isArray(gameData.agreement_ids)) {
+        // Array format
+        const newIds = [...gameData.agreement_ids];
+        
+        // Check if the IDs have changed
+        if (JSON.stringify(newIds.sort()) !== JSON.stringify(agreementIds.sort())) {
+          agreementIds = [...newIds];
+          
+          // Clear existing subscriptions
+          agreementSubscriptions.forEach(unsub => unsub && unsub());
+          agreementSubscriptions = [];
+          
+          // Set up individual subscriptions
+          agreementIds.forEach(agreementId => {
+            const subscription = gun.get(nodes.agreements).get(agreementId).on((agreement: Agreement) => {
+              if (agreement) {
+                // Create AgreementWithPosition object
+                const agreementWithPos: AgreementWithPosition = {
+                  ...agreement,
+                  agreement_id: agreementId,
+                  position: agreementCache.has(agreementId)
+                    ? agreementCache.get(agreementId)!.position
+                    : { x: Math.random() * 800, y: Math.random() * 600 }
+                };
+                
+                // Update cache
+                cacheAgreement(agreementId, agreementWithPos);
+                
+                // Get all current agreements from cache
+                const agreements = agreementIds
+                  .map(id => agreementCache.get(id))
+                  .filter((a): a is AgreementWithPosition => a !== undefined);
+                
+                callback(agreements);
+              }
+            });
+            
+            agreementSubscriptions.push(() => gun.get(nodes.agreements).get(agreementId).off());
+          });
+        }
+      }
+    }
+    
+    // For initial load, also get agreements directly
+    if (initialLoad) {
+      initialLoad = false;
+      getAvailableAgreementsForGame(gameId).then(agreements => {
+        if (agreements.length > 0) {
+          callback(agreements);
+        }
+      });
+    }
+  });
+  
+  // Return unsubscribe function
+  return () => {
+    log(`Unsubscribing from agreements for game: ${gameId}`);
+    gun.get(nodes.games).get(gameId).off();
+    agreementSubscriptions.forEach(unsub => unsub && unsub());
+  };
 }
