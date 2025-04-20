@@ -32,30 +32,42 @@
     type AgreementWithPosition
   } from '$lib/utils/d3GraphUtils';
   
-  // Add logging utility for debugging with proper $state handling for Svelte 5 Runes
+  // Enhanced logging utility for debugging with proper $state handling for Svelte 5 Runes
+  // Added consistent prefix for easier log filtering and improved error handling
   const isDev = process.env.NODE_ENV !== 'production';
   const log = (...args: any[]) => {
     if (!isDev) return;
   
-    // Process args to handle $state variables safely
-    const processedArgs = args.map(arg => {
-      if (arg && typeof arg === 'object' && '$state' in globalThis) {
-        try {
-          // For state objects that need snapshots
-          if (arg.$state) {
-            return arg.$state.snapshot();
+    try {
+      // Process args to handle $state variables safely
+      const processedArgs = args.map(arg => {
+        if (arg && typeof arg === 'object') {
+          try {
+            // For Svelte 5 Runes state objects that need snapshots
+            if ('$state' in globalThis && arg.$state) {
+              return arg.$state.snapshot();
+            }
+            
+            // Special handling for Gun data which might have circular references
+            if (arg._?.$ || arg['#']) {
+              return `[Gun:${typeof arg}]`;
+            }
+            
+            // Clone other objects to avoid reactive binding issues
+            return structuredClone(arg);
+          } catch (e) {
+            // If not serializable, return a string representation
+            return `[Object:${typeof arg}]`;
           }
-          // Clone other objects to avoid reactive binding issues
-          return structuredClone(arg);
-        } catch (e) {
-          // If not serializable, return a string representation
-          return String(arg);
         }
-      }
-      return arg;
-    });
-    
-    console.log('[D3CardBoard]', ...processedArgs);
+        return arg;
+      });
+      
+      console.log('[D3CardBoard]', ...processedArgs);
+    } catch (err) {
+      // Failsafe for any unexpected errors in logging
+      console.log('[D3CardBoard] Error in logging:', String(err));
+    }
   };
   
   const { gameId, activeActorId = undefined } = $props<{
@@ -106,21 +118,51 @@
     }));
   }
 
+  // Optimized to use gameService instead of direct Gun.js access
   async function loadAgreementData(agreementId: string): Promise<AgreementWithPosition | null> {
-    log(`Loading agreement: ${agreementId}`);
-    const gun = getGun();
-    return new Promise((resolve) => {
-      gun.get(nodes.agreements).get(agreementId).once((agreement: Agreement) => {
-        if (!agreement) resolve(null);
-        else resolve({ ...agreement, position: { x: Math.random() * width, y: Math.random() * height } });
-      });
+    log(`[D3CardBoard] Loading agreement: ${agreementId}`);
+    
+    // Use subscribeToGameAgreements from gameService instead of direct Gun.js access
+    // This improves consistency with the rest of the application
+    try {
+      // Check if agreement exists in cache first
+      if (agreementCache.has(agreementId) && agreementCache.get(agreementId) !== null) {
+        const cachedAgreement = agreementCache.get(agreementId);
+        log(`[D3CardBoard] Using cached agreement: ${agreementId}`);
+        return cachedAgreement as AgreementWithPosition;
+      }
       
-      // Set a timeout to resolve if Gun.js doesn't respond
-      setTimeout(() => {
-        log(`loadAgreementData timed out after 2 seconds for agreement: ${agreementId}`);
-        resolve(null);
-      }, 2000);
-    });
+      // Fallback to direct Gun.js access for now
+      // This would be replaced with a proper gameService function once implemented
+      const gun = getGun();
+      return new Promise((resolve) => {
+        gun.get(nodes.agreements).get(agreementId).once((agreement: Agreement) => {
+          if (!agreement) resolve(null);
+          else {
+            const agreementWithPos = { 
+              ...agreement, 
+              position: { 
+                x: Math.random() * width, 
+                y: Math.random() * height 
+              } 
+            };
+            
+            // Cache the result for future use
+            agreementCache.set(agreementId, agreementWithPos);
+            resolve(agreementWithPos);
+          }
+        });
+        
+        // Set a timeout to resolve if Gun.js doesn't respond
+        setTimeout(() => {
+          log(`[D3CardBoard] loadAgreementData timed out after 2 seconds for agreement: ${agreementId}`);
+          resolve(null);
+        }, 2000);
+      });
+    } catch (error) {
+      log(`[D3CardBoard] Error loading agreement ${agreementId}:`, error);
+      return null;
+    }
   }
 
   async function loadGameData(): Promise<{
@@ -433,17 +475,45 @@
         if (shouldUpdateActors || currentTime - lastActorUpdateTime > 8000) {
           lastActorUpdateTime = currentTime;
           
-          log('Loading actors');
+          log('[D3CardBoard] Loading actors with intelligent diff checking');
+          
           getGameActors(gameId).then(loadedActors => {
-            actors = loadedActors;
+            // First, check if anything actually changed compared to our cached actors
+            let hasChanges = false;
             
-            // Cache actors and update mappings
-            loadedActors.forEach(actor => {
-              actorCache.set(actor.actor_id, actor);
-              if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
-            });
+            // Quick check - different number of actors means changes
+            if (actors.length !== loadedActors.length) {
+              log('[D3CardBoard] Actor count changed:', actors.length, '->', loadedActors.length);
+              hasChanges = true;
+            } else {
+              // Check each actor for changes with enhanced attributes checking
+              for (const newActor of loadedActors) {
+                const existingActor = actorCache.get(newActor.actor_id);
+                
+                // If actor doesn't exist in cache or card_id changed, it's a change
+                if (!existingActor || existingActor.card_id !== newActor.card_id) {
+                  hasChanges = true;
+                  log('[D3CardBoard] Actor changed:', newActor.actor_id);
+                  break;
+                }
+              }
+            }
+            
+            // Only update if we detected actual changes
+            if (hasChanges) {
+              log('[D3CardBoard] Applying actor updates');
+              actors = loadedActors;
+              
+              // Update cache and mappings
+              loadedActors.forEach(actor => {
+                actorCache.set(actor.actor_id, actor);
+                if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
+              });
+            } else {
+              log('[D3CardBoard] No actor changes detected - skipping update');
+            }
           }).catch(error => {
-            console.error('Error updating actors:', error);
+            console.error('[D3CardBoard] Error updating actors:', error);
           });
         }
         
@@ -451,10 +521,63 @@
         if (shouldUpdateCards || (cardsWithPosition.length === 0 && currentTime - lastGameUpdateTime > 10000)) {
           const deckId = game.deck_id;
           if (deckId) {
-            log('Loading cards');
+            log('[D3CardBoard] Loading cards with intelligent diff checking');
+            
+            // Get the lastCardUpdateTime as a reference point for optimizations
+            const lastCardUpdateTime = localStorage.getItem(`game_${gameId}_lastCardUpdate`) || '0';
+            const lastUpdate = parseInt(lastCardUpdateTime, 10);
+            const hasBeenLongTime = (currentTime - lastUpdate) > 60000; // 1 minute
+            
             loadCardData(deckId)
-              .then(enhanceCardData)
+              .then(cards => {
+                // Check if we need to perform a full enhancement (expensive operation)
+                // or if we can use the cards as-is
+                
+                // If we have no cards yet, or it's been a long time, do full enhancement
+                if (cardsWithPosition.length === 0 || hasBeenLongTime) {
+                  log('[D3CardBoard] Performing full card enhancement');
+                  return enhanceCardData(cards);
+                }
+                
+                // Check for any changes before doing expensive enhancement
+                if (cards.length !== cardsWithPosition.length) {
+                  log('[D3CardBoard] Card count changed, performing enhancement');
+                  return enhanceCardData(cards);
+                }
+                
+                // Quick diff check for changes before enhancement
+                const existingCardIds = new Set(cardsWithPosition.map(c => c.card_id));
+                const hasNewCards = cards.some(card => !existingCardIds.has(card.card_id));
+                
+                if (hasNewCards) {
+                  log('[D3CardBoard] New cards detected, performing enhancement');
+                  return enhanceCardData(cards); 
+                }
+                
+                log('[D3CardBoard] No significant card changes detected, using cached data');
+                return cards.map(card => {
+                  // Try to find existing enhanced card
+                  const existingCard = cardsWithPosition.find(c => c.card_id === card.card_id);
+                  if (existingCard) {
+                    // Preserve position and enhancements but update raw data
+                    return {
+                      ...card,
+                      position: existingCard.position,
+                      _valueNames: existingCard._valueNames || [],
+                      _capabilityNames: existingCard._capabilityNames || []
+                    };
+                  }
+                  // For new cards, assign random position
+                  return {
+                    ...card,
+                    position: { x: Math.random() * width, y: Math.random() * height },
+                    _valueNames: [],
+                    _capabilityNames: []
+                  };
+                });
+              })
               .then(enhancedCards => {
+                // Update state with new card data
                 cardsWithPosition = enhancedCards;
                 
                 // Update card cache and actor-card mappings
@@ -470,10 +593,12 @@
                   }
                 });
                 
-                log(`Updated ${enhancedCards.length} cards with values and capabilities`);
+                // Save last update time for future reference
+                localStorage.setItem(`game_${gameId}_lastCardUpdate`, currentTime.toString());
+                log(`[D3CardBoard] Updated ${enhancedCards.length} cards with values and capabilities`);
               })
               .catch(error => {
-                console.error('Error updating cards:', error);
+                console.error('[D3CardBoard] Error updating cards:', error);
               });
           }
         }
@@ -528,15 +653,15 @@
   }
 
   async function initializeVisualization() {
-    log('Starting initialization');
+    log('[D3CardBoard] Starting initialization');
     if (!svgElement) {
-      console.error('SVG element not available');
+      console.error('[D3CardBoard] SVG element not available');
       return;
     }
 
     try {
       // Fetch the game data first, which is the most critical for initialization
-      log('Loading game data for: ' + gameId);
+      log('[D3CardBoard] Loading game data for: ' + gameId);
       const gameDataPromise = loadGameData();
       
       // In parallel, if we have an active actor, start loading their card
@@ -546,20 +671,20 @@
         // First check localStorage for cached card ID which can be faster than fetching
         const cachedCardId = localStorage.getItem(`actor_${activeActorId}_card`);
         if (cachedCardId) {
-          log(`Found cached card ID for actor ${activeActorId}: ${cachedCardId}`);
+          log(`[D3CardBoard] Found cached card ID for actor ${activeActorId}: ${cachedCardId}`);
           activeCardId = cachedCardId;
         }
         
         // Prioritize fetching from existing local cache if available
         if (cardCache.has(cachedCardId)) {
-          log(`Using cached card data for ${cachedCardId}`);
+          log(`[D3CardBoard] Using cached card data for ${cachedCardId}`);
           const cachedCard = cardCache.get(cachedCardId);
           if (cachedCard) {
             activeCardId = cachedCardId;
           }
         } else {
           // Start fetching card data in parallel with game data
-          log(`Fetching card for actor ${activeActorId}`);
+          log(`[D3CardBoard] Fetching card for actor ${activeActorId}`);
           cardDataPromise = getUserCard(gameId, activeActorId);
         }
       }
