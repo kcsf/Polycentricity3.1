@@ -235,6 +235,92 @@ export async function removeUser(userId: string): Promise<{success: boolean, err
 }
 
 /**
+ * Removes all actors from the database
+ * @returns Promise<{success: boolean, removed: number, error?: string}>
+ */
+export async function cleanupAllActors(): Promise<{success: boolean, removed: number, error?: string}> {
+  try {
+    const gun = getGun();
+    if (!gun) {
+      return { success: false, removed: 0, error: 'Gun database is not initialized' };
+    }
+
+    // Count of how many actors were removed
+    let removedCount = 0;
+    
+    return new Promise((resolve) => {
+      // This will get all actor nodes
+      gun.get(nodes.actors).map().once((actorData: any, actorId: string) => {
+        if (!actorData) return;
+        
+        // Delete this actor node by setting it to null
+        console.log(`Removing actor: ${actorId}`);
+        gun.get(nodes.actors).get(actorId).put(null);
+        removedCount++;
+      });
+
+      // Give it some time to process all deletions
+      setTimeout(() => {
+        resolve({
+          success: true,
+          removed: removedCount,
+        });
+      }, 2000);
+    });
+  } catch (error) {
+    console.error('Error cleaning up actors:', error);
+    return {
+      success: false,
+      removed: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Removes all agreements from the database
+ * @returns Promise<{success: boolean, removed: number, error?: string}>
+ */
+export async function cleanupAllAgreements(): Promise<{success: boolean, removed: number, error?: string}> {
+  try {
+    const gun = getGun();
+    if (!gun) {
+      return { success: false, removed: 0, error: 'Gun database is not initialized' };
+    }
+
+    // Count of how many agreements were removed
+    let removedCount = 0;
+    
+    return new Promise((resolve) => {
+      // This will get all agreement nodes
+      gun.get(nodes.agreements).map().once((agreementData: any, agreementId: string) => {
+        if (!agreementData) return;
+        
+        // Delete this agreement node by setting it to null
+        console.log(`Removing agreement: ${agreementId}`);
+        gun.get(nodes.agreements).get(agreementId).put(null);
+        removedCount++;
+      });
+
+      // Give it some time to process all deletions
+      setTimeout(() => {
+        resolve({
+          success: true,
+          removed: removedCount,
+        });
+      }, 2000);
+    });
+  } catch (error) {
+    console.error('Error cleaning up agreements:', error);
+    return {
+      success: false,
+      removed: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
  * Enhance all cards with additional values and capabilities
  * This ensures all cards have at least 3 values and 3 capabilities for visualization purposes
  * 

@@ -162,7 +162,15 @@
   }
   
   // Cleanup functions
-  import { cleanupAllUsers, cleanupAllGames, cleanupAllDecks, cleanupAllCards, enhanceCardValuesAndCapabilities } from '$lib/services/cleanupService';
+  import { 
+    cleanupAllUsers, 
+    cleanupAllGames, 
+    cleanupAllDecks, 
+    cleanupAllCards, 
+    cleanupAllActors,
+    cleanupAllAgreements,
+    enhanceCardValuesAndCapabilities 
+  } from '$lib/services/cleanupService';
   
   let cleanupLoading = $state(false);
   let cleanupError = $state<string | null>(null);
@@ -257,6 +265,50 @@
       cleanupSuccess = cleanupResult.success;
     } catch (err) {
       console.error('Error cleaning up users:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupActors() {
+    if (!confirm('Are you sure you want to remove ALL actors? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all actors');
+      cleanupResult = await cleanupAllActors();
+      console.log('Actors cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+    } catch (err) {
+      console.error('Error cleaning up actors:', err);
+      cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
+    } finally {
+      cleanupLoading = false;
+    }
+  }
+  
+  async function handleCleanupAgreements() {
+    if (!confirm('Are you sure you want to remove ALL agreements? This action cannot be undone.')) {
+      return;
+    }
+    
+    cleanupLoading = true;
+    cleanupError = null;
+    cleanupSuccess = false;
+    
+    try {
+      console.log('Starting cleanup of all agreements');
+      cleanupResult = await cleanupAllAgreements();
+      console.log('Agreements cleanup complete', cleanupResult);
+      cleanupSuccess = cleanupResult.success;
+    } catch (err) {
+      console.error('Error cleaning up agreements:', err);
       cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
     } finally {
       cleanupLoading = false;
@@ -766,6 +818,38 @@
               >
                 <svelte:component this={icons.FileText} class="w-4 h-4 mr-2" />
                 Remove All Cards
+              </button>
+            </div>
+            
+            <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+              <h5 class="font-semibold mb-2">Remove All Actors</h5>
+              <p class="text-xs mb-4">
+                This will permanently delete all actors in the database. This action cannot be undone.
+              </p>
+              <button 
+                type="button"
+                class="btn preset-filled-primary-500 w-full" 
+                onclick={handleCleanupActors}
+                disabled={cleanupLoading}
+              >
+                <svelte:component this={icons.Users} class="w-4 h-4 mr-2" />
+                Remove All Actors
+              </button>
+            </div>
+            
+            <div class="p-4 bg-error-500/10 border border-error-500 rounded">
+              <h5 class="font-semibold mb-2">Remove All Agreements</h5>
+              <p class="text-xs mb-4">
+                This will permanently delete all agreements in the database. This action cannot be undone.
+              </p>
+              <button 
+                type="button"
+                class="btn preset-filled-primary-500 w-full"
+                onclick={handleCleanupAgreements}
+                disabled={cleanupLoading}
+              >
+                <svelte:component this={icons.FileContract} class="w-4 h-4 mr-2" />
+                Remove All Agreements
               </button>
             </div>
           </div>
