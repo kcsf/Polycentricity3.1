@@ -1,6 +1,6 @@
 import { getGun, nodes, generateId, createRelationship } from './gunService';
 import { getCurrentUser } from './authService';
-import type { Game, Actor, Card } from '../types';
+import type { Game, Actor, Card, Agreement, AgreementWithPosition } from '../types';
 import { GameStatus } from '../types';
 import { getPredefinedDeck } from '../data/predefinedDecks';
 import { get } from 'svelte/store';
@@ -10,10 +10,11 @@ import { currentGameStore, setUserGames } from '../stores/gameStore';
 const gameCache = new Map<string, Game>();
 const actorCache = new Map<string, Actor>();
 const cardCache = new Map<string, Card>();
+const agreementCache = new Map<string, AgreementWithPosition>();
 const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 
-// Export actorCache for external use
-export { actorCache };
+// Export caches for external use
+export { actorCache, cardCache, agreementCache };
 
 // REMOVED: Helper function to get an actor by ID (getActorById)
 // Replaced with getPlayerRole or getUserActors as these provide more comprehensive checks
