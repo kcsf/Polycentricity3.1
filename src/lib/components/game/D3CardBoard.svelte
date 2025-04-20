@@ -457,17 +457,26 @@
 
     try {
       if (activeActorId) {
-        // Add timeout protection for getUserCard
+        // Add timeout protection for getUserCard with extended timeout (5s instead of 3s)
+        // to match the improved getUserCard implementation with better retry logic
         const cardPromise = getUserCard(gameId, activeActorId);
         const cardTimeout = new Promise<null>((resolve) => {
           setTimeout(() => {
-            log('getUserCard timed out after 3 seconds');
+            log('getUserCard timed out after 5 seconds');
             resolve(null);
-          }, 3000);
+          }, 5000);
         });
         
+        // Use a longer timeout and log what's happening more clearly
+        log(`Fetching card for actor ${activeActorId}`);
         const card = await Promise.race([cardPromise, cardTimeout]);
-        if (card) activeCardId = card.card_id;
+        
+        if (card) {
+          log(`Successfully loaded card ${card.card_id}`);
+          activeCardId = card.card_id;
+        } else {
+          log(`No card found for actor ${activeActorId} after timeout`);
+        }
       }
 
       const { cards, agreements: loadedAgreements, actors: loadedActors } = await loadGameData();

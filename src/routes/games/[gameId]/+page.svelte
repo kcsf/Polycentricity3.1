@@ -115,6 +115,10 @@
     }
     
     // Logic to load the current user's actor in this game
+    /**
+     * Load the user's actor in the current game with optimized database access
+     * using Svelte 5 Runes mode patterns
+     */
     async function loadUserActor() {
         if (!game || !$userStore.user) return null;
         
@@ -122,15 +126,19 @@
             const userId = $userStore.user.user_id;
             log(`Loading user ${userId} actor for game ${gameId}`);
             
-            // Define retry settings
-            const maxAttempts = 2;
-            const backoffMs = 500;
+            // Define retry settings with improved timing
+            const maxAttempts = 3; // Increased from 2
+            const backoffMs = 800; // Increased from 500ms
             
-            // Create a timeout for the entire function
-            const globalTimeout = setTimeout(() => {
-                log('loadUserActor timed out globally after 10 seconds');
-                isLoading = false; // Force loading to complete even if actor not found
-            }, 10000);
+            // Create a timeout for the entire function that resolves immediately
+            // This helps prevent hanging the UI if database operations stall
+            const globalTimeoutPromise = new Promise<null>((resolve) => {
+                setTimeout(() => {
+                    log('loadUserActor timed out globally after 15 seconds');
+                    isLoading = false; // Force loading to complete even if actor not found
+                    resolve(null);
+                }, 15000); // Increased from 10000ms
+            });
             
             // First look for the user's actor among game actors with timeout protection
             const actorsPromise = getGameActors(gameId);
