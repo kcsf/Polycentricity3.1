@@ -6,7 +6,7 @@
     import { currentGameStore } from '$lib/stores/gameStore';
     import { activeActorId } from '$lib/stores/enhancedGameStore';
     import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame, getPlayerRole, 
-        getAvailableCardsForGame, getAvailableAgreementsForGame } from '$lib/services/gameService';
+        getAvailableCardsForGame, getAvailableAgreementsForGame, actorCache } from '$lib/services/gameService';
     import { getGun, nodes } from '$lib/services/gunService';
     import type { Game, Actor } from '$lib/types';
     import { GameStatus } from '$lib/types';
@@ -142,8 +142,7 @@
             const userId = $userStore.user.user_id;
             log(`Looking up actor for user ${userId} in game ${gameId} using cached data`);
             
-            // Import actorCache to access it directly
-            import { actorCache } from '$lib/services/gameService';
+            // We already imported actorCache at the top of the file
             
             // Define a common function to set the actor data and return it
             const setActor = (actor: Actor) => {
@@ -272,111 +271,120 @@
                     const mapPath = game.player_actor_map['#'];
                     const gun = getGun();
                             
-                            // Create a non-undefined player_actor_map if it doesn't exist
-                            gun.get(mapPath).put({}, (ack) => {
-                                if (ack.err) {
-                                    log('Error initializing player_actor_map:', ack.err);
-                                } else {
-                                    log('player_actor_map initialized successfully');
-                                }
-                            });
-                            
-                            // Use a direct lookup with the user ID as key
-                            const mappedActorId = await new Promise<string | null>((resolve) => {
-                                gun.get(mapPath).get(userId).once((actorId: string) => {
-                                    if (actorId) {
-                                        log(`Direct map lookup found: ${userId} -> ${actorId}`);
-                                        resolve(actorId);
-                                    } else {
-                                        log(`Direct map lookup found no mapping for user ${userId}`);
-                                        resolve(null);
-                                    }
-                                });
-                                
-                                // Also set a timeout to avoid hanging
-                                setTimeout(() => resolve(null), 1000);
-                            });
-                            
-                            if (mappedActorId) {
-                                log(`Found actor mapping via direct Gun.js lookup: user ${userId} -> actor ${mappedActorId}`);
-                                
-                                try {
-                                    // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
-                                    log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId}) with retries`);
-                                    
-                                    let mappedActor = null;
-                                    
-                                    // Try up to maxAttempts times with backoff
-                                    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                                        try {
-                                            log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
-                                            const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
-                                            const roleTimeout = new Promise<null>((resolve) => {
-                                                setTimeout(() => {
-                                                    log(`getPlayerRole attempt ${attempt} timed out`);
-                                                    resolve(null);
-                                                }, 2000);
-                                            });
-                                            
-                                            mappedActor = await Promise.race([rolePromise, roleTimeout]);
-                                            
-                                            if (mappedActor) {
-                                                log(`Successfully retrieved mapped actor ${mappedActor.actor_id} on attempt ${attempt}`);
-                                                break; // Success, exit the retry loop
-                                            } else if (attempt < maxAttempts) {
-                                                log(`Retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
-                                                await new Promise(resolve => setTimeout(resolve, backoffMs));
-                                            }
-                                        } catch (retryErr) {
-                                            log(`Error in getPlayerRole retry attempt ${attempt}:`, retryErr);
-                                            if (attempt < maxAttempts) {
-                                                log(`Will retry after ${backoffMs}ms`);
-                                                await new Promise(resolve => setTimeout(resolve, backoffMs));
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Do not create fallback actors with incomplete data
-                                    if (!mappedActor) {
-                                        log(`All getPlayerRole attempts failed for actor ${mappedActorId}. Not creating fallback actor.`);
-                                        // Remove invalid actor ID from localStorage
-                                        localStorage.removeItem(`game_${gameId}_actor`);
-                                    }
-                                    
-                                    if (mappedActor) {
-                                        log(`Using actor ${mappedActor.actor_id}`);
-                                        playerRole = mappedActor;
-                                        activeActorId.set(mappedActor.actor_id);
-                                        
-                                        // Store in localStorage for additional redundancy
-                                        localStorage.setItem(`game_${gameId}_actor`, mappedActor.actor_id);
-                                        
-                                        return mappedActor;
-                                    } else {
-                                        log(`getPlayerRole returned null for actor ${mappedActorId}`);
-                                    }
-                                } catch (mappingErr) {
-                                    log('Error retrieving mapped actor:', mappingErr);
-                                }
-                            }
-                        } catch (directErr) {
-                            log('Error with direct Gun.js access:', directErr);
+                    // Create a non-undefined player_actor_map if it doesn't exist
+                    gun.get(mapPath).put({}, (ack) => {
+                        if (ack.err) {
+                            log('Error initializing player_actor_map:', ack.err);
+                        } else {
+                            log('player_actor_map initialized successfully');
                         }
-                    }
+                    });
                     
-                    // Normal object (not a reference)
-                    else if (game.player_actor_map[userId]) {
-                        const mappedActorId = game.player_actor_map[userId];
-                        log(`Found actor mapping in game object: user ${userId} -> actor ${mappedActorId}`);
+                    // Use a direct lookup with the user ID as key
+                    const mappedActorId = await new Promise<string | null>((resolve) => {
+                        gun.get(mapPath).get(userId).once((actorId: string) => {
+                            if (actorId) {
+                                log(`Direct map lookup found: ${userId} -> ${actorId}`);
+                                resolve(actorId);
+                            } else {
+                                log(`Direct map lookup found no mapping for user ${userId}`);
+                                resolve(null);
+                            }
+                        });
+                        
+                        // Also set a timeout to avoid hanging
+                        setTimeout(() => resolve(null), 1000);
+                    });
+                            
+                    if (mappedActorId) {
+                        log(`Found actor mapping via direct Gun.js lookup: user ${userId} -> actor ${mappedActorId}`);
                         
                         try {
-                            // Use getPlayerRole with retry logic (2 attempts, 500ms backoff)
-                            log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId}) with retries`);
+                            // Use getPlayerRole with retry logic
+                            log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
+                            
+                            // Define retry settings if not already defined
+                            const maxAttempts = 2;
+                            const backoffMs = 500;
                             
                             let mappedActor = null;
                             
                             // Try up to maxAttempts times with backoff
                             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                                try {
+                                    log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
+                                    const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
+                                    const roleTimeout = new Promise<null>((resolve) => {
+                                        setTimeout(() => {
+                                            log(`getPlayerRole attempt ${attempt} timed out`);
+                                            resolve(null);
+                                        }, 2000);
+                                    });
+                                    
+                                    mappedActor = await Promise.race([rolePromise, roleTimeout]);
+                                    
+                                    if (mappedActor) {
+                                        log(`Successfully retrieved mapped actor ${mappedActor.actor_id} on attempt ${attempt}`);
+                                        break; // Success, exit the retry loop
+                                    } else if (attempt < maxAttempts) {
+                                        log(`Retry attempt ${attempt} failed, waiting ${backoffMs}ms before next attempt`);
+                                        await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                    }
+                                } catch (retryErr) {
+                                    log(`Error in getPlayerRole retry attempt ${attempt}:`, retryErr);
+                                    if (attempt < maxAttempts) {
+                                        log(`Will retry after ${backoffMs}ms`);
+                                        await new Promise(resolve => setTimeout(resolve, backoffMs));
+                                    }
+                                }
+                            }
+                            
+                            // Do not create fallback actors with incomplete data
+                            if (!mappedActor) {
+                                log(`All getPlayerRole attempts failed for actor ${mappedActorId}. Not creating fallback actor.`);
+                                // Remove invalid actor ID from localStorage
+                                localStorage.removeItem(`game_${gameId}_actor`);
+                            }
+                            
+                            if (mappedActor) {
+                                log(`Using actor ${mappedActor.actor_id}`);
+                                playerRole = mappedActor;
+                                activeActorId.set(mappedActor.actor_id);
+                                
+                                // Store in localStorage for additional redundancy
+                                localStorage.setItem(`game_${gameId}_actor`, mappedActor.actor_id);
+                                
+                                return mappedActor;
+                            } else {
+                                log(`getPlayerRole returned null for actor ${mappedActorId}`);
+                            }
+                        } catch (mappingErr) {
+                            log('Error retrieving mapped actor:', mappingErr);
+                        }
+                    }
+                } catch (directErr) {
+                    log('Error with direct Gun.js access:', directErr);
+                }
+            }
+            
+            // Normal object (not a reference)
+            else if (game.player_actor_map && typeof game.player_actor_map === 'object' && 
+                    !game.player_actor_map['#'] && game.player_actor_map[userId]) {
+                const mappedActorId = game.player_actor_map[userId];
+                log(`Found actor mapping in game object: user ${userId} -> actor ${mappedActorId}`);
+                
+                try {
+                    // Define retry settings
+                    const maxAttempts = 2;
+                    const backoffMs = 500;
+                    
+                    // Use getPlayerRole with retry logic
+                    log(`Attempting to get player role with getPlayerRole(${gameId}, ${userId}, ${mappedActorId})`);
+                    
+                    let mappedActor = null;
+                    
+                    // Try up to maxAttempts times with backoff
+                    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                                 try {
                                     log(`getPlayerRole attempt ${attempt}/${maxAttempts}`);
                                     const rolePromise = getPlayerRole(gameId, userId, mappedActorId);
