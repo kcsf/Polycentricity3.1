@@ -368,9 +368,8 @@
             } catch (directErr) {
                 log('Error with direct Gun.js access:', directErr);
             }
-            
             // Normal object (not a reference)
-            else if (game.player_actor_map && typeof game.player_actor_map === 'object' && 
+            if (game.player_actor_map && typeof game.player_actor_map === 'object' && 
                     !game.player_actor_map['#'] && game.player_actor_map[userId]) {
                 const mappedActorId = game.player_actor_map[userId];
                 log(`Found actor mapping in game object: user ${userId} -> actor ${mappedActorId}`);
@@ -547,18 +546,16 @@
                     log('Error fixing missing player_actor_map:', err);
                 }
             }
-                }
-            } catch (mapErr) {
-                log('Error accessing player_actor_map:', mapErr);
-            }
-            
-            log('No actor found for current user');
-            return null;
-            
-        } catch (err) {
-            log('Error loading user actor:', err);
-            return null;
+        } catch (mapErr) {
+            log('Error accessing player_actor_map:', mapErr);
         }
+        
+        log('No actor found for current user');
+        return null;
+        
+    } catch (err) {
+        log('Error loading user actor:', err);
+        return null;
     }
     
     // Handle joining a game
