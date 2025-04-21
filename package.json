@@ -13,7 +13,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@antv/g6": "^5.0.45",
     "@melt-ui/svelte": "^0.86.6",
     "@skeletonlabs/skeleton": "^3.1.2",
     "@skeletonlabs/skeleton-svelte": "^1.2.1",
@@ -29,7 +28,6 @@
     "cytoscape-node-html-label": "^1.2.2",
     "d3": "^7.9.0",
     "gun": "^0.2020.1240",
-    "highlight.js": "^11.11.1",
     "lodash-es": "^4.17.21",
     "lucide-svelte": "^0.488.0",
     "svelte": "^5.28.1",
