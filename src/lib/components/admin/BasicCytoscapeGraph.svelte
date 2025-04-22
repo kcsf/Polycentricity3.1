@@ -2,17 +2,16 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   
-  export let nodes = [];
-  export let edges = [];
+  const props = $props({ nodes: [], edges: [] });
   
-  let container;
-  let cy;
-  let loading = true;
-  let error = null;
+  const container = $state();
+  const cy = $state();
+  const loading = $state(true);
+  const error = $state(null);
   
   // Node and edge type filtering
-  let availableNodeTypes = [];
-  let selectedNodeTypes = [];
+  const availableNodeTypes = $state([]);
+  const selectedNodeTypes = $state([]);
   let filteredNodes = [];
   let filteredEdges = [];
   

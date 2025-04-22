@@ -2,12 +2,15 @@
   import { updateUserToAdmin } from '$lib/services/authService';
   import { fixGameRelationships } from '$lib/services/gameService';
   import * as icons from '@lucide/svelte';
+  import { createEventDispatcher } from 'svelte';
   
-  let isUpdating = false;
-  let isFixingGames = false;
-  let result: { success: boolean; message: string } | null = null;
-  let gameFixResult: { success: boolean; message: string } | null = null;
-  let adminEmail = '';
+  const isUpdating = $state(false);
+  const isFixingGames = $state(false);
+  const result = $state<{ success: boolean; message: string } | null>(null);
+  const gameFixResult = $state<{ success: boolean; message: string } | null>(null);
+  const adminEmail = $state('');
+  
+  const dispatch = createEventDispatcher();
   
   async function makeAdmin() {
     if (!adminEmail.trim()) {
@@ -45,9 +48,6 @@
       isUpdating = false;
     }
   }
-  
-  import { createEventDispatcher } from 'svelte';
-  const dispatch = createEventDispatcher();
   
   async function fixGameGraphRelationships() {
     try {
@@ -87,7 +87,7 @@
   <!-- User Management Section -->
   <div class="card p-4 bg-surface-50-900 rounded-container-token">
     <h3 class="h4 mb-4 flex items-center">
-      <svelte:component this={icons.UserCog} class="w-5 h-5 mr-2 text-primary-500" />
+      {icons.UserCog && icons.UserCog({ class: "w-5 h-5 mr-2 text-primary-500" })}
       Admin User Management
     </h3>
     
@@ -104,14 +104,14 @@
       />
       <button 
         class="btn bg-primary-500 hover:bg-primary-600 text-white" 
-        on:click={makeAdmin}
+        onclick={makeAdmin}
         disabled={isUpdating}
       >
         {#if isUpdating}
           <div class="spinner-third w-4 h-4 mr-2"></div>
           Updating...
         {:else}
-          <svelte:component this={icons.ShieldCheck} class="w-4 h-4 mr-2" />
+          {icons.ShieldCheck && icons.ShieldCheck({ class: "w-4 h-4 mr-2" })}
           Make Admin
         {/if}
       </button>
@@ -119,7 +119,10 @@
     
     {#if result}
       <div class="alert {result.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mt-4 rounded-container-token">
-        <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+        {result.success 
+          ? (icons.CheckCircle && icons.CheckCircle({ class: "w-5 h-5" }))
+          : (icons.AlertTriangle && icons.AlertTriangle({ class: "w-5 h-5" }))
+        }
         <div class="alert-message">
           <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
           <p>{result.message}</p>
@@ -131,7 +134,7 @@
   <!-- Graph Visualization Tools Section -->
   <div class="card p-4 bg-surface-50-900 rounded-container-token">
     <h3 class="h4 mb-4 flex items-center">
-      <svelte:component this={icons.Network} class="w-5 h-5 mr-2 text-primary-500" />
+      {icons.Network && icons.Network({ class: "w-5 h-5 mr-2 text-primary-500" })}
       Graph Visualization Tools
     </h3>
     
@@ -141,14 +144,14 @@
     
     <button 
       class="btn bg-primary-500 hover:bg-primary-600 text-white w-full sm:w-auto" 
-      on:click={fixGameGraphRelationships}
+      onclick={fixGameGraphRelationships}
       disabled={isFixingGames}
     >
       {#if isFixingGames}
         <div class="spinner-third w-4 h-4 mr-2"></div>
         Fixing Game Relationships...
       {:else}
-        <svelte:component this={icons.GitMerge} class="w-4 h-4 mr-2" />
+        {icons.GitMerge && icons.GitMerge({ class: "w-4 h-4 mr-2" })}
         Fix Game Relationships
       {/if}
     </button>
@@ -159,7 +162,10 @@
     
     {#if gameFixResult}
       <div class="alert {gameFixResult.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mt-4 rounded-container-token">
-        <svelte:component this={gameFixResult.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+        {gameFixResult.success 
+          ? (icons.CheckCircle && icons.CheckCircle({ class: "w-5 h-5" }))
+          : (icons.AlertTriangle && icons.AlertTriangle({ class: "w-5 h-5" }))
+        }
         <div class="alert-message">
           <h4 class="h5">{gameFixResult.success ? 'Success' : 'Error'}</h4>
           <p>{gameFixResult.message}</p>
