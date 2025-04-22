@@ -4,10 +4,10 @@
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
   import type { User } from '$lib/types';
   
-  let isWorking = false;
-  let isInitializing = false;
-  let isVerifying = false;
-  let result: { success: boolean; message: string } | null = null;
+  const isWorking = $state(false);
+  const isInitializing = $state(false);
+  const isVerifying = $state(false);
+  const result = $state<{ success: boolean; message: string } | null>(null);
   
   // Create admin user function
   async function createAdminUser() {
@@ -99,7 +99,7 @@
 
 <div class="card p-4 bg-surface-50-900">
   <h3 class="h4 mb-4 flex items-center">
-    <svelte:component this={icons.Database} class="w-5 h-5 mr-2 text-tertiary-500" />
+    {icons.Database && icons.Database({ class: "w-5 h-5 mr-2 text-tertiary-500" })}
     Database Tools
   </h3>
   
@@ -124,7 +124,7 @@
             <div class="spinner-third w-4 h-4 mr-2"></div>
             Initializing...
           {:else}
-            <svelte:component this={icons.Plus} class="w-4 h-4 mr-2" />
+            {icons.Plus && icons.Plus({ class: "w-4 h-4 mr-2" })}
             Initialize Sample Data
           {/if}
         </button>
@@ -138,7 +138,7 @@
             <div class="spinner-third w-4 h-4 mr-2"></div>
             Verifying...
           {:else}
-            <svelte:component this={icons.Check} class="w-4 h-4 mr-2" />
+            {icons.Check && icons.Check({ class: "w-4 h-4 mr-2" })}
             Verify Sample Data
           {/if}
         </button>
@@ -160,7 +160,7 @@
           <div class="spinner-third w-4 h-4 mr-2"></div>
           Creating Admin...
         {:else}
-          <svelte:component this={icons.UserCog} class="w-4 h-4 mr-2" />
+          {icons.UserCog && icons.UserCog({ class: "w-4 h-4 mr-2" })}
           Create Admin User
         {/if}
       </button>
@@ -188,7 +188,9 @@
   
   {#if result}
     <div class="alert {result.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mb-4 rounded-container-token">
-      <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+      {result.success 
+        ? (icons.CheckCircle && icons.CheckCircle({ class: "w-5 h-5" }))
+        : (icons.AlertTriangle && icons.AlertTriangle({ class: "w-5 h-5" }))}
       <div class="alert-message">
         <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
         <p>{result.message}</p>
@@ -198,7 +200,7 @@
   
   <div class="bg-surface-100-800 p-4 rounded-lg border border-surface-300-600">
     <h4 class="font-semibold mb-2 flex items-center text-surface-900-50">
-      <svelte:component this={icons.Info} class="w-4 h-4 mr-2 text-info-500" />
+      {icons.Info && icons.Info({ class: "w-4 h-4 mr-2 text-info-500" })}
       Gun.js Database Tips
     </h4>
     <ul class="list-disc ml-6 space-y-1 text-sm text-surface-700-300">

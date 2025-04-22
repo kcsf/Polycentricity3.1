@@ -21,9 +21,11 @@
     loadDecks();
   });
   
-  $: if (refreshTrigger) {
-    loadDecks();
-  }
+  $effect(() => {
+    if (refreshTrigger) {
+      loadDecks();
+    }
+  });
   
   async function loadDecks() {
     isLoading = true;
