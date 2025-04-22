@@ -20,6 +20,7 @@ const config = {
                 }),
                 alias: {
                         $lib: "./src/lib",
+                        $app: "./node_modules/@sveltejs/kit/src/runtime/app",
                 },
         },
 };
