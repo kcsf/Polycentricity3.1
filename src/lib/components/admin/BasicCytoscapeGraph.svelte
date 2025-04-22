@@ -409,7 +409,7 @@
           levelWidth: function() { return 1; },
           animate: true,
           padding: 30
-        };
+        });
         break;
         
       case 'grid':

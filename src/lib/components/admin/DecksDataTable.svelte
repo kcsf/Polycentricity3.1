@@ -28,23 +28,38 @@
   });
   
   async function loadDecks() {
-    isLoading = true;
-    error = null;
-    decks = [];
+    // Use helper function to update state variables
+    function setIsLoading(value: boolean) {
+      isLoading = value;
+    }
+    
+    function setError(value: string | null) {
+      error = value;
+    }
+    
+    function setDecks(value: {id: string, data: Deck}[]) {
+      decks = value;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    setDecks([]);
     
     try {
       const gun = getGun();
       
       if (!gun) {
-        error = 'Gun not initialized';
-        isLoading = false;
+        setError('Gun not initialized');
+        setIsLoading(false);
         return;
       }
+      
+      const loadedDecks: {id: string, data: Deck}[] = [];
       
       await new Promise<void>(resolve => {
         gun.get(nodes.decks).map().once((deckData: Deck, deckId: string) => {
           if (deckData) {
-            decks.push({
+            loadedDecks.push({
               id: deckId,
               data: deckData
             });
@@ -53,26 +68,45 @@
         
         // Wait for Gun to load data
         setTimeout(() => {
-          console.log(`Loaded ${decks.length} decks`);
+          console.log(`Loaded ${loadedDecks.length} decks`);
+          setDecks(loadedDecks);
           resolve();
         }, 500);
       });
     } catch (err) {
       console.error('Error loading decks:', err);
-      error = err instanceof Error ? err.message : String(err);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      isLoading = false;
+      setIsLoading(false);
     }
   }
   
   function openEditModal(deck: Deck) {
-    selectedDeck = deck;
-    isModalOpen = true;
+    // Update the selectedDeck and isModalOpen states
+    function setSelectedDeck(value: Deck | null) {
+      selectedDeck = value;
+    }
+    
+    function setIsModalOpen(value: boolean) {
+      isModalOpen = value;
+    }
+    
+    setSelectedDeck(deck);
+    setIsModalOpen(true);
   }
   
   function handleModalClose() {
-    isModalOpen = false;
-    selectedDeck = null;
+    // Update the isModalOpen and selectedDeck states
+    function setIsModalOpen(value: boolean) {
+      isModalOpen = value;
+    }
+    
+    function setSelectedDeck(value: Deck | null) {
+      selectedDeck = value;
+    }
+    
+    setIsModalOpen(false);
+    setSelectedDeck(null);
   }
   
   function handleDeckUpdated() {
@@ -86,11 +120,16 @@
   }
   
   async function deleteDeck(deckId: string) {
+    // Helper function to update error state
+    function setError(value: string | null) {
+      error = value;
+    }
+    
     try {
       const gun = getGun();
       
       if (!gun) {
-        error = 'Gun not initialized';
+        setError('Gun not initialized');
         return;
       }
       
@@ -98,7 +137,7 @@
       const deck = await getDeck(deckId);
       
       if (!deck) {
-        error = `Deck with ID ${deckId} not found`;
+        setError(`Deck with ID ${deckId} not found`);
         return;
       }
       
@@ -106,7 +145,7 @@
       gun.get(nodes.decks).get(deckId).put(null, async (ack) => {
         if (ack.err) {
           console.error('Error deleting deck:', ack.err);
-          error = `Failed to delete deck: ${ack.err}`;
+          setError(`Failed to delete deck: ${ack.err}`);
         } else {
           console.log(`Deleted deck: ${deckId}`);
           // Wait a moment then refresh the decks list
@@ -116,7 +155,7 @@
       });
     } catch (err) {
       console.error('Delete deck error:', err);
-      error = err instanceof Error ? err.message : String(err);
+      setError(err instanceof Error ? err.message : String(err));
     }
   }
 </script>
