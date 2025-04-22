@@ -3,17 +3,26 @@
         import { onMount } from 'svelte';
         import { registerUser } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
+        import { clearUserFromGun, resetGunAuth } from '$lib/services/gunResetService';
       
         let name = $state('');
         let email = $state('');
         let password = $state('');
         let isRegistering = $state(false);
+        let isClearing = $state(false);
         let error = $state('');
+        let showResetControls = $state(false);
       
         onMount(() => {
           if ($userStore.user) {
             console.log('User already authenticated, redirecting to dashboard');
             goto('/dashboard');
+          }
+          
+          // Allow developer mode via query parameter
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('debug') === 'true') {
+            showResetControls = true;
           }
         });
       
@@ -38,6 +47,30 @@
             console.log('Registration in progress...');
           }
         });
+        
+        async function handleClearUser() {
+          if (!email.trim()) {
+            error = 'Please enter an email to clear';
+            return;
+          }
+          
+          isClearing = true;
+          try {
+            await clearUserFromGun(email);
+            error = `Cleared user ${email} from Gun's authentication system. Try registering again.`;
+          } catch (err) {
+            console.error('Error clearing user:', err);
+            error = 'Failed to clear user. See console for details.';
+          } finally {
+            isClearing = false;
+          }
+        }
+        
+        async function handleResetGun() {
+          if (confirm('This will clear all Gun authentication data. Continue?')) {
+            resetGunAuth();
+          }
+        }
       
         async function handleSubmit(e: Event) {
           e.preventDefault();
@@ -80,7 +113,8 @@
                 ? err
                 : err.message || 'An error occurred during registration';
             if (err?.includes && err.includes('User already created')) {
-              error = 'This email is already registered. Please log in or use a different email.';
+              error = 'This email is already registered. Try using a different email or accessing debug mode to clear it.';
+              showResetControls = true;
             }
           } finally {
             isRegistering = false;
@@ -153,6 +187,33 @@
             <div class="mt-4 text-center">
               <p>Already have an account? <a href="/login" class="anchor">Login</a></p>
             </div>
+            
+            {#if showResetControls}
+              <hr class="my-4" />
+              <div class="space-y-4">
+                <h3 class="h4 text-center">Debug Tools</h3>
+                <p class="text-xs text-center opacity-60">Warning: These actions affect Gun.js user data</p>
+                
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    class="btn variant-ghost-error"
+                    onclick={handleClearUser}
+                    disabled={isClearing}
+                  >
+                    {isClearing ? 'Clearing...' : 'Clear User Data'}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    class="btn variant-ghost-error"
+                    onclick={handleResetGun}
+                  >
+                    Reset Gun Auth
+                  </button>
+                </div>
+              </div>
+            {/if}
           </section>
         </div>
       </div>
