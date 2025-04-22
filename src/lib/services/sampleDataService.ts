@@ -11,13 +11,9 @@
  *   - card <-> values
  *   - card <-> capabilities
  *   - etc.
- *
- * It's important that the "gun/lib/radisk" import happens before Gun is constructed,
- * otherwise radisk won't activate properly.
  ***************************************************************************************/
 
 import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
-import { createGame, createActor, joinGame, assignCardToActor } from "./gameService";
 
 // Helper function to wait between Gun operations
 function delay(ms: number): Promise<void> {
@@ -32,7 +28,7 @@ function logAck(ctx: string, ack: GunAck) {
 }
 
 /**
- * Simple createRelationship function (different from gameService version)
+ * Simple createRelationship function for sample data
  * Creates a reference from one node to another
  */
 async function createRelationship(fromSoul: string, field: string, toSoul: string): Promise<boolean> {
@@ -62,12 +58,11 @@ async function createRelationship(fromSoul: string, field: string, toSoul: strin
 
 /**
  * Optimized version to create or update a node with minimal logging and delays
- * The data is spread in so we don't overwrite the entire node every time
  */
 async function ensureNode<T extends Record<string, any>>(
   soul: string,
   data: T,
-) {
+): Promise<boolean> {
   try {
     // Separate the path and key from the soul
     const parts = soul.split('/');
@@ -143,6 +138,49 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
   });
 }
 
+/**
+ * Creates a sample actor with basic properties
+ */
+async function createSampleActor(
+  actor: { actor_id: string; game_id: string; card_id: string; user_id: string; custom_name?: string; },
+): Promise<boolean> {
+  return ensureNode(`${nodes.actors}/${actor.actor_id}`, {
+    ...actor,
+    status: "active",
+    created_at: Date.now(),
+  });
+}
+
+/**
+ * Creates a sample agreement
+ */
+async function createSampleAgreement(agreement: any): Promise<boolean> {
+  return ensureNode(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
+}
+
+/**
+ * Batch save helper function
+ */
+async function saveBatch<T extends { [key: string]: any }>(
+  nodePath: string, 
+  items: T[], 
+  idField: keyof T
+): Promise<boolean> {
+  console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
+  const gun = getGun();
+  if (!gun) {
+    console.error(`[batch] Gun not initialized for ${nodePath}`);
+    return false;
+  }
+  
+  for (const item of items) {
+    gun.get(nodePath).get(String(item[idField])).put(item);
+  }
+  
+  await delay(100);
+  return true;
+}
+
 export async function initializeSampleData() {
   console.log("[seed] Initializing sample data (edge style) …");
   const gunDb = getGun();
@@ -190,40 +228,56 @@ export async function initializeSampleData() {
     },
   ];
 
-  const deck = { deck_id: "d1", name: "Eco-Village Standard Deck", description: "A standard deck for eco-village simulation games", creator: "u125", created_at: now, updated_at: now, is_public: true, cards: {} };
-
-  // Use gameService.ts to create game
-  const gameData = {
-    game_id: "g456", name: "Test Eco-Village", description: "A test game for our eco-village simulation", creator: "u125",
-    deck_id: deck.deck_id, role_assignment: "choice", players: { "u123": "a1", "u124": "a2" }, created_at: now, updated_at: now,
-    status: "active", max_players: 10
+  const deck = { 
+    deck_id: "d1", 
+    name: "Eco-Village Standard Deck", 
+    description: "A standard deck for eco-village simulation games", 
+    creator: "u125", 
+    created_at: now, 
+    updated_at: now, 
+    is_public: true, 
+    cards: {} 
   };
-  await createGame(gameData);
+
+  // Define game data
+  const game = {
+    game_id: "g456",
+    name: "Test Eco-Village",
+    description: "A test game for our eco-village simulation",
+    creator: "u125",
+    deck_id: deck.deck_id,
+    role_assignment: "choice",
+    players: { "u123": "a1", "u124": "a2" },
+    created_at: now,
+    updated_at: now,
+    status: "active",
+    max_players: 10
+  };
 
   const actors = [
-    { actor_id: "a1", game_id: gameData.game_id, user_id: "u123", card_id: "c1", created_at: now, custom_name: "Alice's Garden Steward", status: "active", agreements: {} },
-    { actor_id: "a2", game_id: gameData.game_id, user_id: "u124", card_id: "c2", created_at: now, custom_name: "Bob's Funding Visionary", status: "active", agreements: {} },
+    { actor_id: "a1", game_id: game.game_id, user_id: "u123", card_id: "c1", created_at: now, custom_name: "Alice's Garden Steward", status: "active", agreements: {} },
+    { actor_id: "a2", game_id: game.game_id, user_id: "u124", card_id: "c2", created_at: now, custom_name: "Bob's Funding Visionary", status: "active", agreements: {} },
   ];
 
   const agreements = [
     {
-      agreement_id: "ag1", game_id: gameData.game_id, title: "Funding for Garden Initiative", summary: "Luminos Funder provides capital to Verdant Weaver for a community garden",
+      agreement_id: "ag1", game_id: game.game_id, title: "Funding for Garden Initiative", summary: "Luminos Funder provides capital to Verdant Weaver for a community garden",
       type: "asymmetric", parties: { "a1": true, "a2": true }, obligations: { a1: "Create and maintain community garden for one year", a2: "Provide 5000 credits of funding and quarterly reviews" },
       benefits: { a1: "Receives funding and resources for the garden", a2: "Receives 10% of produce and community recognition" }, status: "accepted",
       created_at: now, updated_at: now, created_by: "u123", votes: { "a1": "accept", "a2": "accept" }
     },
     {
-      agreement_id: "ag2", game_id: gameData.game_id, title: "Water Sharing Plan", summary: "Actors agree to share water resources equally", type: "symmetric",
+      agreement_id: "ag2", game_id: game.game_id, title: "Water Sharing Plan", summary: "Actors agree to share water resources equally", type: "symmetric",
       parties: { "a1": true, "a2": true }, obligations: { a1: "Share water equally", a2: "Share water equally" }, benefits: { a1: "Stable water supply", a2: "Stable water supply" },
       status: "proposed", created_at: now, created_by: "u123", votes: { "a1": "pending", "a2": "pending" }
     },
     {
-      agreement_id: "ag3", game_id: gameData.game_id, title: "Land Use Pact", summary: "Actors tried to share land but disagreed on terms", type: "symmetric",
+      agreement_id: "ag3", game_id: game.game_id, title: "Land Use Pact", summary: "Actors tried to share land but disagreed on terms", type: "symmetric",
       parties: { "a1": true, "a2": true }, obligations: { a1: "Proposed shared land use", a2: "Proposed shared land use" }, benefits: { a1: "Access to shared land", a2: "Access to shared land" },
       status: "rejected", created_at: now, updated_at: now, created_by: "u123", votes: { "a1": "reject", "a2": "reject" }
     },
     {
-      agreement_id: "ag4", game_id: gameData.game_id, title: "Seed Exchange Program", summary: "Actors completed a seed-sharing initiative", type: "symmetric",
+      agreement_id: "ag4", game_id: game.game_id, title: "Seed Exchange Program", summary: "Actors completed a seed-sharing initiative", type: "symmetric",
       parties: { "a1": true, "a2": true }, obligations: { a1: "Share seeds monthly", a2: "Share seeds monthly" }, benefits: { a1: "Diverse seed stock", a2: "Diverse seed stock" },
       status: "completed", created_at: now, updated_at: now, created_by: "u123", votes: { "a1": "accept", "a2": "accept" }
     },
@@ -231,52 +285,50 @@ export async function initializeSampleData() {
 
   const messageId = generateId();
   const chat = {
-    chat_id: `${gameData.game_id}_group`, game_id: gameData.game_id, type: "group", participants: { "u123": true, "u124": true },
-    messages: { [messageId]: { id: messageId, user_id: "u123", user_name: "Member User", content: "Hello! Let's start planning our eco-village!", timestamp: now, type: "group", read_by: { "u123": true, "u124": false } } },
-    created_at: now, last_message_at: now
+    chat_id: `${game.game_id}_group`, 
+    game_id: game.game_id, 
+    type: "group", 
+    participants: { "u123": true, "u124": true },
+    messages: { 
+      [messageId]: { 
+        id: messageId, 
+        user_id: "u123", 
+        user_name: "Member User", 
+        content: "Hello! Let's start planning our eco-village!", 
+        timestamp: now, 
+        type: "group", 
+        read_by: { "u123": true, "u124": false } 
+      } 
+    },
+    created_at: now, 
+    last_message_at: now
   };
 
   const nodePositions = [
-    { node_id: "a1", game_id: gameData.game_id, x: 100, y: 0, type: "actor", last_updated: now },
-    { node_id: "a2", game_id: gameData.game_id, x: -100, y: 0, type: "actor", last_updated: now },
-    { node_id: "ag1", game_id: gameData.game_id, x: 0, y: 50, type: "agreement", last_updated: now },
-    { node_id: "ag2", game_id: gameData.game_id, x: 0, y: -50, type: "agreement", last_updated: now },
-    { node_id: "ag3", game_id: gameData.game_id, x: 50, y: 0, type: "agreement", last_updated: now },
-    { node_id: "ag4", game_id: gameData.game_id, x: -50, y: 0, type: "agreement", last_updated: now },
+    { node_id: "a1", game_id: game.game_id, x: 100, y: 0, type: "actor", last_updated: now },
+    { node_id: "a2", game_id: game.game_id, x: -100, y: 0, type: "actor", last_updated: now },
+    { node_id: "ag1", game_id: game.game_id, x: 0, y: 50, type: "agreement", last_updated: now },
+    { node_id: "ag2", game_id: game.game_id, x: 0, y: -50, type: "agreement", last_updated: now },
+    { node_id: "ag3", game_id: game.game_id, x: 50, y: 0, type: "agreement", last_updated: now },
+    { node_id: "ag4", game_id: game.game_id, x: -50, y: 0, type: "agreement", last_updated: now },
   ];
 
-  // Batch save helper function
-  async function saveBatch<T extends { [key: string]: any }>(nodePath: string, items: T[], idField: keyof T) {
-    console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
-    const gun = getGun();
-    if (!gun) {
-      console.error(`[batch] Gun not initialized for ${nodePath}`);
-      return false;
-    }
-    for (const item of items) {
-      gun.get(nodePath).get(String(item[idField])).put(item);
-    }
-    await delay(100);
-    return true;
-  }
-
-  // Save non-gameService entities
+  // Save the entities
   await saveBatch(nodes.users, users, 'user_id');
   await saveBatch(nodes.values, values, 'value_id');
   await saveBatch(nodes.capabilities, capabilities, 'capability_id');
   await saveBatch(nodes.cards, cards, 'card_id');
   await saveBatch(nodes.decks, [deck], 'deck_id');
   await saveBatch(nodes.chat_rooms, [chat], 'chat_id');
+  await ensureNode(`${nodes.games}/${game.game_id}`, game);
 
-  // Use gameService.ts for actors and agreements
+  // Save actors and agreements
   for (const actor of actors) {
-    await createActor(actor);
-    await assignCardToActor(actor.actor_id, actor.card_id);
-    await joinGame(actor.user_id, gameData.game_id, actor.actor_id);
+    await createSampleActor(actor);
   }
 
   for (const agreement of agreements) {
-    await createAgreement(agreement);
+    await createSampleAgreement(agreement);
   }
 
   // Save node positions
