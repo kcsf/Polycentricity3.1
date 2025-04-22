@@ -3,9 +3,10 @@
   import { initializeSampleData, verifySampleData, clearSampleData } from '$lib/services/sampleDataService';
   import { getGun, nodes } from '$lib/services/gunService';
   
-  let status = 'Initializing...';
-  let results: Record<string, number> = {};
-  let isLoading = false;
+  // Use proper Svelte 5 Runes reactive state
+  let status = $state('Initializing...');
+  let results = $state<Record<string, number>>({});
+  let isLoading = $state(false);
   
   async function initializeData() {
     isLoading = true;
@@ -127,21 +128,21 @@
     <div class="flex flex-wrap gap-4 mb-4">
       <button 
         class="btn variant-filled-primary" 
-        on:click={initializeData} 
+        onclick={initializeData} 
         disabled={isLoading && status.includes('Initializing')}>
         {isLoading && status.includes('Initializing') ? 'Initializing...' : 'Initialize Sample Data'}
       </button>
       
       <button 
         class="btn variant-filled-secondary" 
-        on:click={verifyData} 
+        onclick={verifyData} 
         disabled={isLoading && status.includes('Verifying')}>
         {isLoading && status.includes('Verifying') ? 'Verifying...' : 'Verify Data'}
       </button>
       
       <button 
         class="btn variant-filled-error" 
-        on:click={clearData} 
+        onclick={clearData} 
         disabled={isLoading && status.includes('Clearing')}>
         {isLoading && status.includes('Clearing') ? 'Clearing...' : 'Clear All Data'}
       </button>
@@ -184,52 +185,68 @@
     <div class="space-y-4">
       <div>
         <h3 class="text-lg font-semibold">Users</h3>
-        <p class="text-sm">User accounts with roles (Guest/Member/Admin)</p>
+        <p class="text-sm">User accounts with roles (Guest/Member/Admin) and SEA support</p>
+        <p class="text-xs text-surface-600-300-token">Path: users/&lt;user_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Values</h3>
         <p class="text-sm">Core principles like "Sustainability" or "Equity"</p>
+        <p class="text-xs text-surface-600-300-token">Path: values/&lt;value_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Capabilities</h3>
         <p class="text-sm">Skills or expertise like "Permaculture Design"</p>
+        <p class="text-xs text-surface-600-300-token">Path: capabilities/&lt;capability_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Cards</h3>
         <p class="text-sm">Role templates with values, capabilities, goals, etc.</p>
+        <p class="text-xs text-surface-600-300-token">Path: cards/&lt;card_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Decks</h3>
         <p class="text-sm">Collections of cards for various scenarios</p>
+        <p class="text-xs text-surface-600-300-token">Path: decks/&lt;deck_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Games</h3>
         <p class="text-sm">Active game sessions using a specific deck</p>
+        <p class="text-xs text-surface-600-300-token">Path: games/&lt;game_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Actors</h3>
         <p class="text-sm">Instances of cards in a game, assigned to users</p>
+        <p class="text-xs text-surface-600-300-token">Path: actors/&lt;actor_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Agreements</h3>
-        <p class="text-sm">Formal commitments between actors</p>
+        <p class="text-sm">Formal commitments between actors with party obligations and benefits</p>
+        <p class="text-xs text-surface-600-300-token">Path: agreements/&lt;agreement_id&gt;</p>
       </div>
       
       <div>
-        <h3 class="text-lg font-semibold">Chat</h3>
-        <p class="text-sm">Messaging between participants (group or private)</p>
+        <h3 class="text-lg font-semibold">Chat Rooms</h3>
+        <p class="text-sm">Group or private messaging rooms between participants</p>
+        <p class="text-xs text-surface-600-300-token">Path: chat_rooms/&lt;chat_id&gt;</p>
+      </div>
+      
+      <div>
+        <h3 class="text-lg font-semibold">Chat Messages</h3>
+        <p class="text-sm">Individual messages exchanged in a chat room</p>
+        <p class="text-xs text-surface-600-300-token">Path: chat_messages/&lt;game_id&gt;/&lt;message_id&gt;</p>
       </div>
       
       <div>
         <h3 class="text-lg font-semibold">Node Positions</h3>
         <p class="text-sm">Coordinates for graph visualization</p>
+        <p class="text-xs text-surface-600-300-token">Path: node_positions/&lt;game_id&gt;/&lt;node_id&gt;</p>
       </div>
     </div>
   </div>
