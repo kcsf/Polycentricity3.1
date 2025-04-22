@@ -1,117 +1,78 @@
-import { writable } from "svelte/store";
-import { User } from "lucide-svelte";
-
-// Map GunDB icon names to lucide-svelte names
-// Add new mappings here for any new icons that don’t match lucide-svelte exactly
-const iconNameMap: Record<string, string> = {
-  // Common card icons we've seen in the database
-  Hammer: "Hammer",
-  CircleDollarSign: "CircleDollarSign", // Falls back to DollarSign if missing
-  DollarSign: "DollarSign",
-  sun: "Sun",
-  link: "Link",
-  lock: "Lock",
-  users: "Users",
-  user: "User",
-  leaf: "Leaf",
-  seedling: "Seedling",
-  home: "Home",
-  building: "Building",
-  tree: "PalmTree",
-  garden: "Flower2",
-  plant: "Sprout",
-  money: "Coins",
-  coins: "Coins",
-  default: "Box",
-  
-  // Card categories
-  farmer: "Tractor",
-  funder: "PiggyBank",
-  steward: "Shield",
-  investor: "TrendingUp"
-};
-
+import { writable } from 'svelte/store';
+import { CircleDollarSign } from '@lucide/svelte';
 import type { ComponentType } from 'svelte';
 
-// Define a type that accepts both lucide-svelte icons and generic Svelte components
-type IconComponent = ComponentType<any>;
+// Map GunDB icon names to @lucide/svelte names
+const iconNameMap: Record<string, string> = {
+  Hammer: 'Hammer',
+  CircleDollarSign: 'CircleDollarSign',
+  DollarSign: 'DollarSign',
+  sun: 'Sun',
+  link: 'Link',
+  lock: 'Lock',
+  users: 'Users',
+  user: 'User',
+  leaf: 'Leaf',
+  seedling: 'Seedling',
+  home: 'Home',
+  building: 'Building',
+  tree: 'PalmTree',
+  garden: 'Flower2',
+  plant: 'Sprout',
+  money: 'Coins',
+  coins: 'Coins',
+  default: 'Box',
+  farmer: 'Tractor',
+  funder: 'PiggyBank',
+  steward: 'Shield',
+  investor: 'TrendingUp'
+};
 
 interface IconData {
   name: string;
-  component: IconComponent;
+  component: ComponentType;
 }
 
 export const iconStore = writable<Map<string, IconData>>(new Map());
 
 export async function loadIcons(iconNames: string[]) {
-  // Get existing icons from the store
-  let existingIcons: Map<string, IconData> = new Map<string, IconData>();
-  
-  // Subscribe to get current value then immediately unsubscribe
+  let existingIcons: Map<string, IconData> = new Map();
   const unsubscribe = iconStore.subscribe(value => {
     existingIcons = value;
   });
   unsubscribe();
-  
-  // Create a new map with existing icons
+
   const newIcons = new Map<string, IconData>(existingIcons);
-  
+
   for (const name of iconNames) {
-    // Skip if this icon is already loaded
-    if (newIcons.has(name)) {
-      continue;
-    }
-    
+    if (newIcons.has(name)) continue;
+
     const mappedName = iconNameMap[name] || name;
     const pascalName = mappedName
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join("");
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join('');
 
     try {
-      const module = await import("lucide-svelte") as Record<string, any>;
-      if (module[pascalName]) {
-        // Reduced logging - only log in debug mode
-        if (process.env.NODE_ENV === 'development' && false) { // Disable even in dev
-          console.log(`Loaded icon ${name} as ${pascalName} from lucide-svelte`);
-        }
-        newIcons.set(name, { name, component: module[pascalName] });
-      } else {
-        // Special case for CircleDollarSign
-        if (pascalName === "Circledollarsign") {
-          if (module.DollarSign) {
-            newIcons.set(name, { name, component: module.DollarSign });
-            // Disabled verbose logging
-          } else {
-            throw new Error("DollarSign fallback not found");
-          }
+      const module = await import('@lucide/svelte');
+      const iconComponent = module[pascalName] as ComponentType;
+      if (iconComponent) {
+        newIcons.set(name, { name, component: iconComponent });
+      } else if (pascalName === 'Circledollarsign') {
+        if (module.DollarSign) {
+          newIcons.set(name, { name, component: module.DollarSign as ComponentType });
         } else {
-          throw new Error(`${pascalName} not found in lucide-svelte`);
+          throw new Error('DollarSign fallback not found');
         }
+      } else {
+        throw new Error(`${pascalName} not found in @lucide/svelte`);
       }
     } catch (error) {
-      // Only log the error message, not the full error object
-      console.warn(`Failed to load icon ${pascalName} for ${name}, using default fallback`);
-      try {
-        // Import the User icon directly
-        import("lucide-svelte").then(module => {
-          // Use User icon or any available icon as fallback
-          const fallbackIcon = module["User"] || module["Box"] || Object.values(module)[0];
-          if (fallbackIcon) {
-            newIcons.set(name, { name, component: fallbackIcon });
-            // Update the store if we added a new icon
-            if (newIcons.size > existingIcons.size) {
-              iconStore.set(newIcons);
-            }
-          }
-        });
-      } catch (fallbackError) {
-        console.error("Failed to load fallback icon:", fallbackError);
-      }
+      console.warn(`Failed to load icon ${pascalName} for ${name}, using fallback`);
+      newIcons.set(name, { name, component: CircleDollarSign });
     }
   }
-  
-  // Only update if we loaded new icons
+
   if (newIcons.size > existingIcons.size) {
     iconStore.set(newIcons);
   }

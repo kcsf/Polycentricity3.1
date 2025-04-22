@@ -4,20 +4,22 @@
   import { onMount } from 'svelte';
   import { getGun, nodes } from '$lib/services/gunService';
   import { loadIcons } from '$lib/stores/iconStore';
+  import type { Card } from '$lib/types';
+
+  let iconNames = $state<string[]>([]);
 
   onMount(async () => {
     try {
       const gun = getGun();
       if (!gun) return;
 
-      const iconNames: string[] = [];
       await new Promise<void>((resolve) => {
         gun
           .get(nodes.cards)
           .map()
-          .once((cardData: any, cardId: string) => {
-            if (cardData && cardData.icon) {
-              iconNames.push(cardData.icon);
+          .once((cardData: Card, cardId: string) => {
+            if (cardData?.icon) {
+              iconNames = [...iconNames, cardData.icon];
             }
           });
         setTimeout(resolve, 1000);
@@ -50,7 +52,7 @@
         <p class="text-center">
           Collaborate with others to build a sustainable eco-village through role-playing, strategy, and teamwork.
         </p>
-      </div>            
+      </div>
     </section>
   </div>
 </div>

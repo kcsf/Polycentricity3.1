@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import * as icons from 'lucide-svelte';
+  import * as icons from '@lucide/svelte';
   
   export let node: any = null;
   export let isOpen = false;

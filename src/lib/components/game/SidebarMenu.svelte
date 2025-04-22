@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Menu, X } from 'lucide-svelte';
+  import { Menu, X } from '@lucide/svelte';
   
   // Bind this to make it controllable from parent component
   export let showSidebar = false;

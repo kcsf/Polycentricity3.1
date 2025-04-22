@@ -1,6 +1,6 @@
 <script lang="ts">
   // SvelteRunesGuide.svelte - Svelte 5 Runes Mode Pattern Guide
-  import * as icons from 'lucide-svelte';
+  import * as icons from '@lucide/svelte';
   
   // Component props
   const {} = $props();

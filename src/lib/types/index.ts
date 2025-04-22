@@ -106,16 +106,12 @@ export interface Actor {
     card_ref: string; // e.g., 'card_1'
     actor_type:
         | "National Identity"
-        | "Sovereign Identity"
-        | "Farmer"
-        | "Funder"
-        | "Builder"
-        | "Organizer"
-        | "Technologist";
+        | "Sovereign Identity";
     custom_name?: string; // e.g., 'Jobu'
     status: "active" | "inactive";
     agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }
     created_at: number;
+    updated_at?: number;
 }
 
 export interface ChatRoom {

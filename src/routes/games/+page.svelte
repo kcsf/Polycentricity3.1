@@ -5,7 +5,7 @@
         import { getAllGames } from '$lib/services/gameService';
         import type { Game } from '$lib/types';
         import GameCard from '$lib/components/GameCard.svelte';
-        import { RefreshCcw } from 'lucide-svelte';
+        import { RefreshCcw } from '@lucide/svelte';
         
         let allGames = $state<Game[]>([]);
         let isLoading = $state(true);

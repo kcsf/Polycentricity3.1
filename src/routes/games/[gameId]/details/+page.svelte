@@ -6,7 +6,7 @@
     import { userStore } from '$lib/stores/userStore';
     import type { Game } from '$lib/types';
     import { GameStatus } from '$lib/types';
-    import * as icons from 'lucide-svelte';
+    import * as icons from '@lucide/svelte';
     
     const gameId = $page.params.gameId;
     

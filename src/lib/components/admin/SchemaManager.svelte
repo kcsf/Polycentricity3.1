@@ -1,6 +1,6 @@
 <script lang="ts">
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
-  import * as icons from 'lucide-svelte';
+  import * as icons from '@lucide/svelte';
   
   let isInitializing = false;
   let isVerifying = false;

@@ -8,7 +8,7 @@
     import { getGun, nodes } from '$lib/services/gunService';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     import type { Game, Actor } from '$lib/types';
-    import * as icons from 'lucide-svelte';
+    import * as icons from '@lucide/svelte';
     import { GameStatus } from '$lib/types';
     
     // Extract gameId from URL parameter

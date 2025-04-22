@@ -1,12 +1,14 @@
 <script lang="ts">
 	import type { User } from '$lib/types';
 	import { getInitials, stringToColor } from '$lib/utils/helpers';
-	
-	export let user: User;
-	export let showDetails: boolean = true;
-	
-	$: initials = getInitials(user.name);
-	$: avatarColor = stringToColor(user.user_id);
+
+	const { user, showDetails = true } = $props<{
+		user: User;
+		showDetails?: boolean;
+	}>();
+
+	const initials = $derived(getInitials(user.name));
+	const avatarColor = $derived(stringToColor(user.user_id));
 </script>
 
 <div class="card p-4 shadow-lg">

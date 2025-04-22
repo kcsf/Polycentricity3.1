@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Gun.js database setup for Polycentricity3, following Vite/SvelteKit recommendations
  * Based on https://github.com/amark/gun/wiki/Vite
@@ -19,13 +20,14 @@ import 'gun/lib/store';
 import 'gun/lib/rindexed';
 import 'gun/sea';
 
+/** @type {any} */
 let db;
 if (browser) {
   const gunOptions = {
     localStorage: false, // Disable local storage, use IndexedDB via Radisk
     radisk: true, // Enable Radisk for persistent storage
     silent: true, // Reduce debug logs
-    opt: { store: { max: 100MB } }, // Limit IndexedDB storage
+    opt: { store: { max: 100 * 1024 * 1024 } }, // 100MB in bytes
     peers: [] // Placeholder for future peer relays
   };
 

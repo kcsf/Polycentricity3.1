@@ -9,7 +9,7 @@
         import GameCard from '$lib/components/GameCard.svelte';
         import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
         import ActorEditModal from '$lib/components/ActorEditModal.svelte';
-        import * as icons from 'lucide-svelte';
+        import * as icons from '@lucide/svelte';
         // Dashboard specific imports
         
         // Dashboard state using Svelte 5.25.9 Runes mode

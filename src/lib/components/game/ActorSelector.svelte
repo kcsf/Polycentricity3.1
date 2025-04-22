@@ -11,7 +11,7 @@
   import { nodes, createRelationship, getGun } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
   import type { Actor, Card } from '$lib/types';
-  import * as icons from 'lucide-svelte';
+  import * as icons from '@lucide/svelte';
   
   // Use Svelte 5 $props() syntax
   const { gameId, onSelectActor } = $props<{

@@ -10,7 +10,7 @@
     import { getGun, nodes } from '$lib/services/gunService';
     import type { Game, Actor } from '$lib/types';
     import { GameStatus } from '$lib/types';
-    import * as icons from 'lucide-svelte';
+    import * as icons from '@lucide/svelte';
     
     import GamePageLayout from './GamePageLayout.svelte';
     

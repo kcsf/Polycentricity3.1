@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import type { SvelteComponent } from 'svelte';
   import * as d3 from 'd3';
-  import { User } from 'lucide-svelte';
+  import { User } from '@lucide/svelte';
   import { iconStore, loadIcons } from '$lib/stores/iconStore';
   import { getGun, nodes } from '$lib/services/gunService';
   import { getGameActors, getUserCard, subscribeToGame } from '$lib/services/gameService';

@@ -18,5 +18,5 @@
     "isolatedModules": true
   },
   "include": ["src/**/*", "src/**/*.svelte"],
-  "exclude": ["node_modules", "build", "src/lib/gun-db.js"]
+  "exclude": ["node_modules", "build", "src/lib/services/gun-db.js"]
 }

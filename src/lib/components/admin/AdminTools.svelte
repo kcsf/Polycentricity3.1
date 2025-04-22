@@ -1,7 +1,7 @@
 <script lang="ts">
   import { updateUserToAdmin } from '$lib/services/authService';
   import { fixGameRelationships } from '$lib/services/gameService';
-  import * as icons from 'lucide-svelte';
+  import * as icons from '@lucide/svelte';
   
   let isUpdating = false;
   let isFixingGames = false;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import * as icons from 'lucide-svelte';
+  import * as icons from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import AdminTools from './AdminTools.svelte';
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';

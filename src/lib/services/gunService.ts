@@ -15,10 +15,10 @@
  * - Removes redundant checks and legacy Replit workarounds
  */
 
-import db from "./gun-db.js";
-import type Gun from "gun";
-import { browser } from "$app/environment";
-import type { IGunInstance, IGunUserInstance } from "gun";
+import db from './gun-db.js';
+import type Gun from 'gun';
+import { browser } from '$app/environment';
+import type { IGunInstance, IGunUserInstance } from 'gun';
 import type {
   Game,
   Actor,
@@ -30,11 +30,14 @@ import type {
   Deck,
   Value,
   Capability,
-  NodePosition,
-} from "$lib/types";
+  NodePosition
+} from '$lib/types';
+
+// Explicitly type db to avoid implicit any
+const dbTyped: IGunInstance | undefined = db;
 
 // Global singleton Gun instance from gun-db.js, initialized with Radisk
-const gun = browser ? (db as unknown as IGunInstance) : undefined;
+const gun = browser ? (dbTyped as IGunInstance) : undefined;
 
 /**
  * GunAck interface for Gun.js acknowledgment messages
@@ -67,40 +70,22 @@ export function getUser(): IGunUserInstance | undefined {
  * @param data - Data to write (typed with schema)
  * @returns Promise resolving to GunAck
  */
-export async function put<
-  T extends
-    | User
-    | Game
-    | Actor
-    | Agreement
-    | ChatRoom
-    | ChatMessage
-    | Card
-    | Deck
-    | Value
-    | Capability
-    | NodePosition,
->(soul: string, data: T | null): Promise<GunAck> {
+export async function put<T extends User | Game | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition>(
+  soul: string,
+  data: T | null
+): Promise<GunAck> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(
-      () =>
-        resolve({
-          ok: true,
-          err: undefined,
-          raw: { fallback: true, message: "Fallback resolver" },
-        }),
-      1000,
-    );
-    g.get(soul).put(data, (ack: any) => {
+    const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
+    g.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
-      const hasError = ack && (ack.err || typeof ack.err !== "undefined");
+      const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
         err: hasError ? ack.err : undefined,
         ok: !hasError,
-        raw: ack,
+        raw: ack
       });
     });
   });
@@ -111,28 +96,17 @@ export async function put<
  * @param soul - Node path (e.g., 'games/g_456')
  * @returns Promise resolving to typed data or null
  */
-export async function get<
-  T extends
-    | User
-    | Game
-    | Actor
-    | Agreement
-    | ChatRoom
-    | ChatMessage
-    | Card
-    | Deck
-    | Value
-    | Capability
-    | NodePosition,
->(soul: string): Promise<T | null> {
+export async function get<T extends User | Game | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition>(
+  soul: string
+): Promise<T | null> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(null), 5000);
-    g.get(soul).once((data) => {
+    g.get(soul).once((data: T | undefined, key: string) => {
       clearTimeout(timeout);
-      resolve(data ? ({ ...data, _: undefined } as T) : null);
+      resolve(data ? { ...data, _: undefined } as T : null);
     });
   });
 }
@@ -143,26 +117,14 @@ export async function get<
  * @param cb - Callback with typed data
  * @returns Unsubscribe function
  */
-export function subscribe<
-  T extends
-    | User
-    | Game
-    | Actor
-    | Agreement
-    | ChatRoom
-    | ChatMessage
-    | Card
-    | Deck
-    | Value
-    | Capability
-    | NodePosition,
->(soul: string, cb: (data: T | null) => void): () => void {
+export function subscribe<T extends User | Game | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition>(
+  soul: string,
+  cb: (data: T | null) => void
+): () => void {
   const g = getGun();
   if (!g) return () => {};
 
-  const sub = g
-    .get(soul)
-    .on((data) => cb(data ? ({ ...data, _: undefined } as T) : null));
+  const sub = g.get(soul).on((data: T | undefined) => cb(data ? { ...data, _: undefined } as T : null));
   return () => sub.off();
 }
 
@@ -173,35 +135,21 @@ export function subscribe<
  * @param value - Field value
  * @returns Promise resolving to GunAck
  */
-export async function setField<T>(
-  soul: string,
-  key: string,
-  value: T,
-): Promise<GunAck> {
+export async function setField<T>(soul: string, key: string, value: T): Promise<GunAck> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(
-      () =>
-        resolve({
-          ok: true,
-          err: undefined,
-          raw: { fallback: true, message: "Fallback resolver" },
-        }),
-      1000,
-    );
-    g.get(soul)
-      .get(key)
-      .put(value, (ack: any) => {
-        clearTimeout(timeout);
-        const hasError = ack && (ack.err || typeof ack.err !== "undefined");
-        resolve({
-          err: hasError ? ack.err : undefined,
-          ok: !hasError,
-          raw: ack,
-        });
+    const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
+    g.get(soul).get(key).put(value, (ack: { err?: string; ok?: boolean }) => {
+      clearTimeout(timeout);
+      const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
+      resolve({
+        err: hasError ? ack.err : undefined,
+        ok: !hasError,
+        raw: ack
       });
+    });
   });
 }
 
@@ -211,21 +159,16 @@ export async function setField<T>(
  * @param key - Field name (e.g., 'name')
  * @returns Promise resolving to field value or null
  */
-export async function getField<T>(
-  soul: string,
-  key: string,
-): Promise<T | null> {
+export async function getField<T>(soul: string, key: string): Promise<T | null> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(null), 5000);
-    g.get(soul)
-      .get(key)
-      .once((data) => {
-        clearTimeout(timeout);
-        resolve(data ? ({ ...data, _: undefined } as T) : null);
-      });
+    g.get(soul).get(key).once((data: T | undefined, key: string) => {
+      clearTimeout(timeout);
+      resolve(data ? { ...data, _: undefined } as T : null);
+    });
   });
 }
 
@@ -234,32 +177,19 @@ export async function getField<T>(
  * @param soul - Collection path (e.g., 'games')
  * @returns Promise resolving to array of typed data
  */
-export async function getCollection<
-  T extends
-    | User
-    | Game
-    | Actor
-    | Agreement
-    | ChatRoom
-    | ChatMessage
-    | Card
-    | Deck
-    | Value
-    | Capability
-    | NodePosition,
->(soul: string): Promise<T[]> {
+export async function getCollection<T extends User | Game | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition>(
+  soul: string
+): Promise<T[]> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
     const results: T[] = [];
-    g.get(soul)
-      .map()
-      .once((data, key) => {
-        if (key && key !== "_" && data) {
-          results.push({ ...data, _: undefined, id: key } as T);
-        }
-      });
+    g.get(soul).map().once((data: T | undefined, key: string) => {
+      if (key && key !== '_' && data) {
+        results.push({ ...data, _: undefined, id: key } as T);
+      }
+    });
     setTimeout(() => resolve(results), 1000);
   });
 }
@@ -270,23 +200,17 @@ export async function getCollection<
  * @param shardKey - Shard identifier (e.g., 'day_20250421')
  * @returns Promise resolving to array of typed data
  */
-export async function getShardedCollection<T extends ChatMessage>(
-  baseSoul: string,
-  shardKey: string,
-): Promise<T[]> {
+export async function getShardedCollection<T extends ChatMessage>(baseSoul: string, shardKey: string): Promise<T[]> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
     const results: T[] = [];
-    g.get(baseSoul)
-      .get(shardKey)
-      .map()
-      .once((data, key) => {
-        if (key && key !== "_" && data) {
-          results.push({ ...data, _: undefined, id: key } as T);
-        }
-      });
+    g.get(baseSoul).get(shardKey).map().once((data: T | undefined, key: string) => {
+      if (key && key !== '_' && data) {
+        results.push({ ...data, _: undefined, id: key } as T);
+      }
+    });
     setTimeout(() => resolve(results), 1000);
   });
 }
@@ -298,11 +222,7 @@ export async function getShardedCollection<T extends ChatMessage>(
  * @param id - Message or node ID (optional, e.g., 'msg_1')
  * @returns Composite path (e.g., 'chat_messages/g_456/msg_1')
  */
-export function buildShardedPath(
-  basePath: string,
-  gameId: string,
-  id?: string,
-): string {
+export function buildShardedPath(basePath: string, gameId: string, id?: string): string {
   return id ? `${basePath}/${gameId}/${id}` : `${basePath}/${gameId}`;
 }
 
@@ -312,44 +232,22 @@ export function buildShardedPath(
  * @param data - Data to write (typed with schema)
  * @returns Promise resolving to GunAck
  */
-export async function putSigned<
-  T extends
-    | User
-    | Game
-    | Actor
-    | Agreement
-    | ChatRoom
-    | ChatMessage
-    | Card
-    | Deck
-    | Value
-    | Capability
-    | NodePosition,
->(soul: string, data: T | null): Promise<GunAck> {
+export async function putSigned<T extends User | Game | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition>(
+  soul: string,
+  data: T | null
+): Promise<GunAck> {
   const user = getUser();
-  // Safely pull out the SEA key—even though it's internal, we cast to any here
-  const sea = (user as any)?._?.sea;
-  if (!user || !sea?.pub) {
-    throw new Error("User not authenticated");
-  }
+  if (!user || !user._.sea?.pub) throw new Error('User not authenticated');
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(
-      () =>
-        resolve({
-          ok: true,
-          err: undefined,
-          raw: { fallback: true, message: "Fallback resolver" },
-        }),
-      1000,
-    );
-    user.get(soul).put(data, (ack: any) => {
+    const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
+    user.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
-      const hasError = ack && (ack.err || typeof ack.err !== "undefined");
+      const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
         err: hasError ? ack.err : undefined,
         ok: !hasError,
-        raw: ack,
+        raw: ack
       });
     });
   });
@@ -362,11 +260,11 @@ export async function putSigned<
  */
 export async function nodeExists(soul: string): Promise<boolean> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(false), 5000);
-    g.get(soul).once((data) => {
+    g.get(soul).once((data: any) => {
       clearTimeout(timeout);
       resolve(!!data && Object.keys(data).length > 0);
     });
@@ -389,35 +287,21 @@ export async function deleteNode(soul: string): Promise<GunAck> {
  * @param toSoul - Target node path (e.g., 'actors/actor_1')
  * @returns Promise resolving to GunAck
  */
-export async function createRelationship(
-  fromSoul: string,
-  field: string,
-  toSoul: string,
-): Promise<GunAck> {
+export async function createRelationship(fromSoul: string, field: string, toSoul: string): Promise<GunAck> {
   const g = getGun();
-  if (!g) throw new Error("Gun not ready");
+  if (!g) throw new Error('Gun not ready');
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(
-      () =>
-        resolve({
-          ok: true,
-          err: undefined,
-          raw: { fallback: true, message: "Fallback resolver" },
-        }),
-      1000,
-    );
-    g.get(fromSoul)
-      .get(field)
-      .set(g.get(toSoul), (ack: any) => {
-        clearTimeout(timeout);
-        const hasError = ack && (ack.err || typeof ack.err !== "undefined");
-        resolve({
-          err: hasError ? ack.err : undefined,
-          ok: !hasError,
-          raw: ack,
-        });
+    const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
+    g.get(fromSoul).get(field).set(g.get(toSoul), (ack: { err?: string; ok?: boolean }) => {
+      clearTimeout(timeout);
+      const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
+      resolve({
+        err: hasError ? ack.err : undefined,
+        ok: !hasError,
+        raw: ack
       });
+    });
   });
 }
 
@@ -435,15 +319,15 @@ export function generateId(): string {
  * (e.g., chat_messages/g_456/msg_1, node_positions/g_456/card_1)
  */
 export const nodes = {
-  users: "users",
-  games: "games",
-  actors: "actors",
-  cards: "cards",
-  decks: "decks",
-  values: "values",
-  capabilities: "capabilities",
-  agreements: "agreements",
-  chat_rooms: "chat_rooms",
-  chat_messages: "chat_messages", // Base path, append /<game_id>/<message_id>
-  node_positions: "node_positions", // Base path, append /<game_id>/<node_id>
+  users: 'users',
+  games: 'games',
+  actors: 'actors',
+  cards: 'cards',
+  decks: 'decks',
+  values: 'values',
+  capabilities: 'capabilities',
+  agreements: 'agreements',
+  chat_rooms: 'chat_rooms',
+  chat_messages: 'chat_messages', // Base path, append /<game_id>/<message_id>
+  node_positions: 'node_positions' // Base path, append /<game_id>/<node_id>
 };
