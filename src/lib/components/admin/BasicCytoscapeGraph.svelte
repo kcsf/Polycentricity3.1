@@ -2,8 +2,8 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   
-  export let nodes = $props([]);
-  export let edges = $props([]);
+  export let nodes = [];
+  export let edges = [];
   
   const container = $state();
   const cy = $state();
@@ -13,12 +13,12 @@
   // Node and edge type filtering
   const availableNodeTypes = $state([]);
   const selectedNodeTypes = $state([]);
-  let filteredNodes = [];
-  let filteredEdges = [];
+  const filteredNodes = $state([]);
+  const filteredEdges = $state([]);
   
   // Edge type filtering
-  let availableEdgeTypes = [];
-  let selectedEdgeTypes = [];
+  const availableEdgeTypes = $state([]);
+  const selectedEdgeTypes = $state([]);
   
   // Layout options
   const layouts = [
@@ -31,11 +31,11 @@
     { id: 'cose', name: 'Force-Directed (CoSE)' },
     { id: 'dagre', name: 'Directed (DAG)' }
   ];
-  let selectedLayout = layouts[0];
+  const selectedLayout = $state(layouts[0]);
   
   // Game-specific layout options
-  let availableGames = [];
-  let selectedGameId = '';
+  const availableGames = $state([]);
+  const selectedGameId = $state('');
   
   const dispatch = createEventDispatcher();
   
@@ -59,7 +59,7 @@
     
     // First, filter edges based on node visibility
     const filteredNodeIds = new Set(filteredNodes.map(node => node.id));
-    let nodeFilteredEdges = edges.filter(edge => 
+    const nodeFilteredEdges = edges.filter(edge => 
       filteredNodeIds.has(edge.source) && 
       filteredNodeIds.has(edge.target)
     );
@@ -159,7 +159,7 @@
   function applyLayout() {
     if (!cy) return;
     
-    let layoutOptions = {};
+    const layoutOptions = $state({});
     
     // Configure layout based on selection
     switch (selectedLayout.id) {
@@ -202,7 +202,7 @@
             };
             
             // Default to center if type not found
-            let position = { x: centerX, y: centerY };
+            const position = $state({ x: centerX, y: centerY });
             
             if (typeMap[nodeType]) {
               const nodeConfig = typeMap[nodeType];
@@ -224,10 +224,8 @@
               const spreadY = Math.floor(nodeIndex / 3) * (nodeConfig.spreadFactor / 3);
               
               // Apply offset from cluster center
-              position = {
-                x: clusterX + spreadX - nodeConfig.spreadFactor / 2,
-                y: clusterY + spreadY - nodeConfig.spreadFactor / 2
-              };
+              position.x = clusterX + spreadX - nodeConfig.spreadFactor / 2;
+              position.y = clusterY + spreadY - nodeConfig.spreadFactor / 2;
             }
             
             return position;
