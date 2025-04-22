@@ -3,7 +3,7 @@
         import { onMount } from 'svelte';
         import { registerUser, userExistsByEmail } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
-        import { clearUserFromGun, resetGunAuth } from '$lib/services/gunResetService';
+        import { resetGunDatabase } from '$lib/services/gunResetService';
       
         let name = $state('');
         let email = $state('');
@@ -49,26 +49,20 @@
         });
         
         async function handleClearUser() {
-          if (!email.trim()) {
-            error = 'Please enter an email to clear';
-            return;
-          }
-          
-          isClearing = true;
-          try {
-            await clearUserFromGun(email);
-            error = `Cleared user ${email} from Gun's authentication system. Try registering again.`;
-          } catch (err) {
-            console.error('Error clearing user:', err);
-            error = 'Failed to clear user. See console for details.';
-          } finally {
-            isClearing = false;
-          }
+          error = 'This function has been replaced with the reset tool. Use the complete reset instead.';
+          isClearing = false;
         }
         
         async function handleResetGun() {
-          if (confirm('This will clear all Gun authentication data. Continue?')) {
-            resetGunAuth();
+          if (confirm('This will clear all Gun database data. Continue?')) {
+            try {
+              const result = await resetGunDatabase();
+              console.log(result);
+              window.location.href = '/reset';
+            } catch (err) {
+              console.error('Failed to reset database:', err);
+              error = 'Failed to reset database. See console for details.';
+            }
           }
         }
       
@@ -98,7 +92,7 @@
             // First check if the user already exists
             const userExists = await userExistsByEmail(email);
             if (userExists) {
-              error = 'This email is already registered. Try using a different email or accessing debug mode to clear it.';
+              error = 'This email is already registered. Try a different email or use the Reset Database tool to start fresh.';
               showResetControls = true;
               isRegistering = false;
               return;
@@ -209,23 +203,13 @@
                 <h3 class="h4 text-center">Debug Tools</h3>
                 <p class="text-xs text-center opacity-60">Warning: These actions affect Gun.js user data</p>
                 
-                <div class="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    class="btn variant-ghost-error"
-                    onclick={handleClearUser}
-                    disabled={isClearing}
+                <div class="flex gap-2">
+                  <a 
+                    href="/reset" 
+                    class="btn variant-ghost-error w-full"
                   >
-                    {isClearing ? 'Clearing...' : 'Clear User Data'}
-                  </button>
-                  
-                  <button
-                    type="button"
-                    class="btn variant-ghost-error"
-                    onclick={handleResetGun}
-                  >
-                    Reset Gun Auth
-                  </button>
+                    Reset Database
+                  </a>
                 </div>
               </div>
             {/if}
