@@ -28,7 +28,7 @@ function logAck(ctx: string, ack: GunAck) {
 }
 
 /**
- * Simple createRelationship function for sample data
+ * Simple createRelationship function (independent implementation)
  * Creates a reference from one node to another
  */
 async function createRelationship(fromSoul: string, field: string, toSoul: string): Promise<boolean> {
@@ -54,40 +54,6 @@ async function createRelationship(fromSoul: string, field: string, toSoul: strin
       resolve(false);
     }
   });
-}
-
-/**
- * Optimized version to create or update a node with minimal logging and delays
- */
-async function ensureNode<T extends Record<string, any>>(
-  soul: string,
-  data: T,
-): Promise<boolean> {
-  try {
-    // Separate the path and key from the soul
-    const parts = soul.split('/');
-    const key = parts.pop() || '';
-    const path = parts.join('/');
-    
-    // Add a created_at if not present
-    const payload = { ...data, created_at: data.created_at ?? Date.now() };
-    
-    // Use our optimized robustPut function
-    const success = await robustPut(path, key, payload);
-    
-    // Only handle failures
-    if (!success) {
-      console.warn(`Failed to save ${soul}`);
-    }
-    
-    // Reduced wait time (50ms)
-    await delay(50);
-    
-    return success;
-  } catch (error) {
-    console.error(`Error in ensureNode for ${soul}`);
-    return false;
-  }
 }
 
 /**
@@ -136,49 +102,6 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
       resolve(false);
     }
   });
-}
-
-/**
- * Creates a sample actor with basic properties
- */
-async function createSampleActor(
-  actor: { actor_id: string; game_id: string; card_id: string; user_id: string; custom_name?: string; },
-): Promise<boolean> {
-  return ensureNode(`${nodes.actors}/${actor.actor_id}`, {
-    ...actor,
-    status: "active",
-    created_at: Date.now(),
-  });
-}
-
-/**
- * Creates a sample agreement
- */
-async function createSampleAgreement(agreement: any): Promise<boolean> {
-  return ensureNode(`${nodes.agreements}/${agreement.agreement_id}`, agreement);
-}
-
-/**
- * Batch save helper function
- */
-async function saveBatch<T extends { [key: string]: any }>(
-  nodePath: string, 
-  items: T[], 
-  idField: keyof T
-): Promise<boolean> {
-  console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
-  const gun = getGun();
-  if (!gun) {
-    console.error(`[batch] Gun not initialized for ${nodePath}`);
-    return false;
-  }
-  
-  for (const item of items) {
-    gun.get(nodePath).get(String(item[idField])).put(item);
-  }
-  
-  await delay(100);
-  return true;
 }
 
 export async function initializeSampleData() {
@@ -239,7 +162,6 @@ export async function initializeSampleData() {
     cards: {} 
   };
 
-  // Define game data
   const game = {
     game_id: "g456",
     name: "Test Eco-Village",
@@ -313,25 +235,31 @@ export async function initializeSampleData() {
     { node_id: "ag4", game_id: game.game_id, x: -50, y: 0, type: "agreement", last_updated: now },
   ];
 
-  // Save the entities
+  // Batch save helper function
+  async function saveBatch<T extends { [key: string]: any }>(nodePath: string, items: T[], idField: keyof T) {
+    console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
+    const gun = getGun();
+    if (!gun) {
+      console.error(`[batch] Gun not initialized for ${nodePath}`);
+      return false;
+    }
+    for (const item of items) {
+      gun.get(nodePath).get(String(item[idField])).put(item);
+    }
+    await delay(100);
+    return true;
+  }
+
+  // Save all entities directly to Gun database
   await saveBatch(nodes.users, users, 'user_id');
   await saveBatch(nodes.values, values, 'value_id');
   await saveBatch(nodes.capabilities, capabilities, 'capability_id');
   await saveBatch(nodes.cards, cards, 'card_id');
   await saveBatch(nodes.decks, [deck], 'deck_id');
+  await saveBatch(nodes.games, [game], 'game_id');
+  await saveBatch(nodes.actors, actors, 'actor_id');
+  await saveBatch(nodes.agreements, agreements, 'agreement_id');
   await saveBatch(nodes.chat_rooms, [chat], 'chat_id');
-  await ensureNode(`${nodes.games}/${game.game_id}`, game);
-
-  // Save actors and agreements
-  for (const actor of actors) {
-    await createSampleActor(actor);
-  }
-
-  for (const agreement of agreements) {
-    await createSampleAgreement(agreement);
-  }
-
-  // Save node positions
   await saveBatch(nodes.node_positions, nodePositions, 'node_id');
 
   // Create bidirectional relationships
@@ -377,7 +305,7 @@ export async function verifySampleData() {
   
   // Collect and report entity counts for each node type
   const nodeTypes = Object.values(nodes);
-  const stats: Record<string, { count: number, example?: any }> = {};
+  const stats: Record<string, { count: number }> = {};
   
   // Helper function to count entities of a given type
   async function countEntities(path: string): Promise<number> {
