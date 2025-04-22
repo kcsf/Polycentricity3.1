@@ -15,14 +15,16 @@
   // Helper function to update state objects
   function updateResult(newResult: { success: boolean; message: string } | null) {
     if (newResult === null) {
-      result = null;
+      // Use Object.assign to update the $state object
+      Object.assign(result, { value: null });
       return;
     }
     
-    result = {
+    // Use Object.assign to update the $state object
+    Object.assign(result, {
       success: newResult.success,
       message: newResult.message
-    };
+    });
   }
   
   async function makeAdmin() {

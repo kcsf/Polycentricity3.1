@@ -449,7 +449,7 @@
           rankDir: 'TB', // Top to bottom
           animate: true,
           padding: 30
-        };
+        });
         break;
     }
     
