@@ -13,7 +13,7 @@
  */
 
 export interface User {
-    user_id: string; // e.g., 'u_838'
+    user_id: string; // now the SEA pubkey
     name: string; // e.g., 'Bjorn'
     email: string; // e.g., 'bjorn@endogon.com'
     pub?: string; // SEA public key (reserved)
@@ -104,9 +104,7 @@ export interface Actor {
     user_ref: string | null; // e.g., 'u_838' or null if unassigned
     game_ref: string; // e.g., 'g_456'
     card_ref: string; // e.g., 'card_1'
-    actor_type:
-        | "National Identity"
-        | "Sovereign Identity";
+    actor_type: "National Identity" | "Sovereign Identity";
     custom_name?: string; // e.g., 'Jobu'
     status: "active" | "inactive";
     agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }

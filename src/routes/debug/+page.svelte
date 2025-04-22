@@ -200,6 +200,15 @@ function fixUserFormat() {
 <div class="container mx-auto p-4">
   <h1 class="h1 mb-4">Gun Database Debug</h1>
   
+  <div class="alert variant-ghost-tertiary mb-4">
+    <div class="alert-message">
+      <div class="flex items-center justify-between">
+        <span>Need a complete database reset to start from scratch?</span>
+        <a href="/reset" class="btn variant-ghost-error">Complete DB Reset</a>
+      </div>
+    </div>
+  </div>
+  
   <div class="card p-4 mb-6">
     <h2 class="h3 mb-2">Check User by Email</h2>
     <div class="grid grid-cols-1 gap-4">
