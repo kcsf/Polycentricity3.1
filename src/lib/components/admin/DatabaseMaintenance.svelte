@@ -15,7 +15,8 @@
   Trash2,
   UserCog,
   UserX,
-  Users
+  Users,
+  Wrench
 } from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import AdminTools from './AdminTools.svelte';
@@ -493,7 +494,7 @@
 <div class="p-2">
   <div class="card p-4 bg-surface-100-800-token mb-4">
     <div class="flex items-center space-x-4">
-      <svelte:component this={icons.Wrench} class="text-primary-500" />
+      <Wrench class="text-primary-500" />
       <div>
         <h3 class="h4">Database Maintenance</h3>
         <p class="text-sm">Utilities for maintaining and optimizing your Gun.js database.</p>
@@ -800,7 +801,7 @@
                 onclick={handleCleanupUsers}
                 disabled={cleanupLoading}
               >
-                <svelte:component this={icons.UserX} class="w-4 h-4 mr-2" />
+                <UserX class="w-4 h-4 mr-2" />
                 Remove All Users
               </button>
             </div>
@@ -816,7 +817,7 @@
                 onclick={handleCleanupDecks}
                 disabled={cleanupLoading}
               >
-                <svelte:component this={icons.Database} class="w-4 h-4 mr-2" />
+                <Database class="w-4 h-4 mr-2" />
                 Remove All Decks
               </button>
             </div>
@@ -832,7 +833,7 @@
                 onclick={handleCleanupCards}
                 disabled={cleanupLoading}
               >
-                <svelte:component this={icons.FileText} class="w-4 h-4 mr-2" />
+                <FileText class="w-4 h-4 mr-2" />
                 Remove All Cards
               </button>
             </div>
@@ -848,7 +849,7 @@
                 onclick={handleCleanupActors}
                 disabled={cleanupLoading}
               >
-                <svelte:component this={icons.Users} class="w-4 h-4 mr-2" />
+                <Users class="w-4 h-4 mr-2" />
                 Remove All Actors
               </button>
             </div>
@@ -864,7 +865,7 @@
                 onclick={handleCleanupAgreements}
                 disabled={cleanupLoading}
               >
-                <svelte:component this={icons.FileContract} class="w-4 h-4 mr-2" />
+                <FileText class="w-4 h-4 mr-2" />
                 Remove All Agreements
               </button>
             </div>
