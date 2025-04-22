@@ -17,7 +17,7 @@
  ***************************************************************************************/
 
 import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
-import { createGame, createActor, createAgreement, joinGame, assignCardToActor, updatePlayerActorMap, updateGameStatus, createRelationship } from "./gameService";
+import { createGame, createActor, joinGame, assignCardToActor } from "./gameService";
 
 // Helper function to wait between Gun operations
 function delay(ms: number): Promise<void> {
@@ -29,6 +29,35 @@ function logAck(ctx: string, ack: GunAck) {
   if (ack.err) {
     console.warn(`[seed] ${ctx} ✗ ${ack.err}`);
   }
+}
+
+/**
+ * Simple createRelationship function (different from gameService version)
+ * Creates a reference from one node to another
+ */
+async function createRelationship(fromSoul: string, field: string, toSoul: string): Promise<boolean> {
+  const gun = getGun();
+  if (!gun) {
+    console.error(`[sampleData] Cannot create relationship - Gun not initialized`);
+    return false;
+  }
+  
+  return new Promise<boolean>((resolve) => {
+    try {
+      gun.get(fromSoul).get(field).set(gun.get(toSoul), (ack: any) => {
+        if (ack && ack.err) {
+          console.warn(`[sampleData] Error creating relationship ${fromSoul}.${field} -> ${toSoul}`);
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      });
+      setTimeout(() => resolve(true), 1000);
+    } catch (error) {
+      console.error(`[sampleData] Exception in createRelationship`);
+      resolve(false);
+    }
+  });
 }
 
 /**
@@ -237,7 +266,7 @@ export async function initializeSampleData() {
   await saveBatch(nodes.capabilities, capabilities, 'capability_id');
   await saveBatch(nodes.cards, cards, 'card_id');
   await saveBatch(nodes.decks, [deck], 'deck_id');
-  await saveBatch(nodes.chat, [chat], 'chat_id');
+  await saveBatch(nodes.chat_rooms, [chat], 'chat_id');
 
   // Use gameService.ts for actors and agreements
   for (const actor of actors) {
@@ -251,7 +280,7 @@ export async function initializeSampleData() {
   }
 
   // Save node positions
-  await saveBatch(nodes.positions, nodePositions, 'node_id');
+  await saveBatch(nodes.node_positions, nodePositions, 'node_id');
 
   // Create bidirectional relationships
   
