@@ -17,7 +17,8 @@
 
 import db from './gun-db.js';
 import type Gun from 'gun';
-import { browser } from '$app/environment';
+// Simplified browser check since $app/environment might not be available with SvelteKit 2.x
+const browser = typeof window !== 'undefined';
 import type { IGunInstance, IGunUserInstance } from 'gun';
 import type {
   Game,
@@ -79,7 +80,8 @@ export async function put<T extends User | Game | Actor | Agreement | ChatRoom |
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    g.get(soul).put(data, ((ack: { err?: string; ok?: boolean }) => {
+    // @ts-ignore - Gun callback type issue
+    g.get(soul).put(data, (ack: any) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
@@ -87,7 +89,7 @@ export async function put<T extends User | Game | Actor | Agreement | ChatRoom |
         ok: !hasError,
         raw: ack
       });
-    }) as any);
+    });
   });
 }
 
@@ -141,7 +143,8 @@ export async function setField<T>(soul: string, key: string, value: T): Promise<
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    g.get(soul).get(key).put(value, (ack: { err?: string; ok?: boolean }) => {
+    // @ts-ignore - Gun callback type issue
+    g.get(soul).get(key).put(value, (ack: any) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
@@ -242,7 +245,8 @@ export async function putSigned<T extends User | Game | Actor | Agreement | Chat
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    user.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
+    // @ts-ignore - Gun callback type issue
+    user.get(soul).put(data, (ack: any) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({

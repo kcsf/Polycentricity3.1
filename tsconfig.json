@@ -16,14 +16,8 @@
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
-    "baseUrl": ".",
-    "paths": {
-      "$lib": ["src/lib"],
-      "$lib/*": ["src/lib/*"],
-      "$app": ["node_modules/@sveltejs/kit/src/runtime/app"],
-      "$app/*": ["node_modules/@sveltejs/kit/src/runtime/app/*"],
-      "$app/environment": ["node_modules/@sveltejs/kit/src/runtime/app/environment"]
-    }
+    // SvelteKit handles aliases through svelte.config.js
+    // We should avoid setting paths here
   },
   "include": ["src/**/*", "src/**/*.svelte"],
   "exclude": ["node_modules", "build", "src/lib/services/gun-db.js"]
