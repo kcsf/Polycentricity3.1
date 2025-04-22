@@ -11,10 +11,11 @@
   
   // Create admin user function
   async function createAdminUser() {
-    if (isWorking) return;
+    if (isWorking) return; // Access the value directly
     
-    // In Svelte 5 Runes, state variables are updated by direct assignment
-    $state({ isWorking: true, result: null });
+    // In Svelte 5 Runes, state variables are updated directly
+    isWorking = true;
+    result = null;
     const gun = getGun();
     
     try {
@@ -38,22 +39,18 @@
       
       console.log(`Created admin user with ID: ${userId}`);
       
-      $state({
-        result: {
-          success: true,
-          message: `Created Admin user with ID: ${userId}. You can now use "admin@example.com" with any password to access admin features.`
-        }
-      });
+      result = {
+        success: true,
+        message: `Created Admin user with ID: ${userId}. You can now use "admin@example.com" with any password to access admin features.`
+      };
     } catch (error) {
       console.error('Error fixing database:', error);
-      $state({
-        result: {
-          success: false,
-          message: error instanceof Error ? error.message : String(error)
-        }
-      });
+      result = {
+        success: false,
+        message: error instanceof Error ? error.message : String(error)
+      };
     } finally {
-      $state({ isWorking: false });
+      isWorking = false;
     }
   }
   
@@ -64,44 +61,42 @@
     }
     
     try {
-      $state({ isInitializing: true, result: null });
+      isInitializing = true;
+      result = null;
       console.log('[Admin UI] Starting sample data initialization...');
       
       // Call the enhanced sample data initialization function
       const initResult = await initializeSampleData();
-      $state({ result: initResult });
+      result = initResult;
       
       console.log('[Admin UI] Sample data initialization complete:', initResult);
     } catch (error) {
       console.error('[Admin UI] Error initializing sample data:', error);
-      $state({
-        result: {
-          success: false,
-          message: `Failed to initialize sample data: ${error instanceof Error ? error.message : String(error)}`
-        }
-      });
+      result = {
+        success: false,
+        message: `Failed to initialize sample data: ${error instanceof Error ? error.message : String(error)}`
+      };
     } finally {
-      $state({ isInitializing: false });
+      isInitializing = false;
     }
   }
   
   // Verify sample data function
   async function verifyData() {
     try {
-      $state({ isVerifying: true, result: null });
+      isVerifying = true;
+      result = null;
       
       const verifyResult = await verifySampleData();
-      $state({ result: verifyResult });
+      result = verifyResult;
     } catch (error) {
       console.error('Error verifying sample data:', error);
-      $state({
-        result: {
-          success: false,
-          message: `Failed to verify sample data: ${error instanceof Error ? error.message : String(error)}`
-        }
-      });
+      result = {
+        success: false,
+        message: `Failed to verify sample data: ${error instanceof Error ? error.message : String(error)}`
+      };
     } finally {
-      $state({ isVerifying: false });
+      isVerifying = false;
     }
   }
 </script>

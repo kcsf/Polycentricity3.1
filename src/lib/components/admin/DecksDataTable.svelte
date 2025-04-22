@@ -28,17 +28,17 @@
   });
   
   async function loadDecks() {
-    // In Svelte 5 Runes, state variables are updated by direct assignment with $state
-    $state({ isLoading: true, error: null, decks: [] });
+    // In Svelte 5 Runes, state variables are updated by direct assignment
+    isLoading = true;
+    error = null;
+    decks = [];
     
     try {
       const gun = getGun();
       
       if (!gun) {
-        $state({ 
-          error: 'Gun not initialized',
-          isLoading: false 
-        });
+        error = 'Gun not initialized';
+        isLoading = false;
         return;
       }
       
@@ -57,32 +57,28 @@
         // Wait for Gun to load data
         setTimeout(() => {
           console.log(`Loaded ${loadedDecks.length} decks`);
-          $state({ decks: loadedDecks });
+          decks = loadedDecks;
           resolve();
         }, 500);
       });
     } catch (err) {
       console.error('Error loading decks:', err);
-      $state({ error: err instanceof Error ? err.message : String(err) });
+      error = err instanceof Error ? err.message : String(err);
     } finally {
-      $state({ isLoading: false });
+      isLoading = false;
     }
   }
   
   function openEditModal(deck: Deck) {
-    // In Svelte 5 Runes, update state with direct assignment using $state
-    $state({
-      selectedDeck: deck,
-      isModalOpen: true
-    });
+    // In Svelte 5 Runes, update state with direct assignment
+    selectedDeck = deck;
+    isModalOpen = true;
   }
   
   function handleModalClose() {
-    // In Svelte 5 Runes, update state with direct assignment using $state
-    $state({
-      isModalOpen: false,
-      selectedDeck: null
-    });
+    // In Svelte 5 Runes, update state with direct assignment
+    isModalOpen = false;
+    selectedDeck = null;
   }
   
   function handleDeckUpdated() {
@@ -100,7 +96,7 @@
       const gun = getGun();
       
       if (!gun) {
-        $state({ error: 'Gun not initialized' });
+        error = 'Gun not initialized';
         return;
       }
       
@@ -108,7 +104,7 @@
       const deck = await getDeck(deckId);
       
       if (!deck) {
-        $state({ error: `Deck with ID ${deckId} not found` });
+        error = `Deck with ID ${deckId} not found`;
         return;
       }
       
@@ -116,7 +112,7 @@
       gun.get(nodes.decks).get(deckId).put(null, async (ack) => {
         if (ack.err) {
           console.error('Error deleting deck:', ack.err);
-          $state({ error: `Failed to delete deck: ${ack.err}` });
+          error = `Failed to delete deck: ${ack.err}`;
         } else {
           console.log(`Deleted deck: ${deckId}`);
           // Wait a moment then refresh the decks list
@@ -126,7 +122,7 @@
       });
     } catch (err) {
       console.error('Delete deck error:', err);
-      $state({ error: err instanceof Error ? err.message : String(err) });
+      error = err instanceof Error ? err.message : String(err);
     }
   }
 </script>
