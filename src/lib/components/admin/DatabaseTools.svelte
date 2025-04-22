@@ -4,10 +4,10 @@
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
   import type { User } from '$lib/types';
   
-  const isWorking = $state(false);
-  const isInitializing = $state(false);
-  const isVerifying = $state(false);
-  const result = $state<{ success: boolean; message: string } | null>(null);
+  let isWorking = $state(false);
+  let isInitializing = $state(false);
+  let isVerifying = $state(false);
+  let result = $state<{ success: boolean; message: string } | null>(null);
   
   // Create admin user function
   async function createAdminUser() {

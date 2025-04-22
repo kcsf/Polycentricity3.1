@@ -4,20 +4,20 @@
   
   const { nodes = [], edges = [] } = $props();
   
-  const container = $state();
-  const cy = $state();
-  const loading = $state(true);
-  const error = $state(null);
+  let container = $state();
+  let cy = $state();
+  let loading = $state(true);
+  let error = $state(null);
   
   // Node and edge type filtering
-  const availableNodeTypes = $state([]);
-  const selectedNodeTypes = $state([]);
-  const filteredNodes = $state([]);
-  const filteredEdges = $state([]);
+  let availableNodeTypes = $state([]);
+  let selectedNodeTypes = $state([]);
+  let filteredNodes = $state([]);
+  let filteredEdges = $state([]);
   
   // Edge type filtering
-  const availableEdgeTypes = $state([]);
-  const selectedEdgeTypes = $state([]);
+  let availableEdgeTypes = $state([]);
+  let selectedEdgeTypes = $state([]);
   
   // Layout options
   const layouts = [
@@ -30,11 +30,11 @@
     { id: 'cose', name: 'Force-Directed (CoSE)' },
     { id: 'dagre', name: 'Directed (DAG)' }
   ];
-  const selectedLayout = $state(layouts[0]);
+  let selectedLayout = $state(layouts[0]);
   
   // Game-specific layout options
-  const availableGames = $state([]);
-  const selectedGameId = $state('');
+  let availableGames = $state([]);
+  let selectedGameId = $state('');
   
   const dispatch = createEventDispatcher();
   
@@ -295,16 +295,16 @@
             const nodeType = node.data('type');
             
             // Determine row based on type (still maintaining 4 rows as requested)
-            const row = $state(4); // default for any unexpected types
-            const rowNodes = $state([]);
+            let row = $state(4); // default for any unexpected types
+            let rowNodes = $state([]);
             
             // Helper functions to update row and rowNodes
             function updateRow(newRow) {
-              Object.assign(row, { value: newRow });
+              row = newRow;
             }
             
             function updateRowNodes(newNodes) {
-              Object.assign(rowNodes, { value: newNodes });
+              rowNodes = newNodes;
             }
             
             if (nodeType === 'users' || nodeType === 'games') {

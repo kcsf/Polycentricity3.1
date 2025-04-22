@@ -9,13 +9,13 @@
   
   const { refreshTrigger = 0 } = $props(); // Increment this to trigger a refresh
   
-  const isLoading = $state(true);
-  const decks = $state<{id: string, data: Deck}[]>([]);
-  const error = $state<string | null>(null);
+  let isLoading = $state(true);
+  let decks = $state<{id: string, data: Deck}[]>([]);
+  let error = $state<string | null>(null);
   
   // Modal state
-  const isModalOpen = $state(false);
-  const selectedDeck = $state<Deck | null>(null);
+  let isModalOpen = $state(false);
+  let selectedDeck = $state<Deck | null>(null);
   
   onMount(() => {
     loadDecks();
