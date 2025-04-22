@@ -12,71 +12,97 @@
   
   const dispatch = createEventDispatcher();
   
+  // Helper function to update state objects
+  function updateResult(newResult: { success: boolean; message: string } | null) {
+    if (newResult === null) {
+      result = null;
+      return;
+    }
+    
+    result = {
+      success: newResult.success,
+      message: newResult.message
+    };
+  }
+  
   async function makeAdmin() {
     if (!adminEmail.trim()) {
-      result = {
+      updateResult({
         success: false,
         message: 'Please enter an email address'
-      };
+      });
       return;
     }
     
     try {
       isUpdating = true;
-      result = null;
+      updateResult(null);
       
       const success = await updateUserToAdmin(adminEmail);
       
       if (success) {
-        result = {
+        updateResult({
           success: true,
           message: `Successfully updated ${adminEmail} to Admin role`
-        };
+        });
       } else {
-        result = {
+        updateResult({
           success: false,
           message: `User with email ${adminEmail} not found or update failed`
-        };
+        });
       }
     } catch (error) {
       console.error('Error updating user to admin:', error);
-      result = {
+      updateResult({
         success: false,
         message: `Failed to update user: ${error instanceof Error ? error.message : String(error)}`
-      };
+      });
     } finally {
       isUpdating = false;
     }
   }
   
+  // Helper function to update gameFixResult
+  function updateGameFixResult(newResult: { success: boolean; message: string } | null) {
+    if (newResult === null) {
+      gameFixResult = null;
+      return;
+    }
+    
+    gameFixResult = {
+      success: newResult.success,
+      message: newResult.message
+    };
+  }
+  
   async function fixGameGraphRelationships() {
     try {
       isFixingGames = true;
-      gameFixResult = null;
+      updateGameFixResult(null);
       
       const response = await fixGameRelationships();
       
       if (response.success) {
-        gameFixResult = {
+        updateGameFixResult({
           success: true,
           message: `Successfully fixed relationships for ${response.gamesFixed} games`
-        };
+        });
         
         // Notify parent components to refresh the visualization
         dispatch('relationshipsFixed', { success: true });
         
       } else {
-        gameFixResult = {
+        updateGameFixResult({
           success: false,
           message: `Failed to fix game relationships`
-        };
+        });
       }
     } catch (error) {
       console.error('Error fixing game relationships:', error);
-      gameFixResult = {
+      updateGameFixResult({
         success: false,
         message: `Error fixing game relationships: ${error instanceof Error ? error.message : String(error)}`
-      };
+      });
     } finally {
       isFixingGames = false;
     }

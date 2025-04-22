@@ -50,26 +50,40 @@
     return `${sourceType}-${targetType}`;
   }
   
+  // Helper function to update filteredNodes state
+  function updateFilteredNodes(newNodes) {
+    filteredNodes = [...newNodes]; // Create a new array to trigger reactivity
+  }
+  
+  // Helper function to update filteredEdges state
+  function updateFilteredEdges(newEdges) {
+    filteredEdges = [...newEdges]; // Create a new array to trigger reactivity
+  }
+  
   function applyFilters() {
     // Filter nodes by selected types (if any selected)
-    filteredNodes = selectedNodeTypes.length === 0 
+    const newFilteredNodes = selectedNodeTypes.length === 0 
       ? [...nodes] 
       : nodes.filter(node => selectedNodeTypes.includes(node.type));
     
     // First, filter edges based on node visibility
-    const filteredNodeIds = new Set(filteredNodes.map(node => node.id));
+    const filteredNodeIds = new Set(newFilteredNodes.map(node => node.id));
     const nodeFilteredEdges = edges.filter(edge => 
       filteredNodeIds.has(edge.source) && 
       filteredNodeIds.has(edge.target)
     );
     
     // Then, filter edges based on edge type selection (if any selected)
-    filteredEdges = selectedEdgeTypes.length === 0
+    const newFilteredEdges = selectedEdgeTypes.length === 0
       ? nodeFilteredEdges
       : nodeFilteredEdges.filter(edge => {
           const edgeType = getEdgeType(edge);
           return selectedEdgeTypes.includes(edgeType);
         });
+    
+    // Update state
+    updateFilteredNodes(newFilteredNodes);
+    updateFilteredEdges(newFilteredEdges);
     
     // If the graph is already initialized, update it
     if (cy) {
@@ -160,13 +174,18 @@
     
     const layoutOptions = $state({});
     
+    // Helper function to update layoutOptions
+    function updateLayoutOptions(newOptions) {
+      Object.assign(layoutOptions, newOptions);
+    }
+    
     // Configure layout based on selection
     switch (selectedLayout.id) {
       // Game-centric layout that uses CISE clustering centered around a specific game
       case 'game-layout':
         // Instead of using CISE for Game layout, now use a more stable preset approach
         // This eliminates jittering by positioning nodes in fixed cluster locations
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'preset',
           fit: true,
           padding: 40,
@@ -238,7 +257,7 @@
       // Row 3: Cards
       // Row 4: Values and Capabilities
       case 'default':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'preset',
           fit: true,
           animate: true,
@@ -279,25 +298,34 @@
             const row = $state(4); // default for any unexpected types
             const rowNodes = $state([]);
             
+            // Helper functions to update row and rowNodes
+            function updateRow(newRow) {
+              Object.assign(row, { value: newRow });
+            }
+            
+            function updateRowNodes(newNodes) {
+              Object.assign(rowNodes, { value: newNodes });
+            }
+            
             if (nodeType === 'users' || nodeType === 'games') {
-              row = 0;
+              updateRow(0);
               if (nodeType === 'users') {
-                rowNodes = nodesByType.users;
+                updateRowNodes(nodesByType.users);
               } else {
-                rowNodes = nodesByType.games;
+                updateRowNodes(nodesByType.games);
               }
             } else if (nodeType === 'decks') {
-              row = 1;
-              rowNodes = nodesByType.decks;
+              updateRow(1);
+              updateRowNodes(nodesByType.decks);
             } else if (nodeType === 'cards') {
-              row = 2;
-              rowNodes = nodesByType.cards;
+              updateRow(2);
+              updateRowNodes(nodesByType.cards);
             } else if (nodeType === 'values' || nodeType === 'capabilities') {
-              row = 3;
+              updateRow(3);
               if (nodeType === 'values') {
-                rowNodes = nodesByType.values;
+                updateRowNodes(nodesByType.values);
               } else {
-                rowNodes = nodesByType.capabilities;
+                updateRowNodes(nodesByType.capabilities);
               }
             }
             
@@ -311,10 +339,15 @@
             // Ensure even if only one node, it's centered
             const xPos = $state(canvasWidth / 2);
             
+            // Helper function to update xPos
+            function updateXPos(newX) {
+              Object.assign(xPos, { value: newX });
+            }
+            
             if (nodeCount > 1) {
               const availableWidth = canvasWidth * 0.9; // leave some margin
               const spacing = availableWidth / (nodeCount - 1);
-              xPos = (canvasWidth * 0.05) + (nodeIndex * spacing);
+              updateXPos((canvasWidth * 0.05) + (nodeIndex * spacing));
             }
             
             // Vertical position calculation with equal row spacing
@@ -328,7 +361,7 @@
         break;
         
       case 'cise':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'cise',
           clusters: (function() {
             const clusterMap = {};
@@ -358,7 +391,7 @@
         break;
         
       case 'concentric':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'concentric',
           concentric: function(node) {
             // Assign layers based on node type

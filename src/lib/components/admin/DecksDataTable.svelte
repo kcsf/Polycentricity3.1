@@ -7,7 +7,7 @@
   import type { Deck } from '$lib/types';
   import { tick } from 'svelte';
   
-  export let refreshTrigger = $props(0); // Increment this to trigger a refresh
+  const { refreshTrigger = 0 } = $props(); // Increment this to trigger a refresh
   
   const isLoading = $state(true);
   const decks = $state<{id: string, data: Deck}[]>([]);
