@@ -1,6 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AlertTriangle, CheckCircle, Database, HardDrive, RefreshCw, Shield, Radiation } from '@lucide/svelte';
+  import { 
+  AlertTriangle, 
+  CheckCircle, 
+  Database, 
+  FileText, 
+  FileContract, 
+  HardDrive, 
+  Network, 
+  RefreshCw, 
+  RefreshCcw,
+  Shield, 
+  Radiation,
+  Trash2,
+  UserCog,
+  UserX,
+  Users
+} from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import AdminTools from './AdminTools.svelte';
   import { initializeBidirectionalRelationships } from '$lib/services/deckService';
@@ -644,7 +660,7 @@
               </div>
             {:else if gameFixError}
               <div class="alert variant-filled-error">
-                <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+                <AlertTriangle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Error</h3>
                   <p>{gameFixError}</p>
@@ -655,7 +671,7 @@
               </div>
             {:else if gameFixSuccess}
               <div class="alert variant-filled-success">
-                <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+                <CheckCircle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Success</h3>
                   <p>Successfully fixed relationships for {gameFixResult?.gamesFixed} games. The graph visualization will now show these relationships correctly.</p>
@@ -668,7 +684,7 @@
               onclick={fixGameRelationshipEdges}
               disabled={isFixingGames}
             >
-              <svelte:component this={icons.Network} class="w-4 h-4 mr-2" />
+              <Network class="w-4 h-4 mr-2" />
               Fix Game Relationships
             </button>
           </div>
@@ -705,7 +721,7 @@
               </div>
             {:else if sampleDataError}
               <div class="alert variant-filled-error">
-                <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+                <AlertTriangle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Error</h3>
                   <p>{sampleDataError}</p>
