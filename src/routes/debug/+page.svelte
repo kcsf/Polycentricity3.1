@@ -117,8 +117,82 @@ function clearUser() {
     }
     
     // Try to nullify the user record
-    gun.get(`~@${email}`).put(null);
-    results = `Attempted to clear user with email: ${email}\n`;
+    gun.get(`~@${email}`).once((data) => {
+      if (data) {
+        console.log('Found user data to clear:', data);
+        results = `Found user data to clear: ${JSON.stringify(data)}\n`;
+        
+        // If we found a public key in the non-standard format
+        const possiblePubKey = Object.keys(data).find(key => 
+          key.includes('.') && key.length > 40
+        );
+        
+        if (possiblePubKey) {
+          // Attempt to clear references to this key
+          gun.get(possiblePubKey).put(null);
+          results += `Attempted to clear user with pub key: ${possiblePubKey}\n`;
+        }
+        
+        // Clear the email alias
+        gun.get(`~@${email}`).put(null);
+        results += `Attempted to clear email alias: ~@${email}\n`;
+        
+        // If there's a pub field, clear that user in the public graph
+        if (data.pub) {
+          gun.get(`users/${data.pub}`).put(null);
+          results += `Attempted to clear public user: users/${data.pub}\n`;
+        }
+      } else {
+        results = `No user found with email: ${email}\n`;
+      }
+    });
+  }
+}
+
+// Function to fix the user record format
+function fixUserFormat() {
+  if (confirm(`This will attempt to fix the user record format for ${email}. Continue?`)) {
+    const gun = getGun();
+    if (!gun) {
+      results = 'Gun not initialized';
+      return;
+    }
+    
+    // First get the user record
+    gun.get(`~@${email}`).once((data) => {
+      if (data) {
+        console.log('Found user data to fix:', data);
+        results = `Found user data to fix: ${JSON.stringify(data)}\n`;
+        
+        // Look for a potential public key in the non-standard format
+        const possiblePubKey = Object.keys(data).find(key => 
+          key.includes('.') && key.length > 40
+        );
+        
+        if (possiblePubKey) {
+          // Update the alias to have a proper pub field
+          gun.get(`~@${email}`).put({ pub: possiblePubKey });
+          results += `Fixed email alias for ${email} with pub: ${possiblePubKey}\n`;
+          
+          // Also add a user entry in the public graph
+          const userData = {
+            user_id: possiblePubKey,
+            name: email.split('@')[0],
+            email,
+            pub: possiblePubKey,
+            role: 'Guest',
+            created_at: Date.now()
+          };
+          
+          gun.get(`users/${possiblePubKey}`).put(userData);
+          results += `Created public user record: users/${possiblePubKey}\n`;
+        } else {
+          results += `No public key found to fix in user record\n`;
+        }
+      } else {
+        results = `No user found with email: ${email}\n`;
+      }
+    });
   }
 }
 </script>
@@ -139,13 +213,20 @@ function clearUser() {
         />
       </label>
       
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-2 gap-2">
         <button 
           class="btn variant-filled-primary" 
           onclick={checkUserByEmail}
           disabled={loading}
         >
           {loading ? 'Checking...' : 'Check User'}
+        </button>
+        
+        <button 
+          class="btn variant-filled-tertiary" 
+          onclick={fixUserFormat}
+        >
+          Fix User Format
         </button>
         
         <button 

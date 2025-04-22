@@ -75,6 +75,16 @@ export async function registerUser(name: string, email: string, password: string
               // Don't reject here - the user was created successfully
             }
             
+            // ALSO write to the public index:
+            const gun = getGun();
+            if (gun) {
+              console.log(`Writing user to public index: users/${user_id}`);
+              gun.get('users').get(user_id).put(userData);
+              
+              // Also ensure the email index is properly formatted
+              gun.get(`~@${email}`).put({ pub: user_id });
+            }
+            
             console.log('User registration complete');
             
             // Update the user store
@@ -150,6 +160,16 @@ export async function loginUser(email: string, password: string): Promise<User |
             
             // Save the new profile
             user.get('profile').put(userData);
+            
+            // ALSO write to the public index:
+            const gun = getGun();
+            if (gun) {
+              console.log(`Writing user to public index: users/${user_id}`);
+              gun.get('users').get(user_id).put(userData);
+              
+              // Also ensure the email index is properly formatted
+              gun.get(`~@${email}`).put({ pub: user_id });
+            }
             
             userStore.update(state => ({
               ...state,
