@@ -923,7 +923,7 @@
               <input 
                 type="checkbox" 
                 checked={selectedNodeTypes.includes(type)} 
-                on:change={() => toggleNodeType(type)}
+                onchange={() => toggleNodeType(type)}
                 class="checkbox checkbox-xs"
               />
               <span class="w-2 h-2 rounded-full" style="background-color: {getColorForNodeType(type)}"></span>
@@ -932,8 +932,8 @@
           {/each}
         </div>
         <div class="flex gap-1 mt-1">
-          <button class="btn btn-xs variant-ghost" on:click={selectAllNodeTypes}>All</button>
-          <button class="btn btn-xs variant-ghost" on:click={clearNodeTypeSelection}>None</button>
+          <button class="btn btn-xs variant-ghost" onclick={selectAllNodeTypes}>All</button>
+          <button class="btn btn-xs variant-ghost" onclick={clearNodeTypeSelection}>None</button>
         </div>
       </div>
       
@@ -945,7 +945,7 @@
           <select 
             class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
             bind:value={selectedLayout}
-            on:change={handleLayoutChange}
+            onchange={handleLayoutChange}
           >
             {#each layouts as layout}
               <option value={layout}>{layout.name}</option>
@@ -961,13 +961,13 @@
               <select 
                 class="select select-xs bg-surface-100-800 border border-surface-300-600 rounded w-full text-xs"
                 bind:value={selectedGameId}
-                on:change={handleGameChange}
+                onchange={handleGameChange}
               >
                 {#each availableGames as game}
                   <option value={game.id}>{game.name}</option>
                 {/each}
               </select>
-              <button class="btn btn-xs variant-filled-primary" on:click={handleGameChange}>
+              <button class="btn btn-xs variant-filled-primary" onclick={handleGameChange}>
                 <span class="text-xs">Apply</span>
               </button>
             </div>
@@ -986,7 +986,7 @@
               <input 
                 type="checkbox" 
                 checked={selectedEdgeTypes.includes(type)} 
-                on:change={() => toggleEdgeType(type)}
+                onchange={() => toggleEdgeType(type)}
                 class="checkbox checkbox-xs"
               />
               <span class="truncate">{type}</span>
@@ -994,8 +994,8 @@
           {/each}
         </div>
         <div class="flex gap-1 mt-1">
-          <button class="btn btn-xs variant-ghost" on:click={selectAllEdgeTypes}>All</button>
-          <button class="btn btn-xs variant-ghost" on:click={clearEdgeTypeSelection}>None</button>
+          <button class="btn btn-xs variant-ghost" onclick={selectAllEdgeTypes}>All</button>
+          <button class="btn btn-xs variant-ghost" onclick={clearEdgeTypeSelection}>None</button>
         </div>
       </div>
     {/if}
