@@ -15,14 +15,7 @@
     "checkJs": true,
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "baseUrl": ".",
-    "paths": {
-      "$lib": ["src/lib"],
-      "$lib/*": ["src/lib/*"],
-      "$app": ["./node_modules/@sveltejs/kit/src/runtime/app"],
-      "$app/*": ["./node_modules/@sveltejs/kit/src/runtime/app/*"]
-    }
+    "isolatedModules": true
   },
   "include": ["src/**/*", "src/**/*.svelte"],
   "exclude": ["node_modules", "build", "src/lib/gun-db.js"]

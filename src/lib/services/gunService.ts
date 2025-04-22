@@ -17,11 +17,8 @@
 
 import db from "./gun-db.js";
 import type Gun from "gun";
-// Define browser for compatibility with SvelteKit
-// This replacement avoids the need for $app/environment
-const browser = typeof window !== 'undefined';
+import { browser } from "$app/environment";
 import type { IGunInstance, IGunUserInstance } from "gun";
-// Import types from the local types directory
 import type {
   Game,
   Actor,
@@ -34,7 +31,7 @@ import type {
   Value,
   Capability,
   NodePosition,
-} from "../types";
+} from "$lib/types";
 
 // Global singleton Gun instance from gun-db.js, initialized with Radisk
 const gun = browser ? (db as unknown as IGunInstance) : undefined;
@@ -330,8 +327,11 @@ export async function putSigned<
     | NodePosition,
 >(soul: string, data: T | null): Promise<GunAck> {
   const user = getUser();
-  // Using type assertion to handle the Gun.js SEA property which is missing in types
-  if (!user || !(user._ as any)?.sea?.pub) throw new Error("User not authenticated");
+  // Safely pull out the SEA key—even though it's internal, we cast to any here
+  const sea = (user as any)?._?.sea;
+  if (!user || !sea?.pub) {
+    throw new Error("User not authenticated");
+  }
 
   return new Promise((resolve) => {
     const timeout = setTimeout(

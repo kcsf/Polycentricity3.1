@@ -11,8 +11,7 @@
  * - Prepares for peer relays
  */
 
-// Define browser directly instead of importing from SvelteKit
-const browser = typeof window !== 'undefined';
+import { browser } from '$app/environment';
 import Gun from 'gun';
 import 'gun/lib/radix';
 import 'gun/lib/radisk';
