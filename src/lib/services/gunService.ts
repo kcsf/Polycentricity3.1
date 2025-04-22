@@ -17,8 +17,9 @@
 
 import db from "./gun-db.js";
 import type Gun from "gun";
-// Import browser from SvelteKit's environment module
-import { browser } from "$app/environment";
+// Define browser for compatibility with SvelteKit
+// This replacement avoids the need for $app/environment
+const browser = typeof window !== 'undefined';
 import type { IGunInstance, IGunUserInstance } from "gun";
 // Import types from the local types directory
 import type {
