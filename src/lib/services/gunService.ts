@@ -31,7 +31,7 @@ import type {
   Value,
   Capability,
   NodePosition
-} from '$lib/types';
+} from '../types/index';
 
 // Explicitly type db to avoid implicit any
 const dbTyped: IGunInstance | undefined = db;
@@ -79,7 +79,7 @@ export async function put<T extends User | Game | Actor | Agreement | ChatRoom |
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    g.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
+    g.get(soul).put(data, ((ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
@@ -87,7 +87,7 @@ export async function put<T extends User | Game | Actor | Agreement | ChatRoom |
         ok: !hasError,
         raw: ack
       });
-    });
+    }) as any);
   });
 }
 
@@ -237,7 +237,8 @@ export async function putSigned<T extends User | Game | Actor | Agreement | Chat
   data: T | null
 ): Promise<GunAck> {
   const user = getUser();
-  if (!user || !user._.sea?.pub) throw new Error('User not authenticated');
+  // Add type assertion for sea property
+  if (!user || !(user._ as any).sea?.pub) throw new Error('User not authenticated');
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
