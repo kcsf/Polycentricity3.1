@@ -6,8 +6,7 @@
   
   const dispatch = createEventDispatcher();
   
-  export let isOpen = $props(false);
-  export let deck = $props<Deck | null>(null);
+  const { isOpen = false, deck = null } = $props<{ isOpen?: boolean, deck?: Deck | null }>();
   
   let isLoading = $state(false);
   let formData = $state({
@@ -23,7 +22,7 @@
   });
   
   function closeModal() {
-    isOpen = false;
+    // Can't directly modify props in Svelte 5
     const event = new CustomEvent('close');
     dispatch('close', event);
   }
@@ -58,7 +57,11 @@
 
 <!-- Modal Backdrop -->
 {#if isOpen}
-<div class="modal-backdrop" onclick|self={closeModal} onkeydown={(e) => e.key === 'Escape' && closeModal()} role="dialog" tabindex="-1">
+<div class="modal-backdrop" 
+     onclick={(e) => e.target === e.currentTarget && closeModal()} 
+     onkeydown={(e) => e.key === 'Escape' && closeModal()} 
+     role="dialog" 
+     tabindex="-1">
   <!-- Modal Container -->
   <div class="modal-container card custom-modal p-4 w-full max-w-md" aria-modal="true">
     <header class="modal-header">
@@ -69,7 +72,7 @@
     </header>
     
     <div class="p-4">
-      <form onsubmit|preventDefault={handleSubmit} class="space-y-4">
+      <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
         <label class="label">
           <span>Deck Name</span>
           <input type="text" bind:value={formData.name} class="input" required />

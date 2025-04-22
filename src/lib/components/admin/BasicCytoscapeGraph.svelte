@@ -172,11 +172,11 @@
   function applyLayout() {
     if (!cy) return;
     
-    const layoutOptions = $state({});
+    let layoutOptions = $state({});
     
     // Helper function to update layoutOptions
     function updateLayoutOptions(newOptions) {
-      Object.assign(layoutOptions, newOptions);
+      layoutOptions = { ...layoutOptions, ...newOptions };
     }
     
     // Configure layout based on selection
@@ -337,11 +337,11 @@
             const nodeCount = typeNodes.length || 1;
             
             // Ensure even if only one node, it's centered
-            const xPos = $state(canvasWidth / 2);
+            let xPos = $state(canvasWidth / 2);
             
             // Helper function to update xPos
             function updateXPos(newX) {
-              Object.assign(xPos, { value: newX });
+              xPos = newX;
             }
             
             if (nodeCount > 1) {
@@ -354,8 +354,11 @@
             const rowSpacing = containerHeight / 4; // exactly 4 rows
             const yPos = (row * rowSpacing) + (rowSpacing / 2);
             
-            // Return the calculated position
-            return { x: xPos, y: yPos };
+            // Return the calculated position using the latest state values
+            // Convert state variables to regular values for the return statement
+            const currentXPos = xPos;
+            const currentYPos = (row * rowSpacing) + (rowSpacing / 2);
+            return { x: currentXPos, y: currentYPos };
           }
         });
         break;
@@ -454,7 +457,9 @@
     }
     
     // Apply the selected layout
-    const layout = cy.layout(layoutOptions);
+    // Use a regular object for the layout options since Cytoscape doesn't need reactivity
+    const currentLayoutOptions = { ...layoutOptions };
+    const layout = cy.layout(currentLayoutOptions);
     layout.run();
   }
   
