@@ -1,7 +1,7 @@
 <script lang="ts">
         import { goto } from '$app/navigation';
         import { onMount } from 'svelte';
-        import { registerUser } from '$lib/services/authService';
+        import { registerUser, userExistsByEmail } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
         import { clearUserFromGun, resetGunAuth } from '$lib/services/gunResetService';
       
@@ -93,10 +93,23 @@
           }
       
           isRegistering = true;
+          
           try {
+            // First check if the user already exists
+            const userExists = await userExistsByEmail(email);
+            if (userExists) {
+              error = 'This email is already registered. Try using a different email or accessing debug mode to clear it.';
+              showResetControls = true;
+              isRegistering = false;
+              return;
+            }
+            
+            // If we get here, the user doesn't exist, so try to register
+            console.log(`User doesn't exist, proceeding with registration for: ${email}`);
             const user = await registerUser(name, email, password);
+            
             if (user) {
-              console.log(`Registered user: ${user.user_id}`);
+              console.log(`Successfully registered user: ${user.user_id}`);
               try {
                 await goto('/dashboard');
               } catch (navError) {
@@ -112,8 +125,10 @@
               typeof err === 'string'
                 ? err
                 : err.message || 'An error occurred during registration';
+            
+            // Check for the common "User already created" error
             if (err?.includes && err.includes('User already created')) {
-              error = 'This email is already registered. Try using a different email or accessing debug mode to clear it.';
+              error = 'This email is already registered in Gun but we couldn\'t detect it beforehand. Try using the debug mode to clear it.';
               showResetControls = true;
             }
           } finally {

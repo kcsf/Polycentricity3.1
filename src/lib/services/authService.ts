@@ -240,9 +240,10 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
       }, 2000);
       
       // Check if this email is registered with Gun's user system
-      gun.user().is(email, (ack: any) => {
+      // Using gun.get with the special alias format used by Gun
+      gun.get(`~@${email}`).once((data: any) => {
         clearTimeout(timeout);
-        const exists = !!ack;
+        const exists = data && data.pub;
         console.log(`Email ${email} ${exists ? 'exists' : 'does not exist'} in Gun's user system`);
         resolve(exists);
       });
