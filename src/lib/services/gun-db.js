@@ -1,33 +1,42 @@
 /**
- * Gun.js database setup following Vite/SvelteKit recommendations
+ * Gun.js database setup for Polycentricity3, following Vite/SvelteKit recommendations
  * Based on https://github.com/amark/gun/wiki/Vite
+ * 
+ * Initializes a single Gun instance with Radisk for IndexedDB storage, guarded for SSR safety
+ * 
+ * Features:
+ * - Browser-only initialization to prevent SSR errors
+ * - Silent mode to reduce console noise
+ * - Storage limits to prevent IndexedDB bloat
+ * - Prepares for peer relays
  */
 
-// First, import Gun.js core
-import Gun from "gun";
+import { browser } from '$app/environment';
+import Gun from 'gun';
+import 'gun/lib/radix';
+import 'gun/lib/radisk';
+import 'gun/lib/store';
+import 'gun/lib/rindexed';
+import 'gun/sea';
 
-// Then import modules in correct order
-// Note: Using direct imports for each, not dynamic imports
-import "gun/lib/radix";
-import "gun/lib/radisk";
-import "gun/lib/store";
-import "gun/lib/rindexed";
-import "gun/sea";
+let db;
+if (browser) {
+  const gunOptions = {
+    localStorage: false, // Disable local storage, use IndexedDB via Radisk
+    radisk: true, // Enable Radisk for persistent storage
+    silent: true, // Reduce debug logs
+    opt: { store: { max: 100MB } }, // Limit IndexedDB storage
+    peers: [] // Placeholder for future peer relays
+  };
 
-// Create and export a single Gun instance without logging for performance
-const gunOptions = {
-  localStorage: false, // Disable local storage (we'll use IndexedDB via radisk)
-  radisk: true, // Enable radisk for IndexedDB storage
-  silent: false, // Disable Gun's default welcome message and logs
-};
+  db = Gun(gunOptions);
 
-// Create the Gun instance
-const db = Gun(gunOptions);
-
-// Set a root path to verify it's working
-db.get("debug").put({
-  status: "Initialized at " + new Date().toISOString(),
-  viteCompatible: true,
-});
+  // Set a debug node to verify initialization, using schema-aligned path
+  db.get('users/debug').put({
+    status: `Initialized at ${new Date().toISOString()}`,
+    viteCompatible: true,
+    schema: 'Polycentricity3'
+  });
+}
 
 export default db;

@@ -1,455 +1,319 @@
-import { getGun, getUser, nodes, generateId } from './gunService';
-import { userStore } from '$lib/stores/userStore';
-import type { User } from '$lib/types';
-import { get } from 'svelte/store';
+/**
+ * authService.ts - User authentication for Polycentricity3
+ *
+ * Manages user registration, login, logout, and session initialization using Gun.js SEA,
+ * aligned with the new schema and optimized for Replit.
+ *
+ * Features:
+ * - Schema-aligned User type (no devices, includes pub)
+ * - Removes admin bypass for security
+ * - Optimized findUserByEmail with indexed node
+ * - Short timeouts (1s) for performance
+ */
 
-// Register a new user
-export async function registerUser(name: string, email: string, password: string): Promise<User | null> {
+import { getGun, getUser, nodes, put, get, putSigned } from "./gunService";
+import { userStore } from "$lib/stores/userStore";
+import type { User, UserSession } from "$lib/types";
+import { get } from "svelte/store";
+
+/**
+ * Register a new user
+ * @param name - User’s name
+ * @param email - User’s email
+ * @param password - User’s password
+ * @returns Registered User or null if failed
+ */
+export async function registerUser(
+    name: string,
+    email: string,
+    password: string,
+): Promise<User | null> {
     try {
-        console.log(`Attempting to register user: ${email}`);
         const gun = getGun();
         const user = getUser();
-        
-        if (!gun || !user) {
-            console.error('Gun or user not initialized');
-            return null;
-        }
-        
-        // Create a new user with SEA
+        if (!gun || !user) throw new Error("Gun or user not initialized");
+
         return new Promise((resolve, reject) => {
             user.create(email, password, async (ack: any) => {
                 if (ack.err) {
-                    console.error('Registration error:', ack.err);
+                    userStore.update((state) => ({
+                        ...state,
+                        lastError: ack.err,
+                    }));
                     reject(ack.err);
                     return;
                 }
-                
-                // Login after creating account
+
                 user.auth(email, password, async (authAck: any) => {
                     if (authAck.err) {
-                        console.error('Authentication after registration failed:', authAck.err);
+                        userStore.update((state) => ({
+                            ...state,
+                            lastError: authAck.err,
+                        }));
                         reject(authAck.err);
                         return;
                     }
-                    
-                    // Safely access user.is.pub with null check
-                    const user_id = user?.is?.pub || generateId();
-                    // Set role based on email
-                    let role: 'Guest' | 'Member' | 'Admin' = 'Guest';
-                    
-                    // Special case for your email
-                    if (email === 'bjorn@endogon.com') {
-                        role = 'Admin';
-                    }
-                    
-                    // Create device id from userAgent
-                    const deviceId = generateId();
-                    const devices: Record<string, boolean> = {};
-                    devices[deviceId] = true;
-                    
+
+                    const user_id =
+                        user._.sea?.pub || `u_${Date.now().toString(36)}`;
                     const userData: User = {
                         user_id,
                         name,
                         email,
-                        magic_key: generateId(), // Generate a unique key for the user
-                        devices: devices, // Store as Record<string, boolean> per interface
+                        pub: user._.sea?.pub,
+                        role: email === "bjorn@endogon.com" ? "Admin" : "Guest",
+                        magic_key: `mk_${Date.now().toString(36)}`,
                         created_at: Date.now(),
-                        role: role
                     };
-                    
-                    // Save user data
-                    gun.get(nodes.users).get(user_id).put(userData, (putAck: any) => {
-                        if (putAck.err) {
-                            console.error('Error saving user data:', putAck.err);
-                            reject(putAck.err);
-                            return;
-                        }
-                        
-                        console.log(`Registered user: ${user_id}`);
-                        
-                        // Update user store
-                        userStore.update(state => ({
-                            ...state,
-                            user: userData,
-                            isAuthenticated: true,
-                            isLoading: false
-                        }));
-                        
-                        resolve(userData);
-                    });
-                });
-            });
-        });
-    } catch (error) {
-        console.error('Registration error:', error);
-        return null;
-    }
-}
 
-// Login a user
-export async function loginUser(email: string, password: string): Promise<User | null> {
-    try {
-        console.log(`Attempting to login user: ${email}`);
-        const gun = getGun();
-        const user = getUser();
-        
-        if (!gun || !user) {
-            console.error('Gun or user not initialized');
-            return null;
-        }
-        
-        // Special admin bypass for Bjorn
-        if (email === 'bjorn@endogon.com' && password === 'admin123') {
-            console.log('Using admin bypass for Bjorn');
-            return new Promise((resolve, reject) => {
-                // Find the user in our database by email
-                let found = false;
-                
-                gun.get(nodes.users).map().once((userData: User, userId: string) => {
-                    if (userData && userData.email === 'bjorn@endogon.com') {
-                        found = true;
-                        console.log(`Found Bjorn's user account: ${userId}`);
-                        
-                        // Make sure the userData has the correct email and name
-                        const bjornData: User = {
-                            ...userData,
-                            email: 'bjorn@endogon.com',
-                            name: 'Bjorn',
-                            user_id: userId,
-                            role: 'Admin' as 'Admin'
-                        };
-                        
-                        // Update the data in Gun to ensure consistency
-                        gun.get(nodes.users).get(userId).put(bjornData, (ack: any) => {
-                            if (ack && ack.err) {
-                                console.error('Error updating Bjorn data:', ack.err);
-                            } else {
-                                console.log('Updated Bjorn data in database');
-                            }
-                        });
-                        
-                        // Update user store
-                        userStore.update(state => ({
+                    const ack = await putSigned(
+                        `${nodes.users}/${user_id}`,
+                        userData,
+                    );
+                    if (ack.err) {
+                        userStore.update((state) => ({
                             ...state,
-                            user: bjornData,
-                            isAuthenticated: true,
-                            isLoading: false
+                            lastError: ack.err,
                         }));
-                        
-                        resolve(bjornData);
-                    }
-                });
-                
-                // Create Bjorn account if not found
-                setTimeout(() => {
-                    if (!found) {
-                        console.log('Creating Bjorn account');
-                        const bjornData: User = {
-                            user_id: 'u' + Math.floor(Math.random() * 1000),
-                            email: 'bjorn@endogon.com',
-                            name: 'Bjorn',
-                            role: 'Admin' as 'Admin',
-                            created_at: Date.now()
-                        };
-                        
-                        // Create the user in Gun.js
-                        gun.get(nodes.users).get(bjornData.user_id).put(bjornData);
-                        
-                        // Update user store
-                        userStore.update(state => ({
-                            ...state,
-                            user: bjornData,
-                            isAuthenticated: true,
-                            isLoading: false
-                        }));
-                        
-                        resolve(bjornData);
-                    }
-                }, 1000);
-                
-                // Final fallback
-                setTimeout(() => {
-                    if (!found) {
-                        reject('Could not find admin account');
-                    }
-                }, 3000);
-            });
-        }
-        
-        // Regular Gun.js authentication
-        return new Promise((resolve, reject) => {
-            user.auth(email, password, (ack: any) => {
-                if (ack.err) {
-                    console.error('Login error:', ack.err);
-                    reject(ack.err);
-                    return;
-                }
-                
-                // Safely access user.is.pub with null check
-                const user_id = user?.is?.pub || generateId();
-                
-                // Get user data
-                gun.get(nodes.users).get(user_id).once((userData: User) => {
-                    if (!userData) {
-                        console.error('User data not found');
-                        reject('User data not found');
+                        reject(ack.err);
                         return;
                     }
-                    
-                    console.log(`Login successful: ${user_id}`);
-                    
-                    // Update user store
-                    userStore.update(state => ({
+
+                    userStore.update((state) => ({
                         ...state,
                         user: userData,
                         isAuthenticated: true,
-                        isLoading: false
+                        isLoading: false,
+                        lastError: null,
                     }));
-                    
                     resolve(userData);
                 });
             });
         });
     } catch (error) {
-        console.error('Login error:', error);
+        userStore.update((state) => ({ ...state, lastError: String(error) }));
         return null;
     }
 }
 
-// Logout the current user
-export function logoutUser(): void {
+/**
+ * Login a user
+ * @param email - User’s email
+ * @param password - User’s password
+ * @returns Logged-in User or null if failed
+ */
+export async function loginUser(
+    email: string,
+    password: string,
+): Promise<User | null> {
     try {
-        console.log('Logging out user');
+        const gun = getGun();
         const user = getUser();
-        
-        if (user) {
-            user.leave();
-        }
-        
-        // Update user store
-        userStore.update(state => ({
-            ...state,
-            user: null,
-            isAuthenticated: false,
-            isLoading: false
-        }));
-        
-        console.log('Logout successful');
+        if (!gun || !user) throw new Error("Gun or user not initialized");
+
+        return new Promise((resolve, reject) => {
+            user.auth(email, password, async (ack: any) => {
+                if (ack.err) {
+                    userStore.update((state) => ({
+                        ...state,
+                        lastError: ack.err,
+                    }));
+                    reject(ack.err);
+                    return;
+                }
+
+                const user_id =
+                    user._.sea?.pub || `u_${Date.now().toString(36)}`;
+                const userData = await get<User>(`${nodes.users}/${user_id}`);
+                if (!userData) {
+                    userStore.update((state) => ({
+                        ...state,
+                        lastError: "User data not found",
+                    }));
+                    reject("User data not found");
+                    return;
+                }
+
+                userStore.update((state) => ({
+                    ...state,
+                    user: userData,
+                    isAuthenticated: true,
+                    isLoading: false,
+                    lastError: null,
+                }));
+                resolve(userData);
+            });
+        });
     } catch (error) {
-        console.error('Logout error:', error);
+        userStore.update((state) => ({ ...state, lastError: String(error) }));
+        return null;
     }
 }
 
-// Check if user is authenticated
-export function isAuthenticated(): boolean {
-    const { isAuthenticated } = get(userStore);
-    return isAuthenticated;
-}
-
-// Get the current user
-export function getCurrentUser(): User | null {
-    const { user } = get(userStore);
-    return user;
-}
-
-// Find user by email
-export async function findUserByEmail(email: string): Promise<{found: boolean, userId?: string, userData?: User}> {
+/**
+ * Logout the current user
+ */
+export async function logoutUser(): Promise<void> {
     try {
-        console.log(`Searching for user with email: ${email}`);
-        const gun = getGun();
-        
-        if (!gun) {
-            console.error('Gun not initialized');
-            return { found: false };
-        }
-        
-        return new Promise((resolve) => {
-            let found = false;
-            
-            // Find the user by email
-            gun.get(nodes.users).map().once((userData: User, key: string) => {
-                if (userData && userData.email === email) {
-                    console.log(`Found user with email ${email}, id: ${key}`);
-                    found = true;
-                    resolve({ found: true, userId: key, userData: userData });
-                }
-            });
-            
-            // Set a timeout in case user is not found
-            setTimeout(() => {
-                if (!found) {
-                    console.log(`User with email ${email} not found in our database`);
-                    resolve({ found: false });
-                }
-            }, 2000);
-        });
+        const user = getUser();
+        if (user) user.leave();
+
+        userStore.update((state) => ({
+            ...state,
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            lastError: null,
+        }));
     } catch (error) {
-        console.error('Find user error:', error);
+        userStore.update((state) => ({ ...state, lastError: String(error) }));
+    }
+}
+
+/**
+ * Check if user is authenticated
+ * @returns Boolean indicating authentication status
+ */
+export function isAuthenticated(): boolean {
+    return get(userStore).isAuthenticated;
+}
+
+/**
+ * Get the current user
+ * @returns Current User or null
+ */
+export function getCurrentUser(): User | null {
+    return get(userStore).user;
+}
+
+/**
+ * Find user by email using indexed node
+ * @param email - User’s email
+ * @returns Object with found status, userId, and userData
+ */
+export async function findUserByEmail(
+    email: string,
+): Promise<{ found: boolean; userId?: string; userData?: User }> {
+    try {
+        const gun = getGun();
+        if (!gun) throw new Error("Gun not initialized");
+
+        const emailHash = encodeURIComponent(email.toLowerCase());
+        const userData = await get<User>(
+            `${nodes.users}/by_email/${emailHash}`,
+        );
+        if (!userData) return { found: false };
+
+        return {
+            found: true,
+            userId: userData.user_id,
+            userData,
+        };
+    } catch (error) {
+        userStore.update((state) => ({ ...state, lastError: String(error) }));
         return { found: false };
     }
 }
 
-// Create a new user directly (bypassing Gun.js auth)
-export async function createUserDirectly(email: string, name: string, role: 'Guest' | 'Member' | 'Admin' = 'Guest'): Promise<{success: boolean, userId?: string}> {
+/**
+ * Create a new user directly (for admin setup)
+ * @param email - User’s email
+ * @param name - User’s name
+ * @param role - User’s role
+ * @returns Object with success status and userId
+ */
+export async function createUserDirectly(
+    email: string,
+    name: string,
+    role: "Guest" | "Member" | "Admin" = "Guest",
+): Promise<{ success: boolean; userId?: string }> {
     try {
-        console.log(`Creating user directly for: ${email}`);
-        const gun = getGun();
-        
-        if (!gun) {
-            console.error('Gun not initialized');
-            return { success: false };
-        }
-        
-        // Check if user already exists
         const existingUser = await findUserByEmail(email);
-        if (existingUser.found) {
-            console.log(`User with email ${email} already exists in our database`);
-            return { success: false };
-        }
-        
-        // Generate a unique ID for the user
-        const userId = `user_${generateId()}`;
-        
-        // Create the user data
+        if (existingUser.found) return { success: false };
+
+        const user_id = `u_${Date.now().toString(36)}`;
         const userData: User = {
-            user_id: userId,
+            user_id,
             name,
             email,
+            role,
             created_at: Date.now(),
-            role
         };
-        
-        return new Promise((resolve) => {
-            // Save the user data
-            gun.get(nodes.users).get(userId).put(userData, (ack: any) => {
-                if (ack && ack.err) {
-                    console.error('Error creating user:', ack.err);
-                    resolve({ success: false });
-                } else {
-                    console.log(`Created user with ID: ${userId}`);
-                    resolve({ success: true, userId });
-                }
-            });
-        });
+
+        const ack = await put(`${nodes.users}/${user_id}`, userData);
+        if (ack.err) return { success: false };
+
+        await put(
+            `${nodes.users}/by_email/${encodeURIComponent(email.toLowerCase())}`,
+            userData,
+        );
+        return { success: true, userId: user_id };
     } catch (error) {
-        console.error('Create user error:', error);
+        userStore.update((state) => ({ ...state, lastError: String(error) }));
         return { success: false };
     }
 }
 
-// Update a user's role to Admin
+/**
+ * Update a user’s role to Admin
+ * @param email - User’s email
+ * @returns Boolean indicating success
+ */
 export async function updateUserToAdmin(email: string): Promise<boolean> {
     try {
-        console.log(`Attempting to update user to admin: ${email}`);
-        const gun = getGun();
-        
-        if (!gun) {
-            console.error('Gun not initialized');
-            return false;
-        }
-        
-        // First try to find the user
         const existingUser = await findUserByEmail(email);
-        
-        // If user is found, update their role
-        if (existingUser.found && existingUser.userId) {
-            const userId = existingUser.userId; // Separate variable to help TypeScript
-            return new Promise((resolve) => {
-                gun.get(nodes.users).get(userId).put({
-                    role: 'Admin' as 'Admin'
-                }, (ack: any) => {
-                    if (ack && ack.err) {
-                        console.error('Error updating user role:', ack.err);
-                        resolve(false);
-                    } else {
-                        console.log(`Updated role for user: ${existingUser.userId}`);
-                        resolve(true);
-                    }
-                });
-            });
-        } 
-        // If user is not found, create a new admin user
-        else {
-            console.log(`User with email ${email} not found. Creating new admin user.`);
-            const result = await createUserDirectly(email, email.split('@')[0], 'Admin' as 'Admin');
+        if (!existingUser.found || !existingUser.userId) {
+            const result = await createUserDirectly(
+                email,
+                email.split("@")[0],
+                "Admin",
+            );
             return result.success;
         }
+
+        const ack = await setField(
+            `${nodes.users}/${existingUser.userId}`,
+            "role",
+            "Admin",
+        );
+        return !ack.err;
     } catch (error) {
-        console.error('Update user role error:', error);
+        userStore.update((state) => ({ ...state, lastError: String(error) }));
         return false;
     }
 }
 
-// Initialize authentication from stored credentials
+/**
+ * Initialize authentication from stored credentials
+ */
 export async function initializeAuth(): Promise<void> {
     try {
-        console.log('Initializing authentication');
-        userStore.update(state => ({ ...state, isLoading: true }));
-        
+        userStore.update((state) => ({ ...state, isLoading: true }));
         const user = getUser();
-        
-        if (!user || !user.is) {
-            console.log('No stored user session');
-            userStore.update(state => ({ ...state, isLoading: false }));
+        if (!user || !user._.sea?.pub) {
+            userStore.update((state) => ({ ...state, isLoading: false }));
             return;
         }
-        
-        // Safely access user.is.pub with null check
-        const user_id = user?.is?.pub || generateId();
-        console.log(`Found potential user session: ${user_id}`);
-        
-        const gun = getGun();
-        
-        if (!gun) {
-            console.error('Gun not initialized during auth initialization');
-            userStore.update(state => ({ ...state, isLoading: false }));
+
+        const user_id = user._.sea.pub;
+        const userData = await get<User>(`${nodes.users}/${user_id}`);
+        if (!userData) {
+            userStore.update((state) => ({ ...state, isLoading: false }));
             return;
         }
-        
-        // Enhanced timeout handling for user data retrieval
-        return new Promise<void>((resolve) => {
-            // Set a timeout to ensure we don't hang indefinitely
-            const timeout = setTimeout(() => {
-                console.warn(`Timeout retrieving user data for ${user_id}`);
-                userStore.update(state => ({ ...state, isLoading: false }));
-                resolve();
-            }, 3000);
-            
-            // Get user data
-            gun.get(nodes.users).get(user_id).once((userData: User) => {
-                clearTimeout(timeout);
-                
-                if (!userData) {
-                    console.log('User data not found for stored session');
-                    userStore.update(state => ({ ...state, isLoading: false }));
-                    resolve();
-                    return;
-                }
-                
-                console.log(`Restored session for user: ${userData.name || user_id}`);
-                
-                // Update user store
-                userStore.update(state => ({
-                    ...state,
-                    user: userData,
-                    isAuthenticated: true,
-                    isLoading: false
-                }));
-                
-                // Also attempt to restore the admin account if the user is Bjorn
-                if (userData.email === 'bjorn@endogon.com') {
-                    console.log('Restoring admin session for Bjorn');
-                    loginUser('bjorn@endogon.com', 'password')
-                        .then(() => console.log('Admin auth refreshed'))
-                        .catch(err => console.warn('Admin refresh error:', err))
-                        .finally(() => resolve());
-                } else {
-                    resolve();
-                }
-            });
-        });
+
+        userStore.update((state) => ({
+            ...state,
+            user: userData,
+            isAuthenticated: true,
+            isLoading: false,
+            lastError: null,
+        }));
     } catch (error) {
-        console.error('Init auth error:', error);
-        userStore.update(state => ({ ...state, isLoading: false }));
+        userStore.update((state) => ({
+            ...state,
+            isLoading: false,
+            lastError: String(error),
+        }));
     }
 }
