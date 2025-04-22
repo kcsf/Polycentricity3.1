@@ -29,39 +29,74 @@ export async function registerUser(name: string, email: string, password: string
     const user = getUser();
     if (!gun || !user) throw new Error('Gun or user not initialized');
 
+    // First check if this email already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser.found) {
+      const errorMsg = 'User already created with this email';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    console.log(`Creating user with email: ${email}`);
+    
     return new Promise((resolve, reject) => {
       user.create(email, password, async (ack: any) => {
         if (ack.err) {
+          console.error('Error creating user:', ack.err);
           setError(ack.err);
           reject(ack.err);
           return;
         }
 
+        console.log('User created, authenticating...');
+        
         user.auth(email, password, async (authAck: any) => {
           if (authAck.err) {
+            console.error('Error authenticating user:', authAck.err);
             setError(authAck.err);
             reject(authAck.err);
             return;
           }
+          
+          console.log('User authenticated, saving profile data...');
 
-          const user_id = user._.sea?.pub || `u_${Date.now().toString(36)}`;
+          // Generate a user_id that aligns with our schema
+          const user_id = user._.sea?.pub || `u${Math.floor(Date.now() / 1000).toString(36)}`;
+          
+          // Create user data object with schema-aligned fields
           const userData: User = {
             user_id,
             name,
             email,
             pub: user._.sea?.pub,
             role: email === 'bjorn@endogon.com' ? 'Admin' : 'Guest',
-            magic_key: `mk_${Date.now().toString(36)}`,
+            magic_key: `mk_${Math.floor(Date.now() / 1000).toString(36)}`,
             created_at: Date.now()
           };
 
-          const ack = await putSigned(`${nodes.users}/${user_id}`, userData);
-          if (ack.err) {
-            setError(ack.err);
-            reject(ack.err);
+          console.log(`Creating user profile: ${user_id}`);
+          
+          // Using regular put instead of putSigned to ensure data is saved
+          // (putSigned might not work correctly with our Gun setup)
+          const userAck = await put(`${nodes.users}/${user_id}`, userData);
+          if (userAck.err) {
+            console.error('Error saving user data:', userAck.err);
+            setError(userAck.err);
+            reject(userAck.err);
             return;
           }
-
+          
+          // Create email index for easier lookup
+          const emailHash = encodeURIComponent(email.toLowerCase());
+          const emailIndexAck = await put(`${nodes.users}/by_email/${emailHash}`, userData);
+          if (emailIndexAck.err) {
+            console.error('Error creating email index:', emailIndexAck.err);
+            // Don't reject here, this is a non-critical error
+          }
+          
+          console.log('User registration complete');
+          
+          // Update user store with the new user
           userStore.update(state => ({
             ...state,
             user: userData,
@@ -69,12 +104,14 @@ export async function registerUser(name: string, email: string, password: string
             isLoading: false,
             lastError: null
           }));
+          
           resolve(userData);
         });
       });
     });
   } catch (error) {
     const errorMsg = String(error);
+    console.error('Registration error:', errorMsg);
     setError(errorMsg);
     return null;
   }
@@ -92,22 +129,63 @@ export async function loginUser(email: string, password: string): Promise<User |
     const user = getUser();
     if (!gun || !user) throw new Error('Gun or user not initialized');
 
+    console.log(`Attempting login for: ${email}`);
+    
     return new Promise((resolve, reject) => {
       user.auth(email, password, async (ack: any) => {
         if (ack.err) {
+          console.error('Authentication error:', ack.err);
           setError(ack.err);
           reject(ack.err);
           return;
         }
+        
+        console.log('User authenticated, fetching profile data...');
 
-        const user_id = user._.sea?.pub || `u_${Date.now().toString(36)}`;
-        const userData = await getNode<User>(`${nodes.users}/${user_id}`);
-        if (!userData) {
-          setError('User data not found');
-          reject('User data not found');
+        // First try to get the user via the SEA public key
+        const user_id = user._.sea?.pub;
+        if (!user_id) {
+          console.error('No public key found after authentication');
+          setError('Authentication issue: no public key found');
+          reject('No public key found');
           return;
         }
-
+        
+        console.log(`Fetching user data for ID: ${user_id}`);
+        
+        // Try to get user by their ID
+        let userData = await getNode<User>(`${nodes.users}/${user_id}`);
+        
+        // If no user found by ID, try the email index
+        if (!userData) {
+          console.log('User data not found by ID, trying email index...');
+          const emailResult = await findUserByEmail(email);
+          
+          if (emailResult.found && emailResult.userData) {
+            console.log('User found via email index');
+            userData = emailResult.userData;
+          } else {
+            // Create a basic user record if none exists
+            // This can happen if the user was created with Gun.user.create
+            // but we never stored their profile data
+            console.log('Creating basic user profile');
+            userData = {
+              user_id,
+              name: email.split('@')[0],
+              email,
+              pub: user_id,
+              role: email === 'bjorn@endogon.com' ? 'Admin' : 'Guest',
+              created_at: Date.now()
+            };
+            
+            // Save this user data
+            await put(`${nodes.users}/${user_id}`, userData);
+            await put(`${nodes.users}/by_email/${encodeURIComponent(email.toLowerCase())}`, userData);
+          }
+        }
+        
+        console.log('Login successful');
+        
         userStore.update(state => ({
           ...state,
           user: userData,
@@ -120,6 +198,7 @@ export async function loginUser(email: string, password: string): Promise<User |
     });
   } catch (error) {
     const errorMsg = String(error);
+    console.error('Login error:', errorMsg);
     setError(errorMsg);
     return null;
   }
@@ -249,19 +328,27 @@ export async function updateUserToAdmin(email: string): Promise<boolean> {
 export async function initializeAuth(): Promise<void> {
   try {
     userStore.update(state => ({ ...state, isLoading: true }));
+    
     const user = getUser();
     if (!user || !user._.sea?.pub) {
+      console.log('No authenticated user found in session');
       userStore.update(state => ({ ...state, isLoading: false }));
       return;
     }
 
     const user_id = user._.sea.pub;
+    console.log(`Found authenticated session for user: ${user_id}`);
+    
+    // Get user data from Gun.js database
     const userData = await getNode<User>(`${nodes.users}/${user_id}`);
     if (!userData) {
+      console.log('User profile not found in database');
       userStore.update(state => ({ ...state, isLoading: false }));
       return;
     }
 
+    console.log('Session restored successfully');
+    
     userStore.update(state => ({
       ...state,
       user: userData,
@@ -270,6 +357,7 @@ export async function initializeAuth(): Promise<void> {
       lastError: null
     }));
   } catch (error) {
+    console.error('Error initializing auth:', error);
     setError(String(error));
     userStore.update(state => ({ ...state, isLoading: false }));
   }
