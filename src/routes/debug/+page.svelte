@@ -30,9 +30,10 @@ async function checkUserByEmail() {
       console.log('User alias data:', data);
       results += `User alias data: ${JSON.stringify(data)}\n`;
       
+      // Check for the standard Gun.js pub format
       if (data && data.pub) {
-        console.log('Public key found:', data.pub);
-        results += `Public key found: ${data.pub}\n`;
+        console.log('Public key found (standard format):', data.pub);
+        results += `Public key found (standard format): ${data.pub}\n`;
         
         // Try to fetch the user's auth record
         gun.user(data.pub).once((userData) => {
@@ -46,6 +47,30 @@ async function checkUserByEmail() {
             loading = false;
           });
         });
+      } 
+      // Check for the non-standard format where the key is a property of the alias object
+      else if (data) {
+        // Look for properties that might be a pub key (usually long string with dots)
+        const possiblePubKey = Object.keys(data).find(key => 
+          key.includes('.') && key.length > 40
+        );
+        
+        if (possiblePubKey) {
+          console.log('Public key found (non-standard format):', possiblePubKey);
+          results += `Public key found (non-standard format): ${possiblePubKey}\n`;
+          results += `This indicates the user was created but not in the expected format.\n`;
+          results += `This is likely why registration says "User already created" but doesn't appear in the database.\n`;
+          
+          // Try to access this user data
+          gun.user(possiblePubKey).once((userData) => {
+            console.log('User auth data (from non-standard format):', userData);
+            results += `User auth data: ${JSON.stringify(userData)}\n`;
+            loading = false;
+          });
+        } else {
+          results += 'User record exists but no valid public key found\n';
+          loading = false;
+        }
       } else {
         results += 'No user found with this email\n';
         loading = false;
