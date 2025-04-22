@@ -506,7 +506,7 @@
     <!-- Schema Section -->
     <Accordion.Item value="schema">
       {#snippet lead()}
-        <svelte:component this={icons.Database} size={24} />
+        <Database size={24} />
       {/snippet}
       
       {#snippet control()}Database Schema{/snippet}
@@ -514,14 +514,14 @@
       {#snippet panel()}
         <div class="p-4 bg-primary-500/10 border border-primary-500 rounded mb-4">
           <h4 class="font-semibold mb-2 flex items-center">
-            <svelte:component this={icons.Database} class="w-5 h-5 mr-2 text-primary-500" />
+            <Database class="w-5 h-5 mr-2 text-primary-500" />
             Database Schema Management
           </h4>
           <p class="text-sm mb-4">
             Access the Database Schema page for detailed documentation, initialization, and verification tools.
           </p>
           <a href="/database-schema" class="btn variant-filled-primary w-full">
-            <svelte:component this={icons.FileText} class="w-4 h-4 mr-2" />
+            <FileText class="w-4 h-4 mr-2" />
             View Database Schema
           </a>
         </div>
@@ -533,7 +533,7 @@
     <!-- Relationships Section -->
     <Accordion.Item value="relationships">
       {#snippet lead()}
-        <svelte:component this={icons.RefreshCw} size={24} />
+        <RefreshCw size={24} />
       {/snippet}
       
       {#snippet control()}Relationship Management{/snippet}
@@ -596,7 +596,7 @@
             </div>
             
             <button class="btn variant-soft-primary w-full mt-4" onclick={getRelationshipStats}>
-              <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+              <RefreshCcw class="w-4 h-4 mr-2" />
               Refresh Statistics
             </button>
           </div>
@@ -616,7 +616,7 @@
               </div>
             {:else if error}
               <div class="alert variant-filled-error">
-                <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+                <AlertTriangle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Error</h3>
                   <p>{error}</p>
@@ -627,7 +627,7 @@
               </div>
             {:else if success}
               <div class="alert variant-filled-success">
-                <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+                <CheckCircle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Success</h3>
                   <p>Successfully processed {result?.processed} bidirectional relationships.</p>
@@ -640,7 +640,7 @@
               onclick={initializeRelationships}
               disabled={isLoading}
             >
-              <svelte:component this={icons.RefreshCw} class="w-4 h-4 mr-2" />
+              <RefreshCw class="w-4 h-4 mr-2" />
               Initialize Bidirectional Relationships
             </button>
           </div>
