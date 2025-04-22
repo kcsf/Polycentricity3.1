@@ -296,3 +296,93 @@ export async function initializeAuth(): Promise<void> {
     userStore.update(state => ({ ...state, isLoading: false }));
   }
 }
+
+/**
+ * Create a new user directly (for admin setup)
+ * @param email - User's email
+ * @param name - User's name
+ * @param role - User's role
+ * @returns Object with success status and userId
+ */
+export async function createUserDirectly(
+  email: string,
+  name: string,
+  role: 'Guest' | 'Member' | 'Admin' = 'Guest'
+): Promise<{ success: boolean; userId?: string }> {
+  try {
+    // Check if this user already exists
+    const exists = await userExistsByEmail(email);
+    if (exists) {
+      console.log(`User ${email} already exists`);
+      return { success: false };
+    }
+
+    // Create a user ID without requiring authentication
+    const user_id = `u${Math.floor(Date.now() / 1000).toString(36)}`;
+
+    // Create a user profile
+    const userData: User = {
+      user_id,
+      name,
+      email,
+      role,
+      created_at: Date.now()
+    };
+
+    // Get access to Gun
+    const gun = getGun();
+    if (!gun) return { success: false };
+
+    // Store the user profile at a public location
+    gun.get(`users/${user_id}`).put(userData);
+    
+    // Create an email index for lookup
+    gun.get(`~@${email}`).put({pub: user_id});
+
+    return { success: true, userId: user_id };
+  } catch (error) {
+    console.error('Error creating user directly:', error);
+    setError(String(error));
+    return { success: false };
+  }
+}
+
+/**
+ * Update a user's role to Admin
+ * @param email - User's email
+ * @returns Boolean indicating success
+ */
+export async function updateUserToAdmin(email: string): Promise<boolean> {
+  try {
+    // Check if the user exists
+    const exists = await userExistsByEmail(email);
+    if (!exists) {
+      // Create a new user as admin if they don't exist
+      const result = await createUserDirectly(email, email.split('@')[0], 'Admin');
+      return result.success;
+    }
+
+    // Get access to Gun
+    const gun = getGun();
+    if (!gun) return false;
+
+    // Get the user's public key from their email
+    const userRecord = await new Promise<any>((resolve) => {
+      gun.get(`~@${email}`).once(resolve);
+    });
+
+    if (!userRecord || !userRecord.pub) {
+      console.error('User found but no public key available');
+      return false;
+    }
+
+    // Update the user's role to Admin in their profile
+    gun.get(`users/${userRecord.pub}`).get('role').put('Admin');
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating user to admin:', error);
+    setError(String(error));
+    return false;
+  }
+}
