@@ -2,7 +2,8 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   
-  const props = $props({ nodes: [], edges: [] });
+  export let nodes = $props([]);
+  export let edges = $props([]);
   
   const container = $state();
   const cy = $state();

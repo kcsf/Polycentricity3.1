@@ -4,21 +4,23 @@
   import { updateDeck } from '$lib/services/deckService';
   import type { Deck } from '$lib/types';
   
-  export let isOpen = false;
-  export let deck: Deck | null = null;
-  
   const dispatch = createEventDispatcher();
   
-  let isLoading = false;
-  let formData = {
+  export let isOpen = $props(false);
+  export let deck = $props<Deck | null>(null);
+  
+  let isLoading = $state(false);
+  let formData = $state({
     name: '',
     creator: ''
-  };
+  });
   
-  $: if (deck && isOpen) {
-    formData.name = deck.name || '';
-    formData.creator = deck.creator || '';
-  }
+  $effect(() => {
+    if (deck && isOpen) {
+      formData.name = deck.name || '';
+      formData.creator = deck.creator || '';
+    }
+  });
   
   function closeModal() {
     isOpen = false;
@@ -54,18 +56,18 @@
 
 <!-- Modal Backdrop -->
 {#if isOpen}
-<div class="modal-backdrop" on:click|self={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="dialog" tabindex="-1">
+<div class="modal-backdrop" onclick|self={closeModal} onkeydown={(e) => e.key === 'Escape' && closeModal()} role="dialog" tabindex="-1">
   <!-- Modal Container -->
   <div class="modal-container card custom-modal p-4 w-full max-w-md" aria-modal="true">
     <header class="modal-header">
       <h3 class="h3">✏️ Edit Deck</h3>
-      <button class="close-button" on:click={closeModal}>
+      <button class="close-button" onclick={closeModal}>
         ❌
       </button>
     </header>
     
     <div class="p-4">
-      <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+      <form onsubmit|preventDefault={handleSubmit} class="space-y-4">
         <label class="label">
           <span>Deck Name</span>
           <input type="text" bind:value={formData.name} class="input" required />
@@ -77,7 +79,7 @@
         </label>
         
         <div class="flex justify-end space-x-2">
-          <button type="button" class="cancel-button" on:click={closeModal}>❌ Cancel</button>
+          <button type="button" class="cancel-button" onclick={closeModal}>❌ Cancel</button>
           <button type="submit" class="save-button" disabled={isLoading}>
             {#if isLoading}
               <span class="loading-icon">⏳</span>
