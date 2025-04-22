@@ -1,0 +1,17 @@
+[vite] connecting...
+Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!
+Fetching data for key: cards
+Fetching all direct children of 'cards':
+Getting deep data from 'cards'
+Error accessing Gun data: 
+TypeError {}
+message: "gunRef.open is not a function"
+stack: "TypeError: gunRef.open is not a function↵ at $effect (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/src/lib/components/DatabaseViewer.svelte:115:11)↵ at update_reaction (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-AWMBDZPN.js?v=872b4fc1:1636:23)↵ at update_effect (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-AWMBDZPN.js?v=872b4fc1:1755:21)↵ at flush_queued_effects (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-AWMBDZPN.js?v=872b4fc1:1852:11)↵ at flush_queued_root_effects (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-AWMBDZPN.js?v=872b4fc1:1831:9)↵ at flushSync (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-AWMBDZPN.js?v=872b4fc1:1929:5)↵ at new Svelte4Component (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-3OAPBQDX.js?v=872b4fc1:753:7)↵ at new <anonymous> (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/.vite/deps/chunk-3OAPBQDX.js?v=872b4fc1:701:7)↵ at initialize (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/@sveltejs/kit/src/runtime/client/client.js?v=872b4fc1:474:9)↵ at navigate (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/node_modules/@sveltejs/kit/src/runtime/client/client.js?v=872b4fc1:1587:3)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+
+at t.value (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://8fe94c9b-776d-4fdf-8e7d-8e373ca598af-00-1ofp9q92x2zq5.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400

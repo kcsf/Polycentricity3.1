@@ -8,13 +8,25 @@
   let error = $state(null);
   let isLoading = $state(true);
 
+  // Flag to track if open.js is loaded
+  let openLoaded = $state(false);
+  
   // Load Gun.js open plugin dynamically in browser
   onMount(() => {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/gun/lib/open.js';
     script.async = true;
-    script.onload = () => console.log('Gun open.js loaded');
-    script.onerror = () => console.error('Failed to load Gun open.js');
+    script.onload = () => {
+      console.log('Gun open.js loaded');
+      openLoaded = true;
+      // Trigger data refresh once loaded
+      refreshData();
+    };
+    script.onerror = () => {
+      console.error('Failed to load Gun open.js');
+      error = 'Failed to load Gun open.js plugin';
+      isLoading = false;
+    };
     document.head.appendChild(script);
     return () => document.head.removeChild(script);
   });
@@ -39,8 +51,14 @@
     );
   }
 
-  // Fetch data when rootKey changes
-  $effect(() => {
+  // Function to refresh data
+  function refreshData() {
+    if (!openLoaded) {
+      console.log('Waiting for Gun open.js to load...');
+      isLoading = true;
+      return; // Don't proceed until open.js is loaded
+    }
+    
     error = null;
     dbData = null;
     isLoading = true;
@@ -59,6 +77,14 @@
       gunRef.map().once((data, key) => {
         console.log(`Found entry: ${key}`, data);
       });
+
+      // Check if open method is available before using it
+      if (typeof gunRef.open !== 'function') {
+        console.error('Gun.js open plugin not loaded yet');
+        error = 'Gun.js open plugin not loaded yet. Please try again in a moment.';
+        isLoading = false;
+        return;
+      }
 
       // Fetch deep data with open
       console.log(`Getting deep data from '${rootKey}'`);
@@ -80,6 +106,17 @@
       console.error('Error accessing Gun data:', e);
       error = `Error: ${e.message}`;
       isLoading = false;
+    }
+  }
+
+  // Fetch data when rootKey changes
+  $effect(() => {
+    // This effect runs whenever rootKey changes
+    if (openLoaded) {
+      refreshData();
+    } else {
+      console.log('Waiting for Gun open.js to load before fetching data for', rootKey);
+      isLoading = true;
     }
   });
 
@@ -112,7 +149,7 @@
       />
       <button
         class="btn variant-filled-primary"
-        on:click={() => (rootKey = rootKey)}
+        onclick={() => refreshData()}
       >
         Refresh
       </button>
@@ -125,7 +162,10 @@
       {#each commonKeys as key}
         <button
           class="btn {rootKey === key ? 'variant-filled-primary' : 'variant-soft'}"
-          on:click={() => (rootKey = key)}
+          onclick={() => {
+            rootKey = key;
+            refreshData();
+          }}
         >
           {key}
         </button>

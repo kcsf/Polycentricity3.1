@@ -5,7 +5,7 @@
   CheckCircle, 
   Database, 
   FileText, 
-  FileContract, 
+  FilePen, 
   HardDrive, 
   Network, 
   RefreshCw, 
