@@ -153,6 +153,12 @@
       >
         Refresh
       </button>
+      <a 
+        href="/reset"
+        class="btn variant-filled-error"
+      >
+        Reset DB
+      </a>
     </div>
   </div>
 

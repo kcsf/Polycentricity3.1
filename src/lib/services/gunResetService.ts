@@ -1,75 +1,116 @@
 /**
- * gunResetService.ts
- * Utility service for resetting Gun.js database and user information
+ * Utility to completely reset and clear all Gun.js database data
+ * This includes:
+ * - IndexedDB databases (radisk, gun, radata)
+ * - localStorage entries related to Gun
+ * - SessionStorage entries
  */
-
-import { getGun, getUser } from './gunService';
 
 /**
- * Clear a specific user from Gun SEA authentication system
- * This is useful when Gun reports "User already created" but you want to recreate it
- * 
- * Note: This is a hack and not an official Gun.js method. It may not work in all cases.
- * 
- * @param email Email to clear from Gun's user system
- * @returns Boolean indicating success
+ * Completely wipe all Gun.js data from the browser
+ * @returns A promise that resolves when all operations are complete
  */
-export async function clearUserFromGun(email: string): Promise<boolean> {
+export async function resetGunDatabase(): Promise<string> {
+  let log = '';
+  
   try {
-    const gun = getGun();
-    if (!gun) return false;
-    
-    console.log(`Attempting to clear user with email: ${email}`);
-    
-    // Try to find and remove associated Gun.js localStorage entries
-    const localStorageKey = `~@${email}`;
-    localStorage.removeItem(localStorageKey);
-    
-    // Clear any other potential user data
-    const emailHash = encodeURIComponent(email.toLowerCase());
-    const aliases = [`~@${email}`, `~@${emailHash}`, `~${email}`, `~${emailHash}`];
-    
-    aliases.forEach(alias => {
-      // Direct null put - this is a hack but can help in some cases
-      gun.get(alias).put(null);
-      localStorage.removeItem(alias);
+    // 1. Delete all IndexedDB databases that might be used by Gun
+    const dbNames = ['radisk', 'gun', 'radata'];
+    const dbPromises = dbNames.map(dbName => {
+      return new Promise<void>((resolve) => {
+        try {
+          log += `Attempting to delete '${dbName}' database...\n`;
+          const request = indexedDB.deleteDatabase(dbName);
+          
+          request.onsuccess = () => {
+            log += `✓ Successfully deleted '${dbName}' database\n`;
+            resolve();
+          };
+          
+          request.onerror = (event) => {
+            log += `⚠️ Error deleting '${dbName}' database: ${(event.target as any)?.error || 'Unknown error'}\n`;
+            resolve(); // Continue even if there's an error
+          };
+        } catch (err) {
+          log += `⚠️ Exception trying to delete '${dbName}': ${err}\n`;
+          resolve(); // Continue even if there's an exception
+        }
+      });
     });
     
-    console.log('User data may have been cleared. Try registering again.');
-    return true;
-  } catch (error) {
-    console.error('Error clearing user:', error);
-    return false;
-  }
-}
-
-/**
- * Clear all authentication data from Gun and localStorage
- * Use this as a last resort when authentication issues persist
- */
-export function resetGunAuth(): void {
-  try {
-    // Clear all authentication data from localStorage
-    const keysToRemove: string[] = [];
+    // 2. Clear all localStorage entries related to Gun
+    log += 'Clearing localStorage entries...\n';
     
+    // Known Gun keys and patterns
+    const knownPatterns = [
+      'gun/', 'gun', 'sea', '~', 'iris.', 'PEER', 'ALLOW',
+      'graph', 'user', 'auth', 'node_', 'alias', 'keys'
+    ];
+    
+    // Find all keys that might be related to Gun
+    const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (
-        key.startsWith('gun/') || 
-        key.includes('sea') || 
-        key.startsWith('~@') || 
-        key.startsWith('~')
-      )) {
+      if (!key) continue;
+      
+      if (knownPatterns.some(pattern => key.includes(pattern))) {
         keysToRemove.push(key);
       }
     }
     
+    // Remove all identified Gun keys
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    console.log(`Cleared ${keysToRemove.length} Gun-related items from localStorage`);
+    log += `✓ Removed ${keysToRemove.length} Gun-related items from localStorage\n`;
     
-    // Reload the page to reinitialize Gun
-    window.location.reload();
+    // 3. Clear session storage completely
+    sessionStorage.clear();
+    log += '✓ Cleared session storage\n';
+    
+    // Wait for all DB deletions to complete
+    await Promise.all(dbPromises);
+    
+    // 4. Verify IndexedDB is empty of Gun databases
+    const checkDBs = await checkExistingDBs();
+    log += `\nVerification: ${checkDBs}\n`;
+    
+    log += '\nDatabase reset complete! Page will reload in 3 seconds...\n';
+    return log;
   } catch (error) {
-    console.error('Error resetting Gun auth:', error);
+    log += `Error during reset: ${error}\n`;
+    return log;
   }
+}
+
+/**
+ * Check if any Gun-related IndexedDB databases still exist
+ */
+async function checkExistingDBs(): Promise<string> {
+  return new Promise<string>((resolve) => {
+    try {
+      // Check if the databases method exists (not all browsers support it)
+      if (typeof indexedDB.databases !== 'function') {
+        resolve('Browser does not support checking existing databases');
+        return;
+      }
+      
+      // Use the databases API with proper typing
+      indexedDB.databases().then((databases) => {
+        // Filter for Gun-related databases
+        const gunDBs = databases.filter((db: IDBDatabaseInfo) => 
+          ['radisk', 'gun', 'radata'].includes(db.name || '')
+        );
+        
+        if (gunDBs.length > 0) {
+          resolve(`Found ${gunDBs.length} Gun databases still present: ${gunDBs.map((db: IDBDatabaseInfo) => db.name).join(', ')}`);
+        } else {
+          resolve('No Gun databases detected - clean state achieved');
+        }
+      }).catch((error) => {
+        resolve(`Error checking databases: ${error}`);
+      });
+    } catch (error) {
+      // Fallback for any unexpected errors
+      resolve(`Could not check for existing databases: ${error}`);
+    }
+  });
 }

@@ -1,77 +1,23 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { resetGunDatabase } from '$lib/services/gunResetService';
 
   let result = $state('');
   let isResetting = $state(false);
 
-  function resetGunDB() {
+  async function resetGunDB() {
     isResetting = true;
     result = '';
     
     try {
-      // 1. Drop Radisk / Gun IndexedDB stores
-      result += "Attempting to delete IndexedDB databases...\n";
+      // Use the enhanced reset service
+      result = await resetGunDatabase();
       
-      const deleteRadiskPromise = new Promise<void>((resolve) => {
-        const radiskRequest = indexedDB.deleteDatabase('radisk');
-        radiskRequest.onsuccess = () => {
-          result += "✓ Successfully deleted 'radisk' database\n";
-          resolve();
-        };
-        radiskRequest.onerror = () => {
-          result += "⚠️ Error deleting 'radisk' database\n";
-          resolve();
-        };
-      });
-      
-      const deleteGunPromise = new Promise<void>((resolve) => {
-        const gunRequest = indexedDB.deleteDatabase('gun');
-        gunRequest.onsuccess = () => {
-          result += "✓ Successfully deleted 'gun' database\n";
-          resolve();
-        };
-        gunRequest.onerror = () => {
-          result += "⚠️ Error deleting 'gun' database\n";
-          resolve();
-        };
-      });
-      
-      // 2. Clear localStorage entries related to Gun
-      result += "Clearing localStorage entries...\n";
-      localStorage.removeItem('gun'); // default Gun cache key
-      localStorage.removeItem('gun/user'); // stored user session
-      
-      // Clear any Gun-related entries
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (
-          key.startsWith('gun/') || 
-          key.includes('sea') || 
-          key.startsWith('~@') || 
-          key.startsWith('~')
-        )) {
-          keysToRemove.push(key);
-        }
-      }
-      
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-      result += `✓ Removed ${keysToRemove.length} Gun-related items from localStorage\n`;
-      
-      // Clear session storage
-      sessionStorage.clear();
-      result += "✓ Cleared session storage\n";
-      
-      // Wait for IndexedDB operations to complete
-      Promise.all([deleteRadiskPromise, deleteGunPromise]).then(() => {
-        result += "\nDatabase reset complete! Page will reload in 3 seconds...\n";
-        
-        setTimeout(() => {
-          // 3. Reload the page to start fresh
-          window.location.reload();
-        }, 3000);
-      });
+      // Wait 3 seconds then reload the page
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
     } catch (error) {
       result += `Error during reset: ${error}\n`;
       isResetting = false;
