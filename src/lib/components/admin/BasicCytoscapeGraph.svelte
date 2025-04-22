@@ -52,12 +52,12 @@
   
   // Helper function to update filteredNodes state
   function updateFilteredNodes(newNodes) {
-    filteredNodes = [...newNodes]; // Create a new array to trigger reactivity
+    $state({ filteredNodes: [...newNodes] }); // Create a new array to trigger reactivity
   }
   
   // Helper function to update filteredEdges state
   function updateFilteredEdges(newEdges) {
-    filteredEdges = [...newEdges]; // Create a new array to trigger reactivity
+    $state({ filteredEdges: [...newEdges] }); // Create a new array to trigger reactivity
   }
   
   function applyFilters() {
@@ -94,20 +94,20 @@
   function toggleEdgeType(type) {
     const index = selectedEdgeTypes.indexOf(type);
     if (index === -1) {
-      selectedEdgeTypes = [...selectedEdgeTypes, type];
+      $state({ selectedEdgeTypes: [...selectedEdgeTypes, type] });
     } else {
-      selectedEdgeTypes = selectedEdgeTypes.filter(t => t !== type);
+      $state({ selectedEdgeTypes: selectedEdgeTypes.filter(t => t !== type) });
     }
     applyFilters();
   }
   
   function selectAllEdgeTypes() {
-    selectedEdgeTypes = [...availableEdgeTypes];
+    $state({ selectedEdgeTypes: [...availableEdgeTypes] });
     applyFilters();
   }
   
   function clearEdgeTypeSelection() {
-    selectedEdgeTypes = [];
+    $state({ selectedEdgeTypes: [] });
     applyFilters();
   }
   

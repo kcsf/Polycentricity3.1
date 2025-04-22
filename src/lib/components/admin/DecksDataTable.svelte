@@ -28,29 +28,17 @@
   });
   
   async function loadDecks() {
-    // Use helper function to update state variables
-    function setIsLoading(value: boolean) {
-      isLoading = value;
-    }
-    
-    function setError(value: string | null) {
-      error = value;
-    }
-    
-    function setDecks(value: {id: string, data: Deck}[]) {
-      decks = value;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    setDecks([]);
+    // In Svelte 5 Runes, state variables are updated by direct assignment with $state
+    $state({ isLoading: true, error: null, decks: [] });
     
     try {
       const gun = getGun();
       
       if (!gun) {
-        setError('Gun not initialized');
-        setIsLoading(false);
+        $state({ 
+          error: 'Gun not initialized',
+          isLoading: false 
+        });
         return;
       }
       
@@ -69,44 +57,32 @@
         // Wait for Gun to load data
         setTimeout(() => {
           console.log(`Loaded ${loadedDecks.length} decks`);
-          setDecks(loadedDecks);
+          $state({ decks: loadedDecks });
           resolve();
         }, 500);
       });
     } catch (err) {
       console.error('Error loading decks:', err);
-      setError(err instanceof Error ? err.message : String(err));
+      $state({ error: err instanceof Error ? err.message : String(err) });
     } finally {
-      setIsLoading(false);
+      $state({ isLoading: false });
     }
   }
   
   function openEditModal(deck: Deck) {
-    // Update the selectedDeck and isModalOpen states
-    function setSelectedDeck(value: Deck | null) {
-      selectedDeck = value;
-    }
-    
-    function setIsModalOpen(value: boolean) {
-      isModalOpen = value;
-    }
-    
-    setSelectedDeck(deck);
-    setIsModalOpen(true);
+    // In Svelte 5 Runes, update state with direct assignment using $state
+    $state({
+      selectedDeck: deck,
+      isModalOpen: true
+    });
   }
   
   function handleModalClose() {
-    // Update the isModalOpen and selectedDeck states
-    function setIsModalOpen(value: boolean) {
-      isModalOpen = value;
-    }
-    
-    function setSelectedDeck(value: Deck | null) {
-      selectedDeck = value;
-    }
-    
-    setIsModalOpen(false);
-    setSelectedDeck(null);
+    // In Svelte 5 Runes, update state with direct assignment using $state
+    $state({
+      isModalOpen: false,
+      selectedDeck: null
+    });
   }
   
   function handleDeckUpdated() {
@@ -120,16 +96,11 @@
   }
   
   async function deleteDeck(deckId: string) {
-    // Helper function to update error state
-    function setError(value: string | null) {
-      error = value;
-    }
-    
     try {
       const gun = getGun();
       
       if (!gun) {
-        setError('Gun not initialized');
+        $state({ error: 'Gun not initialized' });
         return;
       }
       
@@ -137,7 +108,7 @@
       const deck = await getDeck(deckId);
       
       if (!deck) {
-        setError(`Deck with ID ${deckId} not found`);
+        $state({ error: `Deck with ID ${deckId} not found` });
         return;
       }
       
@@ -145,7 +116,7 @@
       gun.get(nodes.decks).get(deckId).put(null, async (ack) => {
         if (ack.err) {
           console.error('Error deleting deck:', ack.err);
-          setError(`Failed to delete deck: ${ack.err}`);
+          $state({ error: `Failed to delete deck: ${ack.err}` });
         } else {
           console.log(`Deleted deck: ${deckId}`);
           // Wait a moment then refresh the decks list
@@ -155,7 +126,7 @@
       });
     } catch (err) {
       console.error('Delete deck error:', err);
-      setError(err instanceof Error ? err.message : String(err));
+      $state({ error: err instanceof Error ? err.message : String(err) });
     }
   }
 </script>
