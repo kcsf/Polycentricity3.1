@@ -413,38 +413,38 @@
         break;
         
       case 'grid':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'grid',
           rows: undefined,
           cols: undefined,
           fit: true,
           padding: 30,
           animate: true
-        };
+        });
         break;
         
       case 'breadthfirst':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'breadthfirst',
           directed: true,
           padding: 30,
           animate: true
-        };
+        });
         break;
         
       case 'cose':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'cose',
           animate: true,
           padding: 30,
           gravity: 1.5,
           nodeOverlap: 20,
           idealEdgeLength: 100
-        };
+        });
         break;
         
       case 'dagre':
-        layoutOptions = {
+        updateLayoutOptions({
           name: 'dagre',
           rankDir: 'TB', // Top to bottom
           animate: true,
