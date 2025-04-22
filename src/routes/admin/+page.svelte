@@ -15,7 +15,6 @@
   // SvelteRunesGuide moved to src/lib/components/guides/SvelteRunesGuide.svelte
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
-  import { isAdminUser } from '$lib/utils/adminChecks';
   
   // For visualization
   let isG6Loading = $state<boolean>(false);
@@ -560,18 +559,6 @@
     
     // Initialize app asynchronously
     async function initializeApp() {
-      // Check user authentication first
-      currentUser = getCurrentUser();
-      console.log('Current user:', currentUser);
-      
-      // Only allow admin users to access this page
-      if (!isAdminUser(currentUser)) {
-        console.error('Access denied: User is not an admin', currentUser);
-        error = 'Access denied: You must be logged in as an administrator to view this page.';
-        isLoading = false;
-        return;
-      }
-      
       // Fetch basic Gun.js database stats
       if (typeof window !== 'undefined') {
         try {
@@ -734,24 +721,9 @@
     </div>
     
     <div class="p-4">
-      
-      <!-- Show access denied message if not admin -->
-      {#if !isAdminUser(currentUser)}
-        <div class="alert variant-filled-error">
-          <icons.AlertTriangle class="w-5 h-5" />
-          <div class="alert-message">
-            <h3 class="h4">Access Denied</h3>
-            <p>You must be logged in as an administrator to view this page.</p>
-          </div>
-          <div class="alert-actions">
-            <a href="/login" class="btn variant-filled">Login</a>
-            <a href="/" class="btn variant-ghost">Return to Home</a>
-          </div>
-        </div>
-      {:else}
-        <!-- Normal admin content -->
-        <div class="tab-content">
-          {#if activeTab === 'visualize'}
+    
+    <div class="tab-content">
+      {#if activeTab === 'visualize'}
         <div class="p-2">
           <div class="card p-4 bg-surface-100-800 border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
@@ -1214,6 +1186,7 @@
           {/if}
         </div>
       {/if}
+    </div>
     </div>
   </div>
 </div>

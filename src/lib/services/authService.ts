@@ -6,7 +6,6 @@ import { getGun, getUser } from './gunService';
 import { userStore, setError } from '$lib/stores/userStore';
 import type { User, UserSession } from '$lib/types';
 import { get as getStore } from 'svelte/store';
-import { isAdminEmail } from '$lib/utils/adminChecks';
 
 /**
  * Register a new user
@@ -57,16 +56,12 @@ export async function registerUser(name: string, email: string, password: string
           
           // Create a user profile with some basic information
           // This is stored in the user's space
-          // Check if this should be an admin account
-          const isAdmin = isAdminEmail(email);
-          console.log(`User role assignment for ${email}: ${isAdmin ? 'Admin' : 'Guest'}`);
-          
           const userData: User = {
             user_id,
             name,
             email,
             pub: user_id,
-            role: isAdmin ? 'Admin' : 'Guest',
+            role: email === 'bjorn@endogon.com' ? 'Admin' : 'Guest',
             created_at: Date.now()
           };
 
@@ -144,16 +139,12 @@ export async function loginUser(email: string, password: string): Promise<User |
           if (!profileData) {
             // If no profile exists, create a basic one
             console.log('No profile found, creating basic profile');
-            // Check if this should be an admin account
-            const isAdmin = isAdminEmail(email);
-            console.log(`User role assignment for ${email}: ${isAdmin ? 'Admin' : 'Guest'}`);
-            
             const userData: User = {
               user_id,
               name: email.split('@')[0],
               email,
               pub: user_id,
-              role: isAdmin ? 'Admin' : 'Guest',
+              role: email === 'bjorn@endogon.com' ? 'Admin' : 'Guest',
               created_at: Date.now()
             };
             
