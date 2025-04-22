@@ -4,27 +4,27 @@
   import * as icons from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   
-  const isUpdating = $state(false);
-  const isFixingGames = $state(false);
-  const result = $state<{ success: boolean; message: string } | null>(null);
-  const gameFixResult = $state<{ success: boolean; message: string } | null>(null);
-  const adminEmail = $state('');
+  let isUpdating = $state(false);
+  let isFixingGames = $state(false);
+  let result = $state<{ success: boolean; message: string } | null>(null);
+  let gameFixResult = $state<{ success: boolean; message: string } | null>(null);
+  let adminEmail = $state('');
   
   const dispatch = createEventDispatcher();
   
   // Helper function to update state objects
   function updateResult(newResult: { success: boolean; message: string } | null) {
     if (newResult === null) {
-      // Use Object.assign to update the $state object
-      Object.assign(result, { value: null });
+      // Simply reassign result to null - it's now a 'let' variable
+      result = null;
       return;
     }
     
-    // Use Object.assign to update the $state object
-    Object.assign(result, {
+    // Create a new object for the result
+    result = {
       success: newResult.success,
       message: newResult.message
-    });
+    };
   }
   
   async function makeAdmin() {
@@ -67,10 +67,12 @@
   // Helper function to update gameFixResult
   function updateGameFixResult(newResult: { success: boolean; message: string } | null) {
     if (newResult === null) {
+      // Simply reassign gameFixResult to null - it's now a 'let' variable
       gameFixResult = null;
       return;
     }
     
+    // Create a new object for the gameFixResult
     gameFixResult = {
       success: newResult.success,
       message: newResult.message

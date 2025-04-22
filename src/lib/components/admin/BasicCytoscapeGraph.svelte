@@ -220,7 +220,7 @@
             };
             
             // Default to center if type not found
-            const position = $state({ x: centerX, y: centerY });
+            const position = { x: centerX, y: centerY };
             
             if (typeMap[nodeType]) {
               const nodeConfig = typeMap[nodeType];
@@ -248,7 +248,7 @@
             
             return position;
           }
-        };
+        });
         break;
         
       // Our custom "Default" hierarchical layout that places nodes in exact rows:
@@ -357,7 +357,7 @@
             // Return the calculated position
             return { x: xPos, y: yPos };
           }
-        };
+        });
         break;
         
       case 'cise':
@@ -387,7 +387,7 @@
           fit: true,
           padding: 30,
           showClusters: false
-        };
+        });
         break;
         
       case 'concentric':
