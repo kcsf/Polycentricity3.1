@@ -697,7 +697,7 @@
     <!-- Admin Tools Section -->
     <Accordion.Item value="admin">
       {#snippet lead()}
-        <svelte:component this={icons.UserCog} size={24} />
+        <UserCog size={24} />
       {/snippet}
       
       {#snippet control()}Admin Tools{/snippet}
@@ -706,7 +706,7 @@
         <div class="card p-4 bg-surface-200-800 border border-surface-300-600 mt-4">
           <div class="p-4 bg-primary-500/10 border border-primary-500 rounded mb-4">
             <h4 class="font-semibold mb-2 flex items-center">
-              <svelte:component this={icons.Database} class="w-5 h-5 mr-2 text-primary-500" />
+              <Database class="w-5 h-5 mr-2 text-primary-500" />
               Sample Data Management
             </h4>
             <p class="text-sm mb-4">
@@ -732,7 +732,7 @@
               </div>
             {:else if sampleDataSuccess}
               <div class="alert variant-filled-success">
-                <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+                <CheckCircle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Success</h3>
                   <p>{sampleDataResult?.message || "Sample data initialized successfully"}</p>
@@ -745,7 +745,7 @@
               onclick={initializeSampleDataFunction}
               disabled={isInitializingSample}
             >
-              <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+              <RefreshCcw class="w-4 h-4 mr-2" />
               Reinitialize Sample Data
             </button>
           </div>
@@ -760,7 +760,7 @@
     <!-- Cleanup Section -->
     <Accordion.Item value="cleanup">
       {#snippet lead()}
-        <svelte:component this={icons.Trash2} size={24} />
+        <Trash2 size={24} />
       {/snippet}
       
       {#snippet control()}Database Cleanup{/snippet}
@@ -784,7 +784,7 @@
                 onclick={handleCleanupGames}
                 disabled={cleanupLoading}
               >
-                <svelte:component this={icons.Trash2} class="w-4 h-4 mr-2" />
+                <Trash2 class="w-4 h-4 mr-2" />
                 Remove All Games
               </button>
             </div>
@@ -877,7 +877,7 @@
             </div>
           {:else if cleanupError}
             <div class="alert variant-filled-error mt-4">
-              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              <AlertTriangle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Error</h3>
                 <p>{cleanupError}</p>
@@ -885,7 +885,7 @@
             </div>
           {:else if cleanupSuccess}
             <div class="alert variant-filled-success mt-4">
-              <svelte:component this={icons.CheckCircle} class="w-5 h-5" />
+              <CheckCircle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Success</h3>
                 <p>Successfully removed {cleanupResult?.removed} items.</p>
@@ -901,7 +901,7 @@
     <!-- Documentation Section -->
     <Accordion.Item value="documentation">
       {#snippet lead()}
-        <svelte:component this={icons.FileText} size={24} />
+        <FileText size={24} />
       {/snippet}
       
       {#snippet control()}Database Documentation{/snippet}
