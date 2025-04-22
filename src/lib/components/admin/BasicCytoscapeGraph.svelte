@@ -2,8 +2,7 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   
-  export let nodes = [];
-  export let edges = [];
+  const { nodes = [], edges = [] } = $props();
   
   const container = $state();
   const cy = $state();
@@ -208,7 +207,7 @@
               const nodeConfig = typeMap[nodeType];
               
               // Find all nodes of this type to calculate position
-              let nodesOfType = cy.nodes().filter(n => n.data('type') === nodeType);
+              const nodesOfType = cy.nodes().filter(n => n.data('type') === nodeType);
               const totalNodes = nodesOfType.length;
               
               // Find position of this specific node in its type group
@@ -277,8 +276,8 @@
             const nodeType = node.data('type');
             
             // Determine row based on type (still maintaining 4 rows as requested)
-            let row = 4; // default for any unexpected types
-            let rowNodes = [];
+            const row = $state(4); // default for any unexpected types
+            const rowNodes = $state([]);
             
             if (nodeType === 'users' || nodeType === 'games') {
               row = 0;
@@ -310,7 +309,7 @@
             const nodeCount = typeNodes.length || 1;
             
             // Ensure even if only one node, it's centered
-            let xPos = canvasWidth / 2;
+            const xPos = $state(canvasWidth / 2);
             
             if (nodeCount > 1) {
               const availableWidth = canvasWidth * 0.9; // leave some margin
