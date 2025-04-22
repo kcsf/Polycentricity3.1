@@ -23,10 +23,19 @@ import 'gun/sea';
 /** @type {any} */
 let db;
 if (browser) {
+  // Silence Gun's welcome message before initializing
+  if (window.Gun) {
+    window.Gun.log.once = () => {};
+  }
+
   const gunOptions = {
     localStorage: false, // Disable local storage, use IndexedDB via Radisk
     radisk: true, // Enable Radisk for persistent storage
     silent: true, // Reduce debug logs
+    quiet: true, // Additional silencing for SEA
+    super: true, // More silence
+    axe: false, // Disable network announcements
+    multicast: false, // Disable multicast (local network discovery)
     opt: { store: { max: 100 * 1024 * 1024 } }, // 100MB in bytes
     peers: [] // Placeholder for future peer relays
   };

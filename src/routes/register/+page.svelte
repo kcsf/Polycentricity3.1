@@ -3,26 +3,17 @@
         import { onMount } from 'svelte';
         import { registerUser, userExistsByEmail } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
-        import { resetGunDatabase } from '$lib/services/gunResetService';
       
         let name = $state('');
         let email = $state('');
         let password = $state('');
         let isRegistering = $state(false);
-        let isClearing = $state(false);
         let error = $state('');
-        let showResetControls = $state(false);
       
         onMount(() => {
           if ($userStore.user) {
             console.log('User already authenticated, redirecting to dashboard');
             goto('/dashboard');
-          }
-          
-          // Allow developer mode via query parameter
-          const urlParams = new URLSearchParams(window.location.search);
-          if (urlParams.get('debug') === 'true') {
-            showResetControls = true;
           }
         });
       
@@ -47,24 +38,6 @@
             console.log('Registration in progress...');
           }
         });
-        
-        async function handleClearUser() {
-          error = 'This function has been replaced with the reset tool. Use the complete reset instead.';
-          isClearing = false;
-        }
-        
-        async function handleResetGun() {
-          if (confirm('This will clear all Gun database data. Continue?')) {
-            try {
-              const result = await resetGunDatabase();
-              console.log(result);
-              window.location.href = '/reset';
-            } catch (err) {
-              console.error('Failed to reset database:', err);
-              error = 'Failed to reset database. See console for details.';
-            }
-          }
-        }
       
         async function handleSubmit(e: Event) {
           e.preventDefault();
@@ -92,8 +65,7 @@
             // First check if the user already exists
             const userExists = await userExistsByEmail(email);
             if (userExists) {
-              error = 'This email is already registered. Try a different email or use the Reset Database tool to start fresh.';
-              showResetControls = true;
+              error = 'This email is already registered. Please try using a different email.';
               isRegistering = false;
               return;
             }
@@ -122,8 +94,7 @@
             
             // Check for the common "User already created" error
             if (err?.includes && err.includes('User already created')) {
-              error = 'This email is already registered in Gun but we couldn\'t detect it beforehand. Try using the debug mode to clear it.';
-              showResetControls = true;
+              error = 'This email is already registered in the database. Please try using a different email.';
             }
           } finally {
             isRegistering = false;
@@ -196,23 +167,6 @@
             <div class="mt-4 text-center">
               <p>Already have an account? <a href="/login" class="anchor">Login</a></p>
             </div>
-            
-            {#if showResetControls}
-              <hr class="my-4" />
-              <div class="space-y-4">
-                <h3 class="h4 text-center">Debug Tools</h3>
-                <p class="text-xs text-center opacity-60">Warning: These actions affect Gun.js user data</p>
-                
-                <div class="flex gap-2">
-                  <a 
-                    href="/reset" 
-                    class="btn variant-ghost-error w-full"
-                  >
-                    Reset Database
-                  </a>
-                </div>
-              </div>
-            {/if}
           </section>
         </div>
       </div>
