@@ -7,21 +7,21 @@
   import type { Deck } from '$lib/types';
   import { tick } from 'svelte';
   
-  export let refreshTrigger = 0; // Increment this to trigger a refresh
+  const props = $props({ refreshTrigger: 0 }); // Increment this to trigger a refresh
   
-  let isLoading = true;
-  let decks: {id: string, data: Deck}[] = [];
-  let error: string | null = null;
+  const isLoading = $state(true);
+  const decks = $state<{id: string, data: Deck}[]>([]);
+  const error = $state<string | null>(null);
   
   // Modal state
-  let isModalOpen = false;
-  let selectedDeck: Deck | null = null;
+  const isModalOpen = $state(false);
+  const selectedDeck = $state<Deck | null>(null);
   
   onMount(() => {
     loadDecks();
   });
   
-  $: if (refreshTrigger) {
+  $: if (props.refreshTrigger) {
     loadDecks();
   }
   
@@ -122,12 +122,12 @@
 <div class="deck-data-container">
   <div class="flex justify-between items-center mb-4">
     <h3 class="h3">Decks</h3>
-    <button class="btn btn-sm variant-filled-primary" on:click={loadDecks} disabled={isLoading}>
+    <button class="btn btn-sm variant-filled-primary" onclick={loadDecks} disabled={isLoading}>
       {#if isLoading}
         <div class="spinner-third w-4 h-4 mr-2"></div>
         Loading...
       {:else}
-        <svelte:component this={icons.RefreshCw} class="w-4 h-4 mr-2" />
+        {icons.RefreshCw && icons.RefreshCw({ class: "w-4 h-4 mr-2" })}
         Refresh
       {/if}
     </button>
@@ -135,7 +135,7 @@
   
   {#if error}
     <div class="alert variant-filled-error mb-4">
-      <svelte:component this={icons.AlertTriangle} />
+      {icons.AlertTriangle && icons.AlertTriangle()}
       <div class="alert-message">
         <h4 class="h5">Error Loading Decks</h4>
         <p>{error}</p>
@@ -150,7 +150,7 @@
     </div>
   {:else if decks.length === 0}
     <div class="card p-6 variant-ghost-surface text-center">
-      <svelte:component this={icons.Package} class="w-12 h-12 mx-auto mb-4 text-surface-500" />
+      {icons.Package && icons.Package({ class: "w-12 h-12 mx-auto mb-4 text-surface-500" })}
       <h4 class="h4 mb-2">No Decks Found</h4>
       <p class="text-sm max-w-lg mx-auto">
         There are no decks in the database yet. Create a deck to get started.
@@ -185,13 +185,13 @@
                 <div class="flex space-x-2">
                   <button 
                     class="action-button edit-button"
-                    on:click={() => openEditModal(deck.data)}
+                    onclick={() => openEditModal(deck.data)}
                     title="Edit Deck Info"
                   >
                     <span class="icon">✏️</span> Edit
                   </button>
                   <button 
-                    on:click={() => {
+                    onclick={() => {
                       window.location.href = `/admin?tab=overview&deckId=${deck.id}`;
                     }}
                     class="action-button import-button"
@@ -200,7 +200,7 @@
                     <span class="icon">📤</span> Import
                   </button>
                   <button 
-                    on:click={() => {
+                    onclick={() => {
                       if (confirm(`Are you sure you want to delete deck "${deck.data.name || deck.id}"? This cannot be undone.`)) {
                         deleteDeck(deck.id);
                       }
