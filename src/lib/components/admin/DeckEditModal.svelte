@@ -24,7 +24,8 @@
   
   function closeModal() {
     isOpen = false;
-    dispatch('close');
+    const event = new CustomEvent('close');
+    dispatch('close', event);
   }
   
   async function handleSubmit() {
@@ -41,7 +42,8 @@
       if (success) {
         // Close modal and dispatch success event
         closeModal();
-        dispatch('update', { deckId: deck.deck_id });
+        const updateEvent = new CustomEvent('update', { detail: { deckId: deck.deck_id } });
+        dispatch('update', updateEvent);
       } else {
         // Handle error
         console.error('Failed to update deck');

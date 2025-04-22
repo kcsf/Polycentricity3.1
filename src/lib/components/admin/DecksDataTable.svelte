@@ -7,7 +7,7 @@
   import type { Deck } from '$lib/types';
   import { tick } from 'svelte';
   
-  const props = $props({ refreshTrigger: 0 }); // Increment this to trigger a refresh
+  export let refreshTrigger = $props(0); // Increment this to trigger a refresh
   
   const isLoading = $state(true);
   const decks = $state<{id: string, data: Deck}[]>([]);
@@ -21,7 +21,7 @@
     loadDecks();
   });
   
-  $: if (props.refreshTrigger) {
+  $: if (refreshTrigger) {
     loadDecks();
   }
   
@@ -223,8 +223,8 @@
   <DeckEditModal 
     bind:isOpen={isModalOpen} 
     deck={selectedDeck} 
-    on:close={handleModalClose}
-    on:update={handleDeckUpdated}
+    onclose={handleModalClose}
+    onupdate={handleDeckUpdated}
   />
 </div>
 

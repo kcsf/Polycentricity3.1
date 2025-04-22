@@ -6,8 +6,8 @@
   
   const isUpdating = $state(false);
   const isFixingGames = $state(false);
-  const result = $state<{ success: boolean; message: string } | null>(null);
-  const gameFixResult = $state<{ success: boolean; message: string } | null>(null);
+  let result = $state<{ success: boolean; message: string } | null>(null);
+  let gameFixResult = $state<{ success: boolean; message: string } | null>(null);
   const adminEmail = $state('');
   
   const dispatch = createEventDispatcher();
@@ -63,7 +63,8 @@
         };
         
         // Notify parent components to refresh the visualization
-        dispatch('relationshipsFixed', { success: true });
+        const fixedEvent = new CustomEvent('relationshipsFixed', { detail: { success: true } });
+        dispatch('relationshipsFixed', fixedEvent);
         
       } else {
         gameFixResult = {
