@@ -15,6 +15,7 @@
   // SvelteRunesGuide moved to src/lib/components/guides/SvelteRunesGuide.svelte
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
+  import { isAdminUser } from '$lib/utils/adminChecks';
   
   // For visualization
   let isG6Loading = $state<boolean>(false);
@@ -564,8 +565,8 @@
       console.log('Current user:', currentUser);
       
       // Only allow admin users to access this page
-      if (!currentUser || currentUser.role !== 'Admin') {
-        console.error('Access denied: User is not an admin');
+      if (!isAdminUser(currentUser)) {
+        console.error('Access denied: User is not an admin', currentUser);
         error = 'Access denied: You must be logged in as an administrator to view this page.';
         isLoading = false;
         return;
@@ -735,7 +736,7 @@
     <div class="p-4">
       
       <!-- Show access denied message if not admin -->
-      {#if !currentUser || currentUser.role !== 'Admin'}
+      {#if !isAdminUser(currentUser)}
         <div class="alert variant-filled-error">
           <icons.AlertTriangle class="w-5 h-5" />
           <div class="alert-message">
