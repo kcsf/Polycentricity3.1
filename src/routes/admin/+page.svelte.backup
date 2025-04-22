@@ -1217,7 +1217,6 @@
     </div>
   </div>
 </div>
-</div>
 
 <style>
   .admin-dashboard {
