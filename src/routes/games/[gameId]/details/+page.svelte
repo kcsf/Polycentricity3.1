@@ -261,8 +261,8 @@
     {/if}
 </div>
 
-<script>
-    function getGameStatusIcon(status) {
+<script context="module">
+    function getGameStatusIcon(status: GameStatus) {
         switch (status) {
             case GameStatus.CREATED:
                 return icons.FileSparkles;

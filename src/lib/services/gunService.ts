@@ -17,8 +17,7 @@
 
 import db from './gun-db.js';
 import type Gun from 'gun';
-// Simplified browser check since $app/environment might not be available with SvelteKit 2.x
-const browser = typeof window !== 'undefined';
+import { browser } from '$app/environment';
 import type { IGunInstance, IGunUserInstance } from 'gun';
 import type {
   Game,
@@ -32,7 +31,7 @@ import type {
   Value,
   Capability,
   NodePosition
-} from '../types/index';
+} from '$lib/types';
 
 // Explicitly type db to avoid implicit any
 const dbTyped: IGunInstance | undefined = db;
@@ -80,8 +79,7 @@ export async function put<T extends User | Game | Actor | Agreement | ChatRoom |
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    // @ts-ignore - Gun callback type issue
-    g.get(soul).put(data, (ack: any) => {
+    g.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
@@ -143,8 +141,7 @@ export async function setField<T>(soul: string, key: string, value: T): Promise<
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    // @ts-ignore - Gun callback type issue
-    g.get(soul).get(key).put(value, (ack: any) => {
+    g.get(soul).get(key).put(value, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
@@ -240,13 +237,11 @@ export async function putSigned<T extends User | Game | Actor | Agreement | Chat
   data: T | null
 ): Promise<GunAck> {
   const user = getUser();
-  // Add type assertion for sea property
-  if (!user || !(user._ as any).sea?.pub) throw new Error('User not authenticated');
+  if (!user || !user._.sea?.pub) throw new Error('User not authenticated');
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    // @ts-ignore - Gun callback type issue
-    user.get(soul).put(data, (ack: any) => {
+    user.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
