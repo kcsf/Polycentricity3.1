@@ -229,7 +229,9 @@
     <div class="p-4 border-b border-surface-200 dark:border-surface-700 flex justify-between items-center">
       <h2 class="text-xl font-semibold">{editMode ? 'Edit' : 'Create'} Agreement</h2>
       <button class="btn btn-sm btn-icon variant-ghost-surface" onclick={closeModal}>
-        <svelte:component this={icons.X} class="w-4 h-4" />
+        {#if icons.X}
+          <icons.X class="w-4 h-4" />
+        {/if}
       </button>
     </div>
     
@@ -299,7 +301,9 @@
                   disabled={terms.length === 1}
                   aria-label={`Remove term ${index + 1}`}
                 >
-                  <svelte:component this={icons.X} class="w-4 h-4" />
+                  {#if icons.X}
+                    <icons.X class="w-4 h-4" />
+                  {/if}
                 </button>
               </div>
             {/each}

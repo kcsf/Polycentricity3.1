@@ -571,7 +571,9 @@
   <div class="flex items-center justify-between p-2 border-b border-surface-200 dark:border-surface-700 bg-surface-100 dark:bg-surface-800">
     <div class="relative flex-grow max-w-md">
       <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-        <svelte:component this={icons.Search} class="w-4 h-4 text-surface-400" />
+        {#if icons.Search}
+          <icons.Search class="w-4 h-4 text-surface-400" />
+        {/if}
       </div>
       <input
         type="text"
@@ -583,20 +585,28 @@
     
     <div class="flex space-x-2">
       <button class="btn btn-sm variant-ghost-surface" title="Zoom In">
-        <svelte:component this={icons.ZoomIn} class="w-4 h-4" />
+        {#if icons.ZoomIn}
+          <icons.ZoomIn class="w-4 h-4" />
+        {/if}
       </button>
       <button class="btn btn-sm variant-ghost-surface" title="Zoom Out">
-        <svelte:component this={icons.ZoomOut} class="w-4 h-4" />
+        {#if icons.ZoomOut}
+          <icons.ZoomOut class="w-4 h-4" />
+        {/if}
       </button>
       <button class="btn btn-sm variant-ghost-surface" title="Reset Zoom">
-        <svelte:component this={icons.Maximize} class="w-4 h-4" />
+        {#if icons.Maximize}
+          <icons.Maximize class="w-4 h-4" />
+        {/if}
       </button>
       <button 
         class="btn btn-sm variant-filled-primary" 
         title="Add Agreement"
-        on:click={handleAddAgreement}
+        onclick={handleAddAgreement}
       >
-        <svelte:component this={icons.PlusCircle} class="w-4 h-4 mr-1" />
+        {#if icons.PlusCircle}
+          <icons.PlusCircle class="w-4 h-4 mr-1" />
+        {/if}
         <span>Agreement</span>
       </button>
     </div>

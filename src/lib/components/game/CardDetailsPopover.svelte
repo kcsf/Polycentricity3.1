@@ -1,16 +1,21 @@
 <script lang="ts">
   import type { D3Node } from '$lib/utils/d3GraphUtils';
   
-  // Using export let for traditional Svelte props
-  export let node: D3Node;
-  export let onClose: () => void;
+  // Convert to Svelte 5 Runes syntax using $props()
+  const {
+    node,
+    onClose
+  } = $props<{
+    node: D3Node;
+    onClose: () => void;
+  }>();
   
   // Create a typed logging function
   const isDev = process.env.NODE_ENV !== 'production';
   const log = (...args: any[]) => isDev && console.log('[CardDetailsPopover]', ...args);
   
-  // Traditional reactive variable
-  let isVisible = false;
+  // Reactive variable using Svelte 5 Runes $state
+  let isVisible = $state(false);
   
   // Run as soon as the script executes
   setTimeout(() => {
@@ -77,7 +82,7 @@
   {/if}
   <button
     class="mt-4 px-3 py-1 text-sm bg-surface-200 rounded hover:bg-surface-300 transition-colors"
-    on:click={onClose}
+    onclick={onClose}
   >
     Close
   </button>
