@@ -3,8 +3,7 @@
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import { userStore } from '$lib/stores/userStore';
-    import { currentGameStore } from '$lib/stores/gameStore';
-    import { activeActorId } from '$lib/stores/enhancedGameStore';
+    import { currentGameStore, setCurrentGame } from '$lib/stores/gameStore';
     import { getGame, subscribeToGame, getGameActors, getUserCard, joinGame, getPlayerRole, 
         getAvailableCardsForGame, getAvailableAgreementsForGame, actorCache } from '$lib/services/gameService';
     import { getGun, nodes } from '$lib/services/gunService';
@@ -24,6 +23,7 @@
     let error = $state('');
     let isJoining = $state(false);
     let unsubscribe = $state<(() => void) | undefined>(undefined);
+    let activeActorId = $state<string | null>(null);
     
     // Log messages for easier debugging
     const isDev = process.env.NODE_ENV !== 'production';
@@ -121,10 +121,10 @@
         }
     }
     
-    // Logic to load the current user's actor in this game
     /**
-     * Load the user's actor in the current game using multiple lookup strategies
-     * This version prioritizes locally stored data and provides fallbacks
+     * Load the current user's actor in this game
+     * This prioritizes cached data and the actual database record
+     * @returns Actor object if found, null otherwise
      */
     async function loadUserActor() {
         const user = $userStore.user;
@@ -136,86 +136,40 @@
         const userId = user.user_id;
         log(`[GamePage] Looking up actor for user ${userId} in game ${gameId}`);
 
-        // STRATEGY 1: Check localStorage first - most immediate source
+        // Strategy 1: Check localStorage first for the most immediate reference
         const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
         if (savedActorId) {
             log(`[GamePage] Found saved actor ID in localStorage: ${savedActorId}`);
             
-            // If this actor exists in cache and is valid
+            // Verify this actor exists in cache and belongs to this game
             if (actorCache.has(savedActorId)) {
                 const actor = actorCache.get(savedActorId)!;
-                if (actor.game_id === gameId && (actor.user_id === userId || !actor.user_id)) {
+                if (actor.game_ref === gameId && actor.user_id === userId) {
                     log(`[GamePage] Actor lookup for user ${userId}: ${actor.actor_id} (from localStorage)`);
-                    // Update state variables
                     playerRole = actor;
-                    activeActorId.set(actor.actor_id);
-                    
-                    // Ensure user_id is set on this actor
-                    if (!actor.user_id) {
-                        log(`[GamePage] Actor ${actor.actor_id} had no user_id, setting to ${userId}`);
-                        actor.user_id = userId;
-                    }
-                    
+                    activeActorId = actor.actor_id;
                     return actor;
                 }
             }
             
-            // If not valid, remove it
+            // If not valid, clean up localStorage
             log(`[GamePage] Invalid localStorage actor reference, removing`);
             localStorage.removeItem(`game_${gameId}_actor`);
         }
 
-        // STRATEGY 2: Check if this user has just joined and we have the actor ID in activeActorId
-        const currentActiveActorId = $activeActorId;
-        if (currentActiveActorId && actorCache.has(currentActiveActorId)) {
-            const actor = actorCache.get(currentActiveActorId)!;
-            if (actor.game_id === gameId) {
-                log(`[GamePage] Actor lookup for user ${userId}: ${actor.actor_id} (from activeActorId)`);
-                playerRole = actor;
-                
-                // Ensure this actor is properly saved to localStorage
-                localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
-                
-                // Ensure user_id is set on this actor
-                if (!actor.user_id) {
-                    log(`[GamePage] Actor ${actor.actor_id} had no user_id, setting to ${userId}`);
-                    actor.user_id = userId;
-                }
-                
-                return actor;
-            }
-        }
-
-        // STRATEGY 3: Query using getPlayerRole with a longer timeout (specifying the actor ID if known)
-        const actor = await getPlayerRole(gameId, userId, currentActiveActorId);
+        // Strategy 2: Use the proper gameService API to get the player's role
+        const currentActorId = activeActorId;
+        const actor = await getPlayerRole(gameId, userId, currentActorId || undefined);
+        
         if (actor) {
             log(`[GamePage] Actor lookup for user ${userId}: ${actor.actor_id} (from getPlayerRole)`);
             playerRole = actor;
-            activeActorId.set(actor.actor_id);
+            activeActorId = actor.actor_id;
             localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
             return actor;
         }
 
-        // STRATEGY 4: Look for any unassigned actor in this game
-        // Only use this fallback for newly joined games where the database might not be in sync yet
-        const allActors = Array.from(actorCache.values()).filter(a => a.game_id === gameId);
-        const unassignedActors = allActors.filter(a => !a.user_id);
-        
-        if (unassignedActors.length > 0) {
-            // Take the first unassigned actor
-            const actor = unassignedActors[0];
-            log(`[GamePage] Assigning unassigned actor ${actor.actor_id} to user ${userId} (fallback)`);
-            
-            // Set the user_id on this actor
-            actor.user_id = userId;
-            playerRole = actor;
-            activeActorId.set(actor.actor_id);
-            localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
-            
-            return actor;
-        }
-
-        log(`[GamePage] Actor lookup for user ${userId}: none (no fallbacks available)`);
+        log(`[GamePage] No actor found for user ${userId} in game ${gameId}`);
         return null;
     }
     
