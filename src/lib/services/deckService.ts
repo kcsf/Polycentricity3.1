@@ -468,14 +468,19 @@ export async function createCard(
     }
     // CASE 4: Check for comma-separated string capabilities
     else if (
-        (card as any).capabilities &&
-        typeof (card as any).capabilities === "string"
+        ((card as any).capabilities && typeof (card as any).capabilities === "string") ||
+        ((card as any).capabilities_ref && typeof (card as any).capabilities_ref === "string")
     ) {
+        // Get the string from either capabilities or capabilities_ref
+        const capabilitiesString = (card as any).capabilities_ref || (card as any).capabilities;
+        
         // Parse comma-separated capabilities string
-        const capabilityNames = (card as any).capabilities
+        const capabilityNames = capabilitiesString
             .split(",")
             .map((c: string) => c.trim())
             .filter(Boolean);
+            
+        console.log(`[createCard] Parsed ${capabilityNames.length} capabilities from string: ${capabilitiesString}`);
 
         // Convert each capability name to a standardized ID and add to the record
         for (const capName of capabilityNames) {
