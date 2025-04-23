@@ -361,7 +361,9 @@
 
 <div class="card p-4 bg-surface-50-900-token">
   <h3 class="h4 mb-4 flex items-center">
-    <svelte:component this={icons.Layers} class="w-5 h-5 mr-2 text-primary-500" />
+    {#if icons.Layers}
+      <icons.Layers class="w-5 h-5 mr-2 text-primary-500" />
+    {/if}
     <span>Card Import Manager</span>
   </h3>
   
@@ -373,7 +375,7 @@
         id="deck-select" 
         class="select rounded-md w-full md:w-1/2 lg:w-1/3"
         value={deckIdValue}
-        on:change={(e) => {
+        onchange={(e) => {
           deckIdValue = e.target.value;
           loadDeck();
         }}
@@ -390,10 +392,12 @@
       
       <button 
         class="btn variant-filled-primary" 
-        on:click={loadDeck}
+        onclick={loadDeck}
         disabled={isLoading}
       >
-        <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-2" />
+        {#if icons.RefreshCcw}
+          <icons.RefreshCcw class="w-4 h-4 mr-2" />
+        {/if}
         Refresh
       </button>
     </div>
@@ -423,7 +427,11 @@
     
     {#if result}
       <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
-        <svelte:component this={result.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+        {#if result.success && icons.CheckCircle}
+          <icons.CheckCircle class="w-5 h-5" />
+        {:else if icons.AlertTriangle}
+          <icons.AlertTriangle class="w-5 h-5" />
+        {/if}
         <div class="alert-message">
           <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
           <p>{result.message}</p>
@@ -518,21 +526,25 @@
       
       <button 
         class="btn variant-filled-secondary" 
-        on:click={handleImportCards}
+        onclick={handleImportCards}
         disabled={isImporting || !importText.trim()}
       >
         {#if isImporting}
           <div class="spinner-third w-4 h-4 mr-2"></div>
           Importing...
-        {:else}
-          <svelte:component this={icons.Upload} class="w-4 h-4 mr-2" />
+        {:else if icons.Upload}
+          <icons.Upload class="w-4 h-4 mr-2" />
           Import Cards
         {/if}
       </button>
       
       {#if importResult}
         <div class="alert {importResult.success ? 'variant-filled-success' : 'variant-filled-error'} mt-4">
-          <svelte:component this={importResult.success ? icons.CheckCircle : icons.AlertTriangle} class="w-5 h-5" />
+          {#if importResult.success && icons.CheckCircle}
+            <icons.CheckCircle class="w-5 h-5" />
+          {:else if icons.AlertTriangle}
+            <icons.AlertTriangle class="w-5 h-5" />
+          {/if}
           <div class="alert-message">
             <h4 class="h5">{importResult.success ? 'Success' : 'Error'}</h4>
             <p>{importResult.message}</p>
