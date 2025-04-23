@@ -384,7 +384,8 @@
               "transform",
               `translate(${d.x},${d.y})`,
             );
-            gameStore.updateNodePosition(d.id, d.x, d.y);
+            // Use gameService to update the node position
+            updateNodePosition(gameId, d.id, d.x, d.y);
           }),
       )
       .on("click", (event, d) => {
@@ -398,10 +399,16 @@
           (node) => `node node-${node.type}${node.active ? " active" : ""}`,
         );
 
-        // Call the store select function
-        // This will also set activeActorId if it's an actor node
+        // Handle node selection internally rather than using gameStore
         const nodeType = d.type;
-        gameStore.selectNode(d.id, nodeType);
+        selectedNodeId = d.id;
+        selectedNodeType = nodeType;
+        
+        // If it's an actor, we could notify parent through an event or custom store
+        if (nodeType === 'actor' && d.id !== activeActorId) {
+          console.log(`Selected actor: ${d.id}`);
+          // Here we would normally dispatch an event up to the parent
+        }
         
         // Show details panel
         isDetailsOpen = true;
@@ -533,26 +540,30 @@
 
   // Handle adding a new agreement
   function handleAddAgreement() {
-    gameStore.toggleAgreementModal();
+    // Simply show the agreement modal
     showAgreementModal = true;
   }
 
-  // Filter nodes based on search term
-  $: filteredActors = searchTerm 
-    ? actors.filter(actor => 
-        actor.role_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        actor.values.some(v => v.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        actor.goals.some(g => g.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    : actors;
+  // Filter nodes based on search term using $derived
+  const filteredActors = $derived(
+    searchTerm 
+      ? actors.filter(actor => 
+          actor.role_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          actor.values.some(v => v.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          actor.goals.some(g => g.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+      : actors
+  );
 
-  $: filteredAgreements = searchTerm
-    ? agreements.filter(agreement =>
-        agreement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        agreement.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        agreement.terms.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    : agreements;
+  const filteredAgreements = $derived(
+    searchTerm
+      ? agreements.filter(agreement =>
+          agreement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          agreement.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          agreement.terms.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+      : agreements
+  );
 </script>
 
 <div class="game-visualization w-full h-full overflow-hidden bg-surface-50 dark:bg-surface-900 relative rounded-lg flex flex-col">
