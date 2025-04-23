@@ -1,4 +1,4 @@
-import { getGun, nodes, put, purgeNode } from './gunService';
+import { getGun, nodes, put } from './gunService';
 import { getCurrentUser } from './authService';
 import { createValue } from './valueService';
 import { createCapability } from './capabilityService';
@@ -346,39 +346,27 @@ export async function cleanupNullCardReferences(): Promise<{
 
     let removedCount = 0;
     
-    // Track processed items to prevent duplicate processing
-    const processedItems = new Set<string>();
-    
     return new Promise((resolve) => {
-      console.log('Starting database reference cleanup...');
-      
-      // First pass: check all decks for null card references - LIMITED TO KNOWN DECKS ONLY
-      // Only process the known decks we expect to have
-      const knownDeckIds = ['d_1'];
-      
-      knownDeckIds.forEach(deckId => {
-        gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').map().once((value: any, cardId: string) => {
-          // Skip if already processed this item
-          const itemKey = `deck:${deckId}:card:${cardId}`;
-          if (processedItems.has(itemKey)) return;
-          processedItems.add(itemKey);
-          
+      // First pass: check all decks for null card references
+      gun.get(nodes.decks).map().once((deckData: any, deckId: string) => {
+        if (!deckData) return;
+        
+        // Get cards_ref for this deck
+        gun.get(nodes.decks).get(deckId).get('cards_ref').map().once((value: any, cardId: string) => {
           // If this is a null reference or an invalid format, remove it
           const isValidCardId = /^card_\d+$/.test(cardId);
           const isNullReference = value === null;
           
           if (isNullReference || !isValidCardId) {
             console.log(`Removing null/invalid card reference ${cardId} from deck ${deckId}`);
-            // Direct nullification using Gun.js
-            gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(cardId).put(null);
+            gun.get(nodes.decks).get(deckId).get('cards_ref').get(cardId).put(null);
             removedCount++;
           } else {
             // For valid cards, verify they actually exist
             gun.get(nodes.cards).get(cardId).once((cardData: any) => {
               if (!cardData) {
                 console.log(`Removing reference to non-existent card ${cardId} from deck ${deckId}`);
-                // Direct nullification using Gun.js
-                gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(cardId).put(null);
+                gun.get(nodes.decks).get(deckId).get('cards_ref').get(cardId).put(null);
                 removedCount++;
               }
             });
@@ -386,46 +374,80 @@ export async function cleanupNullCardReferences(): Promise<{
         });
       });
       
-      // Instead of doing separate passes, just clean up the known problematic card IDs
-      const specificProblematicIds = [
-        "card_7252", 
-        "card_1542"
-      ];
-      
-      // Aggressively clear these specific IDs from cards node
-      for (const badCardId of specificProblematicIds) {
-        console.log(`Checking for problematic card ID: ${badCardId}`);
+      // Second pass: check for null card references in values and capabilities
+      gun.get(nodes.values).map().once((valueData: any, valueId: string) => {
+        if (!valueData || !valueData.cards_ref) return;
         
-        // Only nullify the card in the cards collection if it exists
-        gun.get(nodes.cards).get(badCardId).once((data: any) => {
-          if (data === null) return; // Skip if already null
+        gun.get(nodes.values).get(valueId).get('cards_ref').map().once((value: any, cardId: string) => {
+          if (value === null || !cardId.startsWith('card_')) {
+            console.log(`Removing null/invalid card reference ${cardId} from value ${valueId}`);
+            gun.get(nodes.values).get(valueId).get('cards_ref').get(cardId).put(null);
+            removedCount++;
+          } else {
+            // Verify card exists
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+              if (!cardData) {
+                console.log(`Removing reference to non-existent card ${cardId} from value ${valueId}`);
+                gun.get(nodes.values).get(valueId).get('cards_ref').get(cardId).put(null);
+                removedCount++;
+              }
+            });
+          }
+        });
+      });
+      
+      // Third pass: check capabilities
+      gun.get(nodes.capabilities).map().once((capData: any, capId: string) => {
+        if (!capData || !capData.cards_ref) return;
+        
+        gun.get(nodes.capabilities).get(capId).get('cards_ref').map().once((value: any, cardId: string) => {
+          if (value === null || !cardId.startsWith('card_')) {
+            console.log(`Removing null/invalid card reference ${cardId} from capability ${capId}`);
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(cardId).put(null);
+            removedCount++;
+          } else {
+            // Verify card exists
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+              if (!cardData) {
+                console.log(`Removing reference to non-existent card ${cardId} from capability ${capId}`);
+                gun.get(nodes.capabilities).get(capId).get('cards_ref').get(cardId).put(null);
+                removedCount++;
+              }
+            });
+          }
+        });
+      });
+      
+      // Fourth pass: Direct cleanup of null/malformed card IDs in cards node
+      // This is needed to clean up entries like "card_7252": null and "card__m9uawqaa_ll8gey0f": null
+      gun.get(nodes.cards).map().once((cardData: any, cardId: string) => {
+        // Check if this is a nullified card or a card with an invalid ID pattern
+        const isNullCard = cardData === null;
+        const isValidCardId = /^card_\d+$/.test(cardId);
+        
+        if (isNullCard || !isValidCardId) {
+          console.log(`Cleaning up ${isNullCard ? 'null' : 'invalid'} card entry: ${cardId}`);
           
-          console.log(`Nullifying problematic card: ${badCardId}`);
-          gun.get(nodes.cards).get(badCardId).put(null);
+          // For null cards, we need to use a special approach to ensure the key is truly removed
+          // This works better than just setting to null for already-nullified entries
+          gun.get(nodes.cards).get(cardId).put({ _: { '#': 'null' } });
+          
+          // Then explicitly set it to null again
+          setTimeout(() => {
+            gun.get(nodes.cards).get(cardId).put(null);
+          }, 100);
+          
           removedCount++;
-        });
-        
-        // Clean up references from known decks (strictly limited)
-        knownDeckIds.forEach(deckId => {
-          gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(badCardId).once((data: any) => {
-            if (data !== null) {
-              console.log(`Removing problematic card ${badCardId} from deck ${deckId}`);
-              // Direct nullification using Gun.js
-              gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(badCardId).put(null);
-              removedCount++;
-            }
-          });
-        });
-      }
+        }
+      });
       
-      // Give time for operations to complete, using a shorter timeout
+      // Give time for all operations to complete
       setTimeout(() => {
-        console.log(`Cleanup complete. Removed ${removedCount} invalid references.`);
         resolve({
           success: true,
           removed: removedCount,
         });
-      }, 1000);
+      }, 3000);
     });
   } catch (error) {
     console.error('Error cleaning up null card references:', error);

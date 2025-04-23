@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import * as icons from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
-  import { getCollection, nodes, purgeNode } from '$lib/services/gunService';
+  import { getCollection, nodes } from '$lib/services/gunService';
   import { getCard } from '$lib/services/gameService';
   import type { Deck, CardWithPosition } from '$lib/types';
   import { page } from '$app/stores';
@@ -189,7 +189,7 @@
   // Cleanup null card references
   async function cleanupNullRefs() {
     isCleaning = true;
-    cleanupMessage = "Cleaning up null card references... This might take a few moments.";
+    cleanupMessage = "Cleaning up null card references...";
     
     try {
       const result = await cleanupNullCardReferences();
@@ -197,81 +197,15 @@
       
       if (result.success) {
         cleanupMessage = `Successfully removed ${result.removed} null references. Reloading data...`;
-        
         // Reload data
         await loadDecks();
-        
-        // Suggest next steps
-        setTimeout(() => {
-          cleanupMessage = `Cleanup completed. For stubborn database issues:
-1. Try running the cleanup 2-3 times
-2. Check the DB Explorer to verify problematic IDs are gone
-3. If issues persist, try Force Purge Problem Nodes`;
-          
-          // Keep message visible but set cleaning to false
-          isCleaning = false;
-        }, 3000);
       } else {
         cleanupMessage = `Error during cleanup: ${result.error}`;
-        isCleaning = false;
       }
     } catch (err) {
       console.error("Error cleaning up references:", err);
       cleanupMessage = `Error cleaning up references: ${err instanceof Error ? err.message : String(err)}`;
-      isCleaning = false;
-    }
-  }
-  
-  // Direct purge for problematic nodes that resist standard cleanup
-  async function purgeProblemNodesDirect() {
-    isCleaning = true;
-    cleanupMessage = "Forcefully purging problem nodes... This is a direct database operation.";
-    
-    try {
-      // Specify the exact known problematic nodes to purge
-      const problematicNodes = [
-        "card_7252", 
-        "card_1542", 
-        "card__m9uawqaa_ll8gey0f", 
-        "card__m9uawqrj_aplrvl0s",
-        "card__m9u8x60b_1oy5qop1",
-        "card__m9u8x6yc_jijzcs87"
-      ];
-      
-      let successCount = 0;
-      
-      // Process each node with our special purge function
-      for (const badNodeId of problematicNodes) {
-        // Direct paths to clean from root card collection
-        console.log(`Forcefully purging ${badNodeId} from database...`);
-        
-        // Use our aggressive purge method that tries multiple strategies
-        const success = await purgeNode(`${nodes.cards}/${badNodeId}`);
-        if (success) successCount++;
-        
-        // Also purge from d_1 deck's cards_ref collection (problematic area based on pasted data)
-        await purgeNode(`${nodes.decks}/d_1/cards_ref/${badNodeId}`);
-        
-        // Also purge prefixed versions
-        await purgeNode(`${nodes.decks}/d_1/cards_ref/cards/${badNodeId}`);
-        
-        // For completeness, check if there's a nested decks/d_1 path
-        await purgeNode(`${nodes.decks}/d_1/decks/d_1/cards_ref/${badNodeId}`);
-      }
-      
-      cleanupMessage = `Forcefully purged ${successCount}/${problematicNodes.length} problem nodes. Reloading data...`;
-      
-      // Reload data after the purge
-      await loadDecks();
-      
-      // Final status
-      setTimeout(() => {
-        cleanupMessage = `Force purge complete. Check the DB Explorer to confirm the problematic nodes are gone. If problems persist, try using the database reset function from Admin Tools page.`;
-        isCleaning = false;
-      }, 3000);
-    } catch (err) {
-      console.error("Error during force purge:", err);
-      cleanupMessage = `Error during force purge: ${err instanceof Error ? err.message : String(err)}`;
+    } finally {
       isCleaning = false;
     }
   }
@@ -348,15 +282,6 @@
               >
                 <icons.RefreshCcw class="w-4 h-4" />
                 Clear Component Cache
-              </button>
-              
-              <button
-                class="btn variant-ghost-tertiary flex items-center gap-2 text-sm"
-                onclick={purgeProblemNodesDirect}
-                disabled={isLoading || isCleaning}
-              >
-                <icons.AlertTriangle class="w-4 h-4" />
-                Force Purge Problem Nodes
               </button>
             </div>
             
