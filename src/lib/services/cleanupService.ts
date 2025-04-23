@@ -359,14 +359,16 @@ export async function cleanupNullCardReferences(): Promise<{
           
           if (isNullReference || !isValidCardId) {
             console.log(`Removing null/invalid card reference ${cardId} from deck ${deckId}`);
-            gun.get(nodes.decks).get(deckId).get('cards_ref').get(cardId).put(null);
+            // Use unset for references in sets - better than put(null) for Gun.js collections
+            gun.get(nodes.decks).get(deckId).get('cards_ref').unset({ id: cardId });
             removedCount++;
           } else {
             // For valid cards, verify they actually exist
             gun.get(nodes.cards).get(cardId).once((cardData: any) => {
               if (!cardData) {
                 console.log(`Removing reference to non-existent card ${cardId} from deck ${deckId}`);
-                gun.get(nodes.decks).get(deckId).get('cards_ref').get(cardId).put(null);
+                // Use unset for references in sets
+                gun.get(nodes.decks).get(deckId).get('cards_ref').unset({ id: cardId });
                 removedCount++;
               }
             });
@@ -381,14 +383,16 @@ export async function cleanupNullCardReferences(): Promise<{
         gun.get(nodes.values).get(valueId).get('cards_ref').map().once((value: any, cardId: string) => {
           if (value === null || !cardId.startsWith('card_')) {
             console.log(`Removing null/invalid card reference ${cardId} from value ${valueId}`);
-            gun.get(nodes.values).get(valueId).get('cards_ref').get(cardId).put(null);
+            // Use unset for references in sets
+            gun.get(nodes.values).get(valueId).get('cards_ref').unset({ id: cardId });
             removedCount++;
           } else {
             // Verify card exists
             gun.get(nodes.cards).get(cardId).once((cardData: any) => {
               if (!cardData) {
                 console.log(`Removing reference to non-existent card ${cardId} from value ${valueId}`);
-                gun.get(nodes.values).get(valueId).get('cards_ref').get(cardId).put(null);
+                // Use unset for references in sets
+                gun.get(nodes.values).get(valueId).get('cards_ref').unset({ id: cardId });
                 removedCount++;
               }
             });
@@ -403,14 +407,16 @@ export async function cleanupNullCardReferences(): Promise<{
         gun.get(nodes.capabilities).get(capId).get('cards_ref').map().once((value: any, cardId: string) => {
           if (value === null || !cardId.startsWith('card_')) {
             console.log(`Removing null/invalid card reference ${cardId} from capability ${capId}`);
-            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(cardId).put(null);
+            // Use unset for references in sets
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').unset({ id: cardId });
             removedCount++;
           } else {
             // Verify card exists
             gun.get(nodes.cards).get(cardId).once((cardData: any) => {
               if (!cardData) {
                 console.log(`Removing reference to non-existent card ${cardId} from capability ${capId}`);
-                gun.get(nodes.capabilities).get(capId).get('cards_ref').get(cardId).put(null);
+                // Use unset for references in sets
+                gun.get(nodes.capabilities).get(capId).get('cards_ref').unset({ id: cardId });
                 removedCount++;
               }
             });
@@ -442,11 +448,11 @@ export async function cleanupNullCardReferences(): Promise<{
           gun.get(nodes.decks).map().once((deckData: any, deckId: string) => {
             if (!deckData) return;
             
-            // Remove from deck's cards_ref
-            gun.get(nodes.decks).get(deckId).get('cards_ref').get(badCardId).put(null);
+            // Remove from deck's cards_ref using unset for better cleanup of references
+            gun.get(nodes.decks).get(deckId).get('cards_ref').unset({ id: badCardId });
             
             // Also check for prefixed versions (with cards/ prefix)
-            gun.get(nodes.decks).get(deckId).get('cards_ref').get(`cards/${badCardId}`).put(null);
+            gun.get(nodes.decks).get(deckId).get('cards_ref').unset({ id: `cards/${badCardId}` });
             
             // Direct deep cleaning of problematic deck d_1 structure seen in the data dump
             if (deckId === 'd_1') {
@@ -467,11 +473,11 @@ export async function cleanupNullCardReferences(): Promise<{
           gun.get(nodes.values).map().once((valueData: any, valueId: string) => {
             if (!valueData || !valueData.cards_ref) return;
             
-            // Remove bad card from value's cards_ref
-            gun.get(nodes.values).get(valueId).get('cards_ref').get(badCardId).put(null);
+            // Remove bad card from value's cards_ref using unset for better cleanup of references
+            gun.get(nodes.values).get(valueId).get('cards_ref').unset({ id: badCardId });
             
             // Also check for prefixed versions
-            gun.get(nodes.values).get(valueId).get('cards_ref').get(`cards/${badCardId}`).put(null);
+            gun.get(nodes.values).get(valueId).get('cards_ref').unset({ id: `cards/${badCardId}` });
             
             // Check for nested cards structure
             if (valueData.cards) {

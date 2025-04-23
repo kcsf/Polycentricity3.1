@@ -298,17 +298,29 @@ export async function purgeNode(soul: string): Promise<boolean> {
     // 1. First try to directly nullify
     g.get(soul).put(null);
     
-    // 2. Also try to nullify with the special Gun null marker
+    // 2. If it's a reference in a collection (e.g., deck's cards_ref), try unset
+    // Determine parent and child paths from soul (e.g., "decks/d_1/cards_ref/card_7252")
+    const parts = soul.split('/');
+    if (parts.length >= 4) {
+      const parentPath = parts.slice(0, parts.length - 1).join('/');
+      const childId = parts[parts.length - 1];
+      
+      console.log(`Attempting to unset ${childId} from ${parentPath}`);
+      // The unset method handles references in sets better than put(null)
+      g.get(parentPath).unset({ id: childId });
+    }
+    
+    // 3. Also try to nullify with the special Gun null marker
     setTimeout(() => {
       g.get(soul).put({ _: { '#': 'null' } });
     }, 50);
     
-    // 3. Try to overwrite with an empty object (forces a PUT)
+    // 4. Try to overwrite with an empty object (forces a PUT)
     setTimeout(() => {
       g.get(soul).put({});
     }, 100);
     
-    // 4. Finally, try to remove it again with null
+    // 5. Finally, try to remove it again with null
     setTimeout(() => {
       g.get(soul).put(null);
     }, 150);
