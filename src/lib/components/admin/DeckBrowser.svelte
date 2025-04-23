@@ -98,41 +98,72 @@
       
       console.log(`Deck found:`, JSON.stringify(deck));
       
-      // ENHANCED APPROACH: Handle both reference types in decks
+      // Updated approach based on GunSchema.md: use cards_ref field according to schema
       const cardIds: string[] = [];
       
-      // CASE 1: Check if the deck has a cards property with a Gun.js reference
-      // This handles the case where cards is stored as {"#":"decks/d1/cards"} format
-      if (deck.cards && typeof deck.cards === 'object' && '#' in deck.cards) {
-        console.log(`Deck has cards stored as a Gun reference: ${(deck.cards as any)['#']}`);
-        
-        // Get the reference path and follow it to get the actual card IDs
-        const cardsPath = (deck.cards as any)['#'];
-        
-        // Wait a bit to access the referenced soul
-        await new Promise<void>(resolve => {
-          // Follow the reference and collect all card IDs
-          gun.get(cardsPath).map().once((value: any, cardId: string) => {
-            if (value === true) {
-              console.log(`Found card ID ${cardId} in deck ${deckId} via reference`);
+      // CASE 1: Check for cards in the cards_ref field per new schema
+      if (deck.cards_ref && typeof deck.cards_ref === 'object') {
+        // Check if it's a reference object or direct map
+        if ('#' in deck.cards_ref) {
+          console.log(`Deck has cards_ref stored as a Gun reference: ${(deck.cards_ref as any)['#']}`);
+          
+          // Get the reference path and follow it to get the actual card IDs
+          const cardsRefPath = (deck.cards_ref as any)['#'];
+          
+          // Wait a bit to access the referenced soul
+          await new Promise<void>(resolve => {
+            // Follow the reference and collect all card IDs
+            gun.get(cardsRefPath).map().once((value: any, cardId: string) => {
+              if (value === true) {
+                console.log(`Found card ID ${cardId} in deck ${deckId} via cards_ref reference`);
+                if (!cardIds.includes(cardId)) cardIds.push(cardId);
+              }
+            });
+            
+            // Allow time for all references to be resolved
+            setTimeout(resolve, 1000);
+          });
+        } else {
+          // Direct cards_ref map: {"card1": true, "card2": true}
+          Object.keys(deck.cards_ref).forEach(cardId => {
+            if ((deck.cards_ref as Record<string, boolean>)[cardId] === true) {
+              console.log(`Found card ID ${cardId} directly in deck ${deckId} cards_ref`);
               if (!cardIds.includes(cardId)) cardIds.push(cardId);
             }
           });
-          
-          // Allow time for all references to be resolved
-          setTimeout(resolve, 1000);
-        });
+        }
       }
       
-      // CASE 2: Direct cards collection in the deck
-      // This handles the case where cards is stored as a direct object: {"card1": true, "card2": true}
-      if (deck.cards && typeof deck.cards === 'object' && !('#' in deck.cards)) {
-        Object.keys(deck.cards).forEach(cardId => {
-          if ((deck.cards as Record<string, boolean>)[cardId] === true) {
-            console.log(`Found card ID ${cardId} directly in deck ${deckId}`);
-            if (!cardIds.includes(cardId)) cardIds.push(cardId);
-          }
-        });
+      // CASE 2: Legacy support - check original cards field if cards_ref is empty
+      if (cardIds.length === 0 && deck.cards && typeof deck.cards === 'object') {
+        if ('#' in deck.cards) {
+          console.log(`Checking legacy cards reference: ${(deck.cards as any)['#']}`);
+          
+          // Get the reference path and follow it to get the actual card IDs
+          const cardsPath = (deck.cards as any)['#'];
+          
+          // Wait a bit to access the referenced soul
+          await new Promise<void>(resolve => {
+            // Follow the reference and collect all card IDs
+            gun.get(cardsPath).map().once((value: any, cardId: string) => {
+              if (value === true) {
+                console.log(`Found card ID ${cardId} in deck ${deckId} via legacy cards reference`);
+                if (!cardIds.includes(cardId)) cardIds.push(cardId);
+              }
+            });
+            
+            // Allow time for all references to be resolved
+            setTimeout(resolve, 1000);
+          });
+        } else {
+          // Direct cards collection: {"card1": true, "card2": true}
+          Object.keys(deck.cards).forEach(cardId => {
+            if ((deck.cards as Record<string, boolean>)[cardId] === true) {
+              console.log(`Found card ID ${cardId} directly in deck ${deckId} cards field`);
+              if (!cardIds.includes(cardId)) cardIds.push(cardId);
+            }
+          });
+        }
       }
       
       console.log(`Found ${cardIds.length} card IDs that should be in deck ${deckId}: ${cardIds.join(', ')}`);
@@ -147,14 +178,27 @@
           gun.get(nodes.cards).map().once(async (cardData: Card) => {
             if (!cardData || !cardData.card_id) return;
             
-            // Check for direct deck reference in card
-            if (cardData.decks && typeof cardData.decks === 'object') {
+            // CASE 1: Check for deck in card's decks_ref field (new schema)
+            if (cardData.decks_ref && typeof cardData.decks_ref === 'object') {
+              if ('#' in cardData.decks_ref) {
+                // It's a Soul reference that points to all decks this card belongs to
+                console.log(`Card ${cardData.card_id} has decks_ref as a Gun reference, might contain deck ${deckId}`);
+                if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
+              } else if (cardData.decks_ref[deckId] === true) {
+                // It's a direct map with the deck ID as a key
+                console.log(`Card ${cardData.card_id} directly references deck ${deckId} in decks_ref`);
+                if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
+              }
+            }
+            
+            // CASE 2: Legacy - Check for direct deck reference in card.decks
+            else if (cardData.decks && typeof cardData.decks === 'object') {
               if ('#' in cardData.decks) {
                 // It's a Soul reference, we'd normally need to follow but we'll just assume
-                console.log(`Card ${cardData.card_id} has a decks reference that might contain deck ${deckId}`);
+                console.log(`Card ${cardData.card_id} has a legacy decks reference that might contain deck ${deckId}`);
                 if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
               } else if (cardData.decks[deckId] === true) {
-                console.log(`Card ${cardData.card_id} directly references deck ${deckId}`);
+                console.log(`Card ${cardData.card_id} directly references deck ${deckId} in legacy decks field`);
                 if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
               }
             }
