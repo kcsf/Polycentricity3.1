@@ -9,14 +9,7 @@
  * Excludes chat rooms and messages
  ***************************************************************************************/
 
-import {
-  getGun,
-  nodes,
-  put,
-  generateId,
-  type GunAck,
-  createRelationship,
-} from "./gunService";
+import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
 
 // Helper function to wait between Gun operations
 function delay(ms: number): Promise<void> {
@@ -49,12 +42,12 @@ async function robustPut(
       return result;
     }
     const cleanObj: Record<string, any> = {};
-    for (const key in obj) {
+    for (const k in obj) {
       if (
-        Object.prototype.hasOwnProperty.call(obj, key) &&
-        obj[key] !== undefined
+        Object.prototype.hasOwnProperty.call(obj, k) &&
+        obj[k] !== undefined
       ) {
-        cleanObj[key] = deepClean(obj[key]);
+        cleanObj[k] = deepClean(obj[k]);
       }
     }
     return cleanObj;
@@ -104,27 +97,6 @@ async function saveBatch<T extends { [key: string]: any }>(
 }
 
 /**
- * Batch create relationships
- */
-async function createEdgesBatch(
-  edgeDefinitions: { fromSoul: string; field: string; toSoul: string }[],
-) {
-  console.log(
-    `[seed] Creating ${edgeDefinitions.length} relationships in batch`,
-  );
-  const batchSize = 20;
-  for (let i = 0; i < edgeDefinitions.length; i += batchSize) {
-    const batch = edgeDefinitions.slice(i, i + batchSize);
-    await Promise.all(
-      batch.map((def) =>
-        createRelationship(def.fromSoul, def.field, def.toSoul),
-      ),
-    );
-    await delay(100);
-  }
-}
-
-/**
  * Initialize sample data following the schema in GunSchema.md
  */
 export async function initializeSampleData() {
@@ -135,9 +107,9 @@ export async function initializeSampleData() {
     return { success: false, message: "Gun not initialized" };
   }
 
-  const now = Number(Date.now());
+  const now = Date.now();
 
-  // 1. Users (4 users, u_123 is Admin)
+  // 1. Users
   const users = [
     {
       user_id: "u_123",
@@ -187,7 +159,7 @@ export async function initializeSampleData() {
     updated_at: now,
   };
 
-  // 3. Cards from provided JSON
+  // 3. Cards
   const cards = [
     {
       card_id: "card_1",
@@ -635,11 +607,6 @@ export async function initializeSampleData() {
           obligation: "Provide $3K funding",
           benefit: "Gain tech prototype access",
         },
-        actor_4: {
-          card_ref: "card_4",
-          obligation: "Develop tech prototype",
-          benefit: "Receive funding",
-        },
       },
       cards_ref: { card_4: true },
       created_at: now,
@@ -673,7 +640,7 @@ export async function initializeSampleData() {
     },
   ];
 
-  // 9. Node Positions (circular layout)
+  // 9. Node Positions
   const radius = 200;
   const centerX = 400;
   const centerY = 300;
@@ -709,106 +676,87 @@ export async function initializeSampleData() {
     "node_id",
   );
 
-  // Create relationships
-  const allEdges = [];
-  // Deck ↔ Card
-  for (const card of cards) {
-    allEdges.push({
-      fromSoul: `${nodes.decks}/${deck.deck_id}`,
-      field: "cards_ref",
-      toSoul: `${nodes.cards}/${card.card_id}`,
-    });
-    allEdges.push({
-      fromSoul: `${nodes.cards}/${card.card_id}`,
-      field: "decks_ref",
-      toSoul: `${nodes.decks}/${deck.deck_id}`,
-    });
-  }
-  // Card ↔ Value
-  for (const card of cards) {
-    for (const valueId of Object.keys(card.values_ref)) {
-      if (card.values_ref[valueId]) {
-        allEdges.push({
-          fromSoul: `${nodes.cards}/${card.card_id}`,
-          field: "values_ref",
-          toSoul: `${nodes.values}/${valueId}`,
-        });
-        allEdges.push({
-          fromSoul: `${nodes.values}/${valueId}`,
-          field: "cards_ref",
-          toSoul: `${nodes.cards}/${card.card_id}`,
-        });
-      }
-    }
-  }
-  // Card ↔ Capability
-  for (const card of cards) {
-    for (const capabilityId of Object.keys(card.capabilities_ref)) {
-      if (card.capabilities_ref[capabilityId]) {
-        allEdges.push({
-          fromSoul: `${nodes.cards}/${card.card_id}`,
-          field: "capabilities_ref",
-          toSoul: `${nodes.capabilities}/${capabilityId}`,
-        });
-        allEdges.push({
-          fromSoul: `${nodes.capabilities}/${capabilityId}`,
-          field: "cards_ref",
-          toSoul: `${nodes.cards}/${card.card_id}`,
-        });
-      }
-    }
-  }
-  // Game ↔ Actors, Agreements
-  for (const actor of actors) {
-    allEdges.push({
-      fromSoul: `${nodes.games}/${game.game_id}`,
-      field: "actors_ref",
-      toSoul: `${nodes.actors}/${actor.actor_id}`,
-    });
-    allEdges.push({
-      fromSoul: `${nodes.actors}/${actor.actor_id}`,
-      field: "game_ref",
-      toSoul: `${nodes.games}/${game.game_id}`,
-    });
-  }
-  for (const agreement of agreements) {
-    allEdges.push({
-      fromSoul: `${nodes.games}/${game.game_id}`,
-      field: "agreements_ref",
-      toSoul: `${nodes.agreements}/${agreement.agreement_id}`,
-    });
-  }
-  // Actor ↔ Agreement
-  for (const agreement of agreements) {
-    for (const actorId of Object.keys(agreement.parties)) {
-      allEdges.push({
-        fromSoul: `${nodes.actors}/${actorId}`,
-        field: "agreements_ref",
-        toSoul: `${nodes.agreements}/${agreement.agreement_id}`,
-      });
-      allEdges.push({
-        fromSoul: `${nodes.agreements}/${agreement.agreement_id}`,
-        field: "parties",
-        toSoul: `${nodes.actors}/${actorId}`,
-      });
-    }
-  }
-  // User ↔ Actor
-  for (const actor of actors) {
-    allEdges.push({
-      fromSoul: `${nodes.users}/${actor.user_ref}`,
-      field: "actors_ref",
-      toSoul: `${nodes.actors}/${actor.actor_id}`,
-    });
-  }
-  // Game ↔ Deck
-  allEdges.push({
-    fromSoul: `${nodes.games}/${game.game_id}`,
-    field: "deck_ref",
-    toSoul: `${nodes.decks}/${deck.deck_id}`,
-  });
+  // ──────────────────────────────────────────────────────────────────────
+  // Now write all boolean‐map refs and denormalized parties exactly per schema:
 
-  await createEdgesBatch(allEdges);
+  // Deck ↔ Card
+  for (const c of cards) {
+    await robustPut(
+      `${nodes.decks}/${deck.deck_id}/cards_ref`,
+      c.card_id,
+      true,
+    );
+    await robustPut(
+      `${nodes.cards}/${c.card_id}/decks_ref`,
+      deck.deck_id,
+      true,
+    );
+  }
+
+  // Card ↔ Value
+  for (const c of cards) {
+    for (const vId of Object.keys(c.values_ref)) {
+      if (c.values_ref[vId]) {
+        await robustPut(`${nodes.cards}/${c.card_id}/values_ref`, vId, true);
+        await robustPut(`${nodes.values}/${vId}/cards_ref`, c.card_id, true);
+      }
+    }
+  }
+
+  // Card ↔ Capability
+  for (const c of cards) {
+    for (const capId of Object.keys(c.capabilities_ref)) {
+      if (c.capabilities_ref[capId]) {
+        await robustPut(
+          `${nodes.cards}/${c.card_id}/capabilities_ref`,
+          capId,
+          true,
+        );
+        await robustPut(
+          `${nodes.capabilities}/${capId}/cards_ref`,
+          c.card_id,
+          true,
+        );
+      }
+    }
+  }
+
+  // Game ↔ Actors & Agreements
+  for (const a of actors) {
+    await robustPut(
+      `${nodes.games}/${game.game_id}/actors_ref`,
+      a.actor_id,
+      true,
+    );
+  }
+  for (const ag of agreements) {
+    await robustPut(
+      `${nodes.games}/${game.game_id}/agreements_ref`,
+      ag.agreement_id,
+      true,
+    );
+  }
+
+  // User ↔ Actor
+  for (const a of actors) {
+    await robustPut(
+      `${nodes.users}/${a.user_ref}/actors_ref`,
+      a.actor_id,
+      true,
+    );
+  }
+
+  // Parties (denormalized)
+  for (const ag of agreements) {
+    for (const [actorId, terms] of Object.entries(ag.parties)) {
+      await robustPut(
+        `${nodes.agreements}/${ag.agreement_id}/parties`,
+        actorId,
+        terms,
+      );
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────
 
   console.log("[seed] Sample data initialization complete!");
   return { success: true, message: "Sample data initialized" };

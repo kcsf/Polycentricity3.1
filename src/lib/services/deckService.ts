@@ -1,15 +1,78 @@
 // Deck management service
 // This module provides services for managing decks and cards using the standard schema
+// Following the exact patterns from sampleDataService.ts for robust Gun.js data operations
 import {
     getGun,
     nodes,
-    put,
     get,
     getCollection,
-    createRelationship,
 } from "./gunService";
 import type { Deck, Card } from "$lib/types";
 import { generateSequentialCardId, standardizeValueId, standardizeCapabilityId } from "./cardUtils";
+
+/**
+ * Helper function to deeply clean objects before saving to Gun
+ * Removes undefined values which can cause issues in Gun.js
+ */
+function deepClean(obj: any): any {
+    if (obj === null || typeof obj !== "object") return obj;
+    
+    if (Array.isArray(obj)) {
+        const result: Record<string, any> = {};
+        obj.forEach((val, idx) => {
+            if (val !== undefined) result[String(idx)] = deepClean(val);
+        });
+        return result;
+    }
+    
+    const cleanObj: Record<string, any> = {};
+    for (const k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== undefined) {
+            cleanObj[k] = deepClean(obj[k]);
+        }
+    }
+    return cleanObj;
+}
+
+/**
+ * Optimized put operation following sampleDataService pattern
+ * Uses fire-and-forget approach with minimal timeout
+ */
+async function robustPut(
+    path: string,
+    key: string,
+    data: any,
+): Promise<boolean> {
+    const gun = getGun();
+    if (!gun) {
+        console.error(`[deckService] Cannot save to ${path}/${key} - Gun not initialized`);
+        return false;
+    }
+
+    const cleanData = deepClean(data);
+
+    return new Promise<boolean>((resolve) => {
+        try {
+            gun
+                .get(path)
+                .get(key)
+                .put(cleanData, (ack: any) => {
+                    if (ack && ack.err) {
+                        console.warn(`[deckService] Error saving to ${path}/${key}:`, ack.err);
+                        resolve(false);
+                    } else {
+                        console.log(`[deckService] Successfully saved to ${path}/${key}`);
+                        resolve(true);
+                    }
+                });
+            // Use a short timeout to prevent hanging
+            setTimeout(() => resolve(true), 1000);
+        } catch (error) {
+            console.error(`[deckService] Exception for ${path}/${key}:`, error);
+            resolve(false);
+        }
+    });
+}
 
 // Get a deck by ID
 export async function getDeck(deckId: string): Promise<Deck | null> {
@@ -74,16 +137,17 @@ export async function updateDeck(
 ): Promise<boolean> {
     console.log(`[updateDeck] Updating deck ${deckId} with`, updates);
     try {
-        // Ensure we're passing a valid type to put() by casting to the appropriate type
+        // Ensure we're passing a valid type by casting to the appropriate type
         // First make sure deck_id is set as required
         const validUpdate = {
             ...updates,
             deck_id: deckId, // Ensure deck_id is always set
         } as Deck;
 
-        await put(`${nodes.decks}/${deckId}`, validUpdate);
-        console.log(`[updateDeck] Updated deck: ${deckId}`);
-        return true;
+        // Use robustPut instead of put for consistency with sampleDataService pattern
+        const result = await robustPut(nodes.decks, deckId, validUpdate);
+        console.log(`[updateDeck] Updated deck ${deckId}: ${result ? 'success' : 'failed'}`);
+        return result;
     } catch (error) {
         console.error("[updateDeck] Error:", error);
         return false;
@@ -558,65 +622,48 @@ export async function createCard(
     };
 
     try {
-        // OPTIMIZED APPROACH: Use the "fire and forget" pattern from sampleDataService
-        // This prevents timeouts by using a much shorter timeout (1s) and continuing regardless
+        // OPTIMIZED APPROACH: Use the robustPut pattern from sampleDataService
+        // This ensures consistent implementation across the codebase
 
-        // STEP 1: Save the card data - ultra-optimized approach
-        // Based on sampleDataService fire-and-forget pattern
+        // STEP 1: Save the card data using robustPut
+        console.log(`[createCard] Saving card data to Gun DB: ${cardId}`);
+        await robustPut(nodes.cards, cardId, gunCard);
 
-        // 1. Clean the data to prevent undefined values
-        const cleanedCard = cleanObject(gunCard);
-
-        // 2. Use direct Gun.js put without waiting for acknowledgment
-        // This completely avoids timeouts by not using Promise.race at all
-        try {
-            gun.get(nodes.cards).get(cardId).put(cleanedCard);
-            console.log(
-                `[createCard] Card data sent to Gun DB (fire-and-forget): ${cardId}`,
-            );
-        } catch (e) {
-            console.warn(
-                `[createCard] Exception during card save (continuing anyway): ${e}`,
-            );
-        }
-
-        // Wait a very brief moment to let Gun process the request
+        // Add a small delay to let Gun process the request
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        // STEP 2: IMPLEMENT THE EXACT PATTERN FROM sampleDataService.ts for creating relationships
+        // STEP 2: Create bidirectional relationships using robustPut for each edge
 
-        // 1) Batch up all Card↔Value edges
-        const valueEdges = Object.keys(values_ref).flatMap(valueId => [
-            // Card → Value
-            { fromSoul: `${nodes.cards}/${cardId}`, field: "values_ref", toSoul: `${nodes.values}/${valueId}` },
-            // Value → Card
-            { fromSoul: `${nodes.values}/${valueId}`, field: "cards_ref", toSoul: `${nodes.cards}/${cardId}` }
-        ]);
-
-        // 2) Batch up all Card↔Capability edges
-        const capabilityEdges = Object.keys(capabilities_ref).flatMap(capId => [
-            // Card → Capability
-            { fromSoul: `${nodes.cards}/${cardId}`, field: "capabilities_ref", toSoul: `${nodes.capabilities}/${capId}` },
-            // Capability → Card
-            { fromSoul: `${nodes.capabilities}/${capId}`, field: "cards_ref", toSoul: `${nodes.cards}/${cardId}` }
-        ]);
-
-        // 3) Fire-and-forget each edge using direct Gun.js put
-        for (const { fromSoul, field, toSoul } of [...valueEdges, ...capabilityEdges]) {
-            // extract the last segment as the key
-            const key = toSoul.split("/").pop();
-            if (!key) continue;
-            
-            try {
-                // Use the gun.js direct put method to create the relationship
-                gun.get(fromSoul).get(field).get(key).put(true);
-                console.log(`[createCard] Created relationship: ${fromSoul} -> ${field} -> ${key}`);
-            } catch (e) {
-                console.warn(`[createCard] Error creating relationship ${fromSoul} -> ${field} -> ${key}:`, e);
+        // Process values_ref bidirectional relationships
+        for (const valueId of Object.keys(values_ref)) {
+            if (values_ref[valueId]) {
+                // Create Card → Value relationship
+                await robustPut(`${nodes.cards}/${cardId}/values_ref`, valueId, true);
+                console.log(`[createCard] Created relationship: card ${cardId} → value ${valueId}`);
+                
+                // Create Value → Card relationship
+                await robustPut(`${nodes.values}/${valueId}/cards_ref`, cardId, true);
+                console.log(`[createCard] Created relationship: value ${valueId} → card ${cardId}`);
+                
+                // Small delay between operations
+                await new Promise(resolve => setTimeout(resolve, 20));
             }
-            
-            // Add a small delay between operations to ensure they have time to process
-            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+
+        // Process capabilities_ref bidirectional relationships
+        for (const capabilityId of Object.keys(capabilities_ref)) {
+            if (capabilities_ref[capabilityId]) {
+                // Create Card → Capability relationship
+                await robustPut(`${nodes.cards}/${cardId}/capabilities_ref`, capabilityId, true);
+                console.log(`[createCard] Created relationship: card ${cardId} → capability ${capabilityId}`);
+                
+                // Create Capability → Card relationship
+                await robustPut(`${nodes.capabilities}/${capabilityId}/cards_ref`, cardId, true);
+                console.log(`[createCard] Created relationship: capability ${capabilityId} → card ${cardId}`);
+                
+                // Small delay between operations
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
         }
 
         // Return card data immediately without waiting for all relationships
@@ -690,66 +737,28 @@ function createEdgesBatch(
     }
 }
 
-// Add a card to a deck (bidirectional) with fire-and-forget approach
+// Add a card to a deck (bidirectional) using robustPut following sampleDataService pattern
 export async function addCardToDeck(
     deckId: string,
     cardId: string,
 ): Promise<boolean> {
     console.log(`[addCardToDeck] Adding ${cardId} to ${deckId}`);
-    const gun = getGun();
-    if (!gun) {
-        console.error("[addCardToDeck] Gun not initialized");
-        return false;
-    }
-
+    
     try {
-        // OPTIMIZED APPROACH: Use the fire-and-forget pattern similar to sampleDataService
-        // Create both relationships simultaneously without waiting
-
-        // Create edges definitions for both directions
-        const edgeDefinitions = [
-            {
-                fromSoul: `${nodes.decks}/${deckId}`,
-                field: "cards_ref",
-                toSoul: `${nodes.cards}/${cardId}`,
-            },
-            {
-                fromSoul: `${nodes.cards}/${cardId}`,
-                field: "decks_ref",
-                toSoul: `${nodes.decks}/${deckId}`,
-            },
-        ];
-
-        // Process both edges using the fire-and-forget pattern but with more reliable approach
-        // Use a more reliable approach that directly writes to the nodes with the right structure
-        for (const { fromSoul, field, toSoul } of edgeDefinitions) {
-            const toId = toSoul.split("/").pop();
-            if (!toId) continue;
-
-            try {
-                // Set the field to true at the proper path, following the schema exactly
-                // This creates entries like: decks/<deck_id>/cards_ref/<card_id>: true
-                gun.get(fromSoul).get(field).get(toId).put(true);
-
-                console.log(
-                    `[addCardToDeck] Created edge: ${fromSoul} -> ${field} -> ${toId}`,
-                );
-            } catch (e) {
-                console.warn(
-                    `[addCardToDeck] Error creating edge ${fromSoul} -> ${field} -> ${toId}:`,
-                    e,
-                );
-            }
-
-            // Add a small delay between operations to ensure they have time to process
-            await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-
-        // Consider the operation successful immediately
-        // This is crucial for preventing timeouts during imports
-        console.log(
-            `[addCardToDeck] Initiated bidirectional relationship between ${cardId} and ${deckId}`,
-        );
+        // Use robustPut for both directions of the relationship
+        // Direction 1: Deck → Card
+        console.log(`[addCardToDeck] Creating Deck → Card relationship: ${deckId} → ${cardId}`);
+        await robustPut(`${nodes.decks}/${deckId}/cards_ref`, cardId, true);
+        
+        // Small delay between operations
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        
+        // Direction 2: Card → Deck
+        console.log(`[addCardToDeck] Creating Card → Deck relationship: ${cardId} → ${deckId}`);
+        await robustPut(`${nodes.cards}/${cardId}/decks_ref`, deckId, true);
+        
+        // Consider the operation successful
+        console.log(`[addCardToDeck] Successfully created bidirectional relationship between ${cardId} and ${deckId}`);
         return true;
     } catch (error) {
         console.error("[addCardToDeck] Unexpected error:", error);
@@ -758,19 +767,13 @@ export async function addCardToDeck(
 }
 
 // Function to initialize bidirectional relationships for existing cards and decks
+// Updated to use robustPut following sampleDataService pattern
 export async function initializeBidirectionalRelationships(): Promise<{
     success: boolean;
     processed: number;
 }> {
     console.log("[initializeBidirectionalRelationships] Starting");
-    const gun = getGun();
-    if (!gun) {
-        console.error(
-            "[initializeBidirectionalRelationships] Gun not initialized",
-        );
-        return { success: false, processed: 0 };
-    }
-
+    
     let processedCount = 0;
     try {
         const decks = await getCollection<Deck>(nodes.decks);
@@ -819,23 +822,19 @@ export async function initializeBidirectionalRelationships(): Promise<{
                 const decksOnCard = cardDataWithDecks.decks_ref || {};
 
                 if (!decksOnCard[deckId]) {
-                    // Using createRelationship for proper Gun.js relationship
-                    const result = await createRelationship(
-                        `${nodes.cards}/${cardId}`,
-                        "decks_ref",
-                        `${nodes.decks}/${deckId}`,
-                    );
+                    // Using robustPut for Card → Deck relationship
+                    console.log(`[initializeBidirectionalRelationships] Adding deck ${deckId} to card ${cardId}`);
+                    const result = await robustPut(`${nodes.cards}/${cardId}/decks_ref`, deckId, true);
 
-                    if (result.err) {
-                        console.error(
-                            `[initializeBidirectionalRelationships] Error adding ${deckId} to ${cardId}:`,
-                            result.err,
-                        );
-                    } else {
+                    if (result) {
                         console.log(
-                            `[initializeBidirectionalRelationships] Added ${deckId} to ${cardId}`,
+                            `[initializeBidirectionalRelationships] Added ${deckId} to ${cardId}`
                         );
                         processedCount++;
+                    } else {
+                        console.error(
+                            `[initializeBidirectionalRelationships] Failed to add ${deckId} to ${cardId}`
+                        );
                     }
 
                     // Add a small delay between operations
