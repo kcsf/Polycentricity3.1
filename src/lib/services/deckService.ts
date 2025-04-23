@@ -174,25 +174,29 @@ export async function createCard(
     
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
     
-    // Prepare Gun-compatible card structure (no arrays)
+    // Prepare Gun-compatible card structure following the schema
     const gunCard = {
         card_id: cardId,
         card_number: cardNumber,
         role_title: card.role_title,
         backstory: card.backstory || "",
-        // Store values directly rather than as a Gun.js reference to avoid resolving issues
-        values: valuesRecord,
         goals: goalsString,
         obligations: card.obligations || "",
-        capabilities: capabilitiesRecord,
         intellectual_property: card.intellectual_property || "",
-        rivalrous_resources: card.rivalrous_resources || "",
+        // Store values_ref as a Record<string, boolean> per schema
+        values_ref: valuesRecord,
+        // Store capabilities_ref as a Record<string, boolean> per schema
+        capabilities_ref: capabilitiesRecord,
+        // Store decks_ref as a Record<string, boolean> per schema
+        decks_ref: {},
+        // Empty agreements_ref per schema
+        agreements_ref: {},
         card_category: card.card_category || "Supporters",
         type: card.type || "Practice",
         icon: icon,
-        decks: card.decks || {},
         created_at: Date.now(),
-        creator: "admin" // Default creator
+        // Use creator_ref as per schema with proper user reference
+        creator_ref: "u_123" // Default creator reference
     };
 
     try {
@@ -222,7 +226,7 @@ export async function createCard(
         // STEP 2: Create value relationships using batch operation
         const valueEdges = Object.keys(valuesRecord).map(valueId => ({
             fromSoul: `${nodes.values}/${valueId}`,
-            field: 'cards',
+            field: 'cards_ref',
             toSoul: `${nodes.cards}/${cardId}`
         }));
         
@@ -233,13 +237,9 @@ export async function createCard(
         // STEP 3: Create capability relationships using batch operation
         const capabilityEdges = Object.keys(capabilitiesRecord).map(capId => ({
             fromSoul: `${nodes.capabilities}/${capId}`,
-            field: 'cards',
+            field: 'cards_ref',
             toSoul: `${nodes.cards}/${cardId}`
         }));
-        
-        if (capabilityEdges.length > 0) {
-            createEdgesBatch(capabilityEdges, gun);
-        }
 
         // Return card data immediately without waiting for all relationships
         // This is crucial to prevent timeouts
@@ -318,12 +318,12 @@ export async function addCardToDeck(
         const edgeDefinitions = [
             {
                 fromSoul: `${nodes.decks}/${deckId}`,
-                field: 'cards',
+                field: 'cards_ref',
                 toSoul: `${nodes.cards}/${cardId}`
             },
             {
                 fromSoul: `${nodes.cards}/${cardId}`,
-                field: 'decks',
+                field: 'decks_ref',
                 toSoul: `${nodes.decks}/${deckId}`
             }
         ];
@@ -399,15 +399,15 @@ export async function initializeBidirectionalRelationships(): Promise<{
                     continue;
                 }
 
-                // TypeScript safety: ensure decks exists as an object
-                const cardDataWithDecks = cardData as { decks?: Record<string, boolean> };
-                const decksOnCard = cardDataWithDecks.decks || {};
+                // TypeScript safety: ensure decks_ref exists as an object
+                const cardDataWithDecks = cardData as { decks_ref?: Record<string, boolean> };
+                const decksOnCard = cardDataWithDecks.decks_ref || {};
                 
                 if (!decksOnCard[deckId]) {
                     // Using createRelationship for proper Gun.js relationship
                     const result = await createRelationship(
                         `${nodes.cards}/${cardId}`,
-                        'decks',
+                        'decks_ref',
                         `${nodes.decks}/${deckId}`
                     );
                     
@@ -601,9 +601,9 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
         return [];
     }
     
-    // TypeScript safety: ensure decks exists and is the right type
-    const cardDataWithDecks = cardData as { decks?: Record<string, boolean> };
-    const cardDecks = cardDataWithDecks.decks;
+    // TypeScript safety: ensure decks_ref exists and is the right type
+    const cardDataWithDecks = cardData as { decks_ref?: Record<string, boolean> };
+    const cardDecks = cardDataWithDecks.decks_ref;
     
     if (!cardDecks || Object.keys(cardDecks).length === 0) {
         console.log(`[getDecksForCard] No decks found for ${cardId}`);

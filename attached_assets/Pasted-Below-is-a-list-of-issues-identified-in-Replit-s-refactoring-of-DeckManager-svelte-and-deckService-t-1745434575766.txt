@@ -1,0 +1,119 @@
+Below is a list of issues identified in Replit’s refactoring of DeckManager.svelte and deckService.ts, which failed to respect the new database schema for the Polycentricity3 project. These issues cause the new cards (card__m9u8x60b_1oy5qop1, card__m9u8x6yc_jijzcs87) to be incompatible with the expected schema and data access patterns in DeckBrowser.svelte and gameService.ts.
+
+Issues
+
+1. Incorrect Field Names
+
+
+
+
+
+Problem:
+
+
+
+
+
+Uses capabilities and values instead of capabilities_ref and values_ref.
+
+
+
+Uses decks instead of decks_ref.
+
+
+
+Impact: These deviate from the types.ts schema, which expects *_ref fields as Record<string, boolean>.
+
+2. Missing Subnode References
+
+
+
+
+
+Problem:
+
+
+
+
+
+No entries in cards/<cardId>/values_ref or cards/<cardId>/capabilities_ref, which the getCard function relies on to fetch and flatten references.
+
+
+
+No entries in decks/d_1/cards_ref for these cards, despite decks: { d_1: true }.
+
+
+
+Impact: DeckBrowser.svelte queries decks/<deckId>/cards_ref, so these cards won’t appear in the deck.
+
+3. Empty values Field
+
+
+
+
+
+Problem:
+
+
+
+
+
+values: {} means no values are assigned, unlike card_1’s values_ref: { value_sustainability: true, ... }.
+
+
+
+Impact: This breaks the expectation that cards have associated values.
+
+4. Incorrect Storage Location
+
+
+
+
+
+Problem:
+
+
+
+
+
+Stored under values/value_equity/cards and values/value_sustainability/cards (e.g., values/value_equity/cards/card__m9u8x60b_1oy5qop1), suggesting Replit treated them as value relationships rather than top-level cards in cards/<cardId>.
+
+
+
+Impact: This breaks the schema’s expectation that cards are stored at cards/<cardId> with references in subnodes.
+
+5. Non-Standard card_id Format
+
+
+
+
+
+Problem:
+
+
+
+
+
+IDs like card__m9u8x60b_1oy5qop1 don’t match the card_\d+ pattern used in DeckBrowser.svelte’s filter (/^card_\d+$/).
+
+
+
+Impact: These cards would be excluded even if stored correctly.
+
+6. Missing creator_ref
+
+
+
+
+
+Problem:
+
+
+
+
+
+Uses creator: "admin" instead of creator_ref: "u_123".
+
+
+
+Impact: Deviates from the schema’s convention for user references.
