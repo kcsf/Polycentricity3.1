@@ -626,337 +626,298 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
     return validDecks;
 }
 
-// Get value names for a card
+// Get value names for a card using the updated schema
 export async function getCardValueNames(card: Card): Promise<string[]> {
-    if (!card.values) return [];
+    // If card has no values field, return empty array
+    if (!card || !card.values) return [];
 
     const gun = getGun();
     if (!gun) {
+        console.error("[getCardValueNames] Gun not initialized");
         return [];
     }
 
     try {
-        // Set some default values that should always be available
-        const defaultValues = ["Sustainability", "Community Resilience"];
-        
-        // If we have no values, return these defaults
-        if (!card.values || (typeof card.values === 'object' && Object.keys(card.values).length === 0)) {
-            return defaultValues;
-        }
-        
         let valueIds: string[] = [];
         
-        // Determine the format of the values property and extract IDs accordingly
-        if (typeof card.values === "string") {
-            // Handle string format (comma-separated values)
-            const valueString = card.values as string;
-            return valueString.split(",")
-                .map((v: string) => v.trim())
-                .filter(Boolean);
-                
-        } else if (Array.isArray(card.values)) {
-            // Handle array format (list of value strings)
-            const valueArray = card.values as string[];
-            return valueArray
-                .map((v: string) => v.trim())
-                .filter(Boolean);
-                
-        } else if (card.values && typeof card.values === 'object') {
-            // REFERENCE DETECTION: If values is a Gun.js reference, actively traverse it
-            if ('#' in card.values) {
-                const valuesRef = (card.values as any)['#'];
+        // SCHEMA UPDATE: First check if we have values_ref per updated schema
+        if (card.values_ref && typeof card.values_ref === 'object') {
+            // If it's a Gun.js reference, follow it
+            if ('#' in card.values_ref) {
+                console.log(`Card ${card.card_id} has values_ref as a Gun reference`);
+                const valuesRefPath = (card.values_ref as any)['#'];
                 
                 try {
-                    // Actually traverse the reference and get the values
-                    console.log(`Traversing values reference: ${valuesRef}`);
-                    const refValues = await get(valuesRef);
-                    
-                    if (refValues && typeof refValues === 'object') {
-                        // Extract actual value IDs from the reference
-                        valueIds = Object.keys(refValues)
-                            .filter(key => key !== '_' && key !== '#' && (refValues as Record<string, any>)[key] === true);
-                            
-                        console.log(`Found ${valueIds.length} values from reference:`, valueIds);
-                        
-                        // If we have values from the reference, use them
-                        if (valueIds.length > 0) {
-                            // Continue with normal processing to get the names
-                        } else {
-                            // Extract the card ID from the reference as fallback
-                            if (valuesRef.includes('cards/')) {
-                                const cardIdFromRef = valuesRef.replace('cards/', '').replace('/values', '');
-                                
-                                // If it's a self-reference, use default values with something extra
-                                if (cardIdFromRef === card.card_id) {
-                                    return [...defaultValues, 'Self-Referential Value'];
-                                }
+                    // Get all value IDs from the reference map
+                    await new Promise<void>(resolve => {
+                        gun.get(valuesRefPath).map().once((val: any, id: string) => {
+                            if (val === true && id !== '_' && id !== '#') {
+                                console.log(`Found value ID ${id} via values_ref reference`);
+                                if (!valueIds.includes(id)) valueIds.push(id);
                             }
-                            // Default fallback for empty references
-                            return defaultValues;
-                        }
-                    } else {
-                        // If reference is empty or invalid, return defaults
-                        console.log(`Reference values not found, using defaults`);
-                        return defaultValues;
-                    }
+                        });
+                        
+                        // Give enough time for all values to load
+                        setTimeout(resolve, 500);
+                    });
                 } catch (err) {
-                    console.error(`Error following value reference at ${valuesRef}:`, err);
-                    return defaultValues;
+                    console.error(`Error following values_ref at ${valuesRefPath}:`, err);
                 }
             } else {
-                // Handle Record/object format (Gun.js format with direct values)
-                valueIds = Object.keys(card.values as Record<string, boolean>)
-                    .filter(key => (card.values as Record<string, boolean>)[key] === true);
-                    
-                // Map to proper value names
-                return valueIds.map(id => {
-                    // Handle known value IDs
-                    if (id === 'c1') return 'Sustainability';
-                    if (id === 'c2') return 'Community Resilience';
-                    if (id === 'c3') return 'Regeneration';
-                    if (id === 'c4') return 'Equity';
-                    
-                    // For other IDs, use as is, checking if they're value references
-                    if (id.startsWith('value_')) {
-                        // Convert value_something-like-this to Something Like This
-                        return id.replace('value_', '')
-                            .split('-')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                    }
-                    
-                    return id;
-                });
+                // Direct values_ref map in the card: {"value_1": true, "value_2": true}
+                valueIds = Object.keys(card.values_ref)
+                    .filter(key => card.values_ref[key] === true && key !== '_' && key !== '#');
+                console.log(`Found ${valueIds.length} value IDs in direct values_ref map`);
             }
         }
-
-        // If we have raw values (e.g. "Sustainability"), convert to IDs
-        if (valueIds.some(id => !id.startsWith('value_'))) {
-            valueIds = valueIds.map(v => v.startsWith('value_') ? v : `value_${v.toLowerCase().replace(/\s+/g, '-')}`);
+        
+        // LEGACY SUPPORT: If we don't have values_ref or it's empty, try the old values field
+        if (valueIds.length === 0 && card.values) {
+            if (typeof card.values === 'object') {
+                if ('#' in card.values) {
+                    // It's a Gun reference in the old format
+                    console.log(`Card ${card.card_id} has legacy values as a Gun reference`);
+                    const valuesRef = (card.values as any)['#'];
+                    
+                    try {
+                        // Try to get values from the old reference format
+                        const refValues = await get(valuesRef);
+                        if (refValues && typeof refValues === 'object') {
+                            valueIds = Object.keys(refValues)
+                                .filter(key => key !== '_' && key !== '#' && (refValues as Record<string, any>)[key] === true);
+                            console.log(`Found ${valueIds.length} values from legacy reference`);
+                        }
+                    } catch (err) {
+                        console.error(`Error following legacy value reference at ${valuesRef}:`, err);
+                    }
+                } else {
+                    // It's a direct map in the old format
+                    valueIds = Object.keys(card.values as Record<string, boolean>)
+                        .filter(key => (card.values as Record<string, boolean>)[key] === true && key !== '_' && key !== '#');
+                    console.log(`Found ${valueIds.length} value IDs in legacy values map`);
+                }
+            } else if (typeof card.values === "string") {
+                // Handle legacy string format (comma-separated values)
+                const valueStrings = (card.values as string).split(",")
+                    .map(v => v.trim())
+                    .filter(Boolean);
+                
+                console.log(`Found ${valueStrings.length} value names in legacy string format`);
+                return valueStrings;
+            } else if (Array.isArray(card.values)) {
+                // Handle legacy array format 
+                const valueStrings = (card.values as any[])
+                    .map(v => String(v).trim())
+                    .filter(Boolean);
+                
+                console.log(`Found ${valueStrings.length} value names in legacy array format`);
+                return valueStrings;
+            }
         }
         
-        // Enhanced value retrieval with retry logic
+        // If we found no values despite all our attempts, return empty array
+        if (valueIds.length === 0) {
+            console.log(`No values found for card ${card.card_id}`);
+            return [];
+        }
+        
+        // Now we need to get the actual names for these value IDs
+        console.log(`Looking up names for ${valueIds.length} value IDs: ${valueIds.join(', ')}`);
         const valueNames = await Promise.all(
             valueIds.map(async (id: string) => {
                 try {
-                    const data = await get(`${nodes.values}/${id}`);
+                    // Try to fetch the value object from the database
+                    const valuePath = `${nodes.values}/${id}`;
+                    console.log(`Fetching value data from ${valuePath}`);
+                    const valueData = await get(valuePath);
                     
-                    // If we got data with a name property, use it
-                    if (data && typeof data === 'object' && 'name' in data) {
-                        return data.name as string;
+                    // If we found the value with a name, use it
+                    if (valueData && typeof valueData === 'object' && 'name' in valueData) {
+                        console.log(`Found value name: ${valueData.name}`);
+                        return valueData.name as string;
                     }
                     
-                    // For hardcoded IDs like 'c1' or 'c2', map to predefined values
-                    if (id === 'c1') return 'Sustainability';
-                    if (id === 'c2') return 'Community Resilience';
-                    if (id === 'c3') return 'Regeneration';
-                    if (id === 'c4') return 'Equity';
-                    
-                    // If it's a card ID used as a value, extract a readable name
-                    if (id.startsWith('card_')) {
-                        // Try to extract a readable name from the card
-                        try {
-                            const cardData = await get(`${nodes.cards}/${id}`);
-                            if (cardData && typeof cardData === 'object' && 'role_title' in cardData) {
-                                return `Value: ${cardData.role_title}`;
-                            }
-                        } catch (e) {
-                            // Silent error handling for performance reasons
-                        }
-                        
-                        // If card data not available, format the ID nicely
-                        return 'Value ' + id.substring(0, 10);
-                    }
-                    
-                    // Fallback: Convert ID to human-readable format
+                    // If we couldn't find the value, format the ID as a fallback
+                    // This is better than no value at all
                     if (id.startsWith('value_')) {
-                        return id.replace('value_', '')
-                            .split('-')
+                        const formattedName = id.replace('value_', '')
+                            .split('_').join(' ')
+                            .split('-').join(' ')
+                            .split(' ')
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                             .join(' ');
+                        console.log(`Formatted value ID ${id} to name: ${formattedName}`);
+                        return formattedName;
                     }
                     
-                    // Last resort, return the ID with a prefix to indicate it's a value
-                    return `Value: ${id}`;
-                } catch (e) {
-                    // Silent error handling for performance
-                    return "";
+                    // Last resort: return the ID itself
+                    return id;
+                } catch (err) {
+                    console.error(`Error fetching value ${id}:`, err);
+                    return ""; // Return empty string for failed lookups
                 }
-            }),
+            })
         );
         
+        // Filter out any empty strings from failed lookups
         const filteredNames = valueNames.filter(Boolean);
+        console.log(`Returning ${filteredNames.length} value names for card ${card.card_id}`);
         return filteredNames;
     } catch (error) {
-        // Silent error handling for performance
+        console.error(`[getCardValueNames] Error:`, error);
         return [];
     }
 }
 
-// Get capability names for a card
+// Get capability names for a card using the updated schema
 export async function getCardCapabilityNames(card: Card): Promise<string[]> {
-    if (!card.capabilities) return [];
+    // If card is null or undefined, return empty array
+    if (!card) return [];
 
     const gun = getGun();
     if (!gun) {
+        console.error("[getCardCapabilityNames] Gun not initialized");
         return [];
     }
 
     try {
-        // Default capabilities for every card
-        const defaultCapabilities = ["Problem Solving", "Communication"];
+        let capabilityIds: string[] = [];
         
-        // If no capabilities defined, return defaults
-        if (!card.capabilities || (typeof card.capabilities === 'object' && Object.keys(card.capabilities).length === 0)) {
+        // SCHEMA UPDATE: First check if we have capabilities_ref per new schema
+        if (card.capabilities_ref && typeof card.capabilities_ref === 'object') {
+            // If it's a Gun.js reference, follow it
+            if ('#' in card.capabilities_ref) {
+                console.log(`Card ${card.card_id} has capabilities_ref as a Gun reference`);
+                const capsRefPath = (card.capabilities_ref as any)['#'];
+                
+                try {
+                    // Get all capability IDs from the reference map
+                    await new Promise<void>(resolve => {
+                        gun.get(capsRefPath).map().once((val: any, id: string) => {
+                            if (val === true && id !== '_' && id !== '#') {
+                                console.log(`Found capability ID ${id} via capabilities_ref reference`);
+                                if (!capabilityIds.includes(id)) capabilityIds.push(id);
+                            }
+                        });
+                        
+                        // Give enough time for all capabilities to load
+                        setTimeout(resolve, 500);
+                    });
+                } catch (err) {
+                    console.error(`Error following capabilities_ref at ${capsRefPath}:`, err);
+                }
+            } else {
+                // Direct capabilities_ref map in the card: {"capability_1": true, "capability_2": true}
+                capabilityIds = Object.keys(card.capabilities_ref)
+                    .filter(key => card.capabilities_ref[key] === true && key !== '_' && key !== '#');
+                console.log(`Found ${capabilityIds.length} capability IDs in direct capabilities_ref map`);
+            }
+        }
+        
+        // LEGACY SUPPORT: If we don't have capabilities_ref or it's empty, try the old capabilities field
+        if (capabilityIds.length === 0 && card.capabilities) {
+            if (typeof card.capabilities === 'object') {
+                if ('#' in card.capabilities) {
+                    // It's a Gun reference in the old format
+                    console.log(`Card ${card.card_id} has legacy capabilities as a Gun reference`);
+                    const capsRef = (card.capabilities as any)['#'];
+                    
+                    try {
+                        // Try to get capabilities from the old reference format
+                        const refCaps = await get(capsRef);
+                        if (refCaps && typeof refCaps === 'object') {
+                            capabilityIds = Object.keys(refCaps)
+                                .filter(key => key !== '_' && key !== '#' && (refCaps as Record<string, any>)[key] === true);
+                            console.log(`Found ${capabilityIds.length} capabilities from legacy reference`);
+                        }
+                    } catch (err) {
+                        console.error(`Error following legacy capability reference at ${capsRef}:`, err);
+                    }
+                } else {
+                    // It's a direct map in the old format
+                    capabilityIds = Object.keys(card.capabilities as Record<string, boolean>)
+                        .filter(key => (card.capabilities as Record<string, boolean>)[key] === true && key !== '_' && key !== '#');
+                    console.log(`Found ${capabilityIds.length} capability IDs in legacy capabilities map`);
+                }
+            } else if (typeof card.capabilities === "string") {
+                // Handle legacy string format (comma-separated capabilities)
+                const capStrings = (card.capabilities as string).split(",")
+                    .map(c => c.trim())
+                    .filter(Boolean);
+                
+                console.log(`Found ${capStrings.length} capability names in legacy string format`);
+                return capStrings;
+            } else if (Array.isArray(card.capabilities)) {
+                // Handle legacy array format 
+                const capStrings = (card.capabilities as any[])
+                    .map(c => String(c).trim())
+                    .filter(Boolean);
+                
+                console.log(`Found ${capStrings.length} capability names in legacy array format`);
+                return capStrings;
+            }
+        }
+        
+        // If we found no capabilities despite all our attempts, return empty array
+        if (capabilityIds.length === 0) {
+            console.log(`No capabilities found for card ${card.card_id}`);
             return [];
         }
         
-        let capIds: string[] = [];
-        
-        // Determine the format of the capabilities property and extract IDs accordingly
-        if (typeof card.capabilities === "string") {
-            // Handle string format (comma-separated capabilities)
-            const capString = card.capabilities as string;
-            return capString.split(",")
-                .map((c: string) => c.trim())
-                .filter(Boolean);
-                
-        } else if (Array.isArray(card.capabilities)) {
-            // Handle array format (list of capability strings)
-            const capArray = card.capabilities as string[];
-            return capArray
-                .map((c: string) => c.trim())
-                .filter(Boolean);
-                
-        } else if (card.capabilities && typeof card.capabilities === 'object') {
-            // Handle Gun.js reference format - extract directly from reference
-            if ('#' in card.capabilities) {
-                // It's a Gun reference, need to retrieve capabilities via the reference
-                const capsRef = (card.capabilities as any)['#'];
-                
-                // Get the actual capabilities from the reference
+        // Now we need to get the actual names for these capability IDs
+        console.log(`Looking up names for ${capabilityIds.length} capability IDs: ${capabilityIds.join(', ')}`);
+        const capabilityNames = await Promise.all(
+            capabilityIds.map(async (id: string) => {
                 try {
-                    // Extract values directly from the reference 
-                    console.log(`Traversing capabilities reference: ${capsRef}`);
-                    const refs = await get(capsRef);
-                    if (refs && typeof refs === 'object') {
-                        const refsObj: Record<string, any> = refs as Record<string, any>;
-                        
-                        // Get capability IDs from the reference, filtering Gun metadata
-                        const capabilityIds = Object.keys(refsObj)
-                            .filter(key => key !== '_' && key !== '#' && refsObj[key] === true);
-                            
-                        console.log(`Found ${capabilityIds.length} capabilities from reference:`, capabilityIds);
-                        
-                        if (capabilityIds.length > 0) {
-                            // Store in capIds for proper capability lookup later
-                            capIds = capabilityIds;
-                            
-                            // Now proceed to look up the actual capability names from the database
-                            const capabilityNames = await Promise.all(
-                                capabilityIds.map(async (id: string) => {
-                                    try {
-                                        // Try to get the capability data from the database
-                                        const capabilityPath = `${nodes.capabilities}/${id}`;
-                                        console.log(`Looking up capability: ${capabilityPath}`);
-                                        const capabilityData = await get(capabilityPath);
-                                        
-                                        // If we found capability data with a name, use it
-                                        if (capabilityData && typeof capabilityData === 'object' && 'name' in capabilityData) {
-                                            console.log(`Found capability name: ${capabilityData.name}`);
-                                            return capabilityData.name as string;
-                                        }
-                                        
-                                        // Otherwise format the ID
-                                        if (id.startsWith('capability_')) {
-                                            // Convert capability_something-like-this to Something Like This
-                                            return id.replace('capability_', '')
-                                                .split('-')
-                                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                                                .join(' ');
-                                        }
-                                        return id;
-                                    } catch (error) {
-                                        console.error(`Error looking up capability ${id}:`, error);
-                                        
-                                        // Format the ID as fallback
-                                        if (id.startsWith('capability_')) {
-                                            return id.replace('capability_', '')
-                                                .split('-')
-                                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                                                .join(' ');
-                                        }
-                                        return id;
-                                    }
-                                })
-                            );
-                            
-                            return capabilityNames.filter(Boolean);
-                        }
+                    // Try to fetch the capability object from the database
+                    const capabilityPath = `${nodes.capabilities}/${id}`;
+                    console.log(`Fetching capability data from ${capabilityPath}`);
+                    const capabilityData = await get(capabilityPath);
+                    
+                    // If we found the capability with a name, use it
+                    if (capabilityData && typeof capabilityData === 'object' && 'name' in capabilityData) {
+                        console.log(`Found capability name: ${capabilityData.name}`);
+                        return capabilityData.name as string;
                     }
                     
-                    // If we couldn't extract capabilities from the reference, return defaults with logging
-                    console.log(`No capabilities found in reference ${capsRef}, using defaults`);
-                    return defaultCapabilities;
-                    
-                } catch (e) {
-                    return [];
-                }
-            } else {
-                // Handle Record/object format (Gun.js format with direct capabilities)
-                capIds = Object.keys(card.capabilities as Record<string, boolean>)
-                    .filter(key => (card.capabilities as Record<string, boolean>)[key] === true);
-                    
-                // Map to proper capability names
-                return capIds.map(id => {
-                    // For capability IDs, make them human readable
+                    // If we couldn't find the capability, format the ID as a fallback
+                    // This is better than no capability at all
                     if (id.startsWith('capability_')) {
-                        return id.replace('capability_', '')
-                            .split('-')
+                        const formattedName = id.replace('capability_', '')
+                            .split('_').join(' ')
+                            .split('-').join(' ')
+                            .split(' ')
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                             .join(' ');
+                        console.log(`Formatted capability ID ${id} to name: ${formattedName}`);
+                        return formattedName;
                     }
+                    
+                    // Cap_ format is also common in the system
+                    if (id.startsWith('cap_')) {
+                        const formattedName = id.replace('cap_', '')
+                            .split('_')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                        console.log(`Formatted cap_ ID ${id} to name: ${formattedName}`);
+                        return formattedName;
+                    }
+                    
+                    // Last resort: return the ID itself
                     return id;
-                });
-            }
-        }
-
-        // If we have raw capabilities (e.g. "Farming"), convert to IDs
-        if (capIds.some(id => !id.startsWith('capability_'))) {
-            capIds = capIds.map(c => c.startsWith('capability_') ? c : `capability_${c.toLowerCase().replace(/\s+/g, '-')}`);
-        }
-        
-        // Enhanced capability retrieval with retry logic
-        const capNames = await Promise.all(
-            capIds.map(async (id: string) => {
-                try {
-                    const data = await get(`${nodes.capabilities}/${id}`);
-                    
-                    // If we got data with a name property, use it
-                    if (data && typeof data === 'object' && 'name' in data) {
-                        return data.name as string;
-                    }
-                    
-                    // Fallback: Convert ID to human-readable format
-                    if (id.startsWith('capability_')) {
-                        return id.replace('capability_', '')
-                            .split('-')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                    }
-                    
-                    return ""; 
-                } catch (e) {
-                    // Silent error handling for performance
-                    return "";
+                } catch (err) {
+                    console.error(`Error fetching capability ${id}:`, err);
+                    return ""; // Return empty string for failed lookups
                 }
-            }),
+            })
         );
         
-        const filteredNames = capNames.filter(Boolean);
+        // Filter out any empty strings from failed lookups
+        const filteredNames = capabilityNames.filter(Boolean);
+        console.log(`Returning ${filteredNames.length} capability names for card ${card.card_id}`);
         return filteredNames;
     } catch (error) {
-        // Silent error handling for performance
+        console.error(`[getCardCapabilityNames] Error:`, error);
         return [];
     }
 }
