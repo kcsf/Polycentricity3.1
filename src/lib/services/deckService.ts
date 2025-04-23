@@ -1,4 +1,5 @@
 // Deck management service
+// This module provides services for managing decks and cards using the standard schema
 import {
     getGun,
     nodes,
@@ -130,8 +131,7 @@ export async function createCard(
     const goalsString = typeof card.goals === "string" ? card.goals : "";
 
     // Get record structures for values and capabilities
-    // First, standardize all values to ensure they use proper value_xxx format
-    // Apply standardization to value IDs
+    // Standardize all values to ensure they use proper value_xxx format
     const standardizedValuesArray = valuesArray.map(valueId => standardizeValueId(valueId));
     
     // Create all values to ensure they exist in the database
@@ -677,7 +677,7 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
     return validDecks;
 }
 
-// Get value names for a card using the updated schema
+// Get value names for a card using the standard schema
 export async function getCardValueNames(card: Card): Promise<string[]> {
     // If card is null or undefined, return empty array 
     if (!card) return [];
@@ -722,7 +722,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
             }
         }
         
-        // We only use values_ref in the schema, no legacy support
+        // We only use values_ref in the standard schema
         
         // If we found no values despite all our attempts, return empty array
         if (valueIds.length === 0) {
@@ -778,7 +778,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
     }
 }
 
-// Get capability names for a card using the updated schema
+// Get capability names for a card using the standard schema
 export async function getCardCapabilityNames(card: Card): Promise<string[]> {
     // If card is null or undefined, return empty array
     if (!card) return [];
@@ -823,7 +823,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
             }
         }
         
-        // We only use capabilities_ref in the schema, no legacy support
+        // We only use capabilities_ref in the standard schema
         
         // If we found no capabilities despite all our attempts, return empty array
         if (capabilityIds.length === 0) {
