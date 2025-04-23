@@ -48,3 +48,27 @@ export function standardizeValueId(valueId: string): string {
   console.log(`[standardizeValueId] Converting "${valueId}" to standardized format: value_${sanitized}`);
   return `value_${sanitized}`;
 }
+
+/**
+ * Ensures capability identifiers are in standardized format
+ * All capability IDs should be prefixed with 'cap_' to match sample data
+ * @param capabilityName - Original capability name from input data
+ * @returns Standardized capability ID
+ */
+export function standardizeCapabilityId(capabilityName: string): string {
+  // If it's already in the proper format (starts with 'cap_'), return as is
+  if (capabilityName.startsWith('cap_')) {
+    return capabilityName;
+  }
+  
+  // If it starts with 'capability_', convert it to 'cap_'
+  if (capabilityName.startsWith('capability_')) {
+    const withoutPrefix = capabilityName.replace('capability_', '');
+    return `cap_${withoutPrefix}`;
+  }
+  
+  // Strip any spaces, sanitize and convert to snake case
+  const sanitized = capabilityName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  console.log(`[standardizeCapabilityId] Converting "${capabilityName}" to standardized format: cap_${sanitized}`);
+  return `cap_${sanitized}`;
+}

@@ -9,7 +9,7 @@ import {
     createRelationship,
 } from "./gunService";
 import type { Deck, Card } from "$lib/types";
-import { generateSequentialCardId, standardizeValueId } from "./cardUtils";
+import { generateSequentialCardId, standardizeValueId, standardizeCapabilityId } from "./cardUtils";
 
 // Get a deck by ID
 export async function getDeck(deckId: string): Promise<Deck | null> {
@@ -484,13 +484,8 @@ export async function createCard(
 
         // Convert each capability name to a standardized ID and add to the record
         for (const capName of capabilityNames) {
-            // Format: capability_name (lowercase, underscore-separated)
-            const sanitized = capName
-                .toLowerCase()
-                .trim()
-                .replace(/[^a-z0-9]+/g, "_")
-                .replace(/^_+|_+$/g, "");
-            const capabilityId = `capability_${sanitized}`;
+            // Use standardizeCapabilityId to ensure consistent cap_ prefix
+            const capabilityId = standardizeCapabilityId(capName);
             capabilities_ref[capabilityId] = true;
 
             // Create the capability in the database if it doesn't exist already
