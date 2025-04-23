@@ -422,13 +422,8 @@ export async function createCard(
         // Handle array of capability names
         for (const capName of (card as any).capabilities) {
             if (typeof capName === "string") {
-                // Format: capability_name (lowercase, underscore-separated)
-                const sanitized = capName
-                    .toLowerCase()
-                    .trim()
-                    .replace(/[^a-z0-9]+/g, "_")
-                    .replace(/^_+|_+$/g, "");
-                const capabilityId = `capability_${sanitized}`;
+                // Use standardizeCapabilityId to ensure consistent cap_ prefix
+                const capabilityId = standardizeCapabilityId(capName);
                 capabilities_ref[capabilityId] = true;
 
                 // Create the capability entity in the database
@@ -1316,9 +1311,11 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
 
                     // If we couldn't find the capability, format the ID as a fallback
                     // This is better than no capability at all
-                    if (id.startsWith("capability_")) {
+                    // Handle both cap_ and capability_ prefixes for backward compatibility
+                    if (id.startsWith("capability_") || id.startsWith("cap_")) {
                         const formattedName = id
                             .replace("capability_", "")
+                            .replace("cap_", "")
                             .split("_")
                             .join(" ")
                             .split("-")
@@ -1336,22 +1333,8 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                         return formattedName;
                     }
 
-                    // Cap_ format is also common in the system
-                    if (id.startsWith("cap_")) {
-                        const formattedName = id
-                            .replace("cap_", "")
-                            .split("_")
-                            .map(
-                                (word) =>
-                                    word.charAt(0).toUpperCase() +
-                                    word.slice(1),
-                            )
-                            .join(" ");
-                        console.log(
-                            `Formatted cap_ ID ${id} to name: ${formattedName}`,
-                        );
-                        return formattedName;
-                    }
+                    // Note: We already handle cap_ format in the previous condition
+                    // This section is kept for reference but is no longer needed
 
                     // Last resort: return the ID itself
                     return id;
