@@ -249,12 +249,20 @@ export async function createCard(
         }
     }
     // CASE 4: Check for comma-separated string values
-    else if ((card as any).values && typeof (card as any).values === "string") {
+    else if (
+        ((card as any).values && typeof (card as any).values === "string") ||
+        ((card as any).values_ref && typeof (card as any).values_ref === "string")
+    ) {
+        // Get the string from either values or values_ref
+        const valuesString = (card as any).values_ref || (card as any).values;
+        
         // Parse comma-separated values string
-        const valueNames = (card as any).values
+        const valueNames = valuesString
             .split(",")
             .map((v: string) => v.trim())
             .filter(Boolean);
+            
+        console.log(`[createCard] Parsed ${valueNames.length} values from string: ${valuesString}`);
 
         // Convert each value name to a standardized ID and add to the record
         for (const valueName of valueNames) {
