@@ -129,12 +129,13 @@
       }
       
       // CASE 2: Legacy support - check original cards field if cards_ref is empty
-      if (cardIds.length === 0 && deck.cards && typeof deck.cards === 'object') {
-        if ('#' in deck.cards) {
-          console.log(`Checking legacy cards reference: ${(deck.cards as any)['#']}`);
+      // Note: 'cards' is not in the Deck type definition but might exist in legacy data
+      if (cardIds.length === 0 && (deck as any).cards && typeof (deck as any).cards === 'object') {
+        if ('#' in (deck as any).cards) {
+          console.log(`Checking legacy cards reference: ${(deck as any).cards['#']}`);
           
           // Get the reference path and follow it to get the actual card IDs
-          const cardsPath = (deck.cards as any)['#'];
+          const cardsPath = (deck as any).cards['#'];
           
           // Wait a bit to access the referenced soul
           await new Promise<void>(resolve => {
@@ -151,8 +152,8 @@
           });
         } else {
           // Direct cards collection: {"card1": true, "card2": true}
-          Object.keys(deck.cards).forEach(cardId => {
-            if ((deck.cards as Record<string, boolean>)[cardId] === true) {
+          Object.keys((deck as any).cards).forEach(cardId => {
+            if (((deck as any).cards as Record<string, boolean>)[cardId] === true) {
               console.log(`Found card ID ${cardId} directly in deck ${deckId} cards field`);
               if (!cardIds.includes(cardId)) cardIds.push(cardId);
             }
@@ -186,12 +187,13 @@
             }
             
             // CASE 2: Legacy - Check for direct deck reference in card.decks
-            else if (cardData.decks && typeof cardData.decks === 'object') {
-              if ('#' in cardData.decks) {
+            // Note: 'decks' is not in the Card type definition but might exist in legacy data
+            else if ((cardData as any).decks && typeof (cardData as any).decks === 'object') {
+              if ('#' in (cardData as any).decks) {
                 // It's a Soul reference, we'd normally need to follow but we'll just assume
                 console.log(`Card ${cardData.card_id} has a legacy decks reference that might contain deck ${deckId}`);
                 if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
-              } else if (cardData.decks[deckId] === true) {
+              } else if ((cardData as any).decks[deckId] === true) {
                 console.log(`Card ${cardData.card_id} directly references deck ${deckId} in legacy decks field`);
                 if (!cardIds.includes(cardData.card_id)) cardIds.push(cardData.card_id);
               }
@@ -285,7 +287,9 @@
 <div class="deck-browser container mx-auto p-4">
   <div class="card p-4 bg-surface-100-800 mb-4 shadow-md border border-surface-300-600">
     <div class="flex items-center space-x-4">
-      <svelte:component this={icons.Layout} class="text-primary-500 w-6 h-6" />
+      {#key icons.Layout}
+        <icons.Layout class="text-primary-500 w-6 h-6" />
+      {/key}
       <div>
         <h3 class="h3 font-bold text-surface-900-50">Deck Browser</h3>
         <p class="text-sm text-surface-700-300">Explore cards in the selected deck with a vibrant new look.</p>
@@ -297,7 +301,9 @@
     <!-- Deck Selection Section -->
     <Accordion.Item value="deck-selection">
       {#snippet lead()}
-        <svelte:component this={icons.Cards} size={24} />
+        {#key icons.Cards}
+          <icons.Cards size={24} />
+        {/key}
       {/snippet}
       
       {#snippet control()}Deck Browser{/snippet}
@@ -329,7 +335,9 @@
                 onclick={() => loadDeckCards(selectedDeckId)}
                 disabled={isLoading}
               >
-                <svelte:component this={icons.RefreshCcw} class="w-4 h-4" />
+                {#key icons.RefreshCcw}
+                  <icons.RefreshCcw class="w-4 h-4" />
+                {/key}
                 Refresh
               </button>
             </div>
