@@ -281,6 +281,46 @@ export async function deleteNode(soul: string): Promise<GunAck> {
 }
 
 /**
+ * Forcefully removes a Gun.js node and all its references using multiple strategies
+ * More aggressive than put(null) for stubborn nodes that won't delete
+ * 
+ * @param soul - Node path (e.g., 'cards/card_7252')
+ * @returns Promise that resolves when the operation is complete
+ */
+export async function purgeNode(soul: string): Promise<boolean> {
+  try {
+    const g = getGun();
+    if (!g) return false;
+    
+    // Try multiple approaches to fully purge the node
+    console.log(`Forcefully purging node ${soul} with multiple methods`);
+    
+    // 1. First try to directly nullify
+    g.get(soul).put(null);
+    
+    // 2. Also try to nullify with the special Gun null marker
+    setTimeout(() => {
+      g.get(soul).put({ _: { '#': 'null' } });
+    }, 50);
+    
+    // 3. Try to overwrite with an empty object (forces a PUT)
+    setTimeout(() => {
+      g.get(soul).put({});
+    }, 100);
+    
+    // 4. Finally, try to remove it again with null
+    setTimeout(() => {
+      g.get(soul).put(null);
+    }, 150);
+    
+    return true;
+  } catch (err) {
+    console.error(`Error purging node ${soul}:`, err);
+    return false;
+  }
+}
+
+/**
  * Create a relationship (edge) between two nodes
  * @param fromSoul - Source node path (e.g., 'games/g_456')
  * @param field - Edge field (e.g., 'actors_ref')
