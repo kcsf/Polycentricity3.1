@@ -72,7 +72,14 @@ export async function updateDeck(
 ): Promise<boolean> {
     console.log(`[updateDeck] Updating deck ${deckId} with`, updates);
     try {
-        await put(`${nodes.decks}/${deckId}`, updates);
+        // Ensure we're passing a valid type to put() by casting to the appropriate type
+        // First make sure deck_id is set as required
+        const validUpdate = {
+            ...updates,
+            deck_id: deckId, // Ensure deck_id is always set 
+        } as Deck;
+        
+        await put(`${nodes.decks}/${deckId}`, validUpdate);
         console.log(`[updateDeck] Updated deck: ${deckId}`);
         return true;
     } catch (error) {
@@ -251,7 +258,8 @@ export async function createCard(
                     
                     console.log(`[createCard] Created value edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
                 } catch (e) {
-                    console.warn(`[createCard] Error creating value edge ${edge.fromSoul} -> ${edge.field} -> ${toId}:`, e);
+                    const targetId = edge.toSoul.split('/').pop() || '';
+                    console.warn(`[createCard] Error creating value edge ${edge.fromSoul} -> ${edge.field} -> ${targetId}:`, e);
                 }
                 
                 // Add a small delay between operations to ensure they have time to process
@@ -289,7 +297,8 @@ export async function createCard(
                     
                     console.log(`[createCard] Created capability edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
                 } catch (e) {
-                    console.warn(`[createCard] Error creating capability edge ${edge.fromSoul} -> ${edge.field} -> ${toId}:`, e);
+                    const targetId = edge.toSoul.split('/').pop() || '';
+                    console.warn(`[createCard] Error creating capability edge ${edge.fromSoul} -> ${edge.field} -> ${targetId}:`, e);
                 }
                 
                 // Add a small delay between operations to ensure they have time to process
@@ -767,16 +776,18 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                 }
             } else if (typeof cardWithLegacyFields.values === "string") {
                 // Handle legacy string format (comma-separated values)
-                const valueStrings = cardWithLegacyFields.values.split(",")
-                    .map(v => v.trim())
+                const valueString = cardWithLegacyFields.values as string;
+                const valueStrings = valueString.split(",")
+                    .map((v: string) => v.trim())
                     .filter(Boolean);
                 
                 console.log(`Found ${valueStrings.length} value names in legacy string format`);
                 return valueStrings;
             } else if (Array.isArray(cardWithLegacyFields.values)) {
                 // Handle legacy array format 
-                const valueStrings = cardWithLegacyFields.values
-                    .map(v => String(v).trim())
+                const valuesArray = cardWithLegacyFields.values as any[];
+                const valueStrings = valuesArray
+                    .map((v: any) => String(v).trim())
                     .filter(Boolean);
                 
                 console.log(`Found ${valueStrings.length} value names in legacy array format`);
@@ -911,7 +922,8 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                 }
             } else if (typeof cardWithLegacyCapabilities.capabilities === "string") {
                 // Handle legacy string format (comma-separated capabilities)
-                const capStrings = cardWithLegacyCapabilities.capabilities.split(",")
+                const capabilityString = cardWithLegacyCapabilities.capabilities as string;
+                const capStrings = capabilityString.split(",")
                     .map((c: string) => c.trim())
                     .filter(Boolean);
                 
@@ -919,7 +931,8 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                 return capStrings;
             } else if (Array.isArray(cardWithLegacyCapabilities.capabilities)) {
                 // Handle legacy array format 
-                const capStrings = cardWithLegacyCapabilities.capabilities
+                const capabilitiesArray = cardWithLegacyCapabilities.capabilities as any[];
+                const capStrings = capabilitiesArray
                     .map((c: any) => String(c).trim())
                     .filter(Boolean);
                 
