@@ -125,8 +125,65 @@ export async function createCard(
     // Create values_ref object (Record<string, boolean>) directly following the pattern in sampleDataService
     const values_ref: Record<string, boolean> = {};
     
-    // First, check if values exists as an array
-    if (Array.isArray((card as any).values)) {
+    // CASE 1: Check for values object in JSON format like { "value_sustainability": true }
+    if (typeof (card as any).values === 'object' && (card as any).values !== null) {
+        // Handle values in object format (from sample JSON)
+        for (const valueId of Object.keys((card as any).values)) {
+            if ((card as any).values[valueId] === true) {
+                // This follows the sampleDataService pattern (values in object with true values)
+                values_ref[valueId] = true;
+                
+                // Create the value entity in the database
+                try {
+                    const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
+                    const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
+                    const valueData = {
+                        value_id: valueId,
+                        name: capitalizedName,
+                        creator_ref: "u_123",
+                        cards_ref: {},
+                        created_at: Date.now()
+                    };
+                    
+                    // Use fire-and-forget to create the value
+                    gun.get(nodes.values).get(valueId).put(valueData);
+                    console.log(`[createCard] Created value from object format: ${valueId} (${capitalizedName})`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating value ${valueId} from object:`, e);
+                }
+            }
+        }
+    }
+    // CASE 2: Check for values_ref object from direct DB import
+    else if (typeof (card as any).values_ref === 'object' && (card as any).values_ref !== null) {
+        // Handle values_ref as direct object reference (existing DB format)
+        for (const valueId of Object.keys((card as any).values_ref)) {
+            if ((card as any).values_ref[valueId] === true) {
+                values_ref[valueId] = true;
+                
+                // Create the value entity in the database
+                try {
+                    const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
+                    const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
+                    const valueData = {
+                        value_id: valueId,
+                        name: capitalizedName,
+                        creator_ref: "u_123",
+                        cards_ref: {},
+                        created_at: Date.now()
+                    };
+                    
+                    // Use fire-and-forget to create the value
+                    gun.get(nodes.values).get(valueId).put(valueData);
+                    console.log(`[createCard] Created value from values_ref object: ${valueId} (${capitalizedName})`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating value ${valueId} from values_ref:`, e);
+                }
+            }
+        }
+    }
+    // CASE 3: Check for values as array of strings
+    else if (Array.isArray((card as any).values)) {
         // Handle array of value names
         for (const valueName of (card as any).values) {
             if (typeof valueName === 'string') {
@@ -135,7 +192,7 @@ export async function createCard(
                 
                 // Create the value entity in the database
                 try {
-                    const valueNameForDisplay = valueId.replace('value_', '').replace(/_/g, ' ');
+                    const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
                     const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
                     const valueData = {
                         value_id: valueId,
@@ -154,7 +211,7 @@ export async function createCard(
             }
         }
     }
-    // As a fallback, also check for comma-separated string values
+    // CASE 4: Check for comma-separated string values
     else if ((card as any).values && typeof (card as any).values === "string") {
         // Parse comma-separated values string
         const valueNames = (card as any).values.split(",").map((v: string) => v.trim()).filter(Boolean);
@@ -167,7 +224,7 @@ export async function createCard(
             // Create the value in the database if it doesn't exist already
             // This follows the sampleDataService pattern of saving value records
             try {
-                const valueNameForDisplay = valueId.replace('value_', '').replace(/_/g, ' ');
+                const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
                 const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1); // Capitalize
                 const valueData = {
                     value_id: valueId,
@@ -198,8 +255,71 @@ export async function createCard(
     // Create capabilities_ref object (Record<string, boolean>) directly following sampleDataService.ts
     const capabilities_ref: Record<string, boolean> = {};
     
-    // First, check if capabilities exists as an array
-    if (Array.isArray((card as any).capabilities)) {
+    // CASE 1: Check for capabilities object in JSON format like { "capability_project-management": true }
+    if (typeof (card as any).capabilities === 'object' && (card as any).capabilities !== null) {
+        // Handle capabilities in object format (from sample JSON)
+        for (const capabilityId of Object.keys((card as any).capabilities)) {
+            if ((card as any).capabilities[capabilityId] === true) {
+                // This follows the sampleDataService pattern (capabilities in object with true values)
+                capabilities_ref[capabilityId] = true;
+                
+                // Create the capability entity in the database
+                try {
+                    const displayName = capabilityId.replace('capability_', '').replace(/-/g, ' ').replace(/_/g, ' ');
+                    const capitalizedName = displayName.split(' ').map((word: string) => 
+                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                    ).join(' ');
+                    
+                    const capabilityData = {
+                        capability_id: capabilityId,
+                        name: capitalizedName,
+                        creator_ref: "u_123",
+                        cards_ref: {},
+                        created_at: Date.now()
+                    };
+                    
+                    // Use fire-and-forget to create the capability
+                    gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
+                    console.log(`[createCard] Created capability from object format: ${capabilityId} (${capitalizedName})`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating capability ${capabilityId} from object:`, e);
+                }
+            }
+        }
+    }
+    // CASE 2: Check for capabilities_ref object from direct DB import
+    else if (typeof (card as any).capabilities_ref === 'object' && (card as any).capabilities_ref !== null) {
+        // Handle capabilities_ref as direct object reference (existing DB format)
+        for (const capabilityId of Object.keys((card as any).capabilities_ref)) {
+            if ((card as any).capabilities_ref[capabilityId] === true) {
+                capabilities_ref[capabilityId] = true;
+                
+                // Create the capability entity in the database
+                try {
+                    const displayName = capabilityId.replace('capability_', '').replace(/-/g, ' ').replace(/_/g, ' ');
+                    const capitalizedName = displayName.split(' ').map((word: string) => 
+                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                    ).join(' ');
+                    
+                    const capabilityData = {
+                        capability_id: capabilityId,
+                        name: capitalizedName,
+                        creator_ref: "u_123",
+                        cards_ref: {},
+                        created_at: Date.now()
+                    };
+                    
+                    // Use fire-and-forget to create the capability
+                    gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
+                    console.log(`[createCard] Created capability from capabilities_ref object: ${capabilityId} (${capitalizedName})`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating capability ${capabilityId} from capabilities_ref:`, e);
+                }
+            }
+        }
+    }
+    // CASE 3: Check for capabilities as array of strings
+    else if (Array.isArray((card as any).capabilities)) {
         // Handle array of capability names
         for (const capName of (card as any).capabilities) {
             if (typeof capName === 'string') {
@@ -231,7 +351,7 @@ export async function createCard(
             }
         }
     }
-    // As a fallback, also check for comma-separated string capabilities
+    // CASE 4: Check for comma-separated string capabilities
     else if ((card as any).capabilities && typeof (card as any).capabilities === "string") {
         // Parse comma-separated capabilities string
         const capabilityNames = (card as any).capabilities.split(",").map((c: string) => c.trim()).filter(Boolean);
