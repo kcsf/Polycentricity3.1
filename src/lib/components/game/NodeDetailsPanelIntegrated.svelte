@@ -1,62 +1,123 @@
 <script lang="ts">
-  import gameStore from '$lib/stores/enhancedGameStore';
-  import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
   import * as icons from '@lucide/svelte';
-  import { derived } from 'svelte/store';
+  import { getActors, getAgreement, getActor } from '$lib/services/gameService';
+  import type { Actor, Agreement } from '$lib/types';
   
-  // Props
-  export let isOpen = false;
+  // Define Position type for nodes
+  interface Position {
+    x: number;
+    y: number;
+  }
   
-  // Local variables
-  let selectedNode: ActorWithPosition | AgreementWithPosition | null = null;
-  let selectedNodeType: 'actor' | 'agreement' | null = null;
-  let actors: ActorWithPosition[] = [];
+  // Define ActorWithPosition and AgreementWithPosition
+  interface ActorWithPosition extends Actor {
+    position?: Position;
+  }
   
-  // Subscribe to stores
-  const unsubscribeNode = gameStore.selectedNode.subscribe(value => {
-    selectedNode = value;
-    
-    // Auto-open the panel when a node is selected
-    if (value) {
-      isOpen = true;
+  interface AgreementWithPosition extends Agreement {
+    position?: Position;
+  }
+  
+  // Props using Svelte 5 Runes syntax
+  const { 
+    isOpen = false, 
+    selectedNodeId = null,
+    selectedNodeType = null,
+    gameId = null
+  } = $props<{
+    isOpen?: boolean;
+    selectedNodeId?: string | null;
+    selectedNodeType?: 'actor' | 'agreement' | null;
+    gameId?: string | null;
+  }>();
+  
+  // Local state variables with Svelte 5 Runes
+  let selectedNode = $state<ActorWithPosition | AgreementWithPosition | null>(null);
+  let actors = $state<ActorWithPosition[]>([]);
+  let isLoading = $state(false);
+  
+  // Create event dispatcher for notifying parent components
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
+  
+  // Fetch actors and selected node data when props change
+  $effect(async () => {
+    if (gameId) {
+      try {
+        // Load actors for reference
+        isLoading = true;
+        const fetchedActors = await getActors(gameId);
+        actors = fetchedActors.map(actor => ({
+          ...actor,
+          position: actor.position || undefined
+        }));
+        isLoading = false;
+      } catch (error) {
+        console.error('Failed to fetch actors:', error);
+        isLoading = false;
+      }
     }
   });
   
-  const unsubscribeNodeType = gameStore.selectedNodeType.subscribe(value => {
-    selectedNodeType = value;
-  });
-  
-  const unsubscribeActors = gameStore.actors.subscribe(value => {
-    actors = value;
-  });
-  
-  // Cleanup on component destroy
-  import { onDestroy } from 'svelte';
-  onDestroy(() => {
-    unsubscribeNode();
-    unsubscribeNodeType();
-    unsubscribeActors();
+  // Load the selected node when selectedNodeId and selectedNodeType change
+  $effect(async () => {
+    if (gameId && selectedNodeId && selectedNodeType) {
+      try {
+        isLoading = true;
+        
+        if (selectedNodeType === 'actor') {
+          const actor = await getActor(selectedNodeId);
+          if (actor) {
+            selectedNode = {
+              ...actor,
+              position: actor.position || undefined
+            };
+          }
+        } else if (selectedNodeType === 'agreement') {
+          const agreement = await getAgreement(selectedNodeId);
+          if (agreement) {
+            selectedNode = {
+              ...agreement,
+              position: agreement.position || undefined
+            };
+          }
+        }
+        
+        isLoading = false;
+      } catch (error) {
+        console.error(`Failed to fetch ${selectedNodeType}:`, error);
+        isLoading = false;
+      }
+    } else {
+      selectedNode = null;
+    }
   });
   
   // Function to close the panel
   function closePanel() {
-    isOpen = false;
-    gameStore.clearSelectedNode();
+    dispatch('close');
   }
   
   // Function to edit an agreement
   function editAgreement() {
     if (selectedNode && selectedNodeType === 'agreement') {
-      gameStore.toggleAgreementModal(true, selectedNode as AgreementWithPosition);
+      dispatch('edit-agreement', selectedNode);
     }
   }
   
   // Function to delete an agreement
-  function deleteAgreement() {
-    if (selectedNode && selectedNodeType === 'agreement') {
+  async function deleteAgreement() {
+    if (selectedNode && selectedNodeType === 'agreement' && gameId) {
       if (confirm('Are you sure you want to delete this agreement?')) {
-        gameStore.deleteAgreement(selectedNode.id);
-        closePanel();
+        try {
+          // Note: Would need a deleteAgreement method in gameService
+          // await deleteAgreement(selectedNode.id);
+          dispatch('delete-agreement', { id: selectedNode.id });
+          closePanel();
+        } catch (error) {
+          console.error('Failed to delete agreement:', error);
+          alert('Error deleting agreement. Please try again.');
+        }
       }
     }
   }
@@ -75,10 +136,10 @@
     <h3 class="text-lg font-semibold">Details</h3>
     <button 
       class="btn btn-sm btn-icon variant-ghost-surface" 
-      on:click={closePanel}
+      onclick={closePanel}
       title="Close Panel"
     >
-      <svelte:component this={icons.X} class="w-4 h-4" />
+      {icons.X ? icons.X : null}
     </button>
   </div>
   
@@ -199,10 +260,10 @@
         {/if}
         
         <div class="mt-6 space-y-2">
-          <button class="btn btn-sm w-full variant-filled-primary" on:click={editAgreement}>
+          <button class="btn btn-sm w-full variant-filled-primary" onclick={editAgreement}>
             Edit Agreement
           </button>
-          <button class="btn btn-sm w-full variant-filled-error" on:click={deleteAgreement}>
+          <button class="btn btn-sm w-full variant-filled-error" onclick={deleteAgreement}>
             Delete Agreement
           </button>
         </div>

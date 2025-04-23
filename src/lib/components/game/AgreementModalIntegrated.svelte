@@ -1,58 +1,102 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import gameStore from '$lib/stores/enhancedGameStore';
-  import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
   import * as icons from '@lucide/svelte';
+  import { getActors, createAgreement, updateAgreement } from '$lib/services/gameService';
+  import type { Actor, Agreement } from '$lib/types';
   
-  // Props
-  export let editMode = false;
-  export let agreement: AgreementWithPosition | null = null;
+  // Define position type
+  interface Position {
+    x: number;
+    y: number;
+  }
+  
+  // Define types used in this component
+  interface ActorWithPosition extends Actor {
+    position?: Position;
+  }
+  
+  interface AgreementWithPosition extends Agreement {
+    position?: Position;
+  }
+  
+  // Props using Svelte 5 Runes
+  const { editMode = false, agreement = null } = $props<{
+    editMode?: boolean;
+    agreement?: AgreementWithPosition | null;
+  }>();
   
   // Create event dispatcher
   const dispatch = createEventDispatcher();
   
-  // State
-  let title = '';
-  let description = '';
-  let terms: string[] = [''];
-  let selectedParties: Record<string, boolean> = {};
-  let obligations: { fromActorId: string, description: string }[] = [];
-  let benefits: { toActorId: string, description: string }[] = [];
+  // State with Svelte 5 Runes
+  let title = $state('');
+  let description = $state('');
+  let terms = $state<string[]>(['']);
+  let selectedParties = $state<Record<string, boolean>>({});
+  let obligations = $state<{ fromActorId: string, description: string, id?: string }[]>([]);
+  let benefits = $state<{ toActorId: string, description: string, id?: string }[]>([]);
   
   // New obligation/benefit input fields
-  let newObligations: Record<string, string> = {};
-  let newBenefits: Record<string, string> = {};
+  let newObligations = $state<Record<string, string>>({});
+  let newBenefits = $state<Record<string, string>>({});
   
-  // Subscribe to actor store
-  let actors: ActorWithPosition[] = [];
-  const unsubscribeActors = gameStore.actors.subscribe(value => {
-    actors = value;
+  // State for actors
+  let actors = $state<ActorWithPosition[]>([]);
+  let gameId = $state<string | null>(null);
+  let isLoading = $state(true);
+  
+  // Fetch actors when the component is mounted
+  $effect(async () => {
+    if (agreement) {
+      // If we have an agreement, we can derive the gameId
+      gameId = agreement.game_id;
+    }
     
-    // Initialize selectedParties record if not in edit mode
-    if (!editMode) {
-      selectedParties = actors.reduce((acc, actor) => {
-        acc[actor.actor_id] = false;
-        return acc;
-      }, {} as Record<string, boolean>);
+    if (gameId) {
+      try {
+        isLoading = true;
+        const fetchedActors = await getActors(gameId);
+        actors = fetchedActors.map(actor => ({
+          ...actor,
+          position: actor.position || undefined
+        }));
+        
+        // Initialize selectedParties record if not in edit mode
+        if (!editMode) {
+          const initialSelectedParties: Record<string, boolean> = {};
+          actors.forEach(actor => {
+            initialSelectedParties[actor.actor_id] = false;
+          });
+          selectedParties = initialSelectedParties;
+        }
+        
+        isLoading = false;
+      } catch (error) {
+        console.error('Failed to fetch actors:', error);
+        isLoading = false;
+      }
     }
   });
   
   // Initialize form when in edit mode
-  $: if (editMode && agreement) {
-    title = agreement.title;
-    description = agreement.description;
-    terms = [...agreement.terms];
-    
-    // Set selected parties
-    selectedParties = actors.reduce((acc, actor) => {
-      acc[actor.actor_id] = agreement?.parties.includes(actor.actor_id) || false;
-      return acc;
-    }, {} as Record<string, boolean>);
-    
-    // Initialize obligations and benefits
-    obligations = [...agreement.obligations];
-    benefits = [...agreement.benefits];
-  }
+  $effect(() => {
+    if (editMode && agreement && actors.length > 0) {
+      title = agreement.title;
+      description = agreement.description;
+      terms = [...agreement.terms];
+      
+      // Set selected parties
+      const initialSelectedParties: Record<string, boolean> = {};
+      actors.forEach(actor => {
+        initialSelectedParties[actor.actor_id] = agreement.parties.includes(actor.actor_id);
+      });
+      selectedParties = initialSelectedParties;
+      
+      // Initialize obligations and benefits
+      obligations = [...agreement.obligations];
+      benefits = [...agreement.benefits];
+    }
+  });
   
   // Close the modal
   function closeModal() {
@@ -107,8 +151,10 @@
     benefits = benefits.filter((_, i) => i !== index);
   }
   
-  // Save the agreement
-  async function saveAgreement() {
+  // Save the agreement using gameService
+  async function saveAgreement(event?: Event) {
+    if (event) event.preventDefault();
+    
     // Get selected parties
     const parties = Object.entries(selectedParties)
       .filter(([_, selected]) => selected)
@@ -132,27 +178,41 @@
       return;
     }
     
-    // Prepare agreement data
-    const agreementData = {
-      title,
-      description,
-      parties,
-      terms: filteredTerms,
-      status: 'proposed' as const,
-      obligations,
-      benefits
-    };
-    
-    if (editMode && agreement) {
-      // Update existing agreement
-      await gameStore.updateAgreement(agreement.id, agreementData);
-    } else {
-      // Create new agreement
-      await gameStore.createAgreement(agreementData);
+    if (!gameId) {
+      console.error('Cannot save agreement - gameId is null');
+      alert('Error: Cannot determine which game this agreement belongs to');
+      return;
     }
     
-    // Close modal
-    closeModal();
+    try {
+      // Prepare agreement data
+      const agreementData = {
+        game_id: gameId,
+        title,
+        description,
+        parties,
+        terms: filteredTerms,
+        status: 'proposed' as const,
+        obligations,
+        benefits
+      };
+      
+      if (editMode && agreement) {
+        // Update existing agreement
+        await updateAgreement(agreement.id, agreementData);
+        console.log(`Agreement ${agreement.id} updated successfully`);
+      } else {
+        // Create new agreement
+        const newAgreement = await createAgreement(agreementData);
+        console.log('New agreement created with ID:', newAgreement?.id);
+      }
+      
+      // Close modal
+      closeModal();
+    } catch (error) {
+      console.error('Failed to save agreement:', error);
+      alert('Error saving agreement. Please try again.');
+    }
   }
   
   // Get actor name
@@ -161,11 +221,7 @@
     return actor ? actor.role_title : 'Unknown Actor';
   }
   
-  // Clean up on destroy
-  import { onDestroy } from 'svelte';
-  onDestroy(() => {
-    unsubscribeActors();
-  });
+  // No cleanup needed with Runes
 </script>
 
 <div class="modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50">
