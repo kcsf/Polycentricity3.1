@@ -63,21 +63,27 @@ async function robustPut(
 
   return new Promise<boolean>((resolve) => {
     try {
+      // Set a timeout to ensure the promise resolves even if Gun doesn't respond
+      const timeoutId = setTimeout(() => {
+        console.warn(`[sampleData] Timeout saving to ${path}/${key}`);
+        resolve(false);
+      }, 5000);
+      
       gun
         .get(path)
         .get(key)
         .put(cleanData, (ack: any) => {
+          clearTimeout(timeoutId); // Clear the timeout as we got a response
           if (ack && ack.err) {
-            console.warn(`[sampleData] Error saving to ${path}/${key}`);
+            console.warn(`[sampleData] Error saving to ${path}/${key}: ${ack.err}`);
             resolve(false);
           } else {
             console.log(`[sampleData] Successfully saved to ${path}/${key}`);
             resolve(true);
           }
         });
-      setTimeout(() => resolve(true), 1000);
     } catch (error) {
-      console.error(`[sampleData] Exception for ${path}/${key}`);
+      console.error(`[sampleData] Exception for ${path}/${key}: ${error?.message || error}`);
       resolve(false);
     }
   });
@@ -107,12 +113,21 @@ async function createEdgesBatch(
   console.log(
     `[seed] Creating ${edgeDefinitions.length} relationships in batch`,
   );
-  await Promise.all(
-    edgeDefinitions.map((def) =>
-      createRelationship(def.fromSoul, def.field, def.toSoul),
-    ),
-  );
-  await delay(100);
+  
+  // Process relationships in sequence with error handling
+  for (const def of edgeDefinitions) {
+    try {
+      console.log(`[seed] Creating relationship: ${def.fromSoul}.${def.field} -> ${def.toSoul}`);
+      await createRelationship(def.fromSoul, def.field, def.toSoul);
+    } catch (error) {
+      console.error(`[seed] Failed to create relationship: ${def.fromSoul}.${def.field} -> ${def.toSoul}`, error);
+    }
+    // Small delay between operations
+    await delay(10);
+  }
+  
+  console.log(`[seed] Completed creating relationships`);
+  await delay(500);
 }
 
 /**
