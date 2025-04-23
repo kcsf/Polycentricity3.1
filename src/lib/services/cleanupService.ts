@@ -458,14 +458,14 @@ export async function cleanupNullCardReferences(): Promise<{
             if (deckId === 'd_1') {
               console.log(`Performing deep cleanup of problematic deck d_1 structure`);
               
-              // Target the exact nested path seen in the data dump
-              gun.get(nodes.decks).get('d_1').get('cards_ref').get(badCardId).put(null);
+              // Target the exact nested path seen in the data dump using unset for better cleanup
+              gun.get(nodes.decks).get('d_1').get('cards_ref').unset({ id: badCardId });
               
-              // Also clean from the nested "decks/d_1" path 
-              gun.get(nodes.decks).get(deckId).get('decks/d_1').get('cards_ref').get(badCardId).put(null);
+              // Also clean from the nested "decks/d_1" path using unset
+              gun.get(nodes.decks).get(deckId).get('decks/d_1').get('cards_ref').unset({ id: badCardId });
               
-              // Handle direct cards property if it exists
-              gun.get(nodes.decks).get(deckId).get('cards').get(badCardId).put(null);
+              // Handle direct cards property if it exists - use unset for better collection cleanup
+              gun.get(nodes.decks).get(deckId).get('cards').unset({ id: badCardId });
             }
           });
           
@@ -481,8 +481,9 @@ export async function cleanupNullCardReferences(): Promise<{
             
             // Check for nested cards structure
             if (valueData.cards) {
-              gun.get(nodes.values).get(valueId).get('cards').get(badCardId).put(null);
-              gun.get(nodes.values).get(valueId).get('cards').get(`cards/${badCardId}`).put(null);
+              // Use unset for nested card references too
+              gun.get(nodes.values).get(valueId).get('cards').unset({ id: badCardId });
+              gun.get(nodes.values).get(valueId).get('cards').unset({ id: `cards/${badCardId}` });
             }
           });
           
@@ -490,11 +491,11 @@ export async function cleanupNullCardReferences(): Promise<{
           gun.get(nodes.capabilities).map().once((capData: any, capId: string) => {
             if (!capData || !capData.cards_ref) return;
             
-            // Remove from capability's cards_ref
-            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(badCardId).put(null);
+            // Remove from capability's cards_ref using unset for better reference cleanup
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').unset({ id: badCardId });
             
             // Also check for prefixed versions
-            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(`cards/${badCardId}`).put(null);
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').unset({ id: `cards/${badCardId}` });
           });
         } catch (e) {
           console.warn(`Error cleaning up problematic card ${badCardId}:`, e);
