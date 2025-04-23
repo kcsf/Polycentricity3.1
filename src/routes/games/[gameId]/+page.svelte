@@ -52,16 +52,13 @@
         };
     });
     
-    // Primary function to load game data
+    // Optimized function to load all game data efficiently
     async function loadGameData() {
         isLoading = true;
         error = '';
         
         try {
-            // Sequential loading of all game data with proper logging for each step
-            // This ensures caches are populated in the correct order and dependencies are available
-            
-            // 1. Load the game first
+            // 1. Load the game first - this is critical as a dependency for other data
             log(`Loading game data for: ${gameId}`);
             game = await getGame(gameId);
             
@@ -74,7 +71,7 @@
             
             log(`Game loaded: ${gameId}`);
             
-            // Store it for the app 
+            // Store game in the app store for global access
             currentGameStore.set(game);
             
             // 2. Set up real-time updates for the game
@@ -88,26 +85,21 @@
                 }
             });
             
-            // 3. Load actors
-            log(`Loading actors for game: ${gameId}`);
-            const actors = await getGameActors(gameId);
-            log(`Actors loaded: ${actors.length}`);
+            // 3. Load all related data concurrently for better performance
+            // This leverages Promise.all to fetch multiple data sets at once
+            log(`Loading related data for game: ${gameId}`);
+            const [actors, cards, agreements] = await Promise.all([
+                getGameActors(gameId),
+                getAvailableCardsForGame(gameId),
+                getAvailableAgreementsForGame(gameId)
+            ]);
             
-            // 4. Load cards
-            log(`Loading cards for game: ${gameId}`);
-            const cards = await getAvailableCardsForGame(gameId);
-            log(`Cards loaded: ${cards.length}`);
+            log(`Data loaded: ${actors.length} actors, ${cards.length} cards, ${agreements.length} agreements`);
             
-            // 5. Load agreements
-            log(`Loading agreements for game: ${gameId}`);
-            const agreements = await getAvailableAgreementsForGame(gameId);
-            log(`Agreements loaded: ${agreements.length}`);
-            
-            // 6. Load the user's role in this game using the cached data
-            // No timeout needed since we're only using cached data, not Gun.js calls
+            // 4. Load the user's actor in this game - can run after other data loads
             await loadUserActor();
             
-            // 7. After loading completes, determine if user is in game
+            // 5. Update user's game status
             setupUserInGame();
             
             // Return the complete dataset for component use
@@ -122,54 +114,68 @@
     }
     
     /**
-     * Load the current user's actor in this game
-     * This prioritizes cached data and the actual database record
+     * Load the current user's actor in this game using optimized approach
+     * This function uses a tiered strategy to efficiently locate the user's actor
+     * while avoiding unnecessary database calls
+     * 
      * @returns Actor object if found, null otherwise
      */
     async function loadUserActor() {
         const user = $userStore.user;
-        if (!user || !user.user_id) {
-            log('[GamePage] No user logged in, cannot load actor');
+        if (!user?.user_id) {
+            log(`No user logged in, cannot load actor`);
             return null;
         }
         
         const userId = user.user_id;
-        log(`[GamePage] Looking up actor for user ${userId} in game ${gameId}`);
+        log(`Looking up actor for user ${userId} in game ${gameId}`);
 
-        // Strategy 1: Check localStorage first for the most immediate reference
+        // Strategy 1: Check localStorage for the most immediate reference
+        // This is the fastest method and works between page refreshes
         const savedActorId = localStorage.getItem(`game_${gameId}_actor`);
         if (savedActorId) {
-            log(`[GamePage] Found saved actor ID in localStorage: ${savedActorId}`);
+            log(`Found saved actor ID in localStorage: ${savedActorId}`);
             
-            // Verify this actor exists in cache and belongs to this game
+            // Verify actor in cache using game_ref (preferred) or game_id
             if (actorCache.has(savedActorId)) {
                 const actor = actorCache.get(savedActorId)!;
-                if (actor.game_ref === gameId && actor.user_id === userId) {
-                    log(`[GamePage] Actor lookup for user ${userId}: ${actor.actor_id} (from localStorage)`);
+                // Check both game_ref and game_id for maximum compatibility
+                const gameMatches = (actor.game_ref === gameId || actor.game_id === gameId);
+                const userMatches = (actor.user_id === userId);
+                
+                if (gameMatches && userMatches) {
+                    log(`Actor found in cache: ${actor.actor_id} (matches user and game)`);
                     playerRole = actor;
                     activeActorId = actor.actor_id;
                     return actor;
                 }
+                
+                log(`Actor in cache doesn't match expected game/user`);
+            } else {
+                log(`Actor ${savedActorId} not found in cache`);
             }
             
-            // If not valid, clean up localStorage
-            log(`[GamePage] Invalid localStorage actor reference, removing`);
+            // Clean up invalid reference - important for data consistency
+            log(`Removing invalid localStorage actor reference`);
             localStorage.removeItem(`game_${gameId}_actor`);
         }
 
-        // Strategy 2: Use the proper gameService API to get the player's role
-        const currentActorId = activeActorId;
-        const actor = await getPlayerRole(gameId, userId, currentActorId || undefined);
+        // Strategy 2: Use the gameService API (getPlayerRole is specifically optimized for this)
+        // This function efficiently checks the player_actor_map and falls back to database search if needed
+        log(`Using getPlayerRole to find actor for user ${userId}`);
+        const actor = await getPlayerRole(gameId, userId, activeActorId || undefined);
         
         if (actor) {
-            log(`[GamePage] Actor lookup for user ${userId}: ${actor.actor_id} (from getPlayerRole)`);
+            log(`Actor found through getPlayerRole: ${actor.actor_id}`);
             playerRole = actor;
             activeActorId = actor.actor_id;
+            
+            // Store for future page loads - critical for page refreshes
             localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
             return actor;
         }
 
-        log(`[GamePage] No actor found for user ${userId} in game ${gameId}`);
+        log(`No actor found for user ${userId} in game ${gameId}`);
         return null;
     }
     
@@ -204,44 +210,68 @@
     // State to track if user is in game - separate from the checking logic
     let userInGame = $state(false);
     
-    // Function to CHECK if user is in game WITHOUT modifying state
-    // This returns boolean only, doesn't modify any state
+    /**
+     * Check if the current user is part of the game
+     * This is a pure function that doesn't modify any state
+     * 
+     * @returns boolean - true if user is in the game, false otherwise
+     */
     function checkIfUserInGame(): boolean {
-        if (!game || !$userStore.user) return false;
+        // If no game loaded or no user logged in, definitely not in game
+        if (!game || !$userStore.user?.user_id) {
+            return false;
+        }
         
         const userId = $userStore.user.user_id;
         
-        // If they have a role assigned, they're definitely in the game
+        // Fastest check: If user has an assigned actor role, they're in the game
         if (playerRole !== null) {
+            log(`User in game check: User has playerRole ${playerRole.actor_id}`);
             return true;
         }
         
-        // Simple check: The user is in the game if they're in the players list
+        // Next check: Look for user in the players list/map
         if (game.players) {
+            // Handle both array and object format for players
             if (Array.isArray(game.players)) {
-                return game.players.includes(userId);
+                const isInGame = game.players.includes(userId);
+                log(`User in game check (array): ${isInGame ? 'Found' : 'Not found'} in players array`);
+                return isInGame;
             } else {
-                return Boolean(game.players[userId]);
+                const isInGame = Boolean(game.players[userId]);
+                log(`User in game check (object): ${isInGame ? 'Found' : 'Not found'} in players object`);
+                return isInGame;
             }
         }
         
+        // If no players data available, user can't be in the game
+        log(`User in game check: No players data available`);
         return false;
     }
     
-    // Function to SETUP user in game - handles all state mutations
-    // This can be called from outside template expressions
+    /**
+     * Setup the user's in-game state
+     * This function optimizes the user-in-game detection process
+     * and is safe to call multiple times or from subscriptions
+     */
     function setupUserInGame() {
-        // If playerRole is already set, we're definitely in the game
+        // If user has a player role, they're in the game - fastest path
         if (playerRole) {
-            userInGame = true;
+            if (!userInGame) {
+                log(`Player has role ${playerRole.actor_id} but userInGame was false - updating`);
+                userInGame = true;
+            }
             return;
         }
         
-        // Otherwise, update based on the game state check
-        userInGame = checkIfUserInGame();
+        // Otherwise, update based on the full game state check
+        const isInGame = checkIfUserInGame();
         
-        // If we're not in game but should be (e.g., just after joining),
-        // loadUserActor would have already been called during initial page load
+        // Only update state if it changed to avoid unnecessary renders
+        if (userInGame !== isInGame) {
+            log(`Updating userInGame from ${userInGame} to ${isInGame}`);
+            userInGame = isInGame;
+        }
     }
 </script>
 

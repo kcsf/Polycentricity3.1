@@ -6,7 +6,8 @@
     createActor, 
     subscribeToUserCard,
     joinGame,
-    assignRole
+    assignRole,
+    updatePlayerActorMap
   } from '$lib/services/gameService';
   import { nodes, createRelationship, getGun } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
