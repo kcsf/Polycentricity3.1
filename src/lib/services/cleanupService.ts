@@ -418,6 +418,29 @@ export async function cleanupNullCardReferences(): Promise<{
         });
       });
       
+      // Fourth pass: Direct cleanup of null/malformed card IDs in cards node
+      // This is needed to clean up entries like "card_7252": null and "card__m9uawqaa_ll8gey0f": null
+      gun.get(nodes.cards).map().once((cardData: any, cardId: string) => {
+        // Check if this is a nullified card or a card with an invalid ID pattern
+        const isNullCard = cardData === null;
+        const isValidCardId = /^card_\d+$/.test(cardId);
+        
+        if (isNullCard || !isValidCardId) {
+          console.log(`Cleaning up ${isNullCard ? 'null' : 'invalid'} card entry: ${cardId}`);
+          
+          // For null cards, we need to use a special approach to ensure the key is truly removed
+          // This works better than just setting to null for already-nullified entries
+          gun.get(nodes.cards).get(cardId).put({ _: { '#': 'null' } });
+          
+          // Then explicitly set it to null again
+          setTimeout(() => {
+            gun.get(nodes.cards).get(cardId).put(null);
+          }, 100);
+          
+          removedCount++;
+        }
+      });
+      
       // Give time for all operations to complete
       setTimeout(() => {
         resolve({

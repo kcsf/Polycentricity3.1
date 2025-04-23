@@ -161,19 +161,23 @@
     loadDeckCards(selectedDeckId);
   }
   
-  // Clear Gun.js cache
+  // Clear local component cache
   async function clearCache() {
     isCleaning = true;
-    cleanupMessage = "Clearing Gun.js cache...";
+    cleanupMessage = "Clearing component cache...";
     
     try {
-      const result = await resetGunDatabase();
-      console.log("Cache cleared:", result);
-      cleanupMessage = "Gun.js cache cleared. The page will reload in 3 seconds...";
+      // Clear our local svelte state
+      cards = [];
+      decks = [];
       
-      // Reload the page after a short delay
+      // Reload the data from Gun.js but bypass any caching
+      await loadDecks();
+      
+      cleanupMessage = "Component cache cleared and data reloaded.";
       setTimeout(() => {
-        window.location.reload();
+        cleanupMessage = null;
+        isCleaning = false;
       }, 3000);
     } catch (err) {
       console.error("Error clearing cache:", err);
@@ -276,8 +280,8 @@
                 onclick={clearCache}
                 disabled={isLoading || isCleaning}
               >
-                <icons.AlertTriangle class="w-4 h-4" />
-                Clear Cache (Reloads Page)
+                <icons.RefreshCcw class="w-4 h-4" />
+                Clear Component Cache
               </button>
             </div>
             
