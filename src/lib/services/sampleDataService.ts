@@ -498,7 +498,7 @@ export async function initializeSampleData() {
       u_125: "actor_3",
       u_126: "actor_4",
     },
-    actors_ref: { actor_1: true, actor_2: true, actor_3: true, actor_4: true, actor_5: true },
+    actors_ref: { actor_1: true, actor_2: true, actor_3: true, actor_4: true },
     agreements_ref: {
       ag_1: true,
       ag_2: true,
@@ -519,7 +519,7 @@ export async function initializeSampleData() {
       actor_type: "National Identity",
       custom_name: "Alice's Luminos Funder",
       status: "active",
-      agreements_ref: { ag_1: true, ag_5: true },
+      agreements_ref: { ag_1: true, ag_4: true, ag_5: true },
       created_at: now,
     },
     {
@@ -530,7 +530,7 @@ export async function initializeSampleData() {
       actor_type: "National Identity",
       custom_name: "Bob's Green Veil DAO",
       status: "active",
-      agreements_ref: { ag_1: true, ag_2: true },
+      agreements_ref: { ag_1: true, ag_2: true, ag_5: true },
       created_at: now,
     },
     {
@@ -553,17 +553,6 @@ export async function initializeSampleData() {
       custom_name: "David's Eco-Patron",
       status: "active",
       agreements_ref: { ag_3: true, ag_4: true },
-      created_at: now,
-    },
-    {
-      actor_id: "actor_5",
-      user_ref: "u_123", // Using Alice again for the 5th actor
-      game_ref: "g_456",
-      card_ref: "card_5",
-      actor_type: "National Identity",
-      custom_name: "Alice's Verdant Venture DAO",
-      status: "active",
-      agreements_ref: { ag_4: true, ag_5: true },
       created_at: now,
     },
   ];
@@ -649,7 +638,7 @@ export async function initializeSampleData() {
       game_ref: "g_456",
       creator_ref: "u_126",
       title: "Tech Investment Deal",
-      summary: "Eco-Patron Collective funds Verdant Venture DAO's tech project",
+      summary: "Eco-Patron Collective funds tech project",
       type: "asymmetric",
       status: "completed",
       parties: {
@@ -658,23 +647,23 @@ export async function initializeSampleData() {
           obligation: "Provide $3K funding",
           benefit: "Gain tech prototype access",
         },
-        actor_5: {
-          card_ref: "card_5",
+        actor_1: {
+          card_ref: "card_1",
           obligation: "Develop tech prototype",
           benefit: "Receive funding",
         },
       },
-      cards_ref: { card_4: true, card_5: true },
+      cards_ref: { card_4: true, card_1: true },
       created_at: now,
       updated_at: now,
-      votes: { actor_4: "accept", actor_5: "accept" },
+      votes: { actor_4: "accept", actor_1: "accept" },
     },
     {
       agreement_id: "ag_5",
       game_ref: "g_456",
       creator_ref: "u_123",
       title: "Resource Sharing",
-      summary: "Luminos Funder and Verdant Venture DAO share resources",
+      summary: "Luminos Funder and Green Veil DAO share resources",
       type: "symmetric",
       status: "accepted",
       parties: {
@@ -683,16 +672,16 @@ export async function initializeSampleData() {
           obligation: "Share funding expertise",
           benefit: "Access tech solutions",
         },
-        actor_5: {
-          card_ref: "card_5",
+        actor_2: {
+          card_ref: "card_2",
           obligation: "Share tech expertise",
           benefit: "Access funding networks",
         },
       },
-      cards_ref: { card_1: true, card_5: true },
+      cards_ref: { card_1: true, card_2: true },
       created_at: now,
       updated_at: now,
-      votes: { actor_1: "accept", actor_5: "accept" },
+      votes: { actor_1: "accept", actor_2: "accept" },
     },
   ];
 
