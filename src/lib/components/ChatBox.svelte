@@ -5,19 +5,28 @@
         import { subscribeToGroupChat, subscribeToPrivateChat, sendMessage, getGroupMessages, getPrivateMessages } from '$lib/services/chatService';
         import { formatTime, stringToColor, getInitials } from '$lib/utils/helpers';
         
-        export let gameId: string;
-        export let chatType: 'group' | 'private' = 'group';
-        export let otherUserId: string | undefined = undefined;
-        export let compact = false; // New prop for compact mode in sidebars
+        // Convert to Svelte 5 Runes syntax using $props()
+        const { 
+            gameId,
+            chatType = 'group' as 'group' | 'private',
+            otherUserId = undefined as string | undefined,
+            compact = false  // For compact mode in sidebars
+        } = $props<{
+            gameId: string;
+            chatType?: 'group' | 'private';
+            otherUserId?: string | undefined;
+            compact?: boolean;
+        }>();
         
-        let messages: ChatMessage[] = [];
-        let newMessageContent: string = '';
-        let unsubscribe: () => void;
-        let chatContainer: HTMLElement;
-        let isLoading = true;
+        // Local state using Svelte 5 Runes $state
+        let messages = $state<ChatMessage[]>([]);
+        let newMessageContent = $state('');
+        let unsubscribe: (() => void) | undefined = $state<(() => void) | undefined>(undefined);
+        let chatContainer: HTMLElement | undefined = $state<HTMLElement | undefined>(undefined);
+        let isLoading = $state(true);
         
         // Get current user
-        const currentUser = getCurrentUser();
+        const currentUser = $state(getCurrentUser());
         
         onMount(async () => {
                 try {
@@ -138,7 +147,7 @@
         </section>
         
         <footer class="p-{compact ? '2' : '4'} border-t border-surface-300-600-token">
-                <form on:submit|preventDefault={handleSendMessage} class="flex space-x-1">
+                <form onsubmit={(e) => { e.preventDefault(); handleSendMessage(); }} class="flex space-x-1">
                         <input
                                 type="text"
                                 class="input input-{compact ? 'sm' : 'md'} w-full"

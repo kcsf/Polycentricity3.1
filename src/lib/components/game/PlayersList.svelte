@@ -2,21 +2,31 @@
     import type { Game } from '$lib/types';
     import { getRandomPastelColor, getInitials } from '$lib/utils/helpers';
     
-    export let game: Game;
-    export let highlightCurrentUser = true;
-    export let currentUserId: string | null = null;
-    export let compact = false; // New prop for compact mode in sidebars
+    // Convert to Svelte 5 Runes syntax with $props()
+    const {
+        game,
+        highlightCurrentUser = true,
+        currentUserId = null as string | null,
+        compact = false // For compact mode in sidebars
+    } = $props<{
+        game: Game;
+        highlightCurrentUser?: boolean;
+        currentUserId?: string | null;
+        compact?: boolean;
+    }>();
     
-    let playerIds: string[] = [];
+    // Local state with Svelte 5 Runes
+    let playerIds = $state<string[]>([]);
     
-    $: {
+    // Use $derived instead of reactive declaration
+    $effect(() => {
         // Handle both array and object formats for players
         if (Array.isArray(game.players)) {
             playerIds = game.players;
         } else {
             playerIds = Object.keys(game.players || {});
         }
-    }
+    });
 </script>
 
 <div class="players-list {!compact ? 'card p-4 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700' : ''}">
