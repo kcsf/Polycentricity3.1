@@ -3,20 +3,12 @@
 import {
     getGun,
     nodes,
-    generateId,
     put,
     get,
-    setField,
     getCollection,
     createRelationship,
 } from "./gunService";
 import type { Deck, Card } from "$lib/types";
-import { createValue, createOrGetValues } from "./valueService";
-import {
-    createCapability,
-    createOrGetCapabilities,
-    parseCapabilitiesText,
-} from "./capabilityService";
 import { generateSequentialCardId, standardizeValueId } from "./cardUtils";
 
 // Get a deck by ID
@@ -27,41 +19,50 @@ export async function getDeck(deckId: string): Promise<Deck | null> {
         console.error("[getDeck] Gun not initialized");
         return null;
     }
-    
+
     // Add retry logic to compensate for Gun's eventual consistency
     const maxAttempts = 3;
     let attempts = 0;
     let deckData = null;
-    
+
     while (attempts < maxAttempts && !deckData) {
         attempts++;
-        console.log(`[getDeck] Attempt ${attempts}/${maxAttempts} to fetch deck: ${deckId}`);
-        
+        console.log(
+            `[getDeck] Attempt ${attempts}/${maxAttempts} to fetch deck: ${deckId}`,
+        );
+
         try {
             deckData = await get(`${nodes.decks}/${deckId}`);
-            
+
             // If we didn't get data, add a delay before the next attempt
             if (!deckData && attempts < maxAttempts) {
-                const delayTime = 500 * Math.pow(2, attempts-1); // Exponential backoff: 500ms, 1000ms, 2000ms
-                console.log(`[getDeck] Deck not found yet, retrying in ${delayTime}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delayTime));
+                const delayTime = 500 * Math.pow(2, attempts - 1); // Exponential backoff: 500ms, 1000ms, 2000ms
+                console.log(
+                    `[getDeck] Deck not found yet, retrying in ${delayTime}ms...`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, delayTime));
             }
         } catch (error) {
-            console.error(`[getDeck] Error fetching deck ${deckId} (attempt ${attempts}):`, error);
-            
+            console.error(
+                `[getDeck] Error fetching deck ${deckId} (attempt ${attempts}):`,
+                error,
+            );
+
             if (attempts < maxAttempts) {
-                const delayTime = 500 * Math.pow(2, attempts-1);
+                const delayTime = 500 * Math.pow(2, attempts - 1);
                 console.log(`[getDeck] Will retry in ${delayTime}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delayTime));
+                await new Promise((resolve) => setTimeout(resolve, delayTime));
             }
         }
     }
-    
+
     if (!deckData) {
-        console.log(`[getDeck] Deck not found after ${maxAttempts} attempts: ${deckId}`);
+        console.log(
+            `[getDeck] Deck not found after ${maxAttempts} attempts: ${deckId}`,
+        );
         return null;
     }
-    
+
     console.log(`[getDeck] Found deck: ${deckId} on attempt ${attempts}`);
     return deckData as Deck;
 }
@@ -77,9 +78,9 @@ export async function updateDeck(
         // First make sure deck_id is set as required
         const validUpdate = {
             ...updates,
-            deck_id: deckId, // Ensure deck_id is always set 
+            deck_id: deckId, // Ensure deck_id is always set
         } as Deck;
-        
+
         await put(`${nodes.decks}/${deckId}`, validUpdate);
         console.log(`[updateDeck] Updated deck: ${deckId}`);
         return true;
@@ -104,13 +105,13 @@ export async function createCard(
     // This ensures cards follow a consistent ID pattern for proper filtering in components
     const cardId = await generateSequentialCardId();
     console.log(`[createCard] Generated sequential card ID: ${cardId}`);
-    
+
     // Process card number (either from string or number format)
     const cardNumber =
         typeof card.card_number === "string"
             ? parseInt(card.card_number, 10)
             : card.card_number || Math.floor(Math.random() * 52) + 1;
-    
+
     // Set icon based on card category if not provided
     const icon =
         card.icon ||
@@ -121,63 +122,89 @@ export async function createCard(
         }[card.card_category] ||
         "User";
 
-            // Process values from input data if provided (matches sampleDataService.ts pattern)
+    // Process values from input data if provided (matches sampleDataService.ts pattern)
     // Create values_ref object (Record<string, boolean>) directly following the pattern in sampleDataService
     const values_ref: Record<string, boolean> = {};
-    
+
     // CASE 1: Check for values object in JSON format like { "value_sustainability": true }
-    if (typeof (card as any).values === 'object' && (card as any).values !== null) {
+    if (
+        typeof (card as any).values === "object" &&
+        (card as any).values !== null
+    ) {
         // Handle values in object format (from sample JSON)
         for (const valueId of Object.keys((card as any).values)) {
             if ((card as any).values[valueId] === true) {
                 // This follows the sampleDataService pattern (values in object with true values)
                 values_ref[valueId] = true;
-                
+
                 // Create the value entity in the database
                 try {
-                    const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
-                    const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
+                    const valueNameForDisplay = valueId
+                        .replace("value_", "")
+                        .replace(/-/g, " ")
+                        .replace(/_/g, " ");
+                    const capitalizedName =
+                        valueNameForDisplay.charAt(0).toUpperCase() +
+                        valueNameForDisplay.slice(1);
                     const valueData = {
                         value_id: valueId,
                         name: capitalizedName,
                         creator_ref: "u_123",
                         cards_ref: {},
-                        created_at: Date.now()
+                        created_at: Date.now(),
                     };
-                    
+
                     // Use fire-and-forget to create the value
                     gun.get(nodes.values).get(valueId).put(valueData);
-                    console.log(`[createCard] Created value from object format: ${valueId} (${capitalizedName})`);
+                    console.log(
+                        `[createCard] Created value from object format: ${valueId} (${capitalizedName})`,
+                    );
                 } catch (e) {
-                    console.warn(`[createCard] Error creating value ${valueId} from object:`, e);
+                    console.warn(
+                        `[createCard] Error creating value ${valueId} from object:`,
+                        e,
+                    );
                 }
             }
         }
     }
     // CASE 2: Check for values_ref object from direct DB import
-    else if (typeof (card as any).values_ref === 'object' && (card as any).values_ref !== null) {
+    else if (
+        typeof (card as any).values_ref === "object" &&
+        (card as any).values_ref !== null
+    ) {
         // Handle values_ref as direct object reference (existing DB format)
         for (const valueId of Object.keys((card as any).values_ref)) {
             if ((card as any).values_ref[valueId] === true) {
                 values_ref[valueId] = true;
-                
+
                 // Create the value entity in the database
                 try {
-                    const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
-                    const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
+                    const valueNameForDisplay = valueId
+                        .replace("value_", "")
+                        .replace(/-/g, " ")
+                        .replace(/_/g, " ");
+                    const capitalizedName =
+                        valueNameForDisplay.charAt(0).toUpperCase() +
+                        valueNameForDisplay.slice(1);
                     const valueData = {
                         value_id: valueId,
                         name: capitalizedName,
                         creator_ref: "u_123",
                         cards_ref: {},
-                        created_at: Date.now()
+                        created_at: Date.now(),
                     };
-                    
+
                     // Use fire-and-forget to create the value
                     gun.get(nodes.values).get(valueId).put(valueData);
-                    console.log(`[createCard] Created value from values_ref object: ${valueId} (${capitalizedName})`);
+                    console.log(
+                        `[createCard] Created value from values_ref object: ${valueId} (${capitalizedName})`,
+                    );
                 } catch (e) {
-                    console.warn(`[createCard] Error creating value ${valueId} from values_ref:`, e);
+                    console.warn(
+                        `[createCard] Error creating value ${valueId} from values_ref:`,
+                        e,
+                    );
                 }
             }
         }
@@ -186,27 +213,37 @@ export async function createCard(
     else if (Array.isArray((card as any).values)) {
         // Handle array of value names
         for (const valueName of (card as any).values) {
-            if (typeof valueName === 'string') {
+            if (typeof valueName === "string") {
                 const valueId = standardizeValueId(valueName);
                 values_ref[valueId] = true;
-                
+
                 // Create the value entity in the database
                 try {
-                    const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
-                    const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
+                    const valueNameForDisplay = valueId
+                        .replace("value_", "")
+                        .replace(/-/g, " ")
+                        .replace(/_/g, " ");
+                    const capitalizedName =
+                        valueNameForDisplay.charAt(0).toUpperCase() +
+                        valueNameForDisplay.slice(1);
                     const valueData = {
                         value_id: valueId,
                         name: capitalizedName,
                         creator_ref: "u_123",
                         cards_ref: {},
-                        created_at: Date.now()
+                        created_at: Date.now(),
                     };
-                    
+
                     // Use fire-and-forget to create the value
                     gun.get(nodes.values).get(valueId).put(valueData);
-                    console.log(`[createCard] Created value from array: ${valueId} (${capitalizedName})`);
+                    console.log(
+                        `[createCard] Created value from array: ${valueId} (${capitalizedName})`,
+                    );
                 } catch (e) {
-                    console.warn(`[createCard] Error creating value ${valueId} from array:`, e);
+                    console.warn(
+                        `[createCard] Error creating value ${valueId} from array:`,
+                        e,
+                    );
                 }
             }
         }
@@ -214,106 +251,160 @@ export async function createCard(
     // CASE 4: Check for comma-separated string values
     else if ((card as any).values && typeof (card as any).values === "string") {
         // Parse comma-separated values string
-        const valueNames = (card as any).values.split(",").map((v: string) => v.trim()).filter(Boolean);
-        
+        const valueNames = (card as any).values
+            .split(",")
+            .map((v: string) => v.trim())
+            .filter(Boolean);
+
         // Convert each value name to a standardized ID and add to the record
         for (const valueName of valueNames) {
             const valueId = standardizeValueId(valueName);
             values_ref[valueId] = true;
-            
+
             // Create the value in the database if it doesn't exist already
             // This follows the sampleDataService pattern of saving value records
             try {
-                const valueNameForDisplay = valueId.replace('value_', '').replace(/-/g, ' ').replace(/_/g, ' ');
-                const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1); // Capitalize
+                const valueNameForDisplay = valueId
+                    .replace("value_", "")
+                    .replace(/-/g, " ")
+                    .replace(/_/g, " ");
+                const capitalizedName =
+                    valueNameForDisplay.charAt(0).toUpperCase() +
+                    valueNameForDisplay.slice(1); // Capitalize
                 const valueData = {
                     value_id: valueId,
                     name: capitalizedName,
                     creator_ref: "u_123",
                     cards_ref: {},
-                    created_at: Date.now()
+                    created_at: Date.now(),
                 };
-                
+
                 // Use fire-and-forget to create the value
                 gun.get(nodes.values).get(valueId).put(valueData);
-                console.log(`[createCard] Created value from string: ${valueId} (${capitalizedName})`);
+                console.log(
+                    `[createCard] Created value from string: ${valueId} (${capitalizedName})`,
+                );
             } catch (e) {
-                console.warn(`[createCard] Error creating value ${valueId} from string:`, e);
+                console.warn(
+                    `[createCard] Error creating value ${valueId} from string:`,
+                    e,
+                );
             }
         }
     }
-    
+
     // Debug log values_ref
-    console.log(`[createCard] Values for card ${cardId}:`, Object.keys(values_ref));
-    
+    console.log(
+        `[createCard] Values for card ${cardId}:`,
+        Object.keys(values_ref),
+    );
+
     // We DO NOT add default values if the card doesn't specify any
     // This is the correct approach per sampleDataService.ts
     // Since we're parsing from card.values, if there are none, we'll have an empty values_ref object
     // Let the capabilities_ref be empty if no capabilities are provided
-    
+
     // Process capabilities from input data if provided (matches sampleDataService.ts pattern)
     // Create capabilities_ref object (Record<string, boolean>) directly following sampleDataService.ts
     const capabilities_ref: Record<string, boolean> = {};
-    
+
     // CASE 1: Check for capabilities object in JSON format like { "capability_project-management": true }
-    if (typeof (card as any).capabilities === 'object' && (card as any).capabilities !== null) {
+    if (
+        typeof (card as any).capabilities === "object" &&
+        (card as any).capabilities !== null
+    ) {
         // Handle capabilities in object format (from sample JSON)
         for (const capabilityId of Object.keys((card as any).capabilities)) {
             if ((card as any).capabilities[capabilityId] === true) {
                 // This follows the sampleDataService pattern (capabilities in object with true values)
                 capabilities_ref[capabilityId] = true;
-                
+
                 // Create the capability entity in the database
                 try {
-                    const displayName = capabilityId.replace('capability_', '').replace(/-/g, ' ').replace(/_/g, ' ');
-                    const capitalizedName = displayName.split(' ').map((word: string) => 
-                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                    ).join(' ');
-                    
+                    const displayName = capabilityId
+                        .replace("capability_", "")
+                        .replace(/-/g, " ")
+                        .replace(/_/g, " ");
+                    const capitalizedName = displayName
+                        .split(" ")
+                        .map(
+                            (word: string) =>
+                                word.charAt(0).toUpperCase() +
+                                word.slice(1).toLowerCase(),
+                        )
+                        .join(" ");
+
                     const capabilityData = {
                         capability_id: capabilityId,
                         name: capitalizedName,
                         creator_ref: "u_123",
                         cards_ref: {},
-                        created_at: Date.now()
+                        created_at: Date.now(),
                     };
-                    
+
                     // Use fire-and-forget to create the capability
-                    gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
-                    console.log(`[createCard] Created capability from object format: ${capabilityId} (${capitalizedName})`);
+                    gun.get(nodes.capabilities)
+                        .get(capabilityId)
+                        .put(capabilityData);
+                    console.log(
+                        `[createCard] Created capability from object format: ${capabilityId} (${capitalizedName})`,
+                    );
                 } catch (e) {
-                    console.warn(`[createCard] Error creating capability ${capabilityId} from object:`, e);
+                    console.warn(
+                        `[createCard] Error creating capability ${capabilityId} from object:`,
+                        e,
+                    );
                 }
             }
         }
     }
     // CASE 2: Check for capabilities_ref object from direct DB import
-    else if (typeof (card as any).capabilities_ref === 'object' && (card as any).capabilities_ref !== null) {
+    else if (
+        typeof (card as any).capabilities_ref === "object" &&
+        (card as any).capabilities_ref !== null
+    ) {
         // Handle capabilities_ref as direct object reference (existing DB format)
-        for (const capabilityId of Object.keys((card as any).capabilities_ref)) {
+        for (const capabilityId of Object.keys(
+            (card as any).capabilities_ref,
+        )) {
             if ((card as any).capabilities_ref[capabilityId] === true) {
                 capabilities_ref[capabilityId] = true;
-                
+
                 // Create the capability entity in the database
                 try {
-                    const displayName = capabilityId.replace('capability_', '').replace(/-/g, ' ').replace(/_/g, ' ');
-                    const capitalizedName = displayName.split(' ').map((word: string) => 
-                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                    ).join(' ');
-                    
+                    const displayName = capabilityId
+                        .replace("capability_", "")
+                        .replace(/-/g, " ")
+                        .replace(/_/g, " ");
+                    const capitalizedName = displayName
+                        .split(" ")
+                        .map(
+                            (word: string) =>
+                                word.charAt(0).toUpperCase() +
+                                word.slice(1).toLowerCase(),
+                        )
+                        .join(" ");
+
                     const capabilityData = {
                         capability_id: capabilityId,
                         name: capitalizedName,
                         creator_ref: "u_123",
                         cards_ref: {},
-                        created_at: Date.now()
+                        created_at: Date.now(),
                     };
-                    
+
                     // Use fire-and-forget to create the capability
-                    gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
-                    console.log(`[createCard] Created capability from capabilities_ref object: ${capabilityId} (${capitalizedName})`);
+                    gun.get(nodes.capabilities)
+                        .get(capabilityId)
+                        .put(capabilityData);
+                    console.log(
+                        `[createCard] Created capability from capabilities_ref object: ${capabilityId} (${capitalizedName})`,
+                    );
                 } catch (e) {
-                    console.warn(`[createCard] Error creating capability ${capabilityId} from capabilities_ref:`, e);
+                    console.warn(
+                        `[createCard] Error creating capability ${capabilityId} from capabilities_ref:`,
+                        e,
+                    );
                 }
             }
         }
@@ -322,80 +413,121 @@ export async function createCard(
     else if (Array.isArray((card as any).capabilities)) {
         // Handle array of capability names
         for (const capName of (card as any).capabilities) {
-            if (typeof capName === 'string') {
+            if (typeof capName === "string") {
                 // Format: capability_name (lowercase, underscore-separated)
-                const sanitized = capName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                const sanitized = capName
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9]+/g, "_")
+                    .replace(/^_+|_+$/g, "");
                 const capabilityId = `capability_${sanitized}`;
                 capabilities_ref[capabilityId] = true;
-                
+
                 // Create the capability entity in the database
                 try {
-                    const displayName = capName.split(' ').map((word: string) => 
-                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                    ).join(' ');
-                    
+                    const displayName = capName
+                        .split(" ")
+                        .map(
+                            (word: string) =>
+                                word.charAt(0).toUpperCase() +
+                                word.slice(1).toLowerCase(),
+                        )
+                        .join(" ");
+
                     const capabilityData = {
                         capability_id: capabilityId,
                         name: displayName,
                         creator_ref: "u_123",
                         cards_ref: {},
-                        created_at: Date.now()
+                        created_at: Date.now(),
                     };
-                    
+
                     // Use fire-and-forget to create the capability
-                    gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
-                    console.log(`[createCard] Created capability from array: ${capabilityId} (${displayName})`);
+                    gun.get(nodes.capabilities)
+                        .get(capabilityId)
+                        .put(capabilityData);
+                    console.log(
+                        `[createCard] Created capability from array: ${capabilityId} (${displayName})`,
+                    );
                 } catch (e) {
-                    console.warn(`[createCard] Error creating capability ${capabilityId} from array:`, e);
+                    console.warn(
+                        `[createCard] Error creating capability ${capabilityId} from array:`,
+                        e,
+                    );
                 }
             }
         }
     }
     // CASE 4: Check for comma-separated string capabilities
-    else if ((card as any).capabilities && typeof (card as any).capabilities === "string") {
+    else if (
+        (card as any).capabilities &&
+        typeof (card as any).capabilities === "string"
+    ) {
         // Parse comma-separated capabilities string
-        const capabilityNames = (card as any).capabilities.split(",").map((c: string) => c.trim()).filter(Boolean);
-        
+        const capabilityNames = (card as any).capabilities
+            .split(",")
+            .map((c: string) => c.trim())
+            .filter(Boolean);
+
         // Convert each capability name to a standardized ID and add to the record
         for (const capName of capabilityNames) {
             // Format: capability_name (lowercase, underscore-separated)
-            const sanitized = capName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+            const sanitized = capName
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]+/g, "_")
+                .replace(/^_+|_+$/g, "");
             const capabilityId = `capability_${sanitized}`;
             capabilities_ref[capabilityId] = true;
-            
+
             // Create the capability in the database if it doesn't exist already
             try {
-                const displayName = capName.split(' ').map((word: string) => 
-                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                ).join(' ');
-                
+                const displayName = capName
+                    .split(" ")
+                    .map(
+                        (word: string) =>
+                            word.charAt(0).toUpperCase() +
+                            word.slice(1).toLowerCase(),
+                    )
+                    .join(" ");
+
                 const capabilityData = {
                     capability_id: capabilityId,
                     name: displayName,
                     creator_ref: "u_123",
                     cards_ref: {},
-                    created_at: Date.now()
+                    created_at: Date.now(),
                 };
-                
+
                 // Use fire-and-forget to create the capability
-                gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
-                console.log(`[createCard] Created capability from string: ${capabilityId} (${displayName})`);
+                gun.get(nodes.capabilities)
+                    .get(capabilityId)
+                    .put(capabilityData);
+                console.log(
+                    `[createCard] Created capability from string: ${capabilityId} (${displayName})`,
+                );
             } catch (e) {
-                console.warn(`[createCard] Error creating capability ${capabilityId} from string:`, e);
+                console.warn(
+                    `[createCard] Error creating capability ${capabilityId} from string:`,
+                    e,
+                );
             }
         }
     }
-    
+
     // Debug log capabilities_ref
-    console.log(`[createCard] Capabilities for card ${cardId}:`, Object.keys(capabilities_ref));
-    
+    console.log(
+        `[createCard] Capabilities for card ${cardId}:`,
+        Object.keys(capabilities_ref),
+    );
+
     // We do NOT add default capabilities if none are provided
     // This matches sampleDataService.ts approach
     // If no capabilities are provided, capabilities_ref should be empty
-    
+
     // Process goals - ensure it's a string (unchanged)
     const goalsString = typeof card.goals === "string" ? card.goals : "";
-    
+
     // Prepare Gun-compatible card structure following the schema
     const gunCard = {
         card_id: cardId,
@@ -419,166 +551,137 @@ export async function createCard(
         icon: icon,
         created_at: Date.now(),
         // Use creator_ref as per schema with proper user reference
-        creator_ref: "u_123" // Default creator reference
+        creator_ref: "u_123", // Default creator reference
     };
 
     try {
         // OPTIMIZED APPROACH: Use the "fire and forget" pattern from sampleDataService
         // This prevents timeouts by using a much shorter timeout (1s) and continuing regardless
-        
-        // STEP 1: Save the card data - ultra-optimized approach 
+
+        // STEP 1: Save the card data - ultra-optimized approach
         // Based on sampleDataService fire-and-forget pattern
-        
+
         // 1. Clean the data to prevent undefined values
         const cleanedCard = cleanObject(gunCard);
-        
+
         // 2. Use direct Gun.js put without waiting for acknowledgment
         // This completely avoids timeouts by not using Promise.race at all
         try {
             gun.get(nodes.cards).get(cardId).put(cleanedCard);
-            console.log(`[createCard] Card data sent to Gun DB (fire-and-forget): ${cardId}`);
+            console.log(
+                `[createCard] Card data sent to Gun DB (fire-and-forget): ${cardId}`,
+            );
         } catch (e) {
-            console.warn(`[createCard] Exception during card save (continuing anyway): ${e}`);
+            console.warn(
+                `[createCard] Exception during card save (continuing anyway): ${e}`,
+            );
         }
-        
+
         // Wait a very brief moment to let Gun process the request
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // No delay needed between operations due to using "fire and forget"
-        
-        // STEP 2: Create value relationships using reliable approach
-        const valueEdges = Object.keys(gunCard.values_ref).map(valueId => ({
-            fromSoul: `${nodes.values}/${valueId}`,
-            field: 'cards_ref',
-            toSoul: `${nodes.cards}/${cardId}`
-        }));
-        
-        // Also create edges in the reverse direction (card to value)
-        const cardToValueEdges = Object.keys(gunCard.values_ref).map(valueId => ({
-            fromSoul: `${nodes.cards}/${cardId}`,
-            field: 'values_ref',
-            toSoul: `${nodes.values}/${valueId}`
-        }));
-        
-        // Combine the two edge types and process them
-        const allValueEdges = [...valueEdges, ...cardToValueEdges];
-        
-        // Process all values relationships
-        if (allValueEdges.length > 0) {
-            for (const edge of allValueEdges) {
-                try {
-                    const toId = edge.toSoul.split('/').pop();
-                    if (!toId) continue;
-                    
-                    // Set the field to true at the proper path, following the schema exactly
-                    // This creates entries like: cards/<card_id>/values_ref/<value_id>: true
-                    gun.get(edge.fromSoul).get(edge.field).get(toId).put(true);
-                    
-                    console.log(`[createCard] Created value edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
-                } catch (e) {
-                    const targetId = edge.toSoul.split('/').pop() || '';
-                    console.warn(`[createCard] Error creating value edge ${edge.fromSoul} -> ${edge.field} -> ${targetId}:`, e);
-                }
-                
-                // Add a small delay between operations to ensure they have time to process
-                await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // STEP 2: IMPLEMENT THE EXACT PATTERN FROM sampleDataService.ts for creating relationships
+
+        // 1) Batch up all Card↔Value edges
+        const valueEdges = Object.keys(values_ref).flatMap(valueId => [
+            // Card → Value
+            { fromSoul: `${nodes.cards}/${cardId}`, field: "values_ref", toSoul: `${nodes.values}/${valueId}` },
+            // Value → Card
+            { fromSoul: `${nodes.values}/${valueId}`, field: "cards_ref", toSoul: `${nodes.cards}/${cardId}` }
+        ]);
+
+        // 2) Batch up all Card↔Capability edges
+        const capabilityEdges = Object.keys(capabilities_ref).flatMap(capId => [
+            // Card → Capability
+            { fromSoul: `${nodes.cards}/${cardId}`, field: "capabilities_ref", toSoul: `${nodes.capabilities}/${capId}` },
+            // Capability → Card
+            { fromSoul: `${nodes.capabilities}/${capId}`, field: "cards_ref", toSoul: `${nodes.cards}/${cardId}` }
+        ]);
+
+        // 3) Fire-and-forget each edge using direct Gun.js put
+        for (const { fromSoul, field, toSoul } of [...valueEdges, ...capabilityEdges]) {
+            // extract the last segment as the key
+            const key = toSoul.split("/").pop();
+            if (!key) continue;
+            
+            try {
+                // Use the gun.js direct put method to create the relationship
+                gun.get(fromSoul).get(field).get(key).put(true);
+                console.log(`[createCard] Created relationship: ${fromSoul} -> ${field} -> ${key}`);
+            } catch (e) {
+                console.warn(`[createCard] Error creating relationship ${fromSoul} -> ${field} -> ${key}:`, e);
             }
-        }
-        
-        // STEP 3: Create capability relationships using reliable approach
-        const capabilityEdges = Object.keys(gunCard.capabilities_ref).map(capId => ({
-            fromSoul: `${nodes.capabilities}/${capId}`,
-            field: 'cards_ref',
-            toSoul: `${nodes.cards}/${cardId}`
-        }));
-        
-        // Also create edges in the reverse direction (card to capability)
-        const cardToCapabilityEdges = Object.keys(gunCard.capabilities_ref).map(capId => ({
-            fromSoul: `${nodes.cards}/${cardId}`,
-            field: 'capabilities_ref',
-            toSoul: `${nodes.capabilities}/${capId}`
-        }));
-        
-        // Combine the two edge types and process them
-        const allCapabilityEdges = [...capabilityEdges, ...cardToCapabilityEdges];
-        
-        // Process all capability relationships
-        if (allCapabilityEdges.length > 0) {
-            for (const edge of allCapabilityEdges) {
-                try {
-                    const toId = edge.toSoul.split('/').pop();
-                    if (!toId) continue;
-                    
-                    // Set the field to true at the proper path, following the schema exactly
-                    // This creates entries like: cards/<card_id>/capabilities_ref/<capability_id>: true
-                    gun.get(edge.fromSoul).get(edge.field).get(toId).put(true);
-                    
-                    console.log(`[createCard] Created capability edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
-                } catch (e) {
-                    const targetId = edge.toSoul.split('/').pop() || '';
-                    console.warn(`[createCard] Error creating capability edge ${edge.fromSoul} -> ${edge.field} -> ${targetId}:`, e);
-                }
-                
-                // Add a small delay between operations to ensure they have time to process
-                await new Promise(resolve => setTimeout(resolve, 20));
-            }
+            
+            // Add a small delay between operations to ensure they have time to process
+            await new Promise(resolve => setTimeout(resolve, 20));
         }
 
         // Return card data immediately without waiting for all relationships
         // This is crucial to prevent timeouts
-        const cardData: Card = { 
+        const cardData: Card = {
             ...gunCard,
             // These fields are already in gunCard with the correct _ref names
-            created_at: Date.now() // Ensure created_at is set to satisfy the Card interface
+            created_at: Date.now(), // Ensure created_at is set to satisfy the Card interface
         };
-        
+
         return cardData;
     } catch (error) {
-        console.error("[createCard] Error:", error instanceof Error ? error.message : String(error));
+        console.error(
+            "[createCard] Error:",
+            error instanceof Error ? error.message : String(error),
+        );
         return null;
     }
 }
 
 // Helper function to clean undefined values from an object - needed for Gun.js
 function cleanObject(obj: any): any {
-    if (obj === null || typeof obj !== 'object') return obj;
-    
+    if (obj === null || typeof obj !== "object") return obj;
+
     if (Array.isArray(obj)) {
         const result: Record<string, any> = {};
-        obj.forEach((val, idx) => { 
+        obj.forEach((val, idx) => {
             if (val !== undefined) result[idx] = cleanObject(val);
         });
         return result;
     }
-    
+
     const cleanObj: Record<string, any> = {};
     for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined) {
+        if (
+            Object.prototype.hasOwnProperty.call(obj, key) &&
+            obj[key] !== undefined
+        ) {
             cleanObj[key] = cleanObject(obj[key]);
         }
     }
-    
+
     return cleanObj;
 }
 
 // Helper function to create multiple Gun edges efficiently
 function createEdgesBatch(
-    edgeDefinitions: {fromSoul: string, field: string, toSoul: string}[],
-    gunInstance: any
+    edgeDefinitions: { fromSoul: string; field: string; toSoul: string }[],
+    gunInstance: any,
 ): void {
     for (const edge of edgeDefinitions) {
         try {
             // Extract the target ID from the soul path
-            const toId = edge.toSoul.split('/').pop();
+            const toId = edge.toSoul.split("/").pop();
             if (!toId) continue;
-            
+
             // Use direct Gun.js API with fire-and-forget pattern following the schema exactly
             // This creates entries like: <fromSoul>/<field>/<toId>: true
             gunInstance.get(edge.fromSoul).get(edge.field).get(toId).put(true);
-            
-            console.log(`[createEdgesBatch] Created edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
+
+            console.log(
+                `[createEdgesBatch] Created edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`,
+            );
         } catch (e) {
-            console.warn(`[createEdgesBatch] Issue with edge ${edge.fromSoul} -> ${edge.toSoul}:`, e);
+            console.warn(
+                `[createEdgesBatch] Issue with edge ${edge.fromSoul} -> ${edge.toSoul}:`,
+                e,
+            );
             // Continue despite errors - fire and forget approach
         }
     }
@@ -599,44 +702,51 @@ export async function addCardToDeck(
     try {
         // OPTIMIZED APPROACH: Use the fire-and-forget pattern similar to sampleDataService
         // Create both relationships simultaneously without waiting
-        
+
         // Create edges definitions for both directions
         const edgeDefinitions = [
             {
                 fromSoul: `${nodes.decks}/${deckId}`,
-                field: 'cards_ref',
-                toSoul: `${nodes.cards}/${cardId}`
+                field: "cards_ref",
+                toSoul: `${nodes.cards}/${cardId}`,
             },
             {
                 fromSoul: `${nodes.cards}/${cardId}`,
-                field: 'decks_ref',
-                toSoul: `${nodes.decks}/${deckId}`
-            }
+                field: "decks_ref",
+                toSoul: `${nodes.decks}/${deckId}`,
+            },
         ];
-        
+
         // Process both edges using the fire-and-forget pattern but with more reliable approach
         // Use a more reliable approach that directly writes to the nodes with the right structure
-        for (const {fromSoul, field, toSoul} of edgeDefinitions) {
-            const toId = toSoul.split('/').pop();
+        for (const { fromSoul, field, toSoul } of edgeDefinitions) {
+            const toId = toSoul.split("/").pop();
             if (!toId) continue;
-            
+
             try {
                 // Set the field to true at the proper path, following the schema exactly
                 // This creates entries like: decks/<deck_id>/cards_ref/<card_id>: true
                 gun.get(fromSoul).get(field).get(toId).put(true);
-                
-                console.log(`[addCardToDeck] Created edge: ${fromSoul} -> ${field} -> ${toId}`);
+
+                console.log(
+                    `[addCardToDeck] Created edge: ${fromSoul} -> ${field} -> ${toId}`,
+                );
             } catch (e) {
-                console.warn(`[addCardToDeck] Error creating edge ${fromSoul} -> ${field} -> ${toId}:`, e);
+                console.warn(
+                    `[addCardToDeck] Error creating edge ${fromSoul} -> ${field} -> ${toId}:`,
+                    e,
+                );
             }
-            
+
             // Add a small delay between operations to ensure they have time to process
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
         }
-        
+
         // Consider the operation successful immediately
         // This is crucial for preventing timeouts during imports
-        console.log(`[addCardToDeck] Initiated bidirectional relationship between ${cardId} and ${deckId}`);
+        console.log(
+            `[addCardToDeck] Initiated bidirectional relationship between ${cardId} and ${deckId}`,
+        );
         return true;
     } catch (error) {
         console.error("[addCardToDeck] Unexpected error:", error);
@@ -677,8 +787,13 @@ export async function initializeBidirectionalRelationships(): Promise<{
             const cardIds =
                 typeof deck.cards_ref === "object" && deck.cards_ref !== null
                     ? Object.keys(deck.cards_ref).filter(
-                          (id) => typeof deck.cards_ref === "object" && deck.cards_ref !== null && 
-                          id in deck.cards_ref && deck.cards_ref[id as keyof typeof deck.cards_ref] === true,
+                          (id) =>
+                              typeof deck.cards_ref === "object" &&
+                              deck.cards_ref !== null &&
+                              id in deck.cards_ref &&
+                              deck.cards_ref[
+                                  id as keyof typeof deck.cards_ref
+                              ] === true,
                       )
                     : [];
             console.log(
@@ -695,37 +810,41 @@ export async function initializeBidirectionalRelationships(): Promise<{
                 }
 
                 // TypeScript safety: ensure decks_ref exists as an object
-                const cardDataWithDecks = cardData as { decks_ref?: Record<string, boolean> };
+                const cardDataWithDecks = cardData as {
+                    decks_ref?: Record<string, boolean>;
+                };
                 const decksOnCard = cardDataWithDecks.decks_ref || {};
-                
+
                 if (!decksOnCard[deckId]) {
                     // Using createRelationship for proper Gun.js relationship
                     const result = await createRelationship(
                         `${nodes.cards}/${cardId}`,
-                        'decks_ref',
-                        `${nodes.decks}/${deckId}`
+                        "decks_ref",
+                        `${nodes.decks}/${deckId}`,
                     );
-                    
+
                     if (result.err) {
                         console.error(
                             `[initializeBidirectionalRelationships] Error adding ${deckId} to ${cardId}:`,
-                            result.err
+                            result.err,
                         );
                     } else {
                         console.log(
-                            `[initializeBidirectionalRelationships] Added ${deckId} to ${cardId}`
+                            `[initializeBidirectionalRelationships] Added ${deckId} to ${cardId}`,
                         );
                         processedCount++;
                     }
-                    
+
                     // Add a small delay between operations
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise((resolve) => setTimeout(resolve, 300));
                 }
             }
-            
+
             // Add delay between processing decks
-            console.log(`[initializeBidirectionalRelationships] Finished processing deck ${deckId}, waiting 1s before next deck`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log(
+                `[initializeBidirectionalRelationships] Finished processing deck ${deckId}, waiting 1s before next deck`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
         console.log(
@@ -756,7 +875,7 @@ export async function importCardsToDeck(
     }
 
     let addedCount = 0;
-    
+
     // Check if the deck exists first
     const deck = await getDeck(deckId);
     if (!deck) {
@@ -764,14 +883,16 @@ export async function importCardsToDeck(
         console.error(`[importCardsToDeck] ${errorMsg}`);
         return { success: false, added: 0, error: errorMsg };
     }
-    
+
     // Process cards one at a time with enough delay between each
     try {
-        console.log(`[importCardsToDeck] DEBUG: Starting card import process with ${cardsData.length} cards`);
-        
+        console.log(
+            `[importCardsToDeck] DEBUG: Starting card import process with ${cardsData.length} cards`,
+        );
+
         for (let i = 0; i < cardsData.length; i++) {
             const cardData = cardsData[i];
-            
+
             // Only require role_title as the bare minimum
             if (!cardData.role_title) {
                 console.warn(
@@ -780,41 +901,52 @@ export async function importCardsToDeck(
                 );
                 continue;
             }
-            
-            console.log(`[importCardsToDeck] DEBUG: Card ${i+1} data:`, JSON.stringify(cardData).substring(0, 100) + '...');
 
-            console.log(`[importCardsToDeck] Processing card ${i+1}/${cardsData.length}: "${cardData.role_title}"`);
-            
+            console.log(
+                `[importCardsToDeck] DEBUG: Card ${i + 1} data:`,
+                JSON.stringify(cardData).substring(0, 100) + "...",
+            );
+
+            console.log(
+                `[importCardsToDeck] Processing card ${i + 1}/${cardsData.length}: "${cardData.role_title}"`,
+            );
+
             // Ensure we have defaults for required fields
             // These defaults align with those in the DeckManager component preprocessor
             const processedCardData = {
                 ...cardData,
                 // Default card_category if missing
-                card_category: cardData.card_category || 'Supporters',
-                // Default type if missing  
-                type: cardData.type || 'Individual',
+                card_category: cardData.card_category || "Supporters",
+                // Default type if missing
+                type: cardData.type || "Individual",
                 // Default backstory if missing
-                backstory: cardData.backstory || '',
+                backstory: cardData.backstory || "",
                 // Ensure goals is a string
-                goals: typeof cardData.goals === 'string' ? cardData.goals : '',
+                goals: typeof cardData.goals === "string" ? cardData.goals : "",
                 // Ensure obligations is a string
-                obligations: cardData.obligations || '',
+                obligations: cardData.obligations || "",
                 // Ensure intellectual_property is a string
-                intellectual_property: cardData.intellectual_property || '',
+                intellectual_property: cardData.intellectual_property || "",
                 // Ensure rivalrous_resources is a string
-                rivalrous_resources: cardData.rivalrous_resources || ''
+                rivalrous_resources: cardData.rivalrous_resources || "",
             };
-            
+
             // Step 1: Create the card
             try {
-                console.log(`[importCardsToDeck] Creating card: "${processedCardData.role_title}"`);
-                const card = await createCard(processedCardData as Omit<Card, "card_id">);
-                
+                console.log(
+                    `[importCardsToDeck] Creating card: "${processedCardData.role_title}"`,
+                );
+                const card = await createCard(
+                    processedCardData as Omit<Card, "card_id">,
+                );
+
                 if (card) {
                     // Step 2: Add card to deck after successful creation
-                    console.log(`[importCardsToDeck] Adding card ${card.card_id} to deck ${deckId}`);
+                    console.log(
+                        `[importCardsToDeck] Adding card ${card.card_id} to deck ${deckId}`,
+                    );
                     const added = await addCardToDeck(deckId, card.card_id);
-                    
+
                     if (added) {
                         addedCount++;
                         console.log(
@@ -831,19 +963,25 @@ export async function importCardsToDeck(
                     );
                 }
             } catch (error) {
-                console.error(`[importCardsToDeck] Error processing card: "${processedCardData.role_title}"`, error);
+                console.error(
+                    `[importCardsToDeck] Error processing card: "${processedCardData.role_title}"`,
+                    error,
+                );
             }
-            
+
             // Add a minimal delay between cards
             console.log(`[importCardsToDeck] Processing next card...`);
             await new Promise((resolve) => setTimeout(resolve, 300));
         }
     } catch (error) {
-        console.error("[importCardsToDeck] Critical error during import:", error);
-        return { 
-            success: addedCount > 0, 
-            added: addedCount, 
-            error: error instanceof Error ? error.message : String(error) 
+        console.error(
+            "[importCardsToDeck] Critical error during import:",
+            error,
+        );
+        return {
+            success: addedCount > 0,
+            added: addedCount,
+            error: error instanceof Error ? error.message : String(error),
         };
     }
 
@@ -866,40 +1004,53 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
     const maxAttempts = 3;
     let attempts = 0;
     let cardData = null;
-    
+
     while (attempts < maxAttempts && !cardData) {
         attempts++;
-        console.log(`[getDecksForCard] Attempt ${attempts}/${maxAttempts} to fetch card: ${cardId}`);
-        
+        console.log(
+            `[getDecksForCard] Attempt ${attempts}/${maxAttempts} to fetch card: ${cardId}`,
+        );
+
         try {
             cardData = await get(`${nodes.cards}/${cardId}`);
-            
+
             // If we didn't get data, add a delay before the next attempt
             if (!cardData && attempts < maxAttempts) {
-                const delayTime = 500 * Math.pow(2, attempts-1); // Exponential backoff
-                console.log(`[getDecksForCard] Card not found yet, retrying in ${delayTime}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delayTime));
+                const delayTime = 500 * Math.pow(2, attempts - 1); // Exponential backoff
+                console.log(
+                    `[getDecksForCard] Card not found yet, retrying in ${delayTime}ms...`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, delayTime));
             }
         } catch (error) {
-            console.error(`[getDecksForCard] Error fetching card ${cardId} (attempt ${attempts}):`, error);
-            
+            console.error(
+                `[getDecksForCard] Error fetching card ${cardId} (attempt ${attempts}):`,
+                error,
+            );
+
             if (attempts < maxAttempts) {
-                const delayTime = 500 * Math.pow(2, attempts-1);
-                console.log(`[getDecksForCard] Will retry in ${delayTime}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delayTime));
+                const delayTime = 500 * Math.pow(2, attempts - 1);
+                console.log(
+                    `[getDecksForCard] Will retry in ${delayTime}ms...`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, delayTime));
             }
         }
     }
-    
+
     if (!cardData) {
-        console.log(`[getDecksForCard] Card not found after ${maxAttempts} attempts: ${cardId}`);
+        console.log(
+            `[getDecksForCard] Card not found after ${maxAttempts} attempts: ${cardId}`,
+        );
         return [];
     }
-    
+
     // TypeScript safety: ensure decks_ref exists and is the right type
-    const cardDataWithDecks = cardData as { decks_ref?: Record<string, boolean> };
+    const cardDataWithDecks = cardData as {
+        decks_ref?: Record<string, boolean>;
+    };
     const cardDecks = cardDataWithDecks.decks_ref;
-    
+
     if (!cardDecks || Object.keys(cardDecks).length === 0) {
         console.log(`[getDecksForCard] No decks found for ${cardId}`);
         return [];
@@ -908,13 +1059,15 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
     const deckIds = Object.keys(cardDecks).filter(
         (id) => cardDecks[id] === true,
     );
-    
-    console.log(`[getDecksForCard] Found ${deckIds.length} deck references for ${cardId}`);
-    
+
+    console.log(
+        `[getDecksForCard] Found ${deckIds.length} deck references for ${cardId}`,
+    );
+
     // Fetch each deck and filter out any nulls
     const decks = await Promise.all(deckIds.map(getDeck));
     const validDecks = decks.filter((d) => d !== null) as Deck[];
-    
+
     console.log(
         `[getDecksForCard] Retrieved ${validDecks.length} valid decks for ${cardId}`,
     );
@@ -923,7 +1076,7 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
 
 // Get value names for a card using the standard schema
 export async function getCardValueNames(card: Card): Promise<string[]> {
-    // If card is null or undefined, return empty array 
+    // If card is null or undefined, return empty array
     if (!card) return [];
 
     const gun = getGun();
@@ -934,48 +1087,66 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
 
     try {
         let valueIds: string[] = [];
-        
+
         // Check if we have values_ref following the schema
-        if (card.values_ref && typeof card.values_ref === 'object') {
+        if (card.values_ref && typeof card.values_ref === "object") {
             // If it's a Gun.js reference, follow it
-            if ('#' in card.values_ref) {
-                console.log(`Card ${card.card_id} has values_ref as a Gun reference`);
-                const valuesRefPath = (card.values_ref as any)['#'];
-                
+            if ("#" in card.values_ref) {
+                console.log(
+                    `Card ${card.card_id} has values_ref as a Gun reference`,
+                );
+                const valuesRefPath = (card.values_ref as any)["#"];
+
                 try {
                     // Get all value IDs from the reference map
-                    await new Promise<void>(resolve => {
-                        gun.get(valuesRefPath).map().once((val: any, id: string) => {
-                            if (val === true && id !== '_' && id !== '#') {
-                                console.log(`Found value ID ${id} via values_ref reference`);
-                                if (!valueIds.includes(id)) valueIds.push(id);
-                            }
-                        });
-                        
+                    await new Promise<void>((resolve) => {
+                        gun.get(valuesRefPath)
+                            .map()
+                            .once((val: any, id: string) => {
+                                if (val === true && id !== "_" && id !== "#") {
+                                    console.log(
+                                        `Found value ID ${id} via values_ref reference`,
+                                    );
+                                    if (!valueIds.includes(id))
+                                        valueIds.push(id);
+                                }
+                            });
+
                         // Give enough time for all values to load
                         setTimeout(resolve, 500);
                     });
                 } catch (err) {
-                    console.error(`Error following values_ref at ${valuesRefPath}:`, err);
+                    console.error(
+                        `Error following values_ref at ${valuesRefPath}:`,
+                        err,
+                    );
                 }
             } else {
                 // Direct values_ref map in the card: {"value_1": true, "value_2": true}
-                valueIds = Object.keys(card.values_ref)
-                    .filter(key => card.values_ref[key] === true && key !== '_' && key !== '#');
-                console.log(`Found ${valueIds.length} value IDs in direct values_ref map`);
+                valueIds = Object.keys(card.values_ref).filter(
+                    (key) =>
+                        card.values_ref[key] === true &&
+                        key !== "_" &&
+                        key !== "#",
+                );
+                console.log(
+                    `Found ${valueIds.length} value IDs in direct values_ref map`,
+                );
             }
         }
-        
+
         // We only use values_ref in the standard schema
-        
+
         // If we found no values despite all our attempts, return empty array
         if (valueIds.length === 0) {
             console.log(`No values found for card ${card.card_id}`);
             return [];
         }
-        
+
         // Now we need to get the actual names for these value IDs
-        console.log(`Looking up names for ${valueIds.length} value IDs: ${valueIds.join(', ')}`);
+        console.log(
+            `Looking up names for ${valueIds.length} value IDs: ${valueIds.join(", ")}`,
+        );
         const valueNames = await Promise.all(
             valueIds.map(async (id: string) => {
                 try {
@@ -983,38 +1154,53 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                     const valuePath = `${nodes.values}/${id}`;
                     console.log(`Fetching value data from ${valuePath}`);
                     const valueData = await get(valuePath);
-                    
+
                     // If we found the value with a name, use it
-                    if (valueData && typeof valueData === 'object' && 'name' in valueData) {
+                    if (
+                        valueData &&
+                        typeof valueData === "object" &&
+                        "name" in valueData
+                    ) {
                         console.log(`Found value name: ${valueData.name}`);
                         return valueData.name as string;
                     }
-                    
+
                     // If we couldn't find the value, format the ID as a fallback
                     // This is better than no value at all
-                    if (id.startsWith('value_')) {
-                        const formattedName = id.replace('value_', '')
-                            .split('_').join(' ')
-                            .split('-').join(' ')
-                            .split(' ')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                        console.log(`Formatted value ID ${id} to name: ${formattedName}`);
+                    if (id.startsWith("value_")) {
+                        const formattedName = id
+                            .replace("value_", "")
+                            .split("_")
+                            .join(" ")
+                            .split("-")
+                            .join(" ")
+                            .split(" ")
+                            .map(
+                                (word) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1),
+                            )
+                            .join(" ");
+                        console.log(
+                            `Formatted value ID ${id} to name: ${formattedName}`,
+                        );
                         return formattedName;
                     }
-                    
+
                     // Last resort: return the ID itself
                     return id;
                 } catch (err) {
                     console.error(`Error fetching value ${id}:`, err);
                     return ""; // Return empty string for failed lookups
                 }
-            })
+            }),
         );
-        
+
         // Filter out any empty strings from failed lookups
         const filteredNames = valueNames.filter(Boolean);
-        console.log(`Returning ${filteredNames.length} value names for card ${card.card_id}`);
+        console.log(
+            `Returning ${filteredNames.length} value names for card ${card.card_id}`,
+        );
         return filteredNames;
     } catch (error) {
         console.error(`[getCardValueNames] Error:`, error);
@@ -1035,97 +1221,144 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
 
     try {
         let capabilityIds: string[] = [];
-        
+
         // Check if we have capabilities_ref following the schema
-        if (card.capabilities_ref && typeof card.capabilities_ref === 'object') {
+        if (
+            card.capabilities_ref &&
+            typeof card.capabilities_ref === "object"
+        ) {
             // If it's a Gun.js reference, follow it
-            if ('#' in card.capabilities_ref) {
-                console.log(`Card ${card.card_id} has capabilities_ref as a Gun reference`);
-                const capsRefPath = (card.capabilities_ref as any)['#'];
-                
+            if ("#" in card.capabilities_ref) {
+                console.log(
+                    `Card ${card.card_id} has capabilities_ref as a Gun reference`,
+                );
+                const capsRefPath = (card.capabilities_ref as any)["#"];
+
                 try {
                     // Get all capability IDs from the reference map
-                    await new Promise<void>(resolve => {
-                        gun.get(capsRefPath).map().once((val: any, id: string) => {
-                            if (val === true && id !== '_' && id !== '#') {
-                                console.log(`Found capability ID ${id} via capabilities_ref reference`);
-                                if (!capabilityIds.includes(id)) capabilityIds.push(id);
-                            }
-                        });
-                        
+                    await new Promise<void>((resolve) => {
+                        gun.get(capsRefPath)
+                            .map()
+                            .once((val: any, id: string) => {
+                                if (val === true && id !== "_" && id !== "#") {
+                                    console.log(
+                                        `Found capability ID ${id} via capabilities_ref reference`,
+                                    );
+                                    if (!capabilityIds.includes(id))
+                                        capabilityIds.push(id);
+                                }
+                            });
+
                         // Give enough time for all capabilities to load
                         setTimeout(resolve, 500);
                     });
                 } catch (err) {
-                    console.error(`Error following capabilities_ref at ${capsRefPath}:`, err);
+                    console.error(
+                        `Error following capabilities_ref at ${capsRefPath}:`,
+                        err,
+                    );
                 }
             } else {
                 // Direct capabilities_ref map in the card: {"capability_1": true, "capability_2": true}
-                capabilityIds = Object.keys(card.capabilities_ref)
-                    .filter(key => card.capabilities_ref[key] === true && key !== '_' && key !== '#');
-                console.log(`Found ${capabilityIds.length} capability IDs in direct capabilities_ref map`);
+                capabilityIds = Object.keys(card.capabilities_ref).filter(
+                    (key) =>
+                        card.capabilities_ref[key] === true &&
+                        key !== "_" &&
+                        key !== "#",
+                );
+                console.log(
+                    `Found ${capabilityIds.length} capability IDs in direct capabilities_ref map`,
+                );
             }
         }
-        
+
         // We only use capabilities_ref in the standard schema
-        
+
         // If we found no capabilities despite all our attempts, return empty array
         if (capabilityIds.length === 0) {
             console.log(`No capabilities found for card ${card.card_id}`);
             return [];
         }
-        
+
         // Now we need to get the actual names for these capability IDs
-        console.log(`Looking up names for ${capabilityIds.length} capability IDs: ${capabilityIds.join(', ')}`);
+        console.log(
+            `Looking up names for ${capabilityIds.length} capability IDs: ${capabilityIds.join(", ")}`,
+        );
         const capabilityNames = await Promise.all(
             capabilityIds.map(async (id: string) => {
                 try {
                     // Try to fetch the capability object from the database
                     const capabilityPath = `${nodes.capabilities}/${id}`;
-                    console.log(`Fetching capability data from ${capabilityPath}`);
+                    console.log(
+                        `Fetching capability data from ${capabilityPath}`,
+                    );
                     const capabilityData = await get(capabilityPath);
-                    
+
                     // If we found the capability with a name, use it
-                    if (capabilityData && typeof capabilityData === 'object' && 'name' in capabilityData) {
-                        console.log(`Found capability name: ${capabilityData.name}`);
+                    if (
+                        capabilityData &&
+                        typeof capabilityData === "object" &&
+                        "name" in capabilityData
+                    ) {
+                        console.log(
+                            `Found capability name: ${capabilityData.name}`,
+                        );
                         return capabilityData.name as string;
                     }
-                    
+
                     // If we couldn't find the capability, format the ID as a fallback
                     // This is better than no capability at all
-                    if (id.startsWith('capability_')) {
-                        const formattedName = id.replace('capability_', '')
-                            .split('_').join(' ')
-                            .split('-').join(' ')
-                            .split(' ')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                        console.log(`Formatted capability ID ${id} to name: ${formattedName}`);
+                    if (id.startsWith("capability_")) {
+                        const formattedName = id
+                            .replace("capability_", "")
+                            .split("_")
+                            .join(" ")
+                            .split("-")
+                            .join(" ")
+                            .split(" ")
+                            .map(
+                                (word) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1),
+                            )
+                            .join(" ");
+                        console.log(
+                            `Formatted capability ID ${id} to name: ${formattedName}`,
+                        );
                         return formattedName;
                     }
-                    
+
                     // Cap_ format is also common in the system
-                    if (id.startsWith('cap_')) {
-                        const formattedName = id.replace('cap_', '')
-                            .split('_')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                        console.log(`Formatted cap_ ID ${id} to name: ${formattedName}`);
+                    if (id.startsWith("cap_")) {
+                        const formattedName = id
+                            .replace("cap_", "")
+                            .split("_")
+                            .map(
+                                (word) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1),
+                            )
+                            .join(" ");
+                        console.log(
+                            `Formatted cap_ ID ${id} to name: ${formattedName}`,
+                        );
                         return formattedName;
                     }
-                    
+
                     // Last resort: return the ID itself
                     return id;
                 } catch (err) {
                     console.error(`Error fetching capability ${id}:`, err);
                     return ""; // Return empty string for failed lookups
                 }
-            })
+            }),
         );
-        
+
         // Filter out any empty strings from failed lookups
         const filteredNames = capabilityNames.filter(Boolean);
-        console.log(`Returning ${filteredNames.length} capability names for card ${card.card_id}`);
+        console.log(
+            `Returning ${filteredNames.length} capability names for card ${card.card_id}`,
+        );
         return filteredNames;
     } catch (error) {
         console.error(`[getCardCapabilityNames] Error:`, error);
