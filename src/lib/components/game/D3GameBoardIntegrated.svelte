@@ -2,51 +2,97 @@
   import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
   import * as icons from '@lucide/svelte';
-  import gameStore from '$lib/stores/enhancedGameStore';
-  import type { ActorWithPosition, AgreementWithPosition } from '$lib/stores/enhancedGameStore';
+  import { currentGameStore } from '$lib/stores/gameStore';
+  import { 
+    getActors, 
+    getAgreements, 
+    getGameGraph, 
+    updateNodePosition 
+  } from '$lib/services/gameService';
+  import type { Game, Actor, Agreement } from '$lib/types';
   import AgreementModalIntegrated from './AgreementModalIntegrated.svelte';
   import NodeDetailsPanelIntegrated from './NodeDetailsPanelIntegrated.svelte';
-
-  // Props
-  export let gameId: string;
-  export let activeActorId: string | undefined = undefined;
   
-  // Local variables
-  let svgRef: SVGSVGElement;
-  let searchTerm = '';
-  let width = 800;
-  let height = 600;
-  let hoveredNode: string | null = null;
-  let hoveredCategory: string | null = null;
-  let subItems: any[] = [];
-  let categoryCount = 0;
-  let isDetailsOpen = false;
-  let showAgreementModal = false;
+  // Define ActorWithPosition and AgreementWithPosition types locally
+  interface Position {
+    x: number;
+    y: number;
+  }
 
-  // Subscribe to stores
-  let actors: ActorWithPosition[] = [];
-  let agreements: AgreementWithPosition[] = [];
-  let storeActorId: string | null = null;
+  interface ActorWithPosition extends Actor {
+    position?: Position;
+  }
 
-  // Set up subscriptions to the stores
-  const actorsUnsubscribe = gameStore.actors.subscribe(value => {
-    actors = value;
-    if (svgRef) {
-      initializeGraph();
-    }
-  });
+  interface AgreementWithPosition extends Agreement {
+    position?: Position;
+  }
 
-  const agreementsUnsubscribe = gameStore.agreements.subscribe(value => {
-    agreements = value;
-    if (svgRef) {
-      initializeGraph();
-    }
-  });
+  // Use Svelte 5 Runes for props
+  const { gameId, activeActorId = undefined } = $props<{ 
+    gameId: string;
+    activeActorId?: string | null;
+  }>();
+  
+  // Local variables with Svelte 5 Runes
+  let svgRef = $state<SVGSVGElement | null>(null); 
+  let searchTerm = $state('');
+  let width = $state(800);
+  let height = $state(600);
+  let hoveredNode = $state<string | null>(null);
+  let hoveredCategory = $state<string | null>(null);
+  let subItems = $state<any[]>([]);
+  let categoryCount = $state(0);
+  let isDetailsOpen = $state(false);
+  let showAgreementModal = $state(false);
 
-  const activeActorUnsubscribe = gameStore.activeActorId.subscribe(value => {
-    storeActorId = value;
-    if (svgRef) {
-      initializeGraph();
+  // Local state for actors and agreements
+  let actors = $state<ActorWithPosition[]>([]);
+  let agreements = $state<AgreementWithPosition[]>([]);
+  let selectedNodeId = $state<string | null>(null);
+  let selectedNodeType = $state<'actor' | 'agreement' | null>(null);
+  
+  // Local state for tracking if data is loaded
+  let isLoading = $state(true);
+  let loadError = $state('');
+
+  // Effect to load data when the component mounts or gameId changes
+  $effect(async () => {
+    if (!gameId) return;
+    
+    isLoading = true;
+    loadError = '';
+    
+    try {
+      // Get actors and agreements from gameService
+      const gameActors = await getActors(gameId);
+      const gameAgreements = await getAgreements(gameId);
+      
+      // Update local state
+      actors = gameActors.map(actor => ({
+        ...actor,
+        position: actor.position || undefined
+      }));
+      
+      agreements = gameAgreements.map(agreement => ({
+        ...agreement,
+        position: agreement.position || undefined
+      }));
+      
+      if (actors.length === 0 && agreements.length === 0) {
+        console.log('No actors or agreements found for game:', gameId);
+      } else {
+        console.log(`Loaded ${actors.length} actors and ${agreements.length} agreements`);
+      }
+      
+      // If we have the SVG element, initialize the graph
+      if (svgRef) {
+        initializeGraph();
+      }
+    } catch (err) {
+      console.error('Error loading game graph:', err);
+      loadError = 'Failed to load game data';
+    } finally {
+      isLoading = false;
     }
   });
 
@@ -104,7 +150,7 @@
         y: actor.position?.y || Math.random() * height,
         fx: actor.position?.x || null,
         fy: actor.position?.y || null,
-        active: actor.actor_id === (activeActorId || storeActorId),
+        active: actor.actor_id === activeActorId,
       })),
       ...agreements.map((agreement) => ({
         id: agreement.id,
@@ -412,7 +458,7 @@
       );
       
       // If this is the active actor, scale the node radius by 1.5x
-      const isActive = d.id === (activeActorId || storeActorId);
+      const isActive = d.id === activeActorId;
       const nodeRadius = isActive ? baseNodeRadius * 1.5 : baseNodeRadius;
 
       d3.select(this)
@@ -472,28 +518,17 @@
   };
 
   onMount(() => {
-    if (svgRef) {
-      // Add CSS variables for node sizing to root
-      document.documentElement.style.setProperty('--actor-node-radius', '35px');
-      document.documentElement.style.setProperty('--agreement-node-radius', '17px');
-      document.documentElement.style.setProperty('--donut-thickness', '15px');
-      
-      // Initialize the game board
-      gameStore.initializeGameBoard(gameId);
-      
-      // Initialize the active actor ID if provided as a prop
-      if (activeActorId) {
-        console.log(`Setting active actor in D3GameBoard onMount: ${activeActorId}`);
-        gameStore.setActiveActorId(activeActorId);
-      }
+    // Add CSS variables for node sizing to root
+    document.documentElement.style.setProperty('--actor-node-radius', '35px');
+    document.documentElement.style.setProperty('--agreement-node-radius', '17px');
+    document.documentElement.style.setProperty('--donut-thickness', '15px');
+    
+    // Initialize the game board is handled in the $effect at the top
+    
+    // Log the active actor ID if provided for debugging
+    if (activeActorId) {
+      console.log(`Active actor in D3GameBoard onMount: ${activeActorId}`);
     }
-  });
-
-  onDestroy(() => {
-    // Unsubscribe from all stores to prevent memory leaks
-    actorsUnsubscribe();
-    agreementsUnsubscribe();
-    activeActorUnsubscribe();
   });
 
   // Handle adding a new agreement

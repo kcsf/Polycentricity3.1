@@ -2,14 +2,19 @@
   import { onMount, onDestroy } from 'svelte';
   import D3CardBoard from './D3CardBoard.svelte';
   import { getAvailableCardsForGame } from '$lib/services/gameService';
+  import { currentGameStore } from '$lib/stores/gameStore';
   import type { Card } from '$lib/types';
   
-  export let gameId: string;
-  export let activeActorId: string | undefined = undefined;
+  // Use Svelte 5 Runes for props
+  const { gameId, activeActorId = undefined } = $props<{ 
+    gameId: string;
+    activeActorId?: string | null;
+  }>();
   
-  let isLoading = true;
-  let error = '';
-  let cards: Card[] = [];
+  // Local state with Svelte 5 Runes
+  let isLoading = $state(true);
+  let error = $state('');
+  let cards = $state<Card[]>([]);
   
   onMount(async () => {
     console.log(`CardBoard: Initializing for game ${gameId}`);
@@ -31,6 +36,11 @@
       // Set cards to pass to D3CardBoard
       cards = availableCards;
       
+      // Log the active actor for debugging
+      if (activeActorId) {
+        console.log(`CardBoard: Active actor: ${activeActorId}`);
+      }
+      
       isLoading = false;
     } catch (err) {
       console.error('CardBoard: Error initializing:', err);
@@ -48,7 +58,7 @@
   {:else if error}
     <div class="error-container p-8 text-center">
       <p class="text-error-500">{error}</p>
-      <button class="btn variant-filled-primary mt-4" on:click={() => window.location.reload()}>
+      <button class="btn variant-filled-primary mt-4" onclick={() => window.location.reload()}>
         Retry
       </button>
     </div>
