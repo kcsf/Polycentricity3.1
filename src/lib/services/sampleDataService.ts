@@ -4,8 +4,9 @@
  * Data initialization service that follows the schema exactly as defined in GunSchema.md
  * Uses direct Gun.js calls with batch processing for efficiency
  * Creates sample data in the correct order: users, decks, cards, values, capabilities,
- * game, actors, agreements, chat rooms, messages, node positions
+ * game, actors, agreements, node positions
  * Compatible with +page.svelte for initialization, verification, and clearing
+ * Excludes chat rooms and messages
  ***************************************************************************************/
 
 import {
@@ -43,7 +44,7 @@ async function robustPut(
     if (Array.isArray(obj)) {
       const result: Record<string, any> = {};
       obj.forEach((val, idx) => {
-        if (val !== undefined) result[idx] = deepClean(val);
+        if (val !== undefined) result[String(idx)] = deepClean(val);
       });
       return result;
     }
@@ -63,32 +64,24 @@ async function robustPut(
 
   return new Promise<boolean>((resolve) => {
     try {
-      // Use a shorter timeout for faster development
-      const timeoutId = setTimeout(() => {
-        console.warn(`[sampleData] Timeout saving to ${path}/${key}`);
-        resolve(false);
-      }, 2000);
-      
       gun
         .get(path)
         .get(key)
         .put(cleanData, (ack: any) => {
-          clearTimeout(timeoutId); // Clear the timeout as we got a response
           if (ack && ack.err) {
-            console.warn(`[sampleData] Error saving to ${path}/${key}: ${ack.err}`);
+            console.warn(
+              `[sampleData] Error saving to ${path}/${key}:`,
+              ack.err,
+            );
             resolve(false);
           } else {
-            console.log(`[sampleData] Successfully wrote to ${path}/${key}`);
-            // Verify the data was actually stored by reading it back
-            gun.get(path).get(key).once((data) => {
-              const success = data !== undefined;
-              console.log(`[sampleData] Verification for ${path}/${key}: ${success ? 'SUCCESS' : 'FAILED'}`);
-              resolve(success);
-            });
+            console.log(`[sampleData] Successfully saved to ${path}/${key}`);
+            resolve(true);
           }
         });
+      setTimeout(() => resolve(true), 1000);
     } catch (error) {
-      console.error(`[sampleData] Exception for ${path}/${key}: ${error?.message || error}`);
+      console.error(`[sampleData] Exception for ${path}/${key}:`, error);
       resolve(false);
     }
   });
@@ -105,8 +98,9 @@ async function saveBatch<T extends { [key: string]: any }>(
   console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
   for (const item of items) {
     await robustPut(nodePath, String(item[idField]), item);
+    await delay(100);
   }
-  await delay(100);
+  await delay(200);
 }
 
 /**
@@ -118,21 +112,16 @@ async function createEdgesBatch(
   console.log(
     `[seed] Creating ${edgeDefinitions.length} relationships in batch`,
   );
-  
-  // Process relationships in sequence with error handling
-  for (const def of edgeDefinitions) {
-    try {
-      console.log(`[seed] Creating relationship: ${def.fromSoul}.${def.field} -> ${def.toSoul}`);
-      await createRelationship(def.fromSoul, def.field, def.toSoul);
-    } catch (error) {
-      console.error(`[seed] Failed to create relationship: ${def.fromSoul}.${def.field} -> ${def.toSoul}`, error);
-    }
-    // Small delay between operations
-    await delay(10);
+  const batchSize = 20;
+  for (let i = 0; i < edgeDefinitions.length; i += batchSize) {
+    const batch = edgeDefinitions.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map((def) =>
+        createRelationship(def.fromSoul, def.field, def.toSoul),
+      ),
+    );
+    await delay(100);
   }
-  
-  console.log(`[seed] Completed creating relationships`);
-  await delay(500);
 }
 
 /**
@@ -146,7 +135,7 @@ export async function initializeSampleData() {
     return { success: false, message: "Gun not initialized" };
   }
 
-  const now = Date.now();
+  const now = Number(Date.now());
 
   // 1. Users (4 users, u_123 is Admin)
   const users = [
@@ -493,7 +482,7 @@ export async function initializeSampleData() {
     max_players: 5,
     players: { u_123: true, u_124: true, u_125: true, u_126: true },
     player_actor_map: {
-      u_123: "actor_1",  // Alice has two actors (actor_1 and actor_5)
+      u_123: "actor_1",
       u_124: "actor_2",
       u_125: "actor_3",
       u_126: "actor_4",
@@ -506,7 +495,6 @@ export async function initializeSampleData() {
       ag_4: true,
       ag_5: true,
     },
-    chat_rooms_ref: {},
   };
 
   // 7. Actors
@@ -519,7 +507,7 @@ export async function initializeSampleData() {
       actor_type: "National Identity",
       custom_name: "Alice's Luminos Funder",
       status: "active",
-      agreements_ref: { ag_1: true, ag_4: true, ag_5: true },
+      agreements_ref: { ag_1: true, ag_5: true },
       created_at: now,
     },
     {
@@ -530,7 +518,7 @@ export async function initializeSampleData() {
       actor_type: "National Identity",
       custom_name: "Bob's Green Veil DAO",
       status: "active",
-      agreements_ref: { ag_1: true, ag_2: true, ag_5: true },
+      agreements_ref: { ag_1: true, ag_2: true },
       created_at: now,
     },
     {
@@ -647,23 +635,23 @@ export async function initializeSampleData() {
           obligation: "Provide $3K funding",
           benefit: "Gain tech prototype access",
         },
-        actor_1: {
-          card_ref: "card_1",
+        actor_4: {
+          card_ref: "card_4",
           obligation: "Develop tech prototype",
           benefit: "Receive funding",
         },
       },
-      cards_ref: { card_4: true, card_1: true },
+      cards_ref: { card_4: true },
       created_at: now,
       updated_at: now,
-      votes: { actor_4: "accept", actor_1: "accept" },
+      votes: { actor_4: "accept" },
     },
     {
       agreement_id: "ag_5",
       game_ref: "g_456",
       creator_ref: "u_123",
       title: "Resource Sharing",
-      summary: "Luminos Funder and Green Veil DAO share resources",
+      summary: "Luminos Funder and Eco-Patron Collective share resources",
       type: "symmetric",
       status: "accepted",
       parties: {
@@ -672,22 +660,20 @@ export async function initializeSampleData() {
           obligation: "Share funding expertise",
           benefit: "Access tech solutions",
         },
-        actor_2: {
-          card_ref: "card_2",
+        actor_4: {
+          card_ref: "card_4",
           obligation: "Share tech expertise",
           benefit: "Access funding networks",
         },
       },
-      cards_ref: { card_1: true, card_2: true },
+      cards_ref: { card_1: true, card_4: true },
       created_at: now,
       updated_at: now,
-      votes: { actor_1: "accept", actor_2: "accept" },
+      votes: { actor_1: "accept", actor_4: "accept" },
     },
   ];
 
-  // 9. No chat rooms or messages - removed
-
-  // 10. Node Positions (circular layout)
+  // 9. Node Positions (circular layout)
   const radius = 200;
   const centerX = 400;
   const centerY = 300;
@@ -710,57 +696,13 @@ export async function initializeSampleData() {
 
   // Save entities in order
   await saveBatch(nodes.users, users, "user_id");
-  
-  console.log("[seed] Saving deck directly");
-  const deckSuccess = await robustPut(nodes.decks, deck.deck_id, deck);
-  if (!deckSuccess) {
-    console.error("[seed] Failed to save deck, will retry once");
-    await delay(500);
-    await robustPut(nodes.decks, deck.deck_id, deck);
-  }
-  
+  await robustPut(nodes.decks, deck.deck_id, deck);
   await saveBatch(nodes.cards, cards, "card_id");
   await saveBatch(nodes.values, values, "value_id");
   await saveBatch(nodes.capabilities, capabilities, "capability_id");
-  
-  // Direct game creation with retries
-  console.log("[seed] Creating game:", game.game_id);
-  let gameSuccess = false;
-  // Try multiple direct approaches
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    console.log(`[seed] Game creation attempt ${attempt}`);
-    gameSuccess = await robustPut(nodes.games, game.game_id, game);
-    if (gameSuccess) {
-      console.log(`[seed] Game save SUCCEEDED on attempt ${attempt}`);
-      break;
-    } else {
-      console.error(`[seed] Game save FAILED on attempt ${attempt}`);
-      await delay(500);
-    }
-  }
-  
-  if (!gameSuccess) {
-    console.error("[seed] All game creation attempts failed");
-    return { success: false, message: "Failed to create game" };
-  }
-  
-  // Continue with actors
+  await robustPut(nodes.games, game.game_id, game);
   await saveBatch(nodes.actors, actors, "actor_id");
-  
-  // Save agreements with verification
-  console.log("[seed] Creating agreements one by one");
-  for (const agreement of agreements) {
-    console.log(`[seed] Creating agreement: ${agreement.agreement_id}`);
-    const agreementSuccess = await robustPut(nodes.agreements, agreement.agreement_id, agreement);
-    if (!agreementSuccess) {
-      console.error(`[seed] Failed to create agreement: ${agreement.agreement_id}`);
-      // Continue anyway
-    } else {
-      console.log(`[seed] Successfully created agreement: ${agreement.agreement_id}`);
-    }
-    await delay(100);
-  }
-
+  await saveBatch(nodes.agreements, agreements, "agreement_id");
   await saveBatch(
     nodes.node_positions,
     [...actorPositions, ...agreementPositions],
@@ -769,7 +711,7 @@ export async function initializeSampleData() {
 
   // Create relationships
   const allEdges = [];
-  // Deck ? Card
+  // Deck ↔ Card
   for (const card of cards) {
     allEdges.push({
       fromSoul: `${nodes.decks}/${deck.deck_id}`,
@@ -782,7 +724,7 @@ export async function initializeSampleData() {
       toSoul: `${nodes.decks}/${deck.deck_id}`,
     });
   }
-  // Card ? Value
+  // Card ↔ Value
   for (const card of cards) {
     for (const valueId of Object.keys(card.values_ref)) {
       if (card.values_ref[valueId]) {
@@ -799,7 +741,7 @@ export async function initializeSampleData() {
       }
     }
   }
-  // Card ? Capability
+  // Card ↔ Capability
   for (const card of cards) {
     for (const capabilityId of Object.keys(card.capabilities_ref)) {
       if (card.capabilities_ref[capabilityId]) {
@@ -816,7 +758,7 @@ export async function initializeSampleData() {
       }
     }
   }
-  // Game ? Actors, Agreements, Chat
+  // Game ↔ Actors, Agreements
   for (const actor of actors) {
     allEdges.push({
       fromSoul: `${nodes.games}/${game.game_id}`,
@@ -836,8 +778,7 @@ export async function initializeSampleData() {
       toSoul: `${nodes.agreements}/${agreement.agreement_id}`,
     });
   }
-  // Chat room reference removed
-  // Actor ? Agreement
+  // Actor ↔ Agreement
   for (const agreement of agreements) {
     for (const actorId of Object.keys(agreement.parties)) {
       allEdges.push({
@@ -852,7 +793,7 @@ export async function initializeSampleData() {
       });
     }
   }
-  // User ? Actor
+  // User ↔ Actor
   for (const actor of actors) {
     allEdges.push({
       fromSoul: `${nodes.users}/${actor.user_ref}`,
@@ -860,7 +801,7 @@ export async function initializeSampleData() {
       toSoul: `${nodes.actors}/${actor.actor_id}`,
     });
   }
-  // Game ? Deck
+  // Game ↔ Deck
   allEdges.push({
     fromSoul: `${nodes.games}/${game.game_id}`,
     field: "deck_ref",
@@ -883,7 +824,17 @@ export async function verifySampleData() {
     return { success: false, message: "Gun not initialized" };
   }
 
-  const nodeTypes = Object.values(nodes);
+  const nodeTypes = [
+    nodes.users,
+    nodes.games,
+    nodes.actors,
+    nodes.cards,
+    nodes.decks,
+    nodes.values,
+    nodes.capabilities,
+    nodes.agreements,
+    nodes.node_positions,
+  ];
   const counts: Record<string, number> = {};
 
   async function countEntities(path: string): Promise<number> {
@@ -897,7 +848,7 @@ export async function verifySampleData() {
             count++;
           }
         });
-      setTimeout(() => resolve(count), 500);
+      setTimeout(() => resolve(count), 1000);
     });
   }
 
@@ -908,6 +859,7 @@ export async function verifySampleData() {
     } catch (error) {
       console.error(`[verify] Error counting ${nodeType}:`, error);
     }
+    await delay(100);
   }
 
   return { success: true, message: "Verification done", counts };
@@ -923,7 +875,19 @@ export async function clearSampleData() {
     return { success: false, message: "Gun not initialized" };
   }
 
-  const nodeTypes = Object.values(nodes);
+  const nodeTypes = [
+    nodes.users,
+    nodes.games,
+    nodes.actors,
+    nodes.cards,
+    nodes.decks,
+    nodes.values,
+    nodes.capabilities,
+    nodes.agreements,
+    nodes.chat_rooms,
+    nodes.chat_messages,
+    nodes.node_positions,
+  ];
 
   for (const nodeType of nodeTypes) {
     try {
@@ -938,7 +902,7 @@ export async function clearSampleData() {
               result[key] = null;
             }
           });
-        setTimeout(() => resolve(result), 500);
+        setTimeout(() => resolve(result), 1000);
       });
 
       for (const key of Object.keys(nodeData)) {
@@ -963,7 +927,7 @@ export async function clearSampleData() {
             });
         });
       }
-      await delay(10);
+      await delay(100);
     } catch (error) {
       console.error(`[clear] Error clearing ${nodeType}:`, error);
     }

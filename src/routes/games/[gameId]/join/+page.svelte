@@ -4,8 +4,7 @@
     import { goto } from '$app/navigation';
     import { getGame, isGameFull, joinGame, getUserActors, assignRole, updatePlayerActorMap } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
-    import { activeActorId } from '$lib/stores/enhancedGameStore'; 
-    import { getGun, nodes } from '$lib/services/gunService';
+    import { currentGameStore, setCurrentGame } from '$lib/stores/gameStore';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     import type { Game, Actor } from '$lib/types';
     import * as icons from '@lucide/svelte';
@@ -21,6 +20,7 @@
     let isFull = $state(false);
     let actorSelected = $state(false);
     let selectedActor = $state<Actor | null>(null);
+    let activeActorId = $state<string | null>(null);
     
     onMount(async () => {
         try {
@@ -58,11 +58,15 @@
             const userId = $userStore.user.user_id;
             if (userId) {
                 const existingActors = await getUserActors();
-                const actorForThisGame = existingActors.find(actor => actor.game_id === gameId);
+                const actorForThisGame = existingActors.find(actor => actor.game_ref === gameId);
                 
                 console.log(`Checking existing actors: ${existingActors.length} actors, Game ID: ${gameId}`);
                 if (actorForThisGame) {
                     console.log(`User already has actor ${actorForThisGame.actor_id} assigned to game ${gameId}`);
+                    
+                    // Update current game in the store
+                    setCurrentGame(game);
+                    
                     // Redirect back to game page with error handling
                     try {
                         await goto(`/games/${gameId}`);
@@ -82,6 +86,10 @@
             const playersObj = game.players as Record<string, boolean> | Record<string, string>;
             if (playersObj && $userStore.user && playersObj[$userStore.user.user_id]) {
                 // User is already in the game, redirect to game page with error handling
+                
+                // Update current game in the store
+                setCurrentGame(game);
+                
                 try {
                     await goto(`/games/${gameId}`);
                     console.log(`[JoinPage] Navigation to game page successful (already in game)`);
@@ -100,7 +108,10 @@
         }
     });
     
-    // Optimized with fire-and-forget pattern for better navigation
+    /**
+     * Handle actor selection with optimized fire-and-forget pattern for better navigation
+     * @param actor - The selected actor
+     */
     async function handleActorSelection(actor: Actor) {
         try {
             if (!$userStore.user) {
@@ -111,18 +122,20 @@
             console.log(`[JoinPage] Selected actor: ${actor.actor_id} for game ${gameId}`);
             selectedActor = actor;
             actorSelected = true;
+            activeActorId = actor.actor_id;
             
             // STEP 1: Set up critical state for immediate navigation
             
             // First, store actor ID in localStorage for persistence between page loads
             localStorage.setItem(`game_${gameId}_actor`, actor.actor_id);
             
-            // Update the active actor ID in the store for immediate UI updates
-            console.log(`[JoinPage] Setting active actor in store: ${actor.actor_id}`);
-            activeActorId.set(actor.actor_id);
+            // Update the current game in the store for global state access
+            if (game) {
+                setCurrentGame(game);
+            }
             
             // STEP 2: Fire-and-forget background operations
-            // These will continue to run after we navigate away
+            // These operations will continue to run after we navigate away
             
             // Setup retry logic with timeouts
             const maxAttempts = 3;
@@ -180,6 +193,9 @@
         }
     }
     
+    /**
+     * Navigate back to the games list
+     */
     async function goBack() {
         try {
             await goto('/games');
