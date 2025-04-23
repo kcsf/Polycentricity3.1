@@ -7,8 +7,6 @@
   import type { Deck, CardWithPosition } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
-  import { resetGunDatabase } from '$lib/services/gunResetService';
-  import { cleanupNullCardReferences } from '$lib/services/cleanupService';
 
   // State variables using Svelte 5 Runes
   let selectedDeckId = $state('');
@@ -16,8 +14,6 @@
   let cards = $state<CardWithPosition[]>([]);
   let isLoading = $state(true);
   let error = $state<string | null>(null);
-  let isCleaning = $state(false);
-  let cleanupMessage = $state<string | null>(null);
 
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state<string[]>([]);
@@ -160,55 +156,6 @@
     selectedDeckId = select.value;
     loadDeckCards(selectedDeckId);
   }
-  
-  // Clear local component cache
-  async function clearCache() {
-    isCleaning = true;
-    cleanupMessage = "Clearing component cache...";
-    
-    try {
-      // Clear our local svelte state
-      cards = [];
-      decks = [];
-      
-      // Reload the data from Gun.js but bypass any caching
-      await loadDecks();
-      
-      cleanupMessage = "Component cache cleared and data reloaded.";
-      setTimeout(() => {
-        cleanupMessage = null;
-        isCleaning = false;
-      }, 3000);
-    } catch (err) {
-      console.error("Error clearing cache:", err);
-      cleanupMessage = `Error clearing cache: ${err instanceof Error ? err.message : String(err)}`;
-      isCleaning = false;
-    }
-  }
-  
-  // Cleanup null card references
-  async function cleanupNullRefs() {
-    isCleaning = true;
-    cleanupMessage = "Cleaning up null card references...";
-    
-    try {
-      const result = await cleanupNullCardReferences();
-      console.log("Cleanup result:", result);
-      
-      if (result.success) {
-        cleanupMessage = `Successfully removed ${result.removed} null references. Reloading data...`;
-        // Reload data
-        await loadDecks();
-      } else {
-        cleanupMessage = `Error during cleanup: ${result.error}`;
-      }
-    } catch (err) {
-      console.error("Error cleaning up references:", err);
-      cleanupMessage = `Error cleaning up references: ${err instanceof Error ? err.message : String(err)}`;
-    } finally {
-      isCleaning = false;
-    }
-  }
 
   onMount(() => {
     loadDecks();
@@ -243,8 +190,8 @@
                 id="deck-select"
                 class="select rounded-md w-full md:w-1/2 lg:w-1/3 bg-surface-100-800-token text-surface-900-50-token border border-surface-300-600-token"
                 value={selectedDeckId}
-                onChange={handleDeckChange}
-                disabled={isLoading || isCleaning}
+                on:change={handleDeckChange}
+                disabled={isLoading}
               >
                 {#if decks.length === 0}
                   <option value="">No decks available</option>
@@ -256,48 +203,13 @@
               </select>
               <button
                 class="btn bg-primary-500-token hover:bg-primary-600-token text-white flex items-center gap-2"
-                onclick={() => loadDeckCards(selectedDeckId)}
-                disabled={isLoading || isCleaning}
+                on:click={() => loadDeckCards(selectedDeckId)}
+                disabled={isLoading}
               >
                 <icons.RefreshCcw class="w-4 h-4" />
                 Refresh
               </button>
             </div>
-            
-            <!-- Database maintenance buttons -->
-            <div class="flex flex-wrap gap-2 mt-4">
-              <button
-                class="btn variant-ghost-warning flex items-center gap-2 text-sm"
-                onclick={cleanupNullRefs}
-                disabled={isLoading || isCleaning}
-              >
-                <icons.Eraser class="w-4 h-4" />
-                Clean Null References
-              </button>
-              
-              <button
-                class="btn variant-ghost-error flex items-center gap-2 text-sm"
-                onclick={clearCache}
-                disabled={isLoading || isCleaning}
-              >
-                <icons.RefreshCcw class="w-4 h-4" />
-                Clear Component Cache
-              </button>
-            </div>
-            
-            <!-- Cleanup status message -->
-            {#if cleanupMessage}
-              <div class="alert variant-soft-primary mt-2 p-2">
-                <div class="flex items-center gap-2">
-                  {#if isCleaning}
-                    <div class="spinner-third w-4 h-4"></div>
-                  {:else}
-                    <icons.CheckCircle class="w-4 h-4" />
-                  {/if}
-                  <p class="text-sm">{cleanupMessage}</p>
-                </div>
-              </div>
-            {/if}
           </div>
 
           <!-- Error display -->
