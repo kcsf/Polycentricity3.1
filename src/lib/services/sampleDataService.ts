@@ -1,59 +1,17 @@
 /****************************************************************************************
- * sampleDataService.ts (edge-centric version)
+ * sampleDataService.ts
  * -------------------------------------------------------------------------------------
- * Seeds:
- *   - Users, Cards, Deck, Game, Actors, Agreement, Chat, Node Positions
- *   - Values & Capabilities (native Gun edges)
- *   - At least one shared Value/Capability between the two sample cards
- *
- * Relationship logic:
- *   - deck <-> card
- *   - card <-> values
- *   - card <-> capabilities
- *   - etc.
+ * Data initialization service that follows the schema exactly as defined in GunSchema.md
+ * Uses gameService.ts for game-related operations
+ * Uses gunService.ts createRelationship for bidirectional relationships
  ***************************************************************************************/
 
-import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
+import { getGun, nodes, generateId, type GunAck, createRelationship } from "./gunService";
+import { createGame, createActor, createAgreement, joinGame, assignCardToActor } from "./gameService";
 
 // Helper function to wait between Gun operations
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Minimized logging function - only logs errors, not success messages
-function logAck(ctx: string, ack: GunAck) {
-  if (ack.err) {
-    console.warn(`[seed] ${ctx} ✗ ${ack.err}`);
-  }
-}
-
-/**
- * Simple createRelationship function (independent implementation)
- * Creates a reference from one node to another
- */
-async function createRelationship(fromSoul: string, field: string, toSoul: string): Promise<boolean> {
-  const gun = getGun();
-  if (!gun) {
-    console.error(`[sampleData] Cannot create relationship - Gun not initialized`);
-    return false;
-  }
-  
-  return new Promise<boolean>((resolve) => {
-    try {
-      gun.get(fromSoul).get(field).set(gun.get(toSoul), (ack: any) => {
-        if (ack && ack.err) {
-          console.warn(`[sampleData] Error creating relationship ${fromSoul}.${field} -> ${toSoul}`);
-          resolve(false);
-        } else {
-          resolve(true);
-        }
-      });
-      setTimeout(() => resolve(true), 1000);
-    } catch (error) {
-      console.error(`[sampleData] Exception in createRelationship`);
-      resolve(false);
-    }
-  });
 }
 
 /**
@@ -104,188 +62,290 @@ async function robustPut(path: string, key: string, data: any): Promise<boolean>
   });
 }
 
+/**
+ * Initialize sample data following the schema in GunSchema.md
+ */
 export async function initializeSampleData() {
-  console.log("[seed] Initializing sample data (edge style) …");
-  const gunDb = getGun();
-  if (!gunDb) {
+  console.log("[seed] Initializing sample data according to GunSchema.md...");
+  const gun = getGun();
+  if (!gun) {
     return { success: false, message: "Gun not initialized" };
   }
 
   const now = Date.now();
 
-  // Define sample data
+  // Define users
   const users = [
-    { user_id: "u123", name: "Member User", email: "member@example.com", role: "Member", magic_key: "abc123", devices: "device1,device2", created_at: now, last_login: now },
-    { user_id: "u124", name: "Guest User", email: "guest@example.com", role: "Guest", magic_key: "xyz789", created_at: now, last_login: now },
-    { user_id: "u125", name: "Admin User", email: "admin@example.com", role: "Admin", created_at: now, last_login: now },
+    { 
+      user_id: "u_123", 
+      name: "Alice Admin", 
+      email: "alice@example.com", 
+      role: "Admin", 
+      created_at: now 
+    },
+    { 
+      user_id: "u_124", 
+      name: "Bob Member", 
+      email: "bob@example.com", 
+      role: "Member", 
+      created_at: now 
+    },
+    { 
+      user_id: "u_125", 
+      name: "Charlie Guest", 
+      email: "charlie@example.com", 
+      role: "Guest", 
+      created_at: now 
+    }
   ];
 
+  // Define values
   const values = [
-    { value_id: "value_sustainability", name: "Sustainability", description: "Practices that can be maintained indefinitely without depleting resources", created_at: now, creator: "u125", cards: {} },
-    { value_id: "value_community-resilience", name: "Community Resilience", description: "The ability of a community to withstand, adapt to, and recover from adversity", created_at: now, creator: "u125", cards: {} },
-    { value_id: "value_transparency", name: "Transparency", description: "Open and clear communication about decisions, processes, and results", created_at: now, creator: "u125", cards: {} },
+    { 
+      value_id: "value_sustainability", 
+      name: "Sustainability", 
+      description: "Practices that can be maintained indefinitely without depleting resources", 
+      creator_ref: "u_123", 
+      cards_ref: {}, 
+      created_at: now 
+    },
+    { 
+      value_id: "value_community", 
+      name: "Community", 
+      description: "Focus on building social connections and shared resources", 
+      creator_ref: "u_123", 
+      cards_ref: {}, 
+      created_at: now 
+    },
+    { 
+      value_id: "value_transparency", 
+      name: "Transparency", 
+      description: "Open and clear communication about decisions and processes", 
+      creator_ref: "u_123", 
+      cards_ref: {}, 
+      created_at: now 
+    }
   ];
 
+  // Define capabilities
   const capabilities = [
-    { capability_id: "capability_permaculture-design", name: "Permaculture Design", description: "Ability to design sustainable agricultural ecosystems", created_at: now, creator: "u125", cards: {} },
-    { capability_id: "capability_project-management", name: "Project Management", description: "Skills in planning, organizing, and managing resources to achieve specific goals", created_at: now, creator: "u125", cards: {} },
-    { capability_id: "capability_smart-contract-development", name: "Smart Contract Development", description: "Ability to create and deploy blockchain-based automated agreements", created_at: now, creator: "u125", cards: {} },
+    { 
+      capability_id: "cap_permaculture", 
+      name: "Permaculture Design", 
+      description: "Ability to design sustainable agricultural ecosystems", 
+      creator_ref: "u_123", 
+      cards_ref: {}, 
+      created_at: now 
+    },
+    { 
+      capability_id: "cap_fundraising", 
+      name: "Fundraising", 
+      description: "Skills in raising capital for community projects", 
+      creator_ref: "u_123", 
+      cards_ref: {}, 
+      created_at: now 
+    },
+    { 
+      capability_id: "cap_community_organizing", 
+      name: "Community Organizing", 
+      description: "Ability to mobilize and coordinate community participation", 
+      creator_ref: "u_123", 
+      cards_ref: {}, 
+      created_at: now 
+    }
   ];
 
+  // Define cards
   const cards = [
     {
-      card_id: "c1", card_number: 1, role_title: "Verdant Weaver", backstory: "A skilled cultivator who weaves plant life into sustainable systems.",
-      values: { "value_sustainability": true, "value_community-resilience": true },
-      capabilities: { "capability_permaculture-design": true, "capability_project-management": true },
-      goals: "Create a self-sustaining garden; Train others in permaculture", obligations: "Must share knowledge with the community",
-      intellectual_property: "Seed storage techniques", rivalrous_resources: "Limited water supply", card_category: "Providers",
-      type: "Practice", icon: "Hammer", created_at: now, creator: "u125", decks: {}
+      card_id: "card_1",
+      card_number: 1,
+      role_title: "Eco-Village Steward",
+      card_category: "Providers",
+      type: "Practice",
+      backstory: "A skilled permaculture practitioner committed to sustainable land management",
+      goals: "Create a model permaculture system; Train others in sustainable practices",
+      intellectual_property: "Permaculture designs and implementation techniques",
+      resources: "5 acres of community land, garden tools",
+      obligations: "Must maintain the land for community benefit",
+      icon: "Sprout",
+      creator_ref: "u_123",
+      values_ref: { "value_sustainability": true, "value_community": true },
+      capabilities_ref: { "cap_permaculture": true, "cap_community_organizing": true },
+      agreements_ref: {},
+      decks_ref: {},
+      created_at: now
     },
     {
-      card_id: "c2", card_number: 2, role_title: "Luminos Funder", backstory: "A visionary investor who funds innovative ecological projects.",
-      values: { "value_sustainability": true, "value_transparency": true },
-      capabilities: { "capability_smart-contract-development": true, "capability_project-management": true },
-      goals: "Fund 5 eco-projects; Create a funding network", obligations: "Must transparently report all funding allocations",
-      intellectual_property: "Investment strategy methodologies", rivalrous_resources: "Limited investment capital", card_category: "Funders",
-      type: "DAO", icon: "CircleDollarSign", created_at: now, creator: "u125", decks: {}
-    },
+      card_id: "card_2",
+      card_number: 2,
+      role_title: "Eco-Fund Manager",
+      card_category: "Funders",
+      type: "DAO",
+      backstory: "A community-managed fund that invests in sustainable projects",
+      goals: "Fund 5 eco-projects annually; Grow fund capital by 10%",
+      intellectual_property: "Sustainable investment algorithms and metrics",
+      resources: "$50K in discretionary funds",
+      obligations: "Must report financials quarterly to community",
+      icon: "PiggyBank",
+      creator_ref: "u_123",
+      values_ref: { "value_transparency": true, "value_sustainability": true },
+      capabilities_ref: { "cap_fundraising": true },
+      agreements_ref: {},
+      decks_ref: {},
+      created_at: now
+    }
   ];
 
-  const deck = { 
-    deck_id: "d1", 
-    name: "Eco-Village Standard Deck", 
-    description: "A standard deck for eco-village simulation games", 
-    creator: "u125", 
-    created_at: now, 
-    updated_at: now, 
-    is_public: true, 
-    cards: {} 
-  };
-
-  const game = {
-    game_id: "g456",
-    name: "Test Eco-Village",
-    description: "A test game for our eco-village simulation",
-    creator: "u125",
-    deck_id: deck.deck_id,
-    role_assignment: "choice",
-    players: { "u123": "a1", "u124": "a2" },
+  // Define deck
+  const deck = {
+    deck_id: "d_1",
+    name: "Eco-Village Standard Deck",
+    description: "A standard deck for eco-village simulation games",
+    creator_ref: "u_123",
+    is_public: true,
+    cards_ref: {},
     created_at: now,
-    updated_at: now,
-    status: "active",
-    max_players: 10
+    updated_at: now
   };
 
-  const actors = [
-    { actor_id: "a1", game_id: game.game_id, user_id: "u123", card_id: "c1", created_at: now, custom_name: "Alice's Garden Steward", status: "active", agreements: {} },
-    { actor_id: "a2", game_id: game.game_id, user_id: "u124", card_id: "c2", created_at: now, custom_name: "Bob's Funding Visionary", status: "active", agreements: {} },
-  ];
-
-  const agreements = [
+  // Save basic entities to Gun
+  for (const user of users) {
+    await robustPut(nodes.users, user.user_id, user);
+  }
+  
+  for (const value of values) {
+    await robustPut(nodes.values, value.value_id, value);
+  }
+  
+  for (const capability of capabilities) {
+    await robustPut(nodes.capabilities, capability.capability_id, capability);
+  }
+  
+  for (const card of cards) {
+    await robustPut(nodes.cards, card.card_id, card);
+  }
+  
+  await robustPut(nodes.decks, deck.deck_id, deck);
+  
+  // Create relationships between decks and cards
+  for (const card of cards) {
+    await createRelationship(`${nodes.decks}/${deck.deck_id}`, 'cards_ref', `${nodes.cards}/${card.card_id}`);
+    await createRelationship(`${nodes.cards}/${card.card_id}`, 'decks_ref', `${nodes.decks}/${deck.deck_id}`);
+  }
+  
+  // Create relationships between cards and values
+  for (const card of cards) {
+    for (const valueId of Object.keys(card.values_ref)) {
+      await createRelationship(`${nodes.cards}/${card.card_id}`, 'values_ref', `${nodes.values}/${valueId}`);
+      await createRelationship(`${nodes.values}/${valueId}`, 'cards_ref', `${nodes.cards}/${card.card_id}`);
+    }
+  }
+  
+  // Create relationships between cards and capabilities
+  for (const card of cards) {
+    for (const capabilityId of Object.keys(card.capabilities_ref)) {
+      await createRelationship(`${nodes.cards}/${card.card_id}`, 'capabilities_ref', `${nodes.capabilities}/${capabilityId}`);
+      await createRelationship(`${nodes.capabilities}/${capabilityId}`, 'cards_ref', `${nodes.cards}/${card.card_id}`);
+    }
+  }
+  
+  // Use gameService to create a game
+  // NOTE: Real user authentication needs to be active for this to work correctly
+  const gameName = "Eco-Village Simulation";
+  const deckType = "eco-village";
+  const roleAssignment = "choice";
+  
+  const game = await createGame(gameName, deckType, roleAssignment);
+  if (!game) {
+    return { success: false, message: "Failed to create game" };
+  }
+  
+  console.log(`Created game with ID: ${game.game_id}`);
+  
+  // Create actors for each user using gameService
+  const actors = [];
+  
+  for (let i = 0; i < 2; i++) {
+    const user = users[i];
+    const card = cards[i];
+    
+    // Use gameService to create an actor
+    let actorType: 'Funder' | 'Farmer' | 'Builder' | 'Organizer' | 'Technologist' = 
+      i === 0 ? 'Farmer' : 'Funder';
+    
+    const actor = await createActor(game.game_id, card.card_id, actorType, `${user.name}'s ${card.role_title}`);
+    if (actor) {
+      // Join game and assign card to actor
+      await joinGame(user.user_id, game.game_id);
+      await assignCardToActor(actor.actor_id, card.card_id);
+      
+      actors.push(actor);
+    }
+  }
+  
+  if (actors.length < 2) {
+    return { success: false, message: "Failed to create all actors" };
+  }
+  
+  // Create an agreement between the actors
+  const agreement = await createAgreement(
+    game.game_id,
+    "Eco-Village Funding Agreement",
+    "The Fund Manager provides capital to the Village Steward for sustainable projects",
+    [actors[0].actor_id, actors[1].actor_id],
     {
-      agreement_id: "ag1", game_id: game.game_id, title: "Funding for Garden Initiative", summary: "Luminos Funder provides capital to Verdant Weaver for a community garden",
-      type: "asymmetric", parties: { "a1": true, "a2": true }, obligations: { a1: "Create and maintain community garden for one year", a2: "Provide 5000 credits of funding and quarterly reviews" },
-      benefits: { a1: "Receives funding and resources for the garden", a2: "Receives 10% of produce and community recognition" }, status: "accepted",
-      created_at: now, updated_at: now, created_by: "u123", votes: { "a1": "accept", "a2": "accept" }
-    },
-    {
-      agreement_id: "ag2", game_id: game.game_id, title: "Water Sharing Plan", summary: "Actors agree to share water resources equally", type: "symmetric",
-      parties: { "a1": true, "a2": true }, obligations: { a1: "Share water equally", a2: "Share water equally" }, benefits: { a1: "Stable water supply", a2: "Stable water supply" },
-      status: "proposed", created_at: now, created_by: "u123", votes: { "a1": "pending", "a2": "pending" }
-    },
-    {
-      agreement_id: "ag3", game_id: game.game_id, title: "Land Use Pact", summary: "Actors tried to share land but disagreed on terms", type: "symmetric",
-      parties: { "a1": true, "a2": true }, obligations: { a1: "Proposed shared land use", a2: "Proposed shared land use" }, benefits: { a1: "Access to shared land", a2: "Access to shared land" },
-      status: "rejected", created_at: now, updated_at: now, created_by: "u123", votes: { "a1": "reject", "a2": "reject" }
-    },
-    {
-      agreement_id: "ag4", game_id: game.game_id, title: "Seed Exchange Program", summary: "Actors completed a seed-sharing initiative", type: "symmetric",
-      parties: { "a1": true, "a2": true }, obligations: { a1: "Share seeds monthly", a2: "Share seeds monthly" }, benefits: { a1: "Diverse seed stock", a2: "Diverse seed stock" },
-      status: "completed", created_at: now, updated_at: now, created_by: "u123", votes: { "a1": "accept", "a2": "accept" }
-    },
-  ];
-
-  const messageId = generateId();
-  const chat = {
-    chat_id: `${game.game_id}_group`, 
-    game_id: game.game_id, 
-    type: "group", 
-    participants: { "u123": true, "u124": true },
-    messages: { 
-      [messageId]: { 
-        id: messageId, 
-        user_id: "u123", 
-        user_name: "Member User", 
-        content: "Hello! Let's start planning our eco-village!", 
-        timestamp: now, 
-        type: "group", 
-        read_by: { "u123": true, "u124": false } 
-      } 
-    },
-    created_at: now, 
+      [actors[0].actor_id]: {
+        obligations: ["Implement sustainable projects", "Report quarterly on outcomes"],
+        benefits: ["Receive funding for projects", "Access to technical expertise"]
+      },
+      [actors[1].actor_id]: {
+        obligations: ["Provide funding in quarterly installments", "Offer technical advice"],
+        benefits: ["Portfolio diversification", "PR benefits from successful projects"]
+      }
+    }
+  );
+  
+  if (!agreement) {
+    return { success: false, message: "Failed to create agreement" };
+  }
+  
+  // Create chat rooms
+  const groupChatId = `chat_${game.game_id}_group`;
+  const groupChat = {
+    chat_id: groupChatId,
+    game_ref: game.game_id,
+    type: "group",
+    participants_ref: { [users[0].user_id]: true, [users[1].user_id]: true },
+    created_at: now,
     last_message_at: now
   };
-
+  
+  await robustPut(nodes.chat_rooms, groupChatId, groupChat);
+  
+  // Add a sample message
+  const messageId = generateId();
+  const message = {
+    id: messageId,
+    user_id: users[0].user_id,
+    user_name: users[0].name,
+    content: "Welcome to our eco-village simulation! Let's collaborate on some sustainable projects.",
+    timestamp: now,
+    type: "group",
+    read_by: { [users[0].user_id]: true, [users[1].user_id]: false }
+  };
+  
+  await robustPut(`${nodes.chat_rooms}/${groupChatId}/messages`, messageId, message);
+  
+  // Set node positions for visualization
   const nodePositions = [
-    { node_id: "a1", game_id: game.game_id, x: 100, y: 0, type: "actor", last_updated: now },
-    { node_id: "a2", game_id: game.game_id, x: -100, y: 0, type: "actor", last_updated: now },
-    { node_id: "ag1", game_id: game.game_id, x: 0, y: 50, type: "agreement", last_updated: now },
-    { node_id: "ag2", game_id: game.game_id, x: 0, y: -50, type: "agreement", last_updated: now },
-    { node_id: "ag3", game_id: game.game_id, x: 50, y: 0, type: "agreement", last_updated: now },
-    { node_id: "ag4", game_id: game.game_id, x: -50, y: 0, type: "agreement", last_updated: now },
+    { node_id: actors[0].actor_id, game_id: game.game_id, x: 100, y: 0, type: "actor", last_updated: now },
+    { node_id: actors[1].actor_id, game_id: game.game_id, x: -100, y: 0, type: "actor", last_updated: now },
+    { node_id: agreement.agreement_id, game_id: game.game_id, x: 0, y: 0, type: "agreement", last_updated: now }
   ];
-
-  // Batch save helper function
-  async function saveBatch<T extends { [key: string]: any }>(nodePath: string, items: T[], idField: keyof T) {
-    console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
-    const gun = getGun();
-    if (!gun) {
-      console.error(`[batch] Gun not initialized for ${nodePath}`);
-      return false;
-    }
-    for (const item of items) {
-      gun.get(nodePath).get(String(item[idField])).put(item);
-    }
-    await delay(100);
-    return true;
-  }
-
-  // Save all entities directly to Gun database
-  await saveBatch(nodes.users, users, 'user_id');
-  await saveBatch(nodes.values, values, 'value_id');
-  await saveBatch(nodes.capabilities, capabilities, 'capability_id');
-  await saveBatch(nodes.cards, cards, 'card_id');
-  await saveBatch(nodes.decks, [deck], 'deck_id');
-  await saveBatch(nodes.games, [game], 'game_id');
-  await saveBatch(nodes.actors, actors, 'actor_id');
-  await saveBatch(nodes.agreements, agreements, 'agreement_id');
-  await saveBatch(nodes.chat_rooms, [chat], 'chat_id');
-  await saveBatch(nodes.node_positions, nodePositions, 'node_id');
-
-  // Create bidirectional relationships
   
-  // Add cards to deck & deck to cards
-  await createRelationship(`${nodes.decks}/${deck.deck_id}`, 'cards', `${nodes.cards}/c1`);
-  await createRelationship(`${nodes.decks}/${deck.deck_id}`, 'cards', `${nodes.cards}/c2`);
-  await createRelationship(`${nodes.cards}/c1`, 'decks', `${nodes.decks}/${deck.deck_id}`);
-  await createRelationship(`${nodes.cards}/c2`, 'decks', `${nodes.decks}/${deck.deck_id}`);
-  
-  // Connect values to cards 
-  await createRelationship(`${nodes.values}/value_sustainability`, 'cards', `${nodes.cards}/c1`);
-  await createRelationship(`${nodes.values}/value_community-resilience`, 'cards', `${nodes.cards}/c1`);
-  await createRelationship(`${nodes.values}/value_sustainability`, 'cards', `${nodes.cards}/c2`);
-  await createRelationship(`${nodes.values}/value_transparency`, 'cards', `${nodes.cards}/c2`);
-  
-  // Connect capabilities to cards
-  await createRelationship(`${nodes.capabilities}/capability_permaculture-design`, 'cards', `${nodes.cards}/c1`);
-  await createRelationship(`${nodes.capabilities}/capability_project-management`, 'cards', `${nodes.cards}/c1`);
-  await createRelationship(`${nodes.capabilities}/capability_smart-contract-development`, 'cards', `${nodes.cards}/c2`);
-  await createRelationship(`${nodes.capabilities}/capability_project-management`, 'cards', `${nodes.cards}/c2`);
-  
-  // Connect agreements to actors
-  for (const agreement of agreements) {
-    await createRelationship(`${nodes.actors}/a1`, 'agreements', `${nodes.agreements}/${agreement.agreement_id}`);
-    await createRelationship(`${nodes.actors}/a2`, 'agreements', `${nodes.agreements}/${agreement.agreement_id}`);
+  for (const position of nodePositions) {
+    await robustPut(nodes.node_positions, position.node_id, position);
   }
   
   console.log("[seed] Sample data initialization complete!");
@@ -331,44 +391,7 @@ export async function verifySampleData() {
     }
   }
   
-  // Verify relationships
-  try {
-    const deckCardRelationships = await checkBidirectionalRelationships('decks', 'd1', 'cards', 'c1');
-    console.log('[verify] Deck-Card relationship check:', deckCardRelationships);
-    
-    const cardValueRelationships = await checkBidirectionalRelationships('cards', 'c1', 'values', 'value_sustainability');
-    console.log('[verify] Card-Value relationship check:', cardValueRelationships);
-    
-    const cardCapabilityRelationships = await checkBidirectionalRelationships('cards', 'c1', 'capabilities', 'capability_permaculture-design');
-    console.log('[verify] Card-Capability relationship check:', cardCapabilityRelationships);
-  } catch (error) {
-    console.error('[verify] Error checking relationships:', error);
-  }
-  
   return { success: true, stats };
-}
-
-/**
- * Helper to check if bidirectional relationships are properly established
- */
-async function checkBidirectionalRelationships(aType: string, aId: string, bType: string, bId: string): Promise<{ forward: boolean, backward: boolean }> {
-  return new Promise((resolve) => {
-    const gun = getGun();
-    let forward = false;
-    let backward = false;
-    
-    // Check A -> B
-    gun?.get(aType).get(aId).get(bType).get(bId).once((data) => {
-      forward = !!data;
-    });
-    
-    // Check B -> A
-    gun?.get(bType).get(bId).get(aType).get(aId).once((data) => {
-      backward = !!data;
-    });
-    
-    setTimeout(() => resolve({ forward, backward }), 500);
-  });
 }
 
 /**
