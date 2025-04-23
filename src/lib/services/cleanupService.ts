@@ -1,4 +1,4 @@
-import { getGun, nodes, put, unset, purgeNode } from './gunService';
+import { getGun, nodes, put, purgeNode } from './gunService';
 import { getCurrentUser } from './authService';
 import { createValue } from './valueService';
 import { createCapability } from './capabilityService';

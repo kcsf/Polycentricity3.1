@@ -281,55 +281,6 @@ export async function deleteNode(soul: string): Promise<GunAck> {
 }
 
 /**
- * Unset (remove) an item from a Gun set/collection
- * More effective than put(null) for removing collection references
- * @param path - Path to the collection (e.g., 'decks/d_1/cards_ref')
- * @param options - Options with ID of the item to unset 
- * @returns Promise resolving to GunAck
- */
-export async function unset(path: string, options: { id: string }): Promise<GunAck> {
-  const g = getGun();
-  if (!g) throw new Error('Gun not ready');
-  
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    
-    // Get the reference to unset
-    const ref = g.get(path);
-    
-    // First try to directly nullify the reference
-    ref.get(options.id).put(null);
-    
-    // Try multiple Gun.js patterns for unsetting from a collection
-    try {
-      // This is the Gun pattern for unsetting items from a collection
-      // We're using the secret Gun API for unsetting items which uses
-      // a special object format with ':' and '#' properties
-      ref.set({ ":": "", "#": options.id }, (ack: { err?: string; ok?: boolean }) => {
-        clearTimeout(timeout);
-        const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
-        resolve({ 
-          err: hasError ? ack.err : undefined,
-          ok: !hasError && (ack.ok || typeof ack.ok === 'undefined'),
-          raw: ack
-        });
-      });
-    } catch (e) {
-      console.warn(`Error using 'set' to unset from ${path} with id ${options.id}:`, e);
-      g.get(path).get(options.id).put(null, (ack: { err?: string; ok?: boolean }) => {
-        clearTimeout(timeout);
-        const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
-        resolve({ 
-          err: hasError ? ack.err : undefined,
-          ok: !hasError && (ack.ok || typeof ack.ok === 'undefined'),
-          raw: ack
-        });
-      });
-    }
-  });
-}
-
-/**
  * Forcefully removes a Gun.js node and all its references using multiple strategies
  * More aggressive than put(null) for stubborn nodes that won't delete
  * 
@@ -347,16 +298,16 @@ export async function purgeNode(soul: string): Promise<boolean> {
     // 1. First try to directly nullify
     g.get(soul).put(null);
     
-    // 2. If it's a reference in a collection (e.g., deck's cards_ref), try unset
+    // 2. If it's a reference in a collection (e.g., deck's cards_ref), try direct nullification
     // Determine parent and child paths from soul (e.g., "decks/d_1/cards_ref/card_7252")
     const parts = soul.split('/');
     if (parts.length >= 4) {
       const parentPath = parts.slice(0, parts.length - 1).join('/');
       const childId = parts[parts.length - 1];
       
-      console.log(`Attempting to unset ${childId} from ${parentPath}`);
-      // Use our unset utility function
-      await unset(parentPath, { id: childId });
+      console.log(`Attempting to remove ${childId} from ${parentPath}`);
+      // Direct nullification
+      g.get(parentPath).get(childId).put(null);
     }
     
     // 3. Also try to nullify with the special Gun null marker
