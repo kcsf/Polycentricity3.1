@@ -346,7 +346,9 @@
           <!-- Error display -->
           {#if error}
             <div class="alert bg-error-500 text-white mb-4 flex items-center gap-3 rounded-md">
-              <svelte:component this={icons.AlertTriangle} class="w-5 h-5" />
+              {#key icons.AlertTriangle}
+                <icons.AlertTriangle class="w-5 h-5" />
+              {/key}
               <div>
                 <h3 class="text-sm font-bold">Error</h3>
                 <p class="text-xs">{error}</p>
@@ -365,7 +367,9 @@
           <!-- Card grid -->
           {#if !isLoading && cards.length === 0}
             <div class="card p-6 bg-surface-50-900 text-center rounded-md shadow-md border border-surface-300-600">
-              <svelte:component this={icons.Package} class="w-12 h-12 mx-auto mb-4 text-surface-500-400" />
+              {#key icons.Package}
+                <icons.Package class="w-12 h-12 mx-auto mb-4 text-surface-500-400" />
+              {/key}
               <h3 class="text-base font-bold text-surface-900-50 mb-2">No Cards Found</h3>
               <p class="text-xs text-surface-700-300">This deck doesn't contain any cards or couldn't be loaded properly.</p>
             </div>
@@ -376,7 +380,11 @@
                   <!-- Card header -->
                   <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500 to-{getCategoryColor(card.card_category)}-700 rounded-t-md">
                     <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
-                      <svelte:component this={getCardIcon(card.icon)} class="w-6 h-6" />
+                      {#key card.icon}
+                        {#if getCardIcon(card.icon)}
+                          <svelte:element this={getCardIcon(card.icon)} class="w-6 h-6" />
+                        {/if}
+                      {/key}
                     </div>
                     <div class="flex items-center justify-between pl-10">
                       <h3 class="text-base font-bold truncate">{card.role_title}</h3>
@@ -466,7 +474,9 @@
     <!-- Card Import Section -->
     <Accordion.Item value="card-import">
       {#snippet lead()}
-        <svelte:component this={icons.Upload} size={24} />
+        {#key icons.Upload}
+          <icons.Upload size={24} />
+        {/key}
       {/snippet}
       
       {#snippet control()}Import Cards{/snippet}
