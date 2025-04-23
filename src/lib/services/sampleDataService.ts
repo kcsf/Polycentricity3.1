@@ -751,7 +751,7 @@ export async function initializeSampleData() {
 
   // Create relationships
   const allEdges = [];
-  // Deck ↔ Card
+  // Deck ? Card
   for (const card of cards) {
     allEdges.push({
       fromSoul: `${nodes.decks}/${deck.deck_id}`,
@@ -764,7 +764,7 @@ export async function initializeSampleData() {
       toSoul: `${nodes.decks}/${deck.deck_id}`,
     });
   }
-  // Card ↔ Value
+  // Card ? Value
   for (const card of cards) {
     for (const valueId of Object.keys(card.values_ref)) {
       if (card.values_ref[valueId]) {
@@ -781,7 +781,7 @@ export async function initializeSampleData() {
       }
     }
   }
-  // Card ↔ Capability
+  // Card ? Capability
   for (const card of cards) {
     for (const capabilityId of Object.keys(card.capabilities_ref)) {
       if (card.capabilities_ref[capabilityId]) {
@@ -798,7 +798,7 @@ export async function initializeSampleData() {
       }
     }
   }
-  // Game ↔ Actors, Agreements, Chat
+  // Game ? Actors, Agreements, Chat
   for (const actor of actors) {
     allEdges.push({
       fromSoul: `${nodes.games}/${game.game_id}`,
@@ -823,7 +823,7 @@ export async function initializeSampleData() {
     field: "chat_rooms_ref",
     toSoul: `${nodes.chat_rooms}/${groupChatId}`,
   });
-  // Actor ↔ Agreement
+  // Actor ? Agreement
   for (const agreement of agreements) {
     for (const actorId of Object.keys(agreement.parties)) {
       allEdges.push({
@@ -838,7 +838,7 @@ export async function initializeSampleData() {
       });
     }
   }
-  // User ↔ Actor
+  // User ? Actor
   for (const actor of actors) {
     allEdges.push({
       fromSoul: `${nodes.users}/${actor.user_ref}`,
@@ -846,7 +846,7 @@ export async function initializeSampleData() {
       toSoul: `${nodes.actors}/${actor.actor_id}`,
     });
   }
-  // Game ↔ Deck
+  // Game ? Deck
   allEdges.push({
     fromSoul: `${nodes.games}/${game.game_id}`,
     field: "deck_ref",
