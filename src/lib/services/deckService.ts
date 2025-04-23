@@ -16,6 +16,7 @@ import {
     createOrGetCapabilities,
     parseCapabilitiesText,
 } from "./capabilityService";
+import { generateSequentialCardId, standardizeValueId } from "./cardUtils";
 
 // Get a deck by ID
 export async function getDeck(deckId: string): Promise<Deck | null> {
@@ -91,11 +92,10 @@ export async function createCard(
         return null;
     }
 
-    // Generate unique ID for the card using the standard pattern
-    // Make sure to follow card_DIGITS format to match existing cards and filtering patterns
-    // Replace generateId() with a numeric ID to ensure compatibility with DeckBrowser's filter
-    const randomNumber = Math.floor(Math.random() * 9000) + 1000; // 1000-9999 range
-    const cardId = `card_${randomNumber}`;
+    // Generate a sequential card ID for proper ordering
+    // This ensures cards follow a consistent ID pattern for proper filtering in components
+    const cardId = await generateSequentialCardId();
+    console.log(`[createCard] Generated sequential card ID: ${cardId}`);
     
     // Process card number (either from string or number format)
     const cardNumber =
@@ -131,10 +131,10 @@ export async function createCard(
         }
     }
     
-    // Add standard values if none specified - use hardcoded IDs for the fixed values
+    // Add standard values if none specified - use standard value IDs
     if (valuesArray.length === 0) {
-        // Default to these standard value IDs (they'll be directly accessible in Gun)
-        valuesArray = ["c1", "c2"]; // c1 is Sustainability, c2 is Community Resilience
+        // Default to these standard value IDs using proper naming convention
+        valuesArray = ["value_sustainability", "value_community_resilience"];
     }
     
     // Process capabilities as a string to be compatible with existing code
@@ -149,30 +149,25 @@ export async function createCard(
     const goalsString = typeof card.goals === "string" ? card.goals : "";
 
     // Get record structures for values and capabilities
-    // First, try creating values by name (if they're real value names)
-    const nameBasedValuesRecord = await createOrGetValues(
-        valuesArray.filter(v => !v.startsWith('c') || v.length > 2) // Skip hardcoded IDs
-    );
+    // First, standardize all values to ensure they use proper value_xxx format
+    // Handle legacy c1, c2 IDs and human-readable names
+    const standardizedValuesArray = valuesArray.map(valueId => standardizeValueId(valueId));
     
-    // Combine standard values (c1, c2) with the name-based ones
+    // Create all values to ensure they exist in the database
+    const nameBasedValuesRecord = await createOrGetValues(standardizedValuesArray);
+    
+    // Create the final values record using proper value IDs
     const valuesRecord: Record<string, boolean> = {};
     
-    // Add hardcoded values directly (if they exist in the array)
-    valuesArray.forEach(v => {
-        if (v.startsWith('c') && v.length <= 2) {
-            valuesRecord[v] = true;
-        }
-    });
-    
-    // Add the values created from strings
+    // Add all values from the record
     Object.keys(nameBasedValuesRecord).forEach(key => {
         valuesRecord[key] = true;
     });
     
-    // If we still have no values, add a self-referential value
+    // If we still have no values, add a default value
     if (Object.keys(valuesRecord).length === 0) {
-        // Add c1 as a fallback standard value
-        valuesRecord["c1"] = true;
+        // Add standard sustainability value as fallback
+        valuesRecord["value_sustainability"] = true;
     }
     
     const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
