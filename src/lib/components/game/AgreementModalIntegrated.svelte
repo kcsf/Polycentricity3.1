@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import * as icons from '@lucide/svelte';
   import { getActors, createAgreement, updateAgreement } from '$lib/services/gameService';
   import type { Actor, Agreement } from '$lib/types';
@@ -20,13 +19,15 @@
   }
   
   // Props using Svelte 5 Runes
-  const { editMode = false, agreement = null } = $props<{
+  const { 
+    editMode = false, 
+    agreement = null,
+    onclose = undefined
+  } = $props<{
     editMode?: boolean;
     agreement?: AgreementWithPosition | null;
+    onclose?: (() => void) | undefined;
   }>();
-  
-  // Create event dispatcher
-  const dispatch = createEventDispatcher();
   
   // State with Svelte 5 Runes
   let title = $state('');
@@ -100,7 +101,9 @@
   
   // Close the modal
   function closeModal() {
-    dispatch('close');
+    if (onclose) {
+      onclose();
+    }
   }
   
   // Add a new term
@@ -357,7 +360,9 @@
                         onclick={() => removeObligation(index)}
                         aria-label={`Remove obligation ${index + 1}`}
                       >
-                        <svelte:component this={icons.X} class="w-3 h-3" />
+                        {#if icons.X}
+                          <icons.X class="w-3 h-3" />
+                        {/if}
                       </button>
                     </li>
                   {/each}
@@ -406,7 +411,9 @@
                         onclick={() => removeBenefit(index)}
                         aria-label={`Remove benefit ${index + 1}`}
                       >
-                        <svelte:component this={icons.X} class="w-3 h-3" />
+                        {#if icons.X}
+                          <icons.X class="w-3 h-3" />
+                        {/if}
                       </button>
                     </li>
                   {/each}
