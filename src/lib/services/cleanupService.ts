@@ -369,14 +369,16 @@ export async function cleanupNullCardReferences(): Promise<{
           
           if (isNullReference || !isValidCardId) {
             console.log(`Removing null/invalid card reference ${cardId} from deck ${deckId}`);
-            unset(`${nodes.decks}/${deckId}/cards_ref`, { id: cardId });
+            // Direct nullification using Gun.js
+            gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(cardId).put(null);
             removedCount++;
           } else {
             // For valid cards, verify they actually exist
             gun.get(nodes.cards).get(cardId).once((cardData: any) => {
               if (!cardData) {
                 console.log(`Removing reference to non-existent card ${cardId} from deck ${deckId}`);
-                unset(`${nodes.decks}/${deckId}/cards_ref`, { id: cardId });
+                // Direct nullification using Gun.js
+                gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(cardId).put(null);
                 removedCount++;
               }
             });
@@ -408,7 +410,8 @@ export async function cleanupNullCardReferences(): Promise<{
           gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(badCardId).once((data: any) => {
             if (data !== null) {
               console.log(`Removing problematic card ${badCardId} from deck ${deckId}`);
-              unset(`${nodes.decks}/${deckId}/cards_ref`, { id: badCardId });
+              // Direct nullification using Gun.js
+              gun.get(`${nodes.decks}/${deckId}`).get('cards_ref').get(badCardId).put(null);
               removedCount++;
             }
           });
