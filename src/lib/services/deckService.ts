@@ -283,11 +283,9 @@ export async function createCard(
                     const toId = edge.toSoul.split('/').pop();
                     if (!toId) continue;
                     
-                    // 1. Direct reference approach - set the field to true at the proper path
+                    // Set the field to true at the proper path, following the schema exactly
+                    // This creates entries like: cards/<card_id>/capabilities_ref/<capability_id>: true
                     gun.get(edge.fromSoul).get(edge.field).get(toId).put(true);
-                    
-                    // 2. Also ensure the reference exists with Gun's set API for redundancy
-                    gun.get(edge.fromSoul).get(edge.field).set(gun.get(edge.toSoul));
                     
                     console.log(`[createCard] Created capability edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
                 } catch (e) {
@@ -343,10 +341,15 @@ function createEdgesBatch(
 ): void {
     for (const edge of edgeDefinitions) {
         try {
-            // Use direct Gun.js API with fire-and-forget pattern
-            gunInstance.get(edge.fromSoul).get(edge.field).set(
-                gunInstance.get(edge.toSoul)
-            );
+            // Extract the target ID from the soul path
+            const toId = edge.toSoul.split('/').pop();
+            if (!toId) continue;
+            
+            // Use direct Gun.js API with fire-and-forget pattern following the schema exactly
+            // This creates entries like: <fromSoul>/<field>/<toId>: true
+            gunInstance.get(edge.fromSoul).get(edge.field).get(toId).put(true);
+            
+            console.log(`[createEdgesBatch] Created edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
         } catch (e) {
             console.warn(`[createEdgesBatch] Issue with edge ${edge.fromSoul} -> ${edge.toSoul}:`, e);
             // Continue despite errors - fire and forget approach
@@ -391,11 +394,9 @@ export async function addCardToDeck(
             if (!toId) continue;
             
             try {
-                // 1. Direct reference approach - set the field to true at the proper path
+                // Set the field to true at the proper path, following the schema exactly
+                // This creates entries like: decks/<deck_id>/cards_ref/<card_id>: true
                 gun.get(fromSoul).get(field).get(toId).put(true);
-                
-                // 2. Also ensure the reference exists with Gun's set API for redundancy
-                gun.get(fromSoul).get(field).set(gun.get(toSoul));
                 
                 console.log(`[addCardToDeck] Created edge: ${fromSoul} -> ${field} -> ${toId}`);
             } catch (e) {
@@ -739,12 +740,13 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
         }
         
         // LEGACY SUPPORT: If we don't have values_ref or it's empty, try the old values field
-        if (valueIds.length === 0 && card.values) {
-            if (typeof card.values === 'object') {
-                if ('#' in card.values) {
+        const cardWithLegacyFields = card as unknown as { values?: Record<string, any> };
+        if (valueIds.length === 0 && cardWithLegacyFields.values) {
+            if (typeof cardWithLegacyFields.values === 'object') {
+                if ('#' in cardWithLegacyFields.values) {
                     // It's a Gun reference in the old format
                     console.log(`Card ${card.card_id} has legacy values as a Gun reference`);
-                    const valuesRef = (card.values as any)['#'];
+                    const valuesRef = cardWithLegacyFields.values['#'];
                     
                     try {
                         // Try to get values from the old reference format
@@ -759,21 +761,21 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
                     }
                 } else {
                     // It's a direct map in the old format
-                    valueIds = Object.keys(card.values as Record<string, boolean>)
-                        .filter(key => (card.values as Record<string, boolean>)[key] === true && key !== '_' && key !== '#');
+                    valueIds = Object.keys(cardWithLegacyFields.values)
+                        .filter(key => cardWithLegacyFields.values?.[key] === true && key !== '_' && key !== '#');
                     console.log(`Found ${valueIds.length} value IDs in legacy values map`);
                 }
-            } else if (typeof card.values === "string") {
+            } else if (typeof cardWithLegacyFields.values === "string") {
                 // Handle legacy string format (comma-separated values)
-                const valueStrings = (card.values as string).split(",")
+                const valueStrings = cardWithLegacyFields.values.split(",")
                     .map(v => v.trim())
                     .filter(Boolean);
                 
                 console.log(`Found ${valueStrings.length} value names in legacy string format`);
                 return valueStrings;
-            } else if (Array.isArray(card.values)) {
+            } else if (Array.isArray(cardWithLegacyFields.values)) {
                 // Handle legacy array format 
-                const valueStrings = (card.values as any[])
+                const valueStrings = cardWithLegacyFields.values
                     .map(v => String(v).trim())
                     .filter(Boolean);
                 
@@ -882,12 +884,13 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
         }
         
         // LEGACY SUPPORT: If we don't have capabilities_ref or it's empty, try the old capabilities field
-        if (capabilityIds.length === 0 && card.capabilities) {
-            if (typeof card.capabilities === 'object') {
-                if ('#' in card.capabilities) {
+        const cardWithLegacyCapabilities = card as unknown as { capabilities?: Record<string, any> };
+        if (capabilityIds.length === 0 && cardWithLegacyCapabilities.capabilities) {
+            if (typeof cardWithLegacyCapabilities.capabilities === 'object') {
+                if ('#' in cardWithLegacyCapabilities.capabilities) {
                     // It's a Gun reference in the old format
                     console.log(`Card ${card.card_id} has legacy capabilities as a Gun reference`);
-                    const capsRef = (card.capabilities as any)['#'];
+                    const capsRef = cardWithLegacyCapabilities.capabilities['#'];
                     
                     try {
                         // Try to get capabilities from the old reference format
@@ -902,22 +905,22 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
                     }
                 } else {
                     // It's a direct map in the old format
-                    capabilityIds = Object.keys(card.capabilities as Record<string, boolean>)
-                        .filter(key => (card.capabilities as Record<string, boolean>)[key] === true && key !== '_' && key !== '#');
+                    capabilityIds = Object.keys(cardWithLegacyCapabilities.capabilities)
+                        .filter(key => cardWithLegacyCapabilities.capabilities?.[key] === true && key !== '_' && key !== '#');
                     console.log(`Found ${capabilityIds.length} capability IDs in legacy capabilities map`);
                 }
-            } else if (typeof card.capabilities === "string") {
+            } else if (typeof cardWithLegacyCapabilities.capabilities === "string") {
                 // Handle legacy string format (comma-separated capabilities)
-                const capStrings = (card.capabilities as string).split(",")
-                    .map(c => c.trim())
+                const capStrings = cardWithLegacyCapabilities.capabilities.split(",")
+                    .map((c: string) => c.trim())
                     .filter(Boolean);
                 
                 console.log(`Found ${capStrings.length} capability names in legacy string format`);
                 return capStrings;
-            } else if (Array.isArray(card.capabilities)) {
+            } else if (Array.isArray(cardWithLegacyCapabilities.capabilities)) {
                 // Handle legacy array format 
-                const capStrings = (card.capabilities as any[])
-                    .map(c => String(c).trim())
+                const capStrings = cardWithLegacyCapabilities.capabilities
+                    .map((c: any) => String(c).trim())
                     .filter(Boolean);
                 
                 console.log(`Found ${capStrings.length} capability names in legacy array format`);
