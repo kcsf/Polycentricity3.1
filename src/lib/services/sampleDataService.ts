@@ -63,11 +63,11 @@ async function robustPut(
 
   return new Promise<boolean>((resolve) => {
     try {
-      // Set a timeout to ensure the promise resolves even if Gun doesn't respond
+      // Use a shorter timeout for faster development
       const timeoutId = setTimeout(() => {
         console.warn(`[sampleData] Timeout saving to ${path}/${key}`);
         resolve(false);
-      }, 5000);
+      }, 2000);
       
       gun
         .get(path)
@@ -78,8 +78,13 @@ async function robustPut(
             console.warn(`[sampleData] Error saving to ${path}/${key}: ${ack.err}`);
             resolve(false);
           } else {
-            console.log(`[sampleData] Successfully saved to ${path}/${key}`);
-            resolve(true);
+            console.log(`[sampleData] Successfully wrote to ${path}/${key}`);
+            // Verify the data was actually stored by reading it back
+            gun.get(path).get(key).once((data) => {
+              const success = data !== undefined;
+              console.log(`[sampleData] Verification for ${path}/${key}: ${success ? 'SUCCESS' : 'FAILED'}`);
+              resolve(success);
+            });
           }
         });
     } catch (error) {
@@ -488,12 +493,12 @@ export async function initializeSampleData() {
     max_players: 5,
     players: { u_123: true, u_124: true, u_125: true, u_126: true },
     player_actor_map: {
-      u_123: "actor_1",
+      u_123: "actor_1",  // Alice has two actors (actor_1 and actor_5)
       u_124: "actor_2",
       u_125: "actor_3",
       u_126: "actor_4",
     },
-    actors_ref: { actor_1: true, actor_2: true, actor_3: true, actor_4: true },
+    actors_ref: { actor_1: true, actor_2: true, actor_3: true, actor_4: true, actor_5: true },
     agreements_ref: {
       ag_1: true,
       ag_2: true,
@@ -501,7 +506,7 @@ export async function initializeSampleData() {
       ag_4: true,
       ag_5: true,
     },
-    chat_rooms_ref: { chat_g_456: true },
+    chat_rooms_ref: {},
   };
 
   // 7. Actors
@@ -548,6 +553,17 @@ export async function initializeSampleData() {
       custom_name: "David's Eco-Patron",
       status: "active",
       agreements_ref: { ag_3: true, ag_4: true },
+      created_at: now,
+    },
+    {
+      actor_id: "actor_5",
+      user_ref: "u_123", // Using Alice again for the 5th actor
+      game_ref: "g_456",
+      card_ref: "card_5",
+      actor_type: "National Identity",
+      custom_name: "Alice's Verdant Venture DAO",
+      status: "active",
+      agreements_ref: { ag_4: true, ag_5: true },
       created_at: now,
     },
   ];
@@ -705,22 +721,56 @@ export async function initializeSampleData() {
 
   // Save entities in order
   await saveBatch(nodes.users, users, "user_id");
-  await robustPut(nodes.decks, deck.deck_id, deck);
+  
+  console.log("[seed] Saving deck directly");
+  const deckSuccess = await robustPut(nodes.decks, deck.deck_id, deck);
+  if (!deckSuccess) {
+    console.error("[seed] Failed to save deck, will retry once");
+    await delay(500);
+    await robustPut(nodes.decks, deck.deck_id, deck);
+  }
+  
   await saveBatch(nodes.cards, cards, "card_id");
   await saveBatch(nodes.values, values, "value_id");
   await saveBatch(nodes.capabilities, capabilities, "capability_id");
   
-  // Add detailed logging for game creation
-  console.log("[seed] Attempting to save game:", game.game_id);
-  const gameSuccess = await robustPut(nodes.games, game.game_id, game);
-  console.log(`[seed] Game save ${gameSuccess ? 'SUCCEEDED' : 'FAILED'}`);
+  // Direct game creation with retries
+  console.log("[seed] Creating game:", game.game_id);
+  let gameSuccess = false;
+  // Try multiple direct approaches
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    console.log(`[seed] Game creation attempt ${attempt}`);
+    gameSuccess = await robustPut(nodes.games, game.game_id, game);
+    if (gameSuccess) {
+      console.log(`[seed] Game save SUCCEEDED on attempt ${attempt}`);
+      break;
+    } else {
+      console.error(`[seed] Game save FAILED on attempt ${attempt}`);
+      await delay(500);
+    }
+  }
   
+  if (!gameSuccess) {
+    console.error("[seed] All game creation attempts failed");
+    return { success: false, message: "Failed to create game" };
+  }
+  
+  // Continue with actors
   await saveBatch(nodes.actors, actors, "actor_id");
   
-  // Add detailed logging for agreements
-  console.log("[seed] Attempting to save agreements");
-  await saveBatch(nodes.agreements, agreements, "agreement_id");
-  console.log("[seed] Agreements save complete");
+  // Save agreements with verification
+  console.log("[seed] Creating agreements one by one");
+  for (const agreement of agreements) {
+    console.log(`[seed] Creating agreement: ${agreement.agreement_id}`);
+    const agreementSuccess = await robustPut(nodes.agreements, agreement.agreement_id, agreement);
+    if (!agreementSuccess) {
+      console.error(`[seed] Failed to create agreement: ${agreement.agreement_id}`);
+      // Continue anyway
+    } else {
+      console.log(`[seed] Successfully created agreement: ${agreement.agreement_id}`);
+    }
+    await delay(100);
+  }
 
   await saveBatch(
     nodes.node_positions,
