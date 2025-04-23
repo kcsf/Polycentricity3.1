@@ -121,60 +121,150 @@ export async function createCard(
         }[card.card_category] ||
         "User";
 
-        // Process values from input JSON (where values is a comma-separated string)
-    let valueIds: string[] = [];
+            // Process values from input data if provided (matches sampleDataService.ts pattern)
+    // Create values_ref object (Record<string, boolean>) directly following the pattern in sampleDataService
+    const values_ref: Record<string, boolean> = {};
+    
+    // Use default values if not specified
     if ((card as any).values && typeof (card as any).values === "string") {
-        // Split values by commas, remove extra whitespace, convert to proper IDs
-        valueIds = (card as any).values.split(",")
-            .map((v: string) => v.trim())
-            .filter(Boolean)
-            .map((valueName: string) => standardizeValueId(valueName));
-    } 
-    
-    // Use default values if none provided
-    if (valueIds.length === 0) {
-        valueIds = ["value_sustainability", "value_community_resilience"];
+        // Parse comma-separated values string
+        const valueNames = (card as any).values.split(",").map((v: string) => v.trim()).filter(Boolean);
+        
+        // Convert each value name to a standardized ID and add to the record
+        for (const valueName of valueNames) {
+            const valueId = standardizeValueId(valueName);
+            values_ref[valueId] = true;
+            
+            // Create the value in the database if it doesn't exist already
+            // This follows the sampleDataService pattern of saving value records
+            try {
+                const valueName = valueId.replace('value_', '').replace(/_/g, ' ');
+                const capitalizedName = valueName.charAt(0).toUpperCase() + valueName.slice(1); // Capitalize
+                const valueData = {
+                    value_id: valueId,
+                    name: capitalizedName,
+                    creator_ref: "u_123",
+                    cards_ref: {},
+                    created_at: Date.now()
+                };
+                
+                // Use fire-and-forget to create the value
+                gun.get(nodes.values).get(valueId).put(valueData);
+                console.log(`[createCard] Created value: ${valueId} (${capitalizedName})`);
+            } catch (e) {
+                console.warn(`[createCard] Error creating value ${valueId}:`, e);
+            }
+        }
     }
     
-    // Process capabilities from input JSON (where capabilities is a comma-separated string)
-    let capabilityIds: string[] = [];
+    // Ensure we have at least some default values
+    if (Object.keys(values_ref).length === 0) {
+        values_ref["value_sustainability"] = true;
+        values_ref["value_community_resilience"] = true;
+        
+        // Create default values in the database
+        const defaultValues = [
+            {
+                value_id: "value_sustainability",
+                name: "Sustainability",
+                creator_ref: "u_123",
+                cards_ref: {},
+                created_at: Date.now()
+            },
+            {
+                value_id: "value_community_resilience",
+                name: "Community Resilience",
+                creator_ref: "u_123",
+                cards_ref: {},
+                created_at: Date.now()
+            }
+        ];
+        
+        // Create each default value
+        for (const valueData of defaultValues) {
+            try {
+                gun.get(nodes.values).get(valueData.value_id).put(valueData);
+                console.log(`[createCard] Created default value: ${valueData.value_id}`);
+            } catch (e) {
+                console.warn(`[createCard] Error creating default value ${valueData.value_id}:`, e);
+            }
+        }
+    }
+    
+    // Process capabilities from input data if provided (matches sampleDataService.ts pattern)
+    // Create capabilities_ref object (Record<string, boolean>) directly following sampleDataService.ts
+    const capabilities_ref: Record<string, boolean> = {};
+    
     if ((card as any).capabilities && typeof (card as any).capabilities === "string") {
-        // Split capabilities by commas, remove extra whitespace, convert to proper IDs
-        capabilityIds = (card as any).capabilities.split(",")
-            .map((c: string) => c.trim())
-            .filter(Boolean)
-            .map((capName: string) => {
-                // Convert to standard capability ID format (capability_xxx)
-                const sanitized = capName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-                return `capability_${sanitized}`;
-            });
+        // Parse comma-separated capabilities string
+        const capabilityNames = (card as any).capabilities.split(",").map((c: string) => c.trim()).filter(Boolean);
+        
+        // Convert each capability name to a standardized ID and add to the record
+        for (const capName of capabilityNames) {
+            // Format: capability_name (lowercase, underscore-separated)
+            const sanitized = capName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+            const capabilityId = `capability_${sanitized}`;
+            capabilities_ref[capabilityId] = true;
+            
+            // Create the capability in the database if it doesn't exist already
+            try {
+                const displayName = capName.split(' ').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                ).join(' ');
+                
+                const capabilityData = {
+                    capability_id: capabilityId,
+                    name: displayName,
+                    creator_ref: "u_123",
+                    cards_ref: {},
+                    created_at: Date.now()
+                };
+                
+                // Use fire-and-forget to create the capability
+                gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
+                console.log(`[createCard] Created capability: ${capabilityId} (${displayName})`);
+            } catch (e) {
+                console.warn(`[createCard] Error creating capability ${capabilityId}:`, e);
+            }
+        }
     }
     
-    // Process goals - ensure it's a string
+    // Ensure we have at least some default capabilities if none were provided
+    if (Object.keys(capabilities_ref).length === 0) {
+        capabilities_ref["capability_planning"] = true;
+        capabilities_ref["capability_coordination"] = true;
+        
+        // Create default capabilities in the database
+        const defaultCapabilities = [
+            {
+                capability_id: "capability_planning",
+                name: "Planning",
+                creator_ref: "u_123",
+                cards_ref: {},
+                created_at: Date.now()
+            },
+            {
+                capability_id: "capability_coordination",
+                name: "Coordination",
+                creator_ref: "u_123",
+                cards_ref: {},
+                created_at: Date.now()
+            }
+        ];
+        
+        // Create each default capability
+        for (const capabilityData of defaultCapabilities) {
+            try {
+                gun.get(nodes.capabilities).get(capabilityData.capability_id).put(capabilityData);
+                console.log(`[createCard] Created default capability: ${capabilityData.capability_id}`);
+            } catch (e) {
+                console.warn(`[createCard] Error creating default capability ${capabilityData.capability_id}:`, e);
+            }
+        }
+    }
+    
+    // Process goals - ensure it's a string (unchanged)
     const goalsString = typeof card.goals === "string" ? card.goals : "";
-
-    // Get record structures for values and capabilities
-    // Standardize all values to ensure they use proper value_xxx format
-    const standardizedValuesArray = valuesArray.map(valueId => standardizeValueId(valueId));
-    
-    // Create all values to ensure they exist in the database
-    const nameBasedValuesRecord = await createOrGetValues(standardizedValuesArray);
-    
-    // Create the final values record using proper value IDs
-    const valuesRecord: Record<string, boolean> = {};
-    
-    // Add all values from the record
-    Object.keys(nameBasedValuesRecord).forEach(key => {
-        valuesRecord[key] = true;
-    });
-    
-    // If we still have no values, add a default value
-    if (Object.keys(valuesRecord).length === 0) {
-        // Add standard sustainability value as fallback
-        valuesRecord["value_sustainability"] = true;
-    }
-    
-    const capabilitiesRecord = await createOrGetCapabilities(capabilitiesStr);
     
     // Prepare Gun-compatible card structure following the schema
     const gunCard = {
@@ -187,9 +277,9 @@ export async function createCard(
         intellectual_property: card.intellectual_property || "",
         resources: card.resources || "",
         // Store values_ref as a Record<string, boolean> per schema
-        values_ref: valuesRecord,
+        values_ref: values_ref,
         // Store capabilities_ref as a Record<string, boolean> per schema
-        capabilities_ref: capabilitiesRecord,
+        capabilities_ref: capabilities_ref,
         // Store decks_ref as a Record<string, boolean> per schema
         decks_ref: {},
         // Empty agreements_ref per schema
@@ -227,14 +317,14 @@ export async function createCard(
         // No delay needed between operations due to using "fire and forget"
         
         // STEP 2: Create value relationships using reliable approach
-        const valueEdges = Object.keys(valuesRecord).map(valueId => ({
+        const valueEdges = Object.keys(gunCard.values_ref).map(valueId => ({
             fromSoul: `${nodes.values}/${valueId}`,
             field: 'cards_ref',
             toSoul: `${nodes.cards}/${cardId}`
         }));
         
         // Also create edges in the reverse direction (card to value)
-        const cardToValueEdges = Object.keys(valuesRecord).map(valueId => ({
+        const cardToValueEdges = Object.keys(gunCard.values_ref).map(valueId => ({
             fromSoul: `${nodes.cards}/${cardId}`,
             field: 'values_ref',
             toSoul: `${nodes.values}/${valueId}`
@@ -266,14 +356,14 @@ export async function createCard(
         }
         
         // STEP 3: Create capability relationships using reliable approach
-        const capabilityEdges = Object.keys(capabilitiesRecord).map(capId => ({
+        const capabilityEdges = Object.keys(gunCard.capabilities_ref).map(capId => ({
             fromSoul: `${nodes.capabilities}/${capId}`,
             field: 'cards_ref',
             toSoul: `${nodes.cards}/${cardId}`
         }));
         
         // Also create edges in the reverse direction (card to capability)
-        const cardToCapabilityEdges = Object.keys(capabilitiesRecord).map(capId => ({
+        const cardToCapabilityEdges = Object.keys(gunCard.capabilities_ref).map(capId => ({
             fromSoul: `${nodes.cards}/${cardId}`,
             field: 'capabilities_ref',
             toSoul: `${nodes.capabilities}/${capId}`
