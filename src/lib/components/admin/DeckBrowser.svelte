@@ -189,7 +189,7 @@
   // Cleanup null card references
   async function cleanupNullRefs() {
     isCleaning = true;
-    cleanupMessage = "Cleaning up null card references...";
+    cleanupMessage = "Cleaning up null card references... This might take a few moments.";
     
     try {
       const result = await cleanupNullCardReferences();
@@ -197,15 +197,27 @@
       
       if (result.success) {
         cleanupMessage = `Successfully removed ${result.removed} null references. Reloading data...`;
+        
         // Reload data
         await loadDecks();
+        
+        // Suggest next steps
+        setTimeout(() => {
+          cleanupMessage = `Cleanup completed. For stubborn database issues:
+1. Try running the cleanup 2-3 times
+2. Check the DB Explorer to verify problematic IDs are gone
+3. If issues persist, clear component cache and refresh page`;
+          
+          // Keep message visible but set cleaning to false
+          isCleaning = false;
+        }, 3000);
       } else {
         cleanupMessage = `Error during cleanup: ${result.error}`;
+        isCleaning = false;
       }
     } catch (err) {
       console.error("Error cleaning up references:", err);
       cleanupMessage = `Error cleaning up references: ${err instanceof Error ? err.message : String(err)}`;
-    } finally {
       isCleaning = false;
     }
   }

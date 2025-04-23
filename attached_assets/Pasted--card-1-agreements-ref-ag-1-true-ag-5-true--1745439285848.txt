@@ -1,0 +1,499 @@
+       {
+  "card_1": {
+    "agreements_ref": {
+      "ag_1": true,
+      "ag_5": true
+    },
+    "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
+    "capabilities_ref": {
+      "cap_grant_writing": true,
+      "cap_impact_assessment": true,
+      "capabilities/cap_grant_writing": {
+        "capability_id": "cap_grant_writing",
+        "cards_ref": {
+          "cards/card_1": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Grant-writing expertise"
+      },
+      "capabilities/cap_impact_assessment": {
+        "capability_id": "cap_impact_assessment",
+        "cards_ref": {
+          "cards/card_1": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Impact assessment"
+      }
+    },
+    "card_category": "Funders",
+    "card_id": "card_1",
+    "card_number": 1,
+    "created_at": 1745437722139,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true,
+      "decks/d_1": {
+        "cards": {
+          "card__m9u8x60b_1oy5qop1": true,
+          "card__m9u8x6yc_jijzcs87": true
+        },
+        "cards_ref": {
+          "card_1": true,
+          "card_1542": null,
+          "card_2": true,
+          "card_3": true,
+          "card_4": true,
+          "card_5": true,
+          "card_6": true,
+          "card_7": true,
+          "card_7252": null,
+          "card__m9uawqaa_ll8gey0f": null,
+          "card__m9uawqrj_aplrvl0s": null,
+          "cards/card_1": null,
+          "cards/card_1542": null,
+          "cards/card_2": null,
+          "cards/card_3": null,
+          "cards/card_4": null,
+          "cards/card_5": null,
+          "cards/card_7252": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "deck_id": "d_1",
+        "description": "A deck of funder roles for eco-village simulation",
+        "is_public": true,
+        "name": "Eco-Village Funder Deck",
+        "updated_at": 1745437722139
+      }
+    },
+    "goals": "Fund projects that reduce ecological footprints and promote self-reliance.",
+    "icon": "sun",
+    "intellectual_property": "Database of sustainable tech solutions, funding strategy playbook.",
+    "obligations": "Must report impact to a donor network; cannot fund profit-driven ventures.",
+    "resources": "$50K in discretionary funds, limited staff time.",
+    "role_title": "Luminos Funder",
+    "type": "Individual",
+    "values_ref": {
+      "value_community_resilience": true,
+      "value_equity": true,
+      "value_sustainability": true,
+      "values/value_community_resilience": {
+        "cards_ref": {
+          "card_6": true,
+          "card_7": true,
+          "cards/card_1": null
+        },
+        "created_at": 1745437854101,
+        "creator_ref": "u_123",
+        "name": "Community Resilience",
+        "value_id": "value_community_resilience"
+      },
+      "values/value_equity": {
+        "cards": {
+          "cards/card__m9u8x60b_1oy5qop1": {
+            "backstory": "A solo philanthropist passionate about biodiversity.",
+            "capabilities": {
+              "capability_networking": true,
+              "capability_project-evaluation": true
+            },
+            "card_category": "Funders",
+            "card_id": "card__m9u8x60b_1oy5qop1",
+            "card_number": 6,
+            "created_at": 1745431621498,
+            "creator": "admin",
+            "decks": {
+              "d_1": true
+            },
+            "goals": "Fund rewilding and farming projects.",
+            "icon": "leaf",
+            "intellectual_property": "Eco-project case studies.",
+            "obligations": "Limited to $30K annual budget.",
+            "rivalrous_resources": "",
+            "role_title": "Gaia’s Benefactor",
+            "type": "Individual",
+            "values": {}
+          }
+        },
+        "cards_ref": {
+          "cards/card_1": null,
+          "cards/card_3": null,
+          "cards/card_4": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Equity",
+        "value_id": "value_equity"
+      },
+      "values/value_sustainability": {
+        "cards": {
+          "cards/card__m9u8x60b_1oy5qop1": "[Circular]",
+          "cards/card__m9u8x6yc_jijzcs87": {
+            "backstory": "A small donor pool supporting local eco-efforts.",
+            "capabilities": {
+              "capability_event-planning": true,
+              "capability_fundraising": true
+            },
+            "card_category": "Funders",
+            "card_id": "card__m9u8x6yc_jijzcs87",
+            "card_number": 7,
+            "created_at": 1745431622726,
+            "creator": "admin",
+            "decks": {
+              "d_1": true
+            },
+            "goals": "Raise $10K for village needs.",
+            "icon": "circle",
+            "intellectual_property": "Community fundraising playbook.",
+            "obligations": "Funds tied to group consensus.",
+            "rivalrous_resources": "",
+            "role_title": "Rooted Giving Circle",
+            "type": "Collective",
+            "values": {}
+          }
+        },
+        "cards_ref": {
+          "card_6": true,
+          "card_7": true,
+          "cards/card_1": null,
+          "cards/card_2": null,
+          "cards/card_3": null,
+          "cards/card_4": null,
+          "cards/card_5": null
+        },
+        "created_at": 1745437854101,
+        "creator_ref": "u_123",
+        "name": "Sustainability",
+        "value_id": "value_sustainability"
+      }
+    }
+  },
+  "card_1542": null,
+  "card_2": {
+    "agreements_ref": {
+      "ag_1": true,
+      "ag_2": true
+    },
+    "backstory": "A blockchain-based collective pooling crypto for eco-village experiments.",
+    "capabilities_ref": {
+      "cap_crowdfunding_coord": true,
+      "cap_smart_contract_dev": true,
+      "capabilities/cap_crowdfunding_coord": {
+        "capability_id": "cap_crowdfunding_coord",
+        "cards_ref": {
+          "cards/card_2": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Crowdfunding coordination"
+      },
+      "capabilities/cap_smart_contract_dev": {
+        "capability_id": "cap_smart_contract_dev",
+        "cards_ref": {
+          "cards/card_2": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Smart contract development"
+      }
+    },
+    "card_category": "Funders",
+    "card_id": "card_2",
+    "card_number": 2,
+    "created_at": 1745437722139,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true,
+      "decks/d_1": "[Circular]"
+    },
+    "goals": "Invest in scalable eco-village models; increase DAO membership.",
+    "icon": "link",
+    "intellectual_property": "Governance protocols, tokenomics model.",
+    "obligations": "Decisions must pass a token-weighted vote; funds locked until consensus.",
+    "resources": "10 ETH in treasury, limited developer hours.",
+    "role_title": "DAO of the Green Veil",
+    "type": "DAO",
+    "values_ref": {
+      "value_decentralization": true,
+      "value_sustainability": true,
+      "value_transparency": true,
+      "values/value_decentralization": {
+        "cards_ref": {
+          "cards/card_2": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Decentralization",
+        "value_id": "value_decentralization"
+      },
+      "values/value_sustainability": "[Circular]",
+      "values/value_transparency": {
+        "cards_ref": {
+          "cards/card_2": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Transparency",
+        "value_id": "value_transparency"
+      }
+    }
+  },
+  "card_3": {
+    "agreements_ref": {
+      "ag_2": true,
+      "ag_3": true
+    },
+    "backstory": "A private group funding land trusts for eco-villages.",
+    "capabilities_ref": {
+      "cap_land_acquisition": true,
+      "cap_legal_structuring": true,
+      "capabilities/cap_land_acquisition": {
+        "capability_id": "cap_land_acquisition",
+        "cards_ref": {
+          "cards/card_3": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Land acquisition"
+      },
+      "capabilities/cap_legal_structuring": {
+        "capability_id": "cap_legal_structuring",
+        "cards_ref": {
+          "cards/card_3": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Legal structuring"
+      }
+    },
+    "card_category": "Funders",
+    "card_id": "card_3",
+    "card_number": 3,
+    "created_at": 1745437722139,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true,
+      "decks/d_1": "[Circular]"
+    },
+    "goals": "Secure 100 acres for communal use.",
+    "icon": "lock",
+    "intellectual_property": "PMA governance docs, land trust templates.",
+    "obligations": "Funded by member dues; must prioritize member needs.",
+    "resources": "$20K in dues, limited legal support.",
+    "role_title": "PMA Seedkeeper",
+    "type": "PMA",
+    "values_ref": {
+      "value_equity": true,
+      "value_privacy": true,
+      "value_sustainability": true,
+      "values/value_equity": "[Circular]",
+      "values/value_privacy": {
+        "cards_ref": {
+          "cards/card_3": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Privacy",
+        "value_id": "value_privacy"
+      },
+      "values/value_sustainability": "[Circular]"
+    }
+  },
+  "card_4": {
+    "agreements_ref": {
+      "ag_3": true,
+      "ag_4": true
+    },
+    "backstory": "A grassroots group pooling micro-donations for eco-projects.",
+    "capabilities_ref": {
+      "cap_community_outreach": true,
+      "cap_crowdfunding_mgmt": true,
+      "capabilities/cap_community_outreach": {
+        "capability_id": "cap_community_outreach",
+        "cards_ref": {
+          "cards/card_4": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Community outreach"
+      },
+      "capabilities/cap_crowdfunding_mgmt": {
+        "capability_id": "cap_crowdfunding_mgmt",
+        "cards_ref": {
+          "cards/card_4": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Crowdfunding management"
+      }
+    },
+    "card_category": "Funders",
+    "card_id": "card_4",
+    "card_number": 4,
+    "created_at": 1745437722139,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true,
+      "decks/d_1": "[Circular]"
+    },
+    "goals": "Support 5 local initiatives annually.",
+    "icon": "users",
+    "intellectual_property": "Donor engagement strategies.",
+    "obligations": "Must align with donor preferences.",
+    "resources": "$5K in pooled funds, volunteer time.",
+    "role_title": "Eco-Patron Collective",
+    "type": "Collective",
+    "values_ref": {
+      "value_community": true,
+      "value_equity": true,
+      "value_sustainability": true,
+      "values/value_community": {
+        "cards": {
+          "cards/card__m9u8x6yc_jijzcs87": "[Circular]"
+        },
+        "cards_ref": {
+          "cards/card_4": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Community",
+        "value_id": "value_community"
+      },
+      "values/value_equity": "[Circular]",
+      "values/value_sustainability": "[Circular]"
+    }
+  },
+  "card_5": {
+    "agreements_ref": {
+      "ag_4": true,
+      "ag_5": true
+    },
+    "backstory": "A DAO investing crypto in green tech for eco-villages.",
+    "capabilities_ref": {
+      "cap_blockchain_integration": true,
+      "cap_tech_scouting": true,
+      "capabilities/cap_blockchain_integration": {
+        "capability_id": "cap_blockchain_integration",
+        "cards_ref": {
+          "cards/card_5": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Blockchain integration"
+      },
+      "capabilities/cap_tech_scouting": {
+        "capability_id": "cap_tech_scouting",
+        "cards_ref": {
+          "cards/card_5": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Tech scouting"
+      }
+    },
+    "card_category": "Funders",
+    "card_id": "card_5",
+    "card_number": 5,
+    "created_at": 1745437722139,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true,
+      "decks/d_1": "[Circular]"
+    },
+    "goals": "Prototype a scalable tech solution.",
+    "icon": "rocket",
+    "intellectual_property": "Tech evaluation framework.",
+    "obligations": "Slow consensus process delays funding.",
+    "resources": "5 ETH, limited tech expertise.",
+    "role_title": "Verdant Venture DAO",
+    "type": "DAO",
+    "values_ref": {
+      "value_innovation": true,
+      "value_resilience": true,
+      "value_sustainability": true,
+      "values/value_innovation": {
+        "cards_ref": {
+          "cards/card_5": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Innovation",
+        "value_id": "value_innovation"
+      },
+      "values/value_resilience": {
+        "cards_ref": {
+          "cards/card_5": null
+        },
+        "created_at": 1745437722139,
+        "creator_ref": "u_123",
+        "name": "Resilience",
+        "value_id": "value_resilience"
+      },
+      "values/value_sustainability": "[Circular]"
+    }
+  },
+  "card_6": {
+    "agreements_ref": {},
+    "backstory": "A solo philanthropist passionate about biodiversity.",
+    "capabilities_ref": {
+      "capability_coordination": true,
+      "capability_planning": true
+    },
+    "card_category": "Funders",
+    "card_id": "card_6",
+    "card_number": 6,
+    "created_at": 1745437852282,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true
+    },
+    "goals": "Fund rewilding and farming projects.",
+    "icon": "leaf",
+    "intellectual_property": "Eco-project case studies.",
+    "obligations": "Limited to $30K annual budget.",
+    "resources": "$30K, personal time.",
+    "role_title": "Gaia’s Benefactor",
+    "type": "Individual",
+    "values_ref": {
+      "value_community_resilience": true,
+      "value_sustainability": true,
+      "value_value_community_resilience": true,
+      "value_value_sustainability": true
+    }
+  },
+  "card_7": {
+    "agreements_ref": {},
+    "backstory": "A small donor pool supporting local eco-efforts.",
+    "capabilities_ref": {
+      "capability_coordination": true,
+      "capability_planning": true
+    },
+    "card_category": "Funders",
+    "card_id": "card_7",
+    "card_number": 7,
+    "created_at": 1745437854102,
+    "creator_ref": "u_123",
+    "decks_ref": {
+      "d_1": true
+    },
+    "goals": "Raise $10K for village needs.",
+    "icon": "circle",
+    "intellectual_property": "Community fundraising playbook.",
+    "obligations": "Funds tied to group consensus.",
+    "resources": "$3K, limited organizers.",
+    "role_title": "Rooted Giving Circle",
+    "type": "Collective",
+    "values_ref": {
+      "value_community_resilience": true,
+      "value_sustainability": true,
+      "value_value_community_resilience": true,
+      "value_value_sustainability": true
+    }
+  },
+  "card_7252": null,
+  "card__m9u8x60b_1oy5qop1": null,
+  "card__m9u8x6yc_jijzcs87": null,
+  "card__m9uawqaa_ll8gey0f": null,
+  "card__m9uawqrj_aplrvl0s": null
+}

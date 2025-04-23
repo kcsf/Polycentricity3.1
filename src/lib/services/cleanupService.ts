@@ -418,8 +418,84 @@ export async function cleanupNullCardReferences(): Promise<{
         });
       });
       
-      // Fourth pass: Direct cleanup of null/malformed card IDs in cards node
-      // This is needed to clean up entries like "card_7252": null and "card__m9uawqaa_ll8gey0f": null
+      // Fourth pass: Direct cleanup of specifically identified problematic card IDs
+      const specificProblematicIds = [
+        "card_7252", 
+        "card_1542", 
+        "card__m9uawqaa_ll8gey0f", 
+        "card__m9uawqrj_aplrvl0s",
+        "card__m9u8x60b_1oy5qop1",
+        "card__m9u8x6yc_jijzcs87"
+      ];
+      
+      // Aggressively clear these specific IDs from cards node
+      for (const badCardId of specificProblematicIds) {
+        console.log(`Forcefully removing problematic card ID: ${badCardId}`);
+        
+        // Use a more aggressive approach for these specific IDs
+        try {
+          // 1. First try to directly nullify
+          gun.get(nodes.cards).get(badCardId).put(null);
+          removedCount++;
+          
+          // 2. Also check all decks for references to this bad card - especially deck d_1 which has issues
+          gun.get(nodes.decks).map().once((deckData: any, deckId: string) => {
+            if (!deckData) return;
+            
+            // Remove from deck's cards_ref
+            gun.get(nodes.decks).get(deckId).get('cards_ref').get(badCardId).put(null);
+            
+            // Also check for prefixed versions (with cards/ prefix)
+            gun.get(nodes.decks).get(deckId).get('cards_ref').get(`cards/${badCardId}`).put(null);
+            
+            // Direct deep cleaning of problematic deck d_1 structure seen in the data dump
+            if (deckId === 'd_1') {
+              console.log(`Performing deep cleanup of problematic deck d_1 structure`);
+              
+              // Target the exact nested path seen in the data dump
+              gun.get(nodes.decks).get('d_1').get('cards_ref').get(badCardId).put(null);
+              
+              // Also clean from the nested "decks/d_1" path 
+              gun.get(nodes.decks).get(deckId).get('decks/d_1').get('cards_ref').get(badCardId).put(null);
+              
+              // Handle direct cards property if it exists
+              gun.get(nodes.decks).get(deckId).get('cards').get(badCardId).put(null);
+            }
+          });
+          
+          // 3. Check for circular references in values
+          gun.get(nodes.values).map().once((valueData: any, valueId: string) => {
+            if (!valueData || !valueData.cards_ref) return;
+            
+            // Remove bad card from value's cards_ref
+            gun.get(nodes.values).get(valueId).get('cards_ref').get(badCardId).put(null);
+            
+            // Also check for prefixed versions
+            gun.get(nodes.values).get(valueId).get('cards_ref').get(`cards/${badCardId}`).put(null);
+            
+            // Check for nested cards structure
+            if (valueData.cards) {
+              gun.get(nodes.values).get(valueId).get('cards').get(badCardId).put(null);
+              gun.get(nodes.values).get(valueId).get('cards').get(`cards/${badCardId}`).put(null);
+            }
+          });
+          
+          // 4. Check for references in capabilities
+          gun.get(nodes.capabilities).map().once((capData: any, capId: string) => {
+            if (!capData || !capData.cards_ref) return;
+            
+            // Remove from capability's cards_ref
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(badCardId).put(null);
+            
+            // Also check for prefixed versions
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(`cards/${badCardId}`).put(null);
+          });
+        } catch (e) {
+          console.warn(`Error cleaning up problematic card ${badCardId}:`, e);
+        }
+      }
+      
+      // Fifth pass: General cleanup of null/malformed card IDs
       gun.get(nodes.cards).map().once((cardData: any, cardId: string) => {
         // Check if this is a nullified card or a card with an invalid ID pattern
         const isNullCard = cardData === null;
