@@ -665,31 +665,7 @@ export async function initializeSampleData() {
     },
   ];
 
-  // 9. Chat Room and Message
-  const groupChatId = "chat_g_456";
-  const groupChat = {
-    chat_id: groupChatId,
-    game_ref: "g_456",
-    type: "group",
-    participants_ref: { u_123: true, u_124: true, u_125: true, u_126: true },
-    messages_ref: { day_20250421: true },
-    created_at: now,
-    last_message_at: now,
-  };
-
-  const messageId = generateId();
-  const message = {
-    message_id: messageId,
-    chat_ref: groupChatId,
-    game_ref: "g_456",
-    sender_ref: "u_123",
-    sender_name: "Alice Admin",
-    content:
-      "Welcome to our eco-village simulation! Let's collaborate on sustainable projects.",
-    type: "group",
-    read_by_ref: { u_123: true },
-    created_at: now,
-  };
+  // 9. No chat rooms or messages - removed
 
   // 10. Node Positions (circular layout)
   const radius = 200;
@@ -718,30 +694,18 @@ export async function initializeSampleData() {
   await saveBatch(nodes.cards, cards, "card_id");
   await saveBatch(nodes.values, values, "value_id");
   await saveBatch(nodes.capabilities, capabilities, "capability_id");
-  await robustPut(nodes.games, game.game_id, game);
+  
+  // Add detailed logging for game creation
+  console.log("[seed] Attempting to save game:", game.game_id);
+  const gameSuccess = await robustPut(nodes.games, game.game_id, game);
+  console.log(`[seed] Game save ${gameSuccess ? 'SUCCEEDED' : 'FAILED'}`);
+  
   await saveBatch(nodes.actors, actors, "actor_id");
+  
+  // Add detailed logging for agreements
+  console.log("[seed] Attempting to save agreements");
   await saveBatch(nodes.agreements, agreements, "agreement_id");
-  await robustPut(nodes.chat_rooms, groupChatId, groupChat);
-
-  // Save message with retry
-  console.log("[seed] Saving message:", messageId);
-  let messageSaved = await robustPut(
-    `${nodes.chat_messages}/${game.game_id}/day_20250421`,
-    messageId,
-    message,
-  );
-  if (!messageSaved) {
-    console.warn("[seed] Retrying message save:", messageId);
-    await delay(500);
-    messageSaved = await robustPut(
-      `${nodes.chat_messages}/${game.game_id}/day_20250421`,
-      messageId,
-      message,
-    );
-    if (!messageSaved) {
-      console.error("[seed] Failed to save message:", messageId);
-    }
-  }
+  console.log("[seed] Agreements save complete");
 
   await saveBatch(
     nodes.node_positions,
@@ -818,11 +782,7 @@ export async function initializeSampleData() {
       toSoul: `${nodes.agreements}/${agreement.agreement_id}`,
     });
   }
-  allEdges.push({
-    fromSoul: `${nodes.games}/${game.game_id}`,
-    field: "chat_rooms_ref",
-    toSoul: `${nodes.chat_rooms}/${groupChatId}`,
-  });
+  // Chat room reference removed
   // Actor ? Agreement
   for (const agreement of agreements) {
     for (const actorId of Object.keys(agreement.parties)) {
