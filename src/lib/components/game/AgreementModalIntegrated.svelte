@@ -1,6 +1,6 @@
 <script lang="ts">
   import * as icons from '@lucide/svelte';
-  import { getActors, createAgreement, updateAgreement } from '$lib/services/gameService';
+  import { getGameActors, createAgreement, updateAgreement } from '$lib/services/gameService';
   import type { Actor, Agreement } from '$lib/types';
   
   // Define position type
@@ -56,7 +56,7 @@
     if (gameId) {
       try {
         isLoading = true;
-        const fetchedActors = await getActors(gameId);
+        const fetchedActors = await getGameActors(gameId);
         actors = fetchedActors.map(actor => ({
           ...actor,
           position: actor.position || undefined
