@@ -14,14 +14,31 @@
       if (!gun) return;
 
       await new Promise<void>((resolve) => {
-        gun
-          .get(nodes.cards)
-          .map()
-          .once((cardData: Card, cardId: string) => {
-            if (cardData?.icon) {
-              iconNames = [...iconNames, cardData.icon];
-            }
-          });
+        try {
+          // Use explicit error handling and type checking to prevent Gun.js internal errors
+          gun
+            .get(nodes.cards)
+            .map()
+            .once((cardData, cardId: string) => {
+              try {
+                // Add strict type checking to prevent issues with malformed data
+                if (cardId && 
+                    cardId !== '_' && 
+                    cardData && 
+                    typeof cardData === 'object' && 
+                    !Array.isArray(cardData) &&
+                    cardData.icon &&
+                    typeof cardData.icon === 'string') {
+                  iconNames = [...iconNames, cardData.icon];
+                }
+              } catch (innerError) {
+                console.error(`Error processing card ${cardId}:`, innerError);
+                console.log('Problem data:', JSON.stringify(cardData));
+              }
+            });
+        } catch (gunError) {
+          console.error('Error in Gun map() query:', gunError);
+        }
         setTimeout(resolve, 1000);
       });
 

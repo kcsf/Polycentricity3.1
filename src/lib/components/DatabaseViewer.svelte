@@ -1,16 +1,19 @@
-<script>
+<!-- src/routes/db-explorer/+page.svelte -->
+<script lang="ts">
   import { onMount } from 'svelte';
   import gun from '$lib/services/gun-db';
 
   // Reactive state with runes
   let rootKey = $state('cards'); // Default root key
-  let dbData = $state(null);
-  let error = $state(null);
+  let deepData = $state<string | null>(null); // For Deep tab
+  let rawData = $state<string | null>(null); // For Raw tab
+  let error = $state<string | null>(null);
   let isLoading = $state(true);
+  let activeTab = $state('deep'); // Track active tab: 'deep' or 'raw'
 
   // Flag to track if open.js is loaded
   let openLoaded = $state(false);
-  
+
   // Load Gun.js open plugin dynamically in browser
   onMount(() => {
     const script = document.createElement('script');
@@ -19,7 +22,6 @@
     script.onload = () => {
       console.log('Gun open.js loaded');
       openLoaded = true;
-      // Trigger data refresh once loaded
       refreshData();
     };
     script.onerror = () => {
@@ -32,7 +34,7 @@
   });
 
   // Safely stringify with circular reference handling
-  function safeStringify(obj) {
+  function safeStringify(obj: any): string {
     const seen = new WeakSet();
     return JSON.stringify(
       obj,
@@ -41,7 +43,6 @@
           if (seen.has(value)) return '[Circular]';
           seen.add(value);
         }
-        // Simplify Gun references
         if (value && typeof value === 'object' && value['#'] && Object.keys(value).length === 1) {
           return `[GUN Reference → ${value['#']}]`;
         }
@@ -51,68 +52,96 @@
     );
   }
 
-  // Function to refresh data
-  function refreshData() {
+  // Fetch deep data using open.js
+  async function fetchDeepData() {
     if (!openLoaded) {
       console.log('Waiting for Gun open.js to load...');
-      isLoading = true;
-      return; // Don't proceed until open.js is loaded
+      return;
     }
-    
-    error = null;
-    dbData = null;
-    isLoading = true;
-
-    console.log(`Fetching data for key: ${rootKey}`);
     try {
-      // Handle nested paths (e.g., 'cards/card_id/values')
       const pathSegments = rootKey.split('/').filter(Boolean);
       let gunRef = gun;
       pathSegments.forEach(segment => {
         gunRef = gunRef.get(segment);
       });
 
-      // Log direct children for debugging
-      console.log(`Fetching all direct children of '${rootKey}':`);
-      gunRef.map().once((data, key) => {
-        console.log(`Found entry: ${key}`, data);
-      });
-
-      // Check if open method is available before using it
       if (typeof gunRef.open !== 'function') {
-        console.error('Gun.js open plugin not loaded yet');
-        error = 'Gun.js open plugin not loaded yet. Please try again in a moment.';
-        isLoading = false;
-        return;
+        throw new Error('Gun.js open plugin not loaded yet');
       }
 
-      // Fetch deep data with open
-      console.log(`Getting deep data from '${rootKey}'`);
-      gunRef.open((data) => {
-        console.log(`Open data for ${rootKey}:`, data);
-        if (data) {
-          try {
-            dbData = safeStringify(data);
-          } catch (e) {
-            console.error('Error serializing data:', e);
-            error = `Error serializing data: ${e.message}`;
+      return new Promise<string>((resolve) => {
+        gunRef.open((data: any) => {
+          if (data) {
+            resolve(safeStringify(data));
+          } else {
+            resolve('No data found');
           }
-        } else {
-          error = `No data found for key: ${rootKey}`;
-        }
-        isLoading = false;
+        });
       });
     } catch (e) {
-      console.error('Error accessing Gun data:', e);
-      error = `Error: ${e.message}`;
+      throw new Error(`Error accessing deep data: ${e.message}`);
+    }
+  }
+
+  // Fetch raw data (flat key/value pairs)
+  async function fetchRawData() {
+    try {
+      const pathSegments = rootKey.split('/').filter(Boolean);
+      let gunRef = gun;
+      pathSegments.forEach(segment => {
+        gunRef = gunRef.get(segment);
+      });
+
+      const nodes: Record<string, any> = {};
+      await new Promise<void>((resolve) => {
+        gunRef.map().once((data, key) => {
+          if (key && key !== '_' && data) {
+            nodes[key] = { ...data, _: undefined };
+          }
+        });
+        setTimeout(resolve, 500);
+      });
+
+      return safeStringify(nodes);
+    } catch (e) {
+      throw new Error(`Error accessing raw data: ${e.message}`);
+    }
+  }
+
+  // Refresh data based on active tab
+  async function refreshData() {
+    if (!openLoaded && activeTab === 'deep') {
+      console.log('Waiting for Gun open.js to load...');
+      isLoading = true;
+      return;
+    }
+
+    error = null;
+    if (activeTab === 'deep') {
+      deepData = null;
+    } else {
+      rawData = null;
+    }
+    isLoading = true;
+
+    console.log(`Fetching ${activeTab} data for key: ${rootKey}`);
+    try {
+      if (activeTab === 'deep') {
+        deepData = await fetchDeepData();
+      } else {
+        rawData = await fetchRawData();
+      }
+    } catch (e) {
+      console.error(`Error fetching ${activeTab} data:`, e);
+      error = e.message;
+    } finally {
       isLoading = false;
     }
   }
 
-  // Fetch data when rootKey changes
+  // Fetch data when rootKey or activeTab changes
   $effect(() => {
-    // This effect runs whenever rootKey changes
-    if (openLoaded) {
+    if (openLoaded || activeTab === 'raw') {
       refreshData();
     } else {
       console.log('Waiting for Gun open.js to load before fetching data for', rootKey);
@@ -129,8 +158,10 @@
     'decks',
     'games',
     'users',
-    'chats',
-    'agreements'
+    'chat_rooms',
+    'chat_messages',
+    'agreements',
+    'node_positions'
   ];
 </script>
 
@@ -149,7 +180,7 @@
       />
       <button
         class="btn variant-filled-primary"
-        onclick={() => refreshData()}
+        on:click={() => refreshData()}
       >
         Refresh
       </button>
@@ -168,7 +199,7 @@
       {#each commonKeys as key}
         <button
           class="btn {rootKey === key ? 'variant-filled-primary' : 'variant-soft'}"
-          onclick={() => {
+          on:click={() => {
             rootKey = key;
             refreshData();
           }}
@@ -179,13 +210,28 @@
     </div>
   </div>
 
+  <div class="tabs mb-4">
+    <button
+      class="btn {activeTab === 'deep' ? 'variant-filled-primary' : 'variant-soft'}"
+      on:click={() => { activeTab = 'deep'; refreshData(); }}
+    >
+      Deep View
+    </button>
+    <button
+      class="btn {activeTab === 'raw' ? 'variant-filled-primary' : 'variant-soft'}"
+      on:click={() => { activeTab = 'raw'; refreshData(); }}
+    >
+      Raw View
+    </button>
+  </div>
+
   <div class="card">
     <header class="card-header flex justify-between items-center">
-      <h2 class="h4">Data for "{rootKey}"</h2>
+      <h2 class="h4">{activeTab === 'deep' ? 'Deep' : 'Raw'} Data for "{rootKey}"</h2>
       <div>
         {#if isLoading}
           <span class="badge variant-soft">Loading...</span>
-        {:else if dbData}
+        {:else if activeTab === 'deep' && deepData || activeTab === 'raw' && rawData}
           <span class="badge variant-filled-success">Data Loaded</span>
         {:else}
           <span class="badge variant-filled-error">No Data</span>
@@ -200,11 +246,17 @@
         <div class="flex justify-center items-center p-6">
           <div class="spinner-third w-8 h-8"></div>
         </div>
-      {:else if dbData}
+      {:else if activeTab === 'deep' && deepData}
         <pre
           class="bg-surface-200-700-token p-4 rounded-container-token overflow-auto max-h-[600px] text-sm whitespace-pre-wrap"
         >
-          {dbData}
+          {deepData}
+        </pre>
+      {:else if activeTab === 'raw' && rawData}
+        <pre
+          class="bg-surface-200-700-token p-4 rounded-container-token overflow-auto max-h-[600px] text-sm whitespace-pre-wrap"
+        >
+          {rawData}
         </pre>
       {:else}
         <p class="text-center p-4">No data available for this key</p>
