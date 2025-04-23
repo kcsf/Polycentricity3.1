@@ -1,22 +1,3 @@
-/**
- * gameService.ts - Game logic for Polycentricity3
- *
- * Provides schema-aligned operations for games, actors, cards, and agreements using optimized Gun.js functions.
- * Best Practices:
- * - Uses typed get/putSigned from gunService for schema alignment
- * - Avoids direct Gun.db calls, ensuring single-point access
- * - Returns typed data for Runes compatibility
- * - Implements caching and fire-and-forget writes for performance
- * - Handles pagination and sharding for scalability
- *
- * Features:
- * - Game creation with immediate cache updates
- * - Actor and card assignment with background verifications
- * - Agreement management with real-time subscriptions
- * - Optimized player role lookups and game joining/leaving
- * - Card value and capability name resolution
- */
-
 import {
   getGun,
   nodes,
@@ -28,7 +9,7 @@ import {
   generateId,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
-import { currentGameStore, setUserGames } from "../stores/gameStore";
+import { currentGameStore } from "../stores/gameStore";
 import { get as getStore } from "svelte/store";
 import type {
   Game,
@@ -48,10 +29,8 @@ const cardCache = new Map<string, CardWithPosition>();
 const agreementCache = new Map<string, AgreementWithPosition>();
 const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 
-// Export caches for external use
 export { actorCache, cardCache, agreementCache };
 
-// Conditional logging
 const isDev =
   typeof process !== "undefined" && process.env.NODE_ENV !== "production";
 const log = (...args: any[]) => isDev && console.log("[gameService]", ...args);
@@ -63,20 +42,15 @@ const logError = (...args: any[]) => console.error("[gameService]", ...args);
 function cacheGame(gameId: string, game: Game): void {
   gameCache.set(gameId, { ...game, game_id: gameId });
 }
-
 function cacheActor(actorId: string, actor: Actor): void {
   actorCache.set(actorId, { ...actor, actor_id: actorId });
 }
-
 function cacheCard(cardId: string, card: CardWithPosition): void {
   cardCache.set(cardId, { ...card, card_id: cardId });
 }
-
 function cacheRole(gameId: string, userId: string, actorId: string): void {
-  const key = `${gameId}:${userId}`;
-  roleCache.set(key, actorId);
+  roleCache.set(`${gameId}:${userId}`, actorId);
 }
-
 function cacheAgreement(
   agreementId: string,
   agreement: AgreementWithPosition,
@@ -85,10 +59,7 @@ function cacheAgreement(
 }
 
 /**
- * Process card values_ref and capabilities_ref to extract names
- * @param ref - Record of value or capability IDs
- * @param prefix - 'value_' or 'cap_'
- * @returns Array of human-readable names
+ * Helper to format raw value/capability IDs into human names
  */
 function getCardNames(
   ref: Record<string, boolean> | undefined,
@@ -96,12 +67,12 @@ function getCardNames(
 ): string[] {
   if (!ref) return [];
   return Object.keys(ref)
-    .filter((key) => key !== "_" && ref[key] === true && key.startsWith(prefix))
+    .filter((key) => key !== "_" && ref[key] && key.startsWith(prefix))
     .map((key) =>
       key
         .replace(prefix, "")
-        .split("-")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .split(/[-_]/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" "),
     );
 }
@@ -992,39 +963,67 @@ export async function getAvailableCardsForGame(
  * Get a card by ID
  * @param cardId - Card ID
  * @param includeNames - Whether to include value and capability names
- * @returns Card or null
  */
 export async function getCard(
   cardId: string,
   includeNames: boolean = false,
 ): Promise<CardWithPosition | null> {
   log(`Fetching card: ${cardId}`);
+  // Cache hit
   if (cardCache.has(cardId)) {
-    log(`Cache hit: ${cardId}`);
-    const card = cardCache.get(cardId)!;
-    if (includeNames && (!card._valueNames || !card._capabilityNames)) {
-      card._valueNames = getCardNames(card.values_ref, "value_");
-      card._capabilityNames = getCardNames(card.capabilities_ref, "cap_");
-      cacheCard(cardId, card);
+    const cached = cardCache.get(cardId)!;
+    if (includeNames && (!cached._valueNames || !cached._capabilityNames)) {
+      cached._valueNames = getCardNames(cached.values_ref, "value_");
+      cached._capabilityNames = getCardNames(cached.capabilities_ref, "cap_");
+      cacheCard(cardId, cached);
     }
-    return card;
+    return cached;
   }
 
-  const card = await get<Card>(`${nodes.cards}/${cardId}`);
-  if (!card) {
+  // Load the shallow card node
+  const rawCard = await get<Card>(`${nodes.cards}/${cardId}`);
+  if (!rawCard) {
     log(`Card not found: ${cardId}`);
     return null;
   }
 
+  // Re-flatten graph-set entries into boolean maps
+  const flatValues: Record<string, boolean> = {};
+  const flatCaps: Record<string, boolean> = {};
+
+  // Load and flatten values_ref set
+  const valueEntries = await getCollection<any>(
+    `${nodes.cards}/${cardId}/values_ref`,
+  );
+  valueEntries.forEach((v) => {
+    const vid = v.value_id || v.id;
+    if (vid) flatValues[vid] = true;
+  });
+
+  // Load and flatten capabilities_ref set
+  const capEntries = await getCollection<any>(
+    `${nodes.cards}/${cardId}/capabilities_ref`,
+  );
+  capEntries.forEach((c) => {
+    const cid = c.capability_id || c.id;
+    if (cid) flatCaps[cid] = true;
+  });
+
+  // Human-friendly names
+  const _valueNames = includeNames
+    ? getCardNames(flatValues, "value_")
+    : undefined;
+  const _capabilityNames = includeNames
+    ? getCardNames(flatCaps, "cap_")
+    : undefined;
+
   const cardWithPosition: CardWithPosition = {
-    ...card,
+    ...rawCard,
+    values_ref: flatValues,
+    capabilities_ref: flatCaps,
     position: { x: Math.random() * 800, y: Math.random() * 600 },
-    _valueNames: includeNames
-      ? getCardNames(card.values_ref, "value_")
-      : undefined,
-    _capabilityNames: includeNames
-      ? getCardNames(card.capabilities_ref, "cap_")
-      : undefined,
+    _valueNames,
+    _capabilityNames,
   };
 
   cacheCard(cardId, cardWithPosition);
