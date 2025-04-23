@@ -21,6 +21,7 @@ export interface User {
     magic_key?: string; // Optional authentication key
     created_at: number;
     last_login?: number;
+    games_ref?: Record<string, boolean>;
 }
 
 export interface Value {

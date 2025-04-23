@@ -101,7 +101,7 @@ export async function createGame(
 
     if (!currentUser) {
       logWarn("No authenticated user. Using mock user for development");
-      return null; // Enforce authentication in production
+      return null;
     }
 
     const gameId = generateId();
@@ -149,7 +149,7 @@ export async function createGame(
     // Fire-and-forget secondary writes
     createRelationship(
       `${nodes.users}/${currentUser.user_id}`,
-      "games",
+      "games_ref",
       `${nodes.games}/${gameId}`,
     );
     const deckId =
@@ -166,7 +166,6 @@ export async function createGame(
       );
     }
 
-    // Delayed verification
     setTimeout(async () => {
       const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
       if (!savedGame) {
@@ -285,7 +284,7 @@ export async function joinGame(gameId: string): Promise<boolean> {
 
   createRelationship(
     `${nodes.users}/${currentUser.user_id}`,
-    "games",
+    "games_ref",
     `${nodes.games}/${gameId}`,
   );
   createRelationship(
@@ -1178,7 +1177,7 @@ export async function createActor(
     return null;
   }
 
-  const game = await getGame(gameId);
+  const game = await get<Game>(`${nodes.games}/${gameId}`);
   if (!game) {
     logError(`Game not found: ${gameId}`);
     return null;
@@ -1200,23 +1199,23 @@ export async function createActor(
   cacheActor(actorId, actor);
   cacheRole(gameId, currentUser.user_id, actorId);
 
-  await putSigned(`${nodes.actors}/${actorId}`, actor);
-  await createRelationship(
+  putSigned(`${nodes.actors}/${actorId}`, actor);
+  createRelationship(
     `${nodes.users}/${currentUser.user_id}`,
-    "actors",
+    "actors_ref",
     `${nodes.actors}/${actorId}`,
   );
-  await createRelationship(
+  createRelationship(
     `${nodes.actors}/${actorId}`,
-    "card",
+    "card_ref",
     `${nodes.cards}/${cardId}`,
   );
-  await createRelationship(
+  createRelationship(
     `${nodes.actors}/${actorId}`,
-    "game",
+    "game_ref",
     `${nodes.games}/${gameId}`,
   );
-  await updatePlayerActorMap(gameId, currentUser.user_id, actorId);
+  updatePlayerActorMap(gameId, currentUser.user_id, actorId);
 
   setTimeout(async () => {
     const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
@@ -1362,10 +1361,10 @@ export async function assignCardToActor(
   }
 
   cacheActor(actorId, { ...actor, card_ref: cardId });
-  await putSigned(`${nodes.actors}/${actorId}`, { ...actor, card_ref: cardId });
-  await createRelationship(
+  putSigned(`${nodes.actors}/${actorId}`, { ...actor, card_ref: cardId });
+  createRelationship(
     `${nodes.actors}/${actorId}`,
-    "card",
+    "card_ref",
     `${nodes.cards}/${cardId}`,
   );
 
