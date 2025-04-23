@@ -14,19 +14,37 @@
  * - Actor and card assignment with background verifications
  * - Agreement management with real-time subscriptions
  * - Optimized player role lookups and game joining/leaving
+ * - Card value and capability name resolution
  */
 
-import { getGun, nodes, get, putSigned, getCollection, buildShardedPath, createRelationship, generateId } from './gunService';
-import { getCurrentUser } from './authService';
-import { currentGameStore, setUserGames } from '../stores/gameStore';
-import { get as getStore } from 'svelte/store';
-import type { Game, Actor, Card, NodePosition, Agreement, AgreementWithPosition } from '$lib/types';
-import { GameStatus, AgreementStatus } from '$lib/types';
+import {
+  getGun,
+  nodes,
+  get,
+  putSigned,
+  getCollection,
+  buildShardedPath,
+  createRelationship,
+  generateId,
+} from "./gunService";
+import { getCurrentUser } from "./authService";
+import { currentGameStore, setUserGames } from "../stores/gameStore";
+import { get as getStore } from "svelte/store";
+import type {
+  Game,
+  Actor,
+  Card,
+  CardWithPosition,
+  NodePosition,
+  Agreement,
+  AgreementWithPosition,
+} from "$lib/types";
+import { GameStatus, AgreementStatus } from "$lib/types";
 
 // Caches for performance
 const gameCache = new Map<string, Game>();
 const actorCache = new Map<string, Actor>();
-const cardCache = new Map<string, Card>();
+const cardCache = new Map<string, CardWithPosition>();
 const agreementCache = new Map<string, AgreementWithPosition>();
 const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 
@@ -34,10 +52,12 @@ const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 export { actorCache, cardCache, agreementCache };
 
 // Conditional logging
-const isDev = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';
-const log = (...args: any[]) => isDev && console.log('[gameService]', ...args);
-const logWarn = (...args: any[]) => isDev && console.warn('[gameService]', ...args);
-const logError = (...args: any[]) => console.error('[gameService]', ...args);
+const isDev =
+  typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+const log = (...args: any[]) => isDev && console.log("[gameService]", ...args);
+const logWarn = (...args: any[]) =>
+  isDev && console.warn("[gameService]", ...args);
+const logError = (...args: any[]) => console.error("[gameService]", ...args);
 
 // Cache helpers
 function cacheGame(gameId: string, game: Game): void {
@@ -48,7 +68,7 @@ function cacheActor(actorId: string, actor: Actor): void {
   actorCache.set(actorId, { ...actor, actor_id: actorId });
 }
 
-function cacheCard(cardId: string, card: Card): void {
+function cacheCard(cardId: string, card: CardWithPosition): void {
   cardCache.set(cardId, { ...card, card_id: cardId });
 }
 
@@ -57,8 +77,33 @@ function cacheRole(gameId: string, userId: string, actorId: string): void {
   roleCache.set(key, actorId);
 }
 
-function cacheAgreement(agreementId: string, agreement: AgreementWithPosition): void {
+function cacheAgreement(
+  agreementId: string,
+  agreement: AgreementWithPosition,
+): void {
   agreementCache.set(agreementId, { ...agreement, agreement_id: agreementId });
+}
+
+/**
+ * Process card values_ref and capabilities_ref to extract names
+ * @param ref - Record of value or capability IDs
+ * @param prefix - 'value_' or 'cap_'
+ * @returns Array of human-readable names
+ */
+function getCardNames(
+  ref: Record<string, boolean> | undefined,
+  prefix: "value_" | "cap_",
+): string[] {
+  if (!ref) return [];
+  return Object.keys(ref)
+    .filter((key) => key !== "_" && ref[key] === true && key.startsWith(prefix))
+    .map((key) =>
+      key
+        .replace(prefix, "")
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" "),
+    );
 }
 
 /**
@@ -68,19 +113,23 @@ function cacheAgreement(agreementId: string, agreement: AgreementWithPosition): 
  * @param roleAssignmentType - Role assignment strategy
  * @returns Created Game or null if failed
  */
-export async function createGame(name: string, deckType: string, roleAssignmentType: string = 'random'): Promise<Game | null> {
+export async function createGame(
+  name: string,
+  deckType: string,
+  roleAssignmentType: string = "random",
+): Promise<Game | null> {
   try {
     log(`Creating game: ${name} with deck type: ${deckType}`);
     const gun = getGun();
     const currentUser = getCurrentUser();
 
     if (!gun) {
-      logError('Gun not initialized');
+      logError("Gun not initialized");
       return null;
     }
 
     if (!currentUser) {
-      logWarn('No authenticated user. Using mock user for development');
+      logWarn("No authenticated user. Using mock user for development");
       return null; // Enforce authentication in production
     }
 
@@ -88,9 +137,14 @@ export async function createGame(name: string, deckType: string, roleAssignmentT
     const gameData: Game = {
       game_id: gameId,
       name,
-      description: '',
+      description: "",
       creator_ref: currentUser.user_id,
-      deck_ref: deckType === 'eco-village' ? 'd1' : deckType === 'community-garden' ? 'd2' : 'd1',
+      deck_ref:
+        deckType === "eco-village"
+          ? "d1"
+          : deckType === "community-garden"
+            ? "d2"
+            : "d1",
       deck_type: deckType,
       status: GameStatus.ACTIVE,
       created_at: Date.now(),
@@ -98,7 +152,7 @@ export async function createGame(name: string, deckType: string, roleAssignmentT
       player_actor_map: { [currentUser.user_id]: null },
       actors_ref: {},
       agreements_ref: {},
-      chat_rooms_ref: {}
+      chat_rooms_ref: {},
     };
 
     cacheGame(gameId, gameData);
@@ -107,14 +161,14 @@ export async function createGame(name: string, deckType: string, roleAssignmentT
     const writeStart = performance.now();
     await new Promise<void>((resolve) => {
       const writeTimeout = setTimeout(() => {
-        log('Primary game data write timed out, proceeding anyway');
+        log("Primary game data write timed out, proceeding anyway");
         resolve();
       }, 800);
 
-      putSigned(`${nodes.games}/${gameId}`, gameData).then(ack => {
+      putSigned(`${nodes.games}/${gameId}`, gameData).then((ack) => {
         clearTimeout(writeTimeout);
         if (ack.err) logError(`Primary game data write error: ${ack.err}`);
-        else log('Primary game data write completed');
+        else log("Primary game data write completed");
         resolve();
       });
     });
@@ -122,10 +176,23 @@ export async function createGame(name: string, deckType: string, roleAssignmentT
     log(`Primary game data wrote in ${performance.now() - writeStart}ms`);
 
     // Fire-and-forget secondary writes
-    createRelationship(`${nodes.users}/${currentUser.user_id}`, 'games', `${nodes.games}/${gameId}`);
-    const deckId = deckType === 'eco-village' ? 'd1' : deckType === 'community-garden' ? 'd2' : null;
+    createRelationship(
+      `${nodes.users}/${currentUser.user_id}`,
+      "games",
+      `${nodes.games}/${gameId}`,
+    );
+    const deckId =
+      deckType === "eco-village"
+        ? "d1"
+        : deckType === "community-garden"
+          ? "d2"
+          : null;
     if (deckId) {
-      createRelationship(`${nodes.games}/${gameId}`, 'deck_ref', `${nodes.decks}/${deckId}`);
+      createRelationship(
+        `${nodes.games}/${gameId}`,
+        "deck_ref",
+        `${nodes.decks}/${deckId}`,
+      );
     }
 
     // Delayed verification
@@ -138,13 +205,16 @@ export async function createGame(name: string, deckType: string, roleAssignmentT
       const map = await get<Game>(`${nodes.games}/${gameId}`);
       if (!map?.player_actor_map?.[currentUser.user_id]) {
         log(`Fixed missing player_actor_map for game ${gameId}`);
-        await putSigned(`${nodes.games}/${gameId}`, { ...gameData, player_actor_map: { [currentUser.user_id]: null } });
+        await putSigned(`${nodes.games}/${gameId}`, {
+          ...gameData,
+          player_actor_map: { [currentUser.user_id]: null },
+        });
       }
     }, 500);
 
     return gameData;
   } catch (error) {
-    logError('Unhandled error in createGame:', error);
+    logError("Unhandled error in createGame:", error);
     return null;
   }
 }
@@ -177,16 +247,18 @@ export async function getGame(gameId: string): Promise<Game | null> {
  * @returns Array of Games
  */
 export async function getAllGames(): Promise<Game[]> {
-  log('Fetching all games...');
+  log("Fetching all games...");
   const cachedGames = Array.from(gameCache.values());
   if (cachedGames.length > 0) {
-    log(`Returning ${cachedGames.length} cached games while fetching fresh data`);
+    log(
+      `Returning ${cachedGames.length} cached games while fetching fresh data`,
+    );
     setTimeout(() => fetchAllGamesBackground(), 100);
     return cachedGames;
   }
 
   const games = await getCollection<Game>(nodes.games);
-  games.forEach(game => cacheGame(game.game_id, game));
+  games.forEach((game) => cacheGame(game.game_id, game));
   log(`Retrieved ${games.length} games`);
   return games;
 }
@@ -198,8 +270,8 @@ function fetchAllGamesBackground(): void {
   const gun = getGun();
   if (!gun) return;
 
-  getCollection<Game>(nodes.games).then(games => {
-    games.forEach(game => cacheGame(game.game_id, game));
+  getCollection<Game>(nodes.games).then((games) => {
+    games.forEach((game) => cacheGame(game.game_id, game));
     log(`Background refresh: Cached ${games.length} games`);
   });
 }
@@ -215,11 +287,13 @@ export async function joinGame(gameId: string): Promise<boolean> {
   const currentUser = getCurrentUser();
 
   if (!gun || !currentUser) {
-    logError('Gun or user not initialized');
+    logError("Gun or user not initialized");
     return false;
   }
 
-  let game = gameCache.has(gameId) ? gameCache.get(gameId) : await getGame(gameId);
+  let game = gameCache.has(gameId)
+    ? gameCache.get(gameId)
+    : await getGame(gameId);
   if (!game) {
     logError(`Game not found: ${gameId}`);
     return false;
@@ -232,21 +306,43 @@ export async function joinGame(gameId: string): Promise<boolean> {
 
   const updatedPlayers = { ...game.players, [currentUser.user_id]: true };
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
-  cacheGame(gameId, { ...game, players: updatedPlayers, player_actor_map: updatedMap });
+  cacheGame(gameId, {
+    ...game,
+    players: updatedPlayers,
+    player_actor_map: updatedMap,
+  });
 
-  createRelationship(`${nodes.users}/${currentUser.user_id}`, 'games', `${nodes.games}/${gameId}`);
-  createRelationship(`${nodes.games}/${gameId}`, 'players', `${nodes.users}/${currentUser.user_id}`);
-  await putSigned(`${nodes.games}/${gameId}`, { ...game, players: updatedPlayers, player_actor_map: updatedMap });
+  createRelationship(
+    `${nodes.users}/${currentUser.user_id}`,
+    "games",
+    `${nodes.games}/${gameId}`,
+  );
+  createRelationship(
+    `${nodes.games}/${gameId}`,
+    "players",
+    `${nodes.users}/${currentUser.user_id}`,
+  );
+  await putSigned(`${nodes.games}/${gameId}`, {
+    ...game,
+    players: updatedPlayers,
+    player_actor_map: updatedMap,
+  });
 
   setTimeout(async () => {
     const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
     if (!savedGame?.players[currentUser.user_id]) {
       log(`Player not added, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, { ...game, players: updatedPlayers });
+      await putSigned(`${nodes.games}/${gameId}`, {
+        ...game,
+        players: updatedPlayers,
+      });
     }
     if (!savedGame?.player_actor_map[currentUser.user_id]) {
       log(`Player actor map not updated, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, { ...game, player_actor_map: updatedMap });
+      await putSigned(`${nodes.games}/${gameId}`, {
+        ...game,
+        player_actor_map: updatedMap,
+      });
     }
   }, 200);
 
@@ -265,7 +361,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   const currentUser = getCurrentUser();
 
   if (!gun || !currentUser) {
-    logError('Gun or user not initialized');
+    logError("Gun or user not initialized");
     return false;
   }
 
@@ -277,12 +373,23 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 
   const { [currentUser.user_id]: _, ...updatedPlayers } = game.players;
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
-  cacheGame(gameId, { ...game, players: updatedPlayers, player_actor_map: updatedMap });
+  cacheGame(gameId, {
+    ...game,
+    players: updatedPlayers,
+    player_actor_map: updatedMap,
+  });
 
-  await putSigned(`${nodes.games}/${gameId}`, { ...game, players: updatedPlayers, player_actor_map: updatedMap });
+  await putSigned(`${nodes.games}/${gameId}`, {
+    ...game,
+    players: updatedPlayers,
+    player_actor_map: updatedMap,
+  });
   const actor = await getPlayerRole(gameId, currentUser.user_id);
   if (actor) {
-    await putSigned(`${nodes.actors}/${actor.actor_id}`, { ...actor, user_ref: null });
+    await putSigned(`${nodes.actors}/${actor.actor_id}`, {
+      ...actor,
+      user_ref: null,
+    });
     const key = `${gameId}:${currentUser.user_id}`;
     roleCache.delete(key);
   }
@@ -291,7 +398,10 @@ export async function leaveGame(gameId: string): Promise<boolean> {
     const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
     if (savedGame?.players[currentUser.user_id]) {
       log(`Player still in game, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, { ...game, players: updatedPlayers });
+      await putSigned(`${nodes.games}/${gameId}`, {
+        ...game,
+        players: updatedPlayers,
+      });
     }
   }, 500);
 
@@ -305,7 +415,10 @@ export async function leaveGame(gameId: string): Promise<boolean> {
  * @param gameId - Game ID
  * @returns Actor with card details or null
  */
-export async function getActorWithCard(actorId: string, gameId: string): Promise<Actor | null> {
+export async function getActorWithCard(
+  actorId: string,
+  gameId: string,
+): Promise<Actor | null> {
   log(`Getting actor with card: ${actorId} in game ${gameId}`);
   const gun = getGun();
   if (!gun) return null;
@@ -313,14 +426,18 @@ export async function getActorWithCard(actorId: string, gameId: string): Promise
   const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
   if (!actor || actor.game_ref !== gameId) return null;
 
-  const card = actor.card_ref ? await get<Card>(`${nodes.cards}/${actor.card_ref}`) : null;
-  const position = await get<NodePosition>(buildShardedPath(nodes.node_positions, gameId, actorId)) ?? {
+  const card = actor.card_ref
+    ? await get<CardWithPosition>(`${nodes.cards}/${actor.card_ref}`)
+    : null;
+  const position = (await get<NodePosition>(
+    buildShardedPath(nodes.node_positions, gameId, actorId),
+  )) ?? {
     node_id: actorId,
     game_ref: gameId,
-    type: 'actor',
+    type: "actor",
     x: 0,
     y: 0,
-    updated_at: Date.now()
+    updated_at: Date.now(),
   };
 
   if (!card) return null;
@@ -336,7 +453,11 @@ export async function getActorWithCard(actorId: string, gameId: string): Promise
  * @param specifiedActorId - Optional specific actor ID
  * @returns Actor or null
  */
-export async function getPlayerRole(gameId: string, userId: string, specifiedActorId?: string): Promise<Actor | null> {
+export async function getPlayerRole(
+  gameId: string,
+  userId: string,
+  specifiedActorId?: string,
+): Promise<Actor | null> {
   log(`Getting role for user ${userId} in game ${gameId}`);
   const cacheKey = `${gameId}:${userId}`;
   if (roleCache.has(cacheKey)) {
@@ -349,7 +470,7 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
 
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return null;
   }
 
@@ -385,11 +506,15 @@ export async function getPlayerRole(gameId: string, userId: string, specifiedAct
  * @param actorId - Actor ID
  * @returns Success status
  */
-export async function assignRole(gameId: string, userId: string, actorId: string): Promise<boolean> {
+export async function assignRole(
+  gameId: string,
+  userId: string,
+  actorId: string,
+): Promise<boolean> {
   log(`Assigning role ${actorId} to user ${userId} in game ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return false;
   }
 
@@ -409,13 +534,19 @@ export async function assignRole(gameId: string, userId: string, actorId: string
   cacheGame(gameId, { ...game, player_actor_map: updatedMap });
 
   await putSigned(`${nodes.actors}/${actorId}`, { ...actor, user_ref: userId });
-  await putSigned(`${nodes.games}/${gameId}`, { ...game, player_actor_map: updatedMap });
+  await putSigned(`${nodes.games}/${gameId}`, {
+    ...game,
+    player_actor_map: updatedMap,
+  });
 
   setTimeout(async () => {
     const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
     if (!savedActor || savedActor.user_ref !== userId) {
       log(`Actor user_ref verification failed, retrying`);
-      await putSigned(`${nodes.actors}/${actorId}`, { ...actor, user_ref: userId });
+      await putSigned(`${nodes.actors}/${actorId}`, {
+        ...actor,
+        user_ref: userId,
+      });
     }
   }, 500);
 
@@ -429,11 +560,17 @@ export async function assignRole(gameId: string, userId: string, actorId: string
  * @param actorId - Actor ID
  * @returns Success status
  */
-export async function updatePlayerActorMap(gameId: string, userId: string, actorId: string): Promise<boolean> {
-  log(`Updating player_actor_map for user ${userId} -> actor ${actorId} in game ${gameId}`);
+export async function updatePlayerActorMap(
+  gameId: string,
+  userId: string,
+  actorId: string,
+): Promise<boolean> {
+  log(
+    `Updating player_actor_map for user ${userId} -> actor ${actorId} in game ${gameId}`,
+  );
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return false;
   }
 
@@ -444,13 +581,19 @@ export async function updatePlayerActorMap(gameId: string, userId: string, actor
   cacheGame(gameId, { ...game, player_actor_map: updatedMap });
   cacheRole(gameId, userId, actorId);
 
-  await putSigned(`${nodes.games}/${gameId}`, { ...game, player_actor_map: updatedMap });
+  await putSigned(`${nodes.games}/${gameId}`, {
+    ...game,
+    player_actor_map: updatedMap,
+  });
 
   setTimeout(async () => {
     const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
     if (!savedGame?.player_actor_map[userId]) {
-      log(`Player-actor mapping verification failed, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, { ...game, player_actor_map: updatedMap });
+      log(`Player-actor mapping verification delayed, retrying`);
+      await putSigned(`${nodes.games}/${gameId}`, {
+        ...game,
+        player_actor_map: updatedMap,
+      });
     }
   }, 500);
 
@@ -462,7 +605,9 @@ export async function updatePlayerActorMap(gameId: string, userId: string, actor
  * @param agreementId - Agreement ID
  * @returns AgreementWithPosition or null
  */
-export async function getAgreement(agreementId: string): Promise<AgreementWithPosition | null> {
+export async function getAgreement(
+  agreementId: string,
+): Promise<AgreementWithPosition | null> {
   log(`Getting agreement: ${agreementId}`);
   if (agreementCache.has(agreementId)) {
     log(`Cache hit for agreement: ${agreementId}`);
@@ -477,7 +622,7 @@ export async function getAgreement(agreementId: string): Promise<AgreementWithPo
 
   const agreementWithPosition: AgreementWithPosition = {
     ...agreement,
-    position: { x: Math.random() * 800, y: Math.random() * 600 }
+    position: { x: Math.random() * 800, y: Math.random() * 600 },
   };
 
   cacheAgreement(agreementId, agreementWithPosition);
@@ -490,11 +635,13 @@ export async function getAgreement(agreementId: string): Promise<AgreementWithPo
  * @param gameId - Game ID
  * @returns Array of AgreementWithPosition
  */
-export async function getAvailableAgreementsForGame(gameId: string): Promise<AgreementWithPosition[]> {
+export async function getAvailableAgreementsForGame(
+  gameId: string,
+): Promise<AgreementWithPosition[]> {
   log(`Getting all agreements for game: ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return [];
   }
 
@@ -506,13 +653,15 @@ export async function getAvailableAgreementsForGame(gameId: string): Promise<Agr
 
   const agreements = await getCollection<Agreement>(nodes.agreements);
   const gameAgreements = agreements
-    .filter(agreement => agreement.game_ref === gameId)
-    .map(agreement => ({
+    .filter((agreement) => agreement.game_ref === gameId)
+    .map((agreement) => ({
       ...agreement,
-      position: { x: Math.random() * 800, y: Math.random() * 600 }
+      position: { x: Math.random() * 800, y: Math.random() * 600 },
     }));
 
-  gameAgreements.forEach(agreement => cacheAgreement(agreement.agreement_id, agreement));
+  gameAgreements.forEach((agreement) =>
+    cacheAgreement(agreement.agreement_id, agreement),
+  );
   log(`Retrieved ${gameAgreements.length} agreements for game: ${gameId}`);
   return gameAgreements;
 }
@@ -531,14 +680,14 @@ export async function createAgreement(
   title: string,
   description: string,
   parties: string[],
-  terms: Record<string, { obligations: string[]; benefits: string[] }>
+  terms: Record<string, { obligations: string[]; benefits: string[] }>,
 ): Promise<AgreementWithPosition | null> {
   log(`Creating agreement '${title}' for game: ${gameId}`);
   const gun = getGun();
   const currentUser = getCurrentUser();
 
   if (!gun || !currentUser) {
-    logError('Gun or user not initialized');
+    logError("Gun or user not initialized");
     return null;
   }
 
@@ -550,15 +699,18 @@ export async function createAgreement(
 
   const agreementId = generateId();
   const createdAt = Date.now();
-  const partiesRecord: Record<string, { card_ref: string; obligation: string; benefit: string }> = {};
+  const partiesRecord: Record<
+    string,
+    { card_ref: string; obligation: string; benefit: string }
+  > = {};
 
   for (const actorId of parties) {
     const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
     if (actor && actor.card_ref) {
       partiesRecord[actorId] = {
         card_ref: actor.card_ref,
-        obligation: terms[actorId]?.obligations.join('; ') || '',
-        benefit: terms[actorId]?.benefits.join('; ') || ''
+        obligation: terms[actorId]?.obligations.join("; ") || "",
+        benefit: terms[actorId]?.benefits.join("; ") || "",
       };
     }
   }
@@ -569,38 +721,56 @@ export async function createAgreement(
     creator_ref: currentUser.user_id,
     title,
     summary: description,
-    type: 'asymmetric',
+    type: "asymmetric",
     status: AgreementStatus.PROPOSED,
     parties: partiesRecord,
-    cards_ref: Object.fromEntries(Object.values(partiesRecord).map(p => [p.card_ref, true])),
+    cards_ref: Object.fromEntries(
+      Object.values(partiesRecord).map((p) => [p.card_ref, true]),
+    ),
     created_at: createdAt,
-    updated_at: createdAt
+    updated_at: createdAt,
   };
 
   const agreementWithPosition: AgreementWithPosition = {
     ...agreement,
-    position: { x: Math.random() * 800, y: Math.random() * 600 }
+    position: { x: Math.random() * 800, y: Math.random() * 600 },
   };
 
   cacheAgreement(agreementId, agreementWithPosition);
 
   const startTime = performance.now();
   await putSigned(`${nodes.agreements}/${agreementId}`, agreement);
-  await createRelationship(`${nodes.games}/${gameId}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+  await createRelationship(
+    `${nodes.games}/${gameId}`,
+    "agreements_ref",
+    `${nodes.agreements}/${agreementId}`,
+  );
   for (const actorId of parties) {
-    await createRelationship(`${nodes.agreements}/${agreementId}`, 'parties', `${nodes.actors}/${actorId}`);
-    await createRelationship(`${nodes.actors}/${actorId}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+    await createRelationship(
+      `${nodes.agreements}/${agreementId}`,
+      "parties",
+      `${nodes.actors}/${actorId}`,
+    );
+    await createRelationship(
+      `${nodes.actors}/${actorId}`,
+      "agreements_ref",
+      `${nodes.agreements}/${agreementId}`,
+    );
   }
 
   setTimeout(async () => {
-    const savedAgreement = await get<Agreement>(`${nodes.agreements}/${agreementId}`);
+    const savedAgreement = await get<Agreement>(
+      `${nodes.agreements}/${agreementId}`,
+    );
     if (!savedAgreement) {
       log(`Agreement ${agreementId} not saved, retrying`);
       await putSigned(`${nodes.agreements}/${agreementId}`, agreement);
     }
   }, 1000);
 
-  log(`Agreement creation initiated: ${agreementId} (${performance.now() - startTime}ms)`);
+  log(
+    `Agreement creation initiated: ${agreementId} (${performance.now() - startTime}ms)`,
+  );
   return agreementWithPosition;
 }
 
@@ -610,11 +780,14 @@ export async function createAgreement(
  * @param updateData - Partial agreement data
  * @returns Updated AgreementWithPosition or null
  */
-export async function updateAgreement(agreementId: string, updateData: Partial<Agreement>): Promise<AgreementWithPosition | null> {
+export async function updateAgreement(
+  agreementId: string,
+  updateData: Partial<Agreement>,
+): Promise<AgreementWithPosition | null> {
   log(`Updating agreement: ${agreementId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return null;
   }
 
@@ -626,12 +799,12 @@ export async function updateAgreement(agreementId: string, updateData: Partial<A
 
   const updatedData: Partial<Agreement> = {
     ...updateData,
-    updated_at: Date.now()
+    updated_at: Date.now(),
   };
 
   const updatedAgreement: AgreementWithPosition = {
     ...existingAgreement,
-    ...updatedData
+    ...updatedData,
   };
 
   cacheAgreement(agreementId, updatedAgreement);
@@ -640,22 +813,53 @@ export async function updateAgreement(agreementId: string, updateData: Partial<A
   if (updateData.parties) {
     const previousParties = Object.keys(existingAgreement.parties || {});
     const newParties = Object.keys(updateData.parties as Record<string, any>);
-    const partiesToRemove = previousParties.filter(id => !newParties.includes(id));
-    const partiesToAdd = newParties.filter(id => !previousParties.includes(id));
+    const partiesToRemove = previousParties.filter(
+      (id) => !newParties.includes(id),
+    );
+    const partiesToAdd = newParties.filter(
+      (id) => !previousParties.includes(id),
+    );
 
     for (const actorId of partiesToRemove) {
-      gun.get(nodes.actors).get(actorId).get('agreements_ref').get(agreementId).put(null);
-      gun.get(nodes.agreements).get(agreementId).get('parties').get(actorId).put(null);
+      gun
+        .get(nodes.actors)
+        .get(actorId)
+        .get("agreements_ref")
+        .get(agreementId)
+        .put(null);
+      gun
+        .get(nodes.agreements)
+        .get(agreementId)
+        .get("parties")
+        .get(actorId)
+        .put(null);
     }
     for (const actorId of partiesToAdd) {
-      await createRelationship(`${nodes.agreements}/${agreementId}`, 'parties', `${nodes.actors}/${actorId}`);
-      await createRelationship(`${nodes.actors}/${actorId}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+      await createRelationship(
+        `${nodes.agreements}/${agreementId}`,
+        "parties",
+        `${nodes.actors}/${actorId}`,
+      );
+      await createRelationship(
+        `${nodes.actors}/${actorId}`,
+        "agreements_ref",
+        `${nodes.agreements}/${agreementId}`,
+      );
     }
   }
 
   setTimeout(async () => {
-    const savedAgreement = await get<Agreement>(`${nodes.agreements}/${agreementId}`);
-    if (!savedAgreement || Object.keys(updatedData).some(key => savedAgreement[key as keyof Agreement] !== updatedData[key as keyof Agreement])) {
+    const savedAgreement = await get<Agreement>(
+      `${nodes.agreements}/${agreementId}`,
+    );
+    if (
+      !savedAgreement ||
+      Object.keys(updatedData).some(
+        (key) =>
+          savedAgreement[key as keyof Agreement] !==
+          updatedData[key as keyof Agreement],
+      )
+    ) {
       log(`Agreement update verification failed, retrying`);
       await putSigned(`${nodes.agreements}/${agreementId}`, updatedAgreement);
     }
@@ -670,11 +874,14 @@ export async function updateAgreement(agreementId: string, updateData: Partial<A
  * @param callback - Callback for agreement updates
  * @returns Unsubscribe function
  */
-export function subscribeToGameAgreements(gameId: string, callback: (agreements: AgreementWithPosition[]) => void): () => void {
+export function subscribeToGameAgreements(
+  gameId: string,
+  callback: (agreements: AgreementWithPosition[]) => void,
+): () => void {
   log(`Subscribing to agreements for game: ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     callback([]);
     return () => {};
   }
@@ -682,29 +889,40 @@ export function subscribeToGameAgreements(gameId: string, callback: (agreements:
   const agreementSubscriptions: any[] = [];
   let initialLoad = true;
 
-  const gameSubscription = gun.get(nodes.games).get(gameId).get('agreements_ref').on((data: any) => {
-    if (data && data['#']) {
-      const agreementId = data['#'].split('/').pop();
-      if (agreementId && agreementId !== '_') {
-        const subscription = gun.get(nodes.agreements).get(agreementId).on((agreement: Agreement) => {
-          if (agreement && agreement.game_ref === gameId) {
-            const agreementWithPos: AgreementWithPosition = {
-              ...agreement,
-              position: agreementCache.has(agreementId) ? agreementCache.get(agreementId)!.position : { x: Math.random() * 800, y: Math.random() * 600 }
-            };
-            cacheAgreement(agreementId, agreementWithPos);
-            const agreements = Array.from(agreementCache.values()).filter(a => a.game_ref === gameId);
-            callback(agreements);
-          }
-        });
-        agreementSubscriptions.push(subscription);
+  const gameSubscription = gun
+    .get(nodes.games)
+    .get(gameId)
+    .get("agreements_ref")
+    .on((data: any) => {
+      if (data && data["#"]) {
+        const agreementId = data["#"].split("/").pop();
+        if (agreementId && agreementId !== "_") {
+          const subscription = gun
+            .get(nodes.agreements)
+            .get(agreementId)
+            .on((agreement: Agreement) => {
+              if (agreement && agreement.game_ref === gameId) {
+                const agreementWithPos: AgreementWithPosition = {
+                  ...agreement,
+                  position: agreementCache.has(agreementId)
+                    ? agreementCache.get(agreementId)!.position
+                    : { x: Math.random() * 800, y: Math.random() * 600 },
+                };
+                cacheAgreement(agreementId, agreementWithPos);
+                const agreements = Array.from(agreementCache.values()).filter(
+                  (a) => a.game_ref === gameId,
+                );
+                callback(agreements);
+              }
+            });
+          agreementSubscriptions.push(subscription);
+        }
       }
-    }
-  });
+    });
 
   if (initialLoad) {
     initialLoad = false;
-    getAvailableAgreementsForGame(gameId).then(agreements => {
+    getAvailableAgreementsForGame(gameId).then((agreements) => {
       if (agreements.length > 0) callback(agreements);
     });
   }
@@ -712,20 +930,24 @@ export function subscribeToGameAgreements(gameId: string, callback: (agreements:
   return () => {
     log(`Unsubscribing from agreements for game: ${gameId}`);
     gameSubscription.off();
-    agreementSubscriptions.forEach(sub => sub.off());
+    agreementSubscriptions.forEach((sub) => sub.off());
   };
 }
 
 /**
  * Get available cards for a game
  * @param gameId - Game ID
+ * @param includeNames - Whether to include value and capability names
  * @returns Array of Cards
  */
-export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> {
+export async function getAvailableCardsForGame(
+  gameId: string,
+  includeNames: boolean = false,
+): Promise<CardWithPosition[]> {
   log(`Getting available cards for game ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return [];
   }
 
@@ -744,10 +966,24 @@ export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> 
   const cards = await getCollection<Card>(nodes.cards);
   const usedCardIds = new Set<string>();
   const actors = await getCollection<Actor>(nodes.actors);
-  actors.filter(actor => actor.game_ref === gameId && actor.card_ref).forEach(actor => usedCardIds.add(actor.card_ref));
+  actors
+    .filter((actor) => actor.game_ref === gameId && actor.card_ref)
+    .forEach((actor) => usedCardIds.add(actor.card_ref));
 
-  const availableCards = cards.filter(card => !usedCardIds.has(card.card_id) && card.decks_ref[deckId]);
-  availableCards.forEach(card => cacheCard(card.card_id, card));
+  const availableCards = cards
+    .filter((card) => !usedCardIds.has(card.card_id) && card.decks_ref[deckId])
+    .map((card) => ({
+      ...card,
+      position: { x: Math.random() * 800, y: Math.random() * 600 },
+      _valueNames: includeNames
+        ? getCardNames(card.values_ref, "value_")
+        : undefined,
+      _capabilityNames: includeNames
+        ? getCardNames(card.capabilities_ref, "cap_")
+        : undefined,
+    }));
+
+  availableCards.forEach((card) => cacheCard(card.card_id, card));
   log(`Found ${availableCards.length} available cards for game ${gameId}`);
   return availableCards;
 }
@@ -755,13 +991,23 @@ export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> 
 /**
  * Get a card by ID
  * @param cardId - Card ID
+ * @param includeNames - Whether to include value and capability names
  * @returns Card or null
  */
-export async function getCard(cardId: string): Promise<Card | null> {
+export async function getCard(
+  cardId: string,
+  includeNames: boolean = false,
+): Promise<CardWithPosition | null> {
   log(`Fetching card: ${cardId}`);
   if (cardCache.has(cardId)) {
     log(`Cache hit: ${cardId}`);
-    return cardCache.get(cardId)!;
+    const card = cardCache.get(cardId)!;
+    if (includeNames && (!card._valueNames || !card._capabilityNames)) {
+      card._valueNames = getCardNames(card.values_ref, "value_");
+      card._capabilityNames = getCardNames(card.capabilities_ref, "cap_");
+      cacheCard(cardId, card);
+    }
+    return card;
   }
 
   const card = await get<Card>(`${nodes.cards}/${cardId}`);
@@ -770,23 +1016,45 @@ export async function getCard(cardId: string): Promise<Card | null> {
     return null;
   }
 
-  cacheCard(cardId, card);
+  const cardWithPosition: CardWithPosition = {
+    ...card,
+    position: { x: Math.random() * 800, y: Math.random() * 600 },
+    _valueNames: includeNames
+      ? getCardNames(card.values_ref, "value_")
+      : undefined,
+    _capabilityNames: includeNames
+      ? getCardNames(card.capabilities_ref, "cap_")
+      : undefined,
+  };
+
+  cacheCard(cardId, cardWithPosition);
   log(`Successfully retrieved card: ${cardId}`);
-  return card;
+  return cardWithPosition;
 }
 
 /**
  * Get a user's card in a game
  * @param gameId - Game ID
  * @param userId - User ID
+ * @param includeNames - Whether to include value and capability names
  * @returns Card or null
  */
-export async function getUserCard(gameId: string, userId: string): Promise<Card | null> {
+export async function getUserCard(
+  gameId: string,
+  userId: string,
+  includeNames: boolean = false,
+): Promise<CardWithPosition | null> {
   log(`Fetching card for user ${userId} in game ${gameId}`);
   const cacheKey = `${gameId}:${userId}`;
   if (cardCache.has(cacheKey)) {
     log(`Cache hit: ${cacheKey}`);
-    return cardCache.get(cacheKey)!;
+    const card = cardCache.get(cacheKey)!;
+    if (includeNames && (!card._valueNames || !card._capabilityNames)) {
+      card._valueNames = getCardNames(card.values_ref, "value_");
+      card._capabilityNames = getCardNames(card.capabilities_ref, "cap_");
+      cardCache.set(cacheKey, card);
+    }
+    return card;
   }
 
   const actor = await getPlayerRole(gameId, userId);
@@ -795,7 +1063,7 @@ export async function getUserCard(gameId: string, userId: string): Promise<Card 
     return null;
   }
 
-  const card = await getCard(actor.card_ref);
+  const card = await getCard(actor.card_ref, includeNames);
   if (card) {
     cardCache.set(cacheKey, card);
     log(`Found card ${card.card_id} for user ${userId}`);
@@ -810,11 +1078,15 @@ export async function getUserCard(gameId: string, userId: string): Promise<Card 
  * @param callback - Callback for card updates
  * @returns Unsubscribe function
  */
-export function subscribeToUserCard(gameId: string, userId: string, callback: (card: Card | null) => void): () => void {
+export function subscribeToUserCard(
+  gameId: string,
+  userId: string,
+  callback: (card: CardWithPosition | null) => void,
+): () => void {
   log(`Subscribing to card for user ${userId} in game ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     callback(null);
     return () => {};
   }
@@ -823,38 +1095,58 @@ export function subscribeToUserCard(gameId: string, userId: string, callback: (c
   let cardSubscription: any;
   let actorSubscription: any;
 
-  const playerSubscription = gun.get(nodes.games).get(gameId).get('player_actor_map').on((data: any) => {
-    const actorId = data?.[userId];
-    if (!actorId) {
-      log(`No role assigned to user ${userId} in game ${gameId}`);
-      cardCache.delete(cacheKey);
-      callback(null);
-      return;
-    }
-
-    if (actorSubscription) actorSubscription.off();
-    actorSubscription = gun.get(nodes.actors).get(actorId).on((actorData: Actor) => {
-      if (!actorData || !actorData.card_ref) {
-        log(`No card_ref for actor ${actorId}`);
+  const playerSubscription = gun
+    .get(nodes.games)
+    .get(gameId)
+    .get("player_actor_map")
+    .on((data: any) => {
+      const actorId = data?.[userId];
+      if (!actorId) {
+        log(`No role assigned to user ${userId} in game ${gameId}`);
         cardCache.delete(cacheKey);
         callback(null);
         return;
       }
 
-      if (cardSubscription) cardSubscription.off();
-      cardSubscription = gun.get(nodes.cards).get(actorData.card_ref).on((cardData: Card) => {
-        if (!cardData) {
-          log(`Card ${actorData.card_ref} not found`);
-          cardCache.delete(cacheKey);
-          callback(null);
-          return;
-        }
+      if (actorSubscription) actorSubscription.off();
+      actorSubscription = gun
+        .get(nodes.actors)
+        .get(actorId)
+        .on((actorData: Actor) => {
+          if (!actorData || !actorData.card_ref) {
+            log(`No card_ref for actor ${actorId}`);
+            cardCache.delete(cacheKey);
+            callback(null);
+            return;
+          }
 
-        cardCache.set(cacheKey, cardData);
-        callback(cardData);
-      });
+          if (cardSubscription) cardSubscription.off();
+          cardSubscription = gun
+            .get(nodes.cards)
+            .get(actorData.card_ref)
+            .on((cardData: Card) => {
+              if (!cardData) {
+                log(`Card ${actorData.card_ref} not found`);
+                cardCache.delete(cacheKey);
+                callback(null);
+                return;
+              }
+
+              const cardWithPosition: CardWithPosition = {
+                ...cardData,
+                position: { x: Math.random() * 800, y: Math.random() * 600 },
+                _valueNames: getCardNames(cardData.values_ref, "value_"),
+                _capabilityNames: getCardNames(
+                  cardData.capabilities_ref,
+                  "cap_",
+                ),
+              };
+
+              cardCache.set(cacheKey, cardWithPosition);
+              callback(cardWithPosition);
+            });
+        });
     });
-  });
 
   return () => {
     if (playerSubscription) playerSubscription.off();
@@ -872,13 +1164,18 @@ export function subscribeToUserCard(gameId: string, userId: string, callback: (c
  * @param customName - Optional custom name
  * @returns Created Actor or null
  */
-export async function createActor(gameId: string, cardId: string, actorType: Actor['actor_type'], customName?: string): Promise<Actor | null> {
+export async function createActor(
+  gameId: string,
+  cardId: string,
+  actorType: Actor["actor_type"],
+  customName?: string,
+): Promise<Actor | null> {
   log(`Creating actor in game ${gameId} with card ${cardId}`);
   const gun = getGun();
   const currentUser = getCurrentUser();
 
   if (!gun || !currentUser) {
-    logError('Gun or user not initialized');
+    logError("Gun or user not initialized");
     return null;
   }
 
@@ -896,18 +1193,30 @@ export async function createActor(gameId: string, cardId: string, actorType: Act
     card_ref: cardId,
     actor_type: actorType,
     custom_name: customName,
-    status: 'active',
+    status: "active",
     agreements_ref: {},
-    created_at: Date.now()
+    created_at: Date.now(),
   };
 
   cacheActor(actorId, actor);
   cacheRole(gameId, currentUser.user_id, actorId);
 
   await putSigned(`${nodes.actors}/${actorId}`, actor);
-  await createRelationship(`${nodes.users}/${currentUser.user_id}`, 'actors', `${nodes.actors}/${actorId}`);
-  await createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`);
-  await createRelationship(`${nodes.actors}/${actorId}`, 'game', `${nodes.games}/${gameId}`);
+  await createRelationship(
+    `${nodes.users}/${currentUser.user_id}`,
+    "actors",
+    `${nodes.actors}/${actorId}`,
+  );
+  await createRelationship(
+    `${nodes.actors}/${actorId}`,
+    "card",
+    `${nodes.cards}/${cardId}`,
+  );
+  await createRelationship(
+    `${nodes.actors}/${actorId}`,
+    "game",
+    `${nodes.games}/${gameId}`,
+  );
   await updatePlayerActorMap(gameId, currentUser.user_id, actorId);
 
   setTimeout(async () => {
@@ -927,24 +1236,24 @@ export async function createActor(gameId: string, cardId: string, actorType: Act
  * @returns Array of Actors
  */
 export async function getUserActors(userId?: string): Promise<Actor[]> {
-  log(`Getting actors for user: ${userId || 'current'}`);
+  log(`Getting actors for user: ${userId || "current"}`);
   const gun = getGun();
   const currentUser = getCurrentUser();
 
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return [];
   }
 
   const userToCheck = userId || currentUser?.user_id;
   if (!userToCheck) {
-    logWarn('No user ID available');
+    logWarn("No user ID available");
     return [];
   }
 
   const actors = await getCollection<Actor>(nodes.actors);
-  const userActors = actors.filter(actor => actor.user_ref === userToCheck);
-  userActors.forEach(actor => cacheActor(actor.actor_id, actor));
+  const userActors = actors.filter((actor) => actor.user_ref === userToCheck);
+  userActors.forEach((actor) => cacheActor(actor.actor_id, actor));
   log(`Found ${userActors.length} actors for user ${userToCheck}`);
   return userActors;
 }
@@ -958,13 +1267,13 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
   log(`Getting actors for game: ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return [];
   }
 
   const actors = await getCollection<Actor>(nodes.actors);
-  const gameActors = actors.filter(actor => actor.game_ref === gameId);
-  gameActors.forEach(actor => cacheActor(actor.actor_id, actor));
+  const gameActors = actors.filter((actor) => actor.game_ref === gameId);
+  gameActors.forEach((actor) => cacheActor(actor.actor_id, actor));
   log(`Found ${gameActors.length} actors for game ${gameId}`);
   return gameActors;
 }
@@ -975,11 +1284,14 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
  * @param callback - Callback for actor updates
  * @returns Unsubscribe function
  */
-export function subscribeToGameActors(gameId: string, callback: (actors: Actor[]) => void): () => void {
+export function subscribeToGameActors(
+  gameId: string,
+  callback: (actors: Actor[]) => void,
+): () => void {
   log(`Subscribing to actors for game ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     callback([]);
     return () => {};
   }
@@ -988,32 +1300,41 @@ export function subscribeToGameActors(gameId: string, callback: (actors: Actor[]
   const actors: Actor[] = [];
   const uniqueIds = new Set<string>();
 
-  const subscription = gun.get(nodes.games).get(gameId).get('actors_ref').on((data: any) => {
-    if (data && data['#']) {
-      const actorId = data['#'].split('/').pop();
-      if (actorId && actorId !== '_') {
-        const actorSubscription = gun.get(nodes.actors).get(actorId).on((actorData: Actor) => {
-          if (actorData && actorData.game_ref === gameId) {
-            const actorIndex = actors.findIndex(a => a.actor_id === actorId);
-            const actor = { ...actorData, actor_id: actorId };
-            if (actorIndex >= 0) {
-              actors[actorIndex] = actor;
-            } else {
-              actors.push(actor);
-              uniqueIds.add(actorId);
-            }
-            cacheActor(actorId, actor);
-            callback([...actors]);
-          }
-        });
-        actorSubscriptions.push(actorSubscription);
+  const subscription = gun
+    .get(nodes.games)
+    .get(gameId)
+    .get("actors_ref")
+    .on((data: any) => {
+      if (data && data["#"]) {
+        const actorId = data["#"].split("/").pop();
+        if (actorId && actorId !== "_") {
+          const actorSubscription = gun
+            .get(nodes.actors)
+            .get(actorId)
+            .on((actorData: Actor) => {
+              if (actorData && actorData.game_ref === gameId) {
+                const actorIndex = actors.findIndex(
+                  (a) => a.actor_id === actorId,
+                );
+                const actor = { ...actorData, actor_id: actorId };
+                if (actorIndex >= 0) {
+                  actors[actorIndex] = actor;
+                } else {
+                  actors.push(actor);
+                  uniqueIds.add(actorId);
+                }
+                cacheActor(actorId, actor);
+                callback([...actors]);
+              }
+            });
+          actorSubscriptions.push(actorSubscription);
+        }
       }
-    }
-  });
+    });
 
   return () => {
     subscription.off();
-    actorSubscriptions.forEach(sub => sub.off());
+    actorSubscriptions.forEach((sub) => sub.off());
     log(`Unsubscribed from actors for game ${gameId}`);
   };
 }
@@ -1024,11 +1345,14 @@ export function subscribeToGameActors(gameId: string, callback: (actors: Actor[]
  * @param cardId - Card ID
  * @returns Success status
  */
-export async function assignCardToActor(actorId: string, cardId: string): Promise<boolean> {
+export async function assignCardToActor(
+  actorId: string,
+  cardId: string,
+): Promise<boolean> {
   log(`Assigning card ${cardId} to actor ${actorId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return false;
   }
 
@@ -1040,13 +1364,20 @@ export async function assignCardToActor(actorId: string, cardId: string): Promis
 
   cacheActor(actorId, { ...actor, card_ref: cardId });
   await putSigned(`${nodes.actors}/${actorId}`, { ...actor, card_ref: cardId });
-  await createRelationship(`${nodes.actors}/${actorId}`, 'card', `${nodes.cards}/${cardId}`);
+  await createRelationship(
+    `${nodes.actors}/${actorId}`,
+    "card",
+    `${nodes.cards}/${cardId}`,
+  );
 
   setTimeout(async () => {
     const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
     if (!savedActor || savedActor.card_ref !== cardId) {
       log(`Card assignment verification failed, retrying`);
-      await putSigned(`${nodes.actors}/${actorId}`, { ...actor, card_ref: cardId });
+      await putSigned(`${nodes.actors}/${actorId}`, {
+        ...actor,
+        card_ref: cardId,
+      });
     }
   }, 500);
 
@@ -1059,15 +1390,20 @@ export async function assignCardToActor(actorId: string, cardId: string): Promis
  * @param status - New status
  * @returns Success status
  */
-export async function updateGameStatus(gameId: string, status: GameStatus): Promise<boolean> {
+export async function updateGameStatus(
+  gameId: string,
+  status: GameStatus,
+): Promise<boolean> {
   log(`Updating game ${gameId} status to ${status}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return false;
   }
 
-  let game = gameCache.has(gameId) ? gameCache.get(gameId) : await getGame(gameId);
+  let game = gameCache.has(gameId)
+    ? gameCache.get(gameId)
+    : await getGame(gameId);
   if (!game) {
     logError(`Game not found: ${gameId}`);
     return false;
@@ -1098,25 +1434,31 @@ export async function updateGameStatus(gameId: string, status: GameStatus): Prom
  * @param callback - Callback for game updates
  * @returns Unsubscribe function
  */
-export function subscribeToGame(gameId: string, callback: (game: Game) => void): () => void {
+export function subscribeToGame(
+  gameId: string,
+  callback: (game: Game) => void,
+): () => void {
   log(`Subscribing to game: ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     callback(null as any);
     return () => {};
   }
 
-  const subscription = gun.get(nodes.games).get(gameId).on((gameData: Game) => {
-    if (!gameData) {
-      log(`Game subscription: ${gameId} - no data`);
-      return;
-    }
+  const subscription = gun
+    .get(nodes.games)
+    .get(gameId)
+    .on((gameData: Game) => {
+      if (!gameData) {
+        log(`Game subscription: ${gameId} - no data`);
+        return;
+      }
 
-    cacheGame(gameId, gameData);
-    log(`Game subscription update: ${gameId}`);
-    callback(gameData);
-  });
+      cacheGame(gameId, gameData);
+      log(`Game subscription update: ${gameId}`);
+      callback(gameData);
+    });
 
   return () => {
     subscription.off();
@@ -1130,11 +1472,14 @@ export function subscribeToGame(gameId: string, callback: (game: Game) => void):
  * @param actors - Array of Actors
  * @returns Success status
  */
-export async function setGameActors(gameId: string, actors: Actor[]): Promise<boolean> {
+export async function setGameActors(
+  gameId: string,
+  actors: Actor[],
+): Promise<boolean> {
   log(`Setting ${actors.length} actors for game ${gameId}`);
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return false;
   }
 
@@ -1144,7 +1489,13 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
   for (let i = 0; i < Math.min(batchSize, actors.length); i++) {
     const actor = actors[i];
     const actorId = actor.actor_id || generateId();
-    const actorData: Actor = { ...actor, actor_id: actorId, game_ref: gameId, created_at: Date.now(), status: 'active' };
+    const actorData: Actor = {
+      ...actor,
+      actor_id: actorId,
+      game_ref: gameId,
+      created_at: Date.now(),
+      status: "active",
+    };
     cacheActor(actorId, actorData);
     await putSigned(`${nodes.actors}/${actorId}`, actorData);
   }
@@ -1153,7 +1504,13 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
     const remainingActors = actors.slice(batchSize);
     for (const actor of remainingActors) {
       const actorId = actor.actor_id || generateId();
-      const actorData: Actor = { ...actor, actor_id: actorId, game_ref: gameId, created_at: Date.now(), status: 'active' };
+      const actorData: Actor = {
+        ...actor,
+        actor_id: actorId,
+        game_ref: gameId,
+        created_at: Date.now(),
+        status: "active",
+      };
       cacheActor(actorId, actorData);
       await putSigned(`${nodes.actors}/${actorId}`, actorData);
     }
@@ -1162,12 +1519,18 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
       const samplesToVerify = Math.min(3, actors.length);
       for (let i = 0; i < samplesToVerify; i++) {
         const index = Math.floor(Math.random() * actors.length);
-        const actorId = actors[index].actor_id || '';
+        const actorId = actors[index].actor_id || "";
         if (actorId) {
           const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
           if (!savedActor) {
             log(`Verification failed for actor ${actorId}, retrying`);
-            const actorData: Actor = { ...actors[index], actor_id: actorId, game_ref: gameId, created_at: Date.now(), status: 'active' };
+            const actorData: Actor = {
+              ...actors[index],
+              actor_id: actorId,
+              game_ref: gameId,
+              created_at: Date.now(),
+              status: "active",
+            };
             await putSigned(`${nodes.actors}/${actorId}`, actorData);
           }
         }
@@ -1175,7 +1538,9 @@ export async function setGameActors(gameId: string, actors: Actor[]): Promise<bo
     }, 1000);
   }, 50);
 
-  log(`Initiated actor setup for ${actors.length} actors in ${performance.now() - startTime}ms`);
+  log(
+    `Initiated actor setup for ${actors.length} actors in ${performance.now() - startTime}ms`,
+  );
   return true;
 }
 
@@ -1195,7 +1560,9 @@ export async function isGameFull(gameId: string): Promise<boolean> {
   if (!game.max_players) return false;
   const playerCount = Object.keys(game.players).length;
   const isFull = playerCount >= game.max_players;
-  log(`Game ${gameId} has ${playerCount}/${game.max_players} players. Full: ${isFull}`);
+  log(
+    `Game ${gameId} has ${playerCount}/${game.max_players} players. Full: ${isFull}`,
+  );
   return isFull;
 }
 
@@ -1203,11 +1570,14 @@ export async function isGameFull(gameId: string): Promise<boolean> {
  * Fix game relationships for visualization
  * @returns Success status and number of games fixed
  */
-export async function fixGameRelationships(): Promise<{ success: boolean; gamesFixed: number }> {
-  log('Fixing game relationships for visualization');
+export async function fixGameRelationships(): Promise<{
+  success: boolean;
+  gamesFixed: number;
+}> {
+  log("Fixing game relationships for visualization");
   const gun = getGun();
   if (!gun) {
-    logError('Gun not initialized');
+    logError("Gun not initialized");
     return { success: false, gamesFixed: 0 };
   }
 
@@ -1217,23 +1587,59 @@ export async function fixGameRelationships(): Promise<{ success: boolean; gamesF
   for (const game of allGames) {
     const promises: Promise<any>[] = [];
     if (game.creator_ref) {
-      promises.push(createRelationship(`${nodes.users}/${game.creator_ref}`, 'games', `${nodes.games}/${game.game_id}`));
+      promises.push(
+        createRelationship(
+          `${nodes.users}/${game.creator_ref}`,
+          "games",
+          `${nodes.games}/${game.game_id}`,
+        ),
+      );
     }
 
     if (game.deck_ref) {
-      promises.push(createRelationship(`${nodes.games}/${game.game_id}`, 'deck_ref', `${nodes.decks}/${game.deck_ref}`));
+      promises.push(
+        createRelationship(
+          `${nodes.games}/${game.game_id}`,
+          "deck_ref",
+          `${nodes.decks}/${game.deck_ref}`,
+        ),
+      );
     }
 
     for (const playerId of Object.keys(game.players)) {
-      if (playerId !== '_') {
-        promises.push(createRelationship(`${nodes.users}/${playerId}`, 'games', `${nodes.games}/${game.game_id}`));
-        promises.push(createRelationship(`${nodes.games}/${game.game_id}`, 'players', `${nodes.users}/${playerId}`));
+      if (playerId !== "_") {
+        promises.push(
+          createRelationship(
+            `${nodes.users}/${playerId}`,
+            "games",
+            `${nodes.games}/${game.game_id}`,
+          ),
+        );
+        promises.push(
+          createRelationship(
+            `${nodes.games}/${game.game_id}`,
+            "players",
+            `${nodes.users}/${playerId}`,
+          ),
+        );
       }
     }
 
     for (const actorId of Object.keys(game.actors_ref)) {
-      promises.push(createRelationship(`${nodes.games}/${game.game_id}`, 'actors_ref', `${nodes.actors}/${actorId}`));
-      promises.push(createRelationship(`${nodes.actors}/${actorId}`, 'game', `${nodes.games}/${game.game_id}`));
+      promises.push(
+        createRelationship(
+          `${nodes.games}/${game.game_id}`,
+          "actors_ref",
+          `${nodes.actors}/${actorId}`,
+        ),
+      );
+      promises.push(
+        createRelationship(
+          `${nodes.actors}/${actorId}`,
+          "game",
+          `${nodes.games}/${game.game_id}`,
+        ),
+      );
     }
 
     await Promise.all(promises);

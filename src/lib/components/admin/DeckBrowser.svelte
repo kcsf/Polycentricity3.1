@@ -4,21 +4,17 @@
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import { getGun, nodes } from '$lib/services/gunService';
   import { getDeck } from '$lib/services/deckService';
-  import { getCardValueNames, getCardCapabilityNames } from '$lib/services/deckService';
-  import type { Deck, Card } from '$lib/types';
+  import { getCard } from '$lib/services/gameService';
+  import type { Deck, Card, CardWithPosition } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
   
   // State variables
   let selectedDeckId = $state('');
   let decks = $state<Deck[]>([]);
-  let cards = $state<Card[]>([]);
+  let cards = $state<CardWithPosition[]>([]);
   let isLoading = $state(true);
   let error = $state<string | null>(null);
-  
-  // Card display metadata
-  let cardValues = $state<Record<string, string[]>>({});
-  let cardCapabilities = $state<Record<string, string[]>>({});
   
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state([]);
@@ -71,8 +67,6 @@
     isLoading = true;
     error = null;
     cards = [];
-    cardValues = {};
-    cardCapabilities = {};
     
     console.log(`Loading cards for deck ${deckId}...`);
     
@@ -214,46 +208,14 @@
       
       for (const cardId of cardIds) {
         try {
-          // Get card data by ID - use retry approach
-          const maxRetries = 2;
-          let retries = 0;
-          let cardData = null;
-          
-          while (!cardData && retries <= maxRetries) {
-            try {
-              cardData = await new Promise<Card | null>(resolve => {
-                gun.get(`${nodes.cards}/${cardId}`).once((data: Card) => {
-                  if (data && data.card_id) resolve(data);
-                  else resolve(null);
-                });
-                
-                // Timeout if card isn't found quickly
-                setTimeout(() => resolve(null), 1000);
-              });
-              
-              if (!cardData && retries < maxRetries) {
-                retries++;
-                console.log(`Retry ${retries}/${maxRetries} for card ${cardId}`);
-                await new Promise(r => setTimeout(r, 500 * retries));
-              }
-            } catch (err) {
-              console.error(`Error fetching card ${cardId}:`, err);
-              retries++;
-              if (retries <= maxRetries) {
-                await new Promise(r => setTimeout(r, 500 * retries));
-              }
-            }
-          }
+          // Use gameService.getCard with includeNames=true to get card with values and capabilities
+          const cardData = await getCard(cardId, true);
           
           if (cardData) {
             console.log(`Adding card ${cardData.card_id} (${cardData.role_title || "Unnamed"}) to results`);
             loadedCards.push(cardData);
-            
-            // Load values and capabilities
-            cardValues[cardData.card_id] = await getCardValueNames(cardData);
-            cardCapabilities[cardData.card_id] = await getCardCapabilityNames(cardData);
           } else {
-            console.warn(`Could not load data for card ${cardId} after ${maxRetries} retries`);
+            console.warn(`Could not load data for card ${cardId}`);
           }
         } catch (err) {
           console.error(`Error processing card ${cardId}:`, err);
@@ -427,11 +389,11 @@
                     </div>
                     
                     <!-- Values -->
-                    {#if cardValues[card.card_id] && cardValues[card.card_id].length > 0}
+                    {#if card._valueNames && card._valueNames.length > 0}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
                         <ul class="list-disc list-inside text-xs text-surface-900-50">
-                          {#each cardValues[card.card_id] as value}
+                          {#each card._valueNames as value}
                             <li>{value}</li>
                           {/each}
                         </ul>
@@ -439,11 +401,11 @@
                     {/if}
                     
                     <!-- Capabilities -->
-                    {#if cardCapabilities[card.card_id] && cardCapabilities[card.card_id].length > 0}
+                    {#if card._capabilityNames && card._capabilityNames.length > 0}
                       <div>
                         <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
                         <ul class="list-disc list-inside text-xs text-surface-900-50">
-                          {#each cardCapabilities[card.card_id] as capability}
+                          {#each card._capabilityNames as capability}
                             <li>{capability}</li>
                           {/each}
                         </ul>
