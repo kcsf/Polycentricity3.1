@@ -414,10 +414,8 @@ export async function createCard(
                         created_at: Date.now(),
                     };
 
-                    // Use fire-and-forget to create the capability
-                    gun.get(nodes.capabilities)
-                        .get(capabilityId)
-                        .put(capabilityData);
+                    // Use robustPut to create the capability
+                    await robustPut(nodes.capabilities, capabilityId, capabilityData);
                     console.log(
                         `[createCard] Created capability from object format: ${capabilityId} (${capitalizedName})`,
                     );
@@ -465,10 +463,8 @@ export async function createCard(
                         created_at: Date.now(),
                     };
 
-                    // Use fire-and-forget to create the capability
-                    gun.get(nodes.capabilities)
-                        .get(capabilityId)
-                        .put(capabilityData);
+                    // Use robustPut to create the capability
+                    await robustPut(nodes.capabilities, capabilityId, capabilityData);
                     console.log(
                         `[createCard] Created capability from capabilities_ref object: ${capabilityId} (${capitalizedName})`,
                     );
@@ -509,10 +505,8 @@ export async function createCard(
                         created_at: Date.now(),
                     };
 
-                    // Use fire-and-forget to create the capability
-                    gun.get(nodes.capabilities)
-                        .get(capabilityId)
-                        .put(capabilityData);
+                    // Use robustPut to create the capability
+                    await robustPut(nodes.capabilities, capabilityId, capabilityData);
                     console.log(
                         `[createCard] Created capability from array: ${capabilityId} (${displayName})`,
                     );
@@ -566,10 +560,8 @@ export async function createCard(
                     created_at: Date.now(),
                 };
 
-                // Use fire-and-forget to create the capability
-                gun.get(nodes.capabilities)
-                    .get(capabilityId)
-                    .put(capabilityData);
+                // Use robustPut to create the capability
+                await robustPut(nodes.capabilities, capabilityId, capabilityData);
                 console.log(
                     `[createCard] Created capability from string: ${capabilityId} (${displayName})`,
                 );
@@ -710,19 +702,19 @@ function cleanObject(obj: any): any {
 }
 
 // Helper function to create multiple Gun edges efficiently
-function createEdgesBatch(
+async function createEdgesBatch(
     edgeDefinitions: { fromSoul: string; field: string; toSoul: string }[],
     gunInstance: any,
-): void {
+): Promise<void> {
     for (const edge of edgeDefinitions) {
         try {
             // Extract the target ID from the soul path
             const toId = edge.toSoul.split("/").pop();
             if (!toId) continue;
 
-            // Use direct Gun.js API with fire-and-forget pattern following the schema exactly
+            // Use robustPut to create the edge instead of direct Gun.js API
             // This creates entries like: <fromSoul>/<field>/<toId>: true
-            gunInstance.get(edge.fromSoul).get(edge.field).get(toId).put(true);
+            await robustPut(`${edge.fromSoul}/${edge.field}`, toId, true);
 
             console.log(
                 `[createEdgesBatch] Created edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`,
