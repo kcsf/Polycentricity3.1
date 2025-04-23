@@ -1,0 +1,50 @@
+ * @param gameId - Game ID
+ * @param callback - Callback for agreement updates
+ * @returns Unsubscribe function
+ */
+export function subscribeToGameWedges(gameId: string, callback: (agreements: AgreementWithPosition[]) => void): () => void {
+  log(`Subscribing to agreements for game: ${gameId}`);
+  const gun = getGun();
+  if (!gun) {
+    logError('Gun not initialized');
+    callback([]);
+    return () => {};
+  }  }
+
+  const agreementSubscriptions: any[] = [];
+  let initialLoad = true;
+
+  const gameSubscription = gun.get(nodes.games).get(gameId).get('agreements_ref').on((data: any) => {
+    if (data && data['#']) {
+      const agreementId = data['#'].split('/').pop();
+      if (agreementId && agreementId !== '_') {
+        const subscription = gun.get(nodes.agreements).get(agreementId).on((agreement: Agreement) => {
+          if (agreement && agreement.game_ref === gameId) {
+            const agreementWithPos: AgreementWithPosition = {
+              ...agreement,
+              position: agreementCache.has(agreementId) ? agreementCache.get(agreementId)!.position : { x: Math.random() * 800, y: Math.random() * 600 }
+            };
+            cacheAgreement(agreementId, agreementWithPos);
+            const agreements = Array.from(agreementCache.values()).filter(a => a.game_ref === gameId);
+            callback(agreements);
+          }
+        });
+        agreementSubscriptions.push(subscription);
+      }
+    }
+  });
+
+  if (initialLoad) {
+    initialLoad = false;
+    getAvailableAgreementsForGame(gameId).then(agreements => {
+      if (agreements.length > 0) callback(agreements);
+    });
+  }
+
+  return () => {
+    log(`Unsubscribing from agreements for game: ${gameId}`);
+    gameSubscription.off();
+    agreementSubscriptions.forEach(sub => sub.off());
+  };
+}
+
