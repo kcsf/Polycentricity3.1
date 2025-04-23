@@ -250,65 +250,144 @@ export async function initializeSampleData() {
     }
   }
   
-  // Use gameService to create a game
-  // NOTE: Real user authentication needs to be active for this to work correctly
+  // Create game directly with Gun instead of using gameService
+  // (This avoids authentication issues when running sample data)
+  console.log("[seed] Creating game directly with Gun...");
+  
+  const gameId = `g_${generateId()}`;
   const gameName = "Eco-Village Simulation";
   const deckType = "eco-village";
   const roleAssignment = "choice";
   
-  const game = await createGame(gameName, deckType, roleAssignment);
-  if (!game) {
-    return { success: false, message: "Failed to create game" };
+  const game = {
+    game_id: gameId,
+    name: gameName,
+    description: "A simulation of eco-village funding and collaboration",
+    creator_ref: users[0].user_id,
+    deck_ref: deck.deck_id,
+    deck_type: deckType,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+    max_players: 5,
+    players: { [users[0].user_id]: true, [users[1].user_id]: true },
+    player_actor_map: {},
+    actors_ref: {},
+    agreements_ref: {},
+    chat_rooms_ref: {}
+  };
+  
+  // Save game directly to Gun
+  const gameSaved = await robustPut(nodes.games, gameId, game);
+  if (!gameSaved) {
+    console.error("[seed] Failed to save game to Gun");
+    return { success: false, message: "Failed to create game in database" };
   }
   
-  console.log(`Created game with ID: ${game.game_id}`);
+  // Create relationship from user to game
+  await createRelationship(`${nodes.users}/${users[0].user_id}`, 'games_ref', `${nodes.games}/${gameId}`);
+  await createRelationship(`${nodes.users}/${users[1].user_id}`, 'games_ref', `${nodes.games}/${gameId}`);
+  
+  console.log(`[seed] Created game with ID: ${gameId}`);
   
   // Create actors for each user using gameService
   const actors = [];
+  
+  // Create actors directly with Gun instead of using gameService
+  console.log("[seed] Creating actors directly with Gun...");
   
   for (let i = 0; i < 2; i++) {
     const user = users[i];
     const card = cards[i];
     
-    // Use gameService to create an actor
-    let actorType: 'Funder' | 'Farmer' | 'Builder' | 'Organizer' | 'Technologist' = 
-      i === 0 ? 'Farmer' : 'Funder';
+    const actorId = `actor_${generateId()}`;
+    // Using the actor_type from the schema in GunSchema.md
+    const actorType = i === 0 ? 'Farmer' : 'Funder' as any; // Type assertion to avoid schema type mismatch
+    const customName = `${user.name}'s ${card.role_title}`;
     
-    const actor = await createActor(game.game_id, card.card_id, actorType, `${user.name}'s ${card.role_title}`);
-    if (actor) {
-      // Join game and assign card to actor
-      await joinGame(user.user_id, game.game_id);
-      await assignCardToActor(actor.actor_id, card.card_id);
-      
-      actors.push(actor);
+    const actor = {
+      actor_id: actorId,
+      user_ref: user.user_id,
+      game_ref: game.game_id,
+      card_ref: card.card_id,
+      actor_type: actorType,
+      custom_name: customName,
+      status: 'active',
+      agreements_ref: {},
+      created_at: now
+    };
+    
+    // Save actor directly to Gun
+    const actorSaved = await robustPut(nodes.actors, actorId, actor);
+    if (!actorSaved) {
+      console.error(`[seed] Failed to save actor for ${user.name}`);
+      continue;
     }
+    
+    // Create relationships
+    await createRelationship(`${nodes.users}/${user.user_id}`, 'actors_ref', `${nodes.actors}/${actorId}`);
+    await createRelationship(`${nodes.games}/${game.game_id}`, 'actors_ref', `${nodes.actors}/${actorId}`);
+    await createRelationship(`${nodes.actors}/${actorId}`, 'card_ref', `${nodes.cards}/${card.card_id}`);
+    
+    // Update player_actor_map in game
+    const updatedMap = { ...game.player_actor_map, [user.user_id]: actorId };
+    await robustPut(`${nodes.games}/${game.game_id}`, 'player_actor_map', updatedMap);
+    
+    actors.push({ ...actor, actor_id: actorId });
+    console.log(`[seed] Created actor ${actorId} for user ${user.name}`);
   }
   
   if (actors.length < 2) {
     return { success: false, message: "Failed to create all actors" };
   }
   
-  // Create an agreement between the actors
-  const agreement = await createAgreement(
-    game.game_id,
-    "Eco-Village Funding Agreement",
-    "The Fund Manager provides capital to the Village Steward for sustainable projects",
-    [actors[0].actor_id, actors[1].actor_id],
-    {
+  // Create an agreement directly with Gun instead of using gameService
+  console.log("[seed] Creating agreement directly with Gun...");
+  
+  const agreementId = `ag_${generateId()}`;
+  
+  const agreement = {
+    agreement_id: agreementId,
+    game_ref: game.game_id,
+    creator_ref: users[0].user_id,
+    title: "Eco-Village Funding Agreement",
+    summary: "The Fund Manager provides capital to the Village Steward for sustainable projects",
+    type: "asymmetric",
+    status: "accepted",
+    parties: {
       [actors[0].actor_id]: {
-        obligations: ["Implement sustainable projects", "Report quarterly on outcomes"],
-        benefits: ["Receive funding for projects", "Access to technical expertise"]
+        card_ref: cards[0].card_id, 
+        obligation: "Implement sustainable projects and report quarterly on outcomes",
+        benefit: "Receive funding for projects and access to technical expertise"
       },
       [actors[1].actor_id]: {
-        obligations: ["Provide funding in quarterly installments", "Offer technical advice"],
-        benefits: ["Portfolio diversification", "PR benefits from successful projects"]
+        card_ref: cards[1].card_id,
+        obligation: "Provide funding in quarterly installments and offer technical advice",
+        benefit: "Portfolio diversification and PR benefits from successful projects"
       }
-    }
-  );
+    },
+    cards_ref: { [cards[0].card_id]: true, [cards[1].card_id]: true },
+    created_at: now,
+    updated_at: now,
+    votes: { [actors[0].actor_id]: "accept", [actors[1].actor_id]: "accept" }
+  };
   
-  if (!agreement) {
+  // Save agreement directly to Gun
+  const agreementSaved = await robustPut(nodes.agreements, agreementId, agreement);
+  if (!agreementSaved) {
+    console.error("[seed] Failed to save agreement");
     return { success: false, message: "Failed to create agreement" };
   }
+  
+  // Create relationships
+  await createRelationship(`${nodes.games}/${game.game_id}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+  await createRelationship(`${nodes.actors}/${actors[0].actor_id}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+  await createRelationship(`${nodes.actors}/${actors[1].actor_id}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+  await createRelationship(`${nodes.cards}/${cards[0].card_id}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+  await createRelationship(`${nodes.cards}/${cards[1].card_id}`, 'agreements_ref', `${nodes.agreements}/${agreementId}`);
+  
+  console.log(`[seed] Created agreement ${agreementId}`);
+  
   
   // Create chat rooms
   const groupChatId = `chat_${game.game_id}_group`;
