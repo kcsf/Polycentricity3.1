@@ -2,16 +2,20 @@
     import { onMount } from 'svelte';
     import type { Game, Actor } from '$lib/types';
     import { getGame, subscribeToGame } from '$lib/services/gameService';
+    import { currentGameStore } from '$lib/stores/gameStore';
     import D3GameBoardIntegrated from './D3GameBoardIntegrated.svelte';
-    import gameStore from '$lib/stores/enhancedGameStore';
     
-    export let gameId: string;
-    export let activeActorId: string | undefined = undefined;
+    // Use Svelte 5 Runes for props
+    const { gameId, activeActorId = undefined } = $props<{ 
+        gameId: string;
+        activeActorId?: string | null;
+    }>();
     
-    let game: Game | null = null;
-    let isLoading = true;
-    let error = '';
-    let unsubscribe: () => void;
+    // Local state with Svelte 5 Runes
+    let game = $state<Game | null>(null);
+    let isLoading = $state(true);
+    let error = $state('');
+    let unsubscribe = $state<(() => void) | undefined>(undefined);
     
     onMount(async () => {
         try {
@@ -23,15 +27,20 @@
                 return;
             }
             
+            // Store game in the central store
+            currentGameStore.set(game);
+            
             // Subscribe to game updates
             unsubscribe = subscribeToGame(gameId, (updatedGame) => {
-                game = updatedGame;
+                if (updatedGame) {
+                    game = updatedGame;
+                    currentGameStore.set(updatedGame);
+                }
             });
             
-            // Initialize the active actor in the store if it's provided
+            // Log the active actor for debugging
             if (activeActorId) {
-                console.log(`Setting active actor in game board: ${activeActorId}`);
-                gameStore.setActiveActorId(activeActorId);
+                console.log(`Active actor in game board: ${activeActorId}`);
             }
         } catch (err) {
             console.error('Error loading game board:', err);

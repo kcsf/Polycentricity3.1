@@ -16,7 +16,7 @@
     ChevronUp,
     Maximize
   } from '@lucide/svelte';
-  import gameStore, { activeActorId } from '$lib/stores/enhancedGameStore';
+  import { currentGameStore } from '$lib/stores/gameStore';
   import { userStore } from '$lib/stores/userStore';
   import type { Game, Actor, Card } from '$lib/types';
   import { getCard, getUserCard } from '$lib/services/gameService';
@@ -54,6 +54,7 @@
   let playerCard = $state<Card | null>(null);
   let playerCardValues = $state<string[]>([]);
   let playerCardCapabilities = $state<string[]>([]);
+  let activeActorId = $state<string | null>(playerRole?.actor_id || null);
   
   // References to sidebar elements for click-outside detection
   let leftSidebarElement = $state<HTMLElement | null>(null);
@@ -112,31 +113,39 @@
   
   // Fetch card data when playerRole changes using $effect for Runes mode
   $effect(() => {
+    // Update the active actor ID whenever playerRole changes
+    if (playerRole) {
+      activeActorId = playerRole.actor_id;
+      console.log(`Active actor ID set to: ${activeActorId}`);
+    } else {
+      activeActorId = null;
+    }
+    
     async function fetchCardData() {
       // First, clear data to avoid stale data
       playerCardValues = [];
       playerCardCapabilities = [];
       
       try {
-        // CASE 1: We have a player role with a card_id assigned
+        // Handle only if we have a player role with a card_id assigned
         if (playerRole && playerRole.card_id) {
           console.log(`Player has role with card_id: ${playerRole.card_id}`);
           
           // Check if we have a logged-in user
           if ($userStore.user) {
-            // Use the optimized getUserCard function that combines getPlayerRole and getCard steps
+            // Use the getUserCard function from gameService
             console.log('Using getUserCard to fetch card data for user:', $userStore.user.user_id);
             playerCard = await getUserCard(gameId, $userStore.user.user_id);
           } else {
-            // Fallback to direct card lookup if no user is logged in or for testing
-            console.log('Falling back to direct card lookup with card_id:', playerRole.card_id);
+            // Direct card lookup using card_id
+            console.log('Using direct card lookup with card_id:', playerRole.card_id);
             playerCard = await getCard(playerRole.card_id);
           }
           
           console.log('Card data received:', playerCard);
           
           if (playerCard) {
-            // Card data retrieved successfully
+            // Card data retrieved successfully - get metadata
             try {
               // Get the value and capability names
               playerCardValues = await getCardValueNames(playerCard);
@@ -152,7 +161,7 @@
             playerCard = null;
           }
         } 
-        // CASE 2: No player role assigned yet or role without card
+        // No player role assigned yet or role without card
         else {
           console.log('No active player role or card assigned', playerRole);
           playerCard = null;
@@ -578,9 +587,9 @@
     <!-- Main Board Visualization -->
     <main class="flex-1 overflow-hidden" style="transform: scale({currentZoom}); transform-origin: center center;">
       {#if viewMode === 'actors'}
-        <GameBoard {gameId} activeActorId={playerRole?.actor_id} />
+        <GameBoard {gameId} {activeActorId} />
       {:else}
-        <CardBoard {gameId} activeActorId={playerRole?.actor_id} />
+        <CardBoard {gameId} {activeActorId} />
       {/if}
     </main>
     
