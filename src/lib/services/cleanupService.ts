@@ -491,11 +491,11 @@ export async function cleanupNullCardReferences(): Promise<{
           gun.get(nodes.capabilities).map().once((capData: any, capId: string) => {
             if (!capData || !capData.cards_ref) return;
             
-            // Remove from capability's cards_ref using unset for better reference cleanup
-            gun.get(nodes.capabilities).get(capId).get('cards_ref').unset({ id: badCardId });
+            // Remove from capability's cards_ref using our centralized unset function
+            unset(`${nodes.capabilities}/${capId}/cards_ref`, { id: badCardId });
             
             // Also check for prefixed versions
-            gun.get(nodes.capabilities).get(capId).get('cards_ref').unset({ id: `cards/${badCardId}` });
+            unset(`${nodes.capabilities}/${capId}/cards_ref`, { id: `cards/${badCardId}` });
           });
         } catch (e) {
           console.warn(`Error cleaning up problematic card ${badCardId}:`, e);
