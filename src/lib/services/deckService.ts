@@ -125,8 +125,37 @@ export async function createCard(
     // Create values_ref object (Record<string, boolean>) directly following the pattern in sampleDataService
     const values_ref: Record<string, boolean> = {};
     
-    // Use default values if not specified
-    if ((card as any).values && typeof (card as any).values === "string") {
+    // First, check if values exists as an array
+    if (Array.isArray((card as any).values)) {
+        // Handle array of value names
+        for (const valueName of (card as any).values) {
+            if (typeof valueName === 'string') {
+                const valueId = standardizeValueId(valueName);
+                values_ref[valueId] = true;
+                
+                // Create the value entity in the database
+                try {
+                    const valueNameForDisplay = valueId.replace('value_', '').replace(/_/g, ' ');
+                    const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1);
+                    const valueData = {
+                        value_id: valueId,
+                        name: capitalizedName,
+                        creator_ref: "u_123",
+                        cards_ref: {},
+                        created_at: Date.now()
+                    };
+                    
+                    // Use fire-and-forget to create the value
+                    gun.get(nodes.values).get(valueId).put(valueData);
+                    console.log(`[createCard] Created value from array: ${valueId} (${capitalizedName})`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating value ${valueId} from array:`, e);
+                }
+            }
+        }
+    }
+    // As a fallback, also check for comma-separated string values
+    else if ((card as any).values && typeof (card as any).values === "string") {
         // Parse comma-separated values string
         const valueNames = (card as any).values.split(",").map((v: string) => v.trim()).filter(Boolean);
         
@@ -138,8 +167,8 @@ export async function createCard(
             // Create the value in the database if it doesn't exist already
             // This follows the sampleDataService pattern of saving value records
             try {
-                const valueName = valueId.replace('value_', '').replace(/_/g, ' ');
-                const capitalizedName = valueName.charAt(0).toUpperCase() + valueName.slice(1); // Capitalize
+                const valueNameForDisplay = valueId.replace('value_', '').replace(/_/g, ' ');
+                const capitalizedName = valueNameForDisplay.charAt(0).toUpperCase() + valueNameForDisplay.slice(1); // Capitalize
                 const valueData = {
                     value_id: valueId,
                     name: capitalizedName,
@@ -150,52 +179,60 @@ export async function createCard(
                 
                 // Use fire-and-forget to create the value
                 gun.get(nodes.values).get(valueId).put(valueData);
-                console.log(`[createCard] Created value: ${valueId} (${capitalizedName})`);
+                console.log(`[createCard] Created value from string: ${valueId} (${capitalizedName})`);
             } catch (e) {
-                console.warn(`[createCard] Error creating value ${valueId}:`, e);
+                console.warn(`[createCard] Error creating value ${valueId} from string:`, e);
             }
         }
     }
     
-    // Ensure we have at least some default values
-    if (Object.keys(values_ref).length === 0) {
-        values_ref["value_sustainability"] = true;
-        values_ref["value_community_resilience"] = true;
-        
-        // Create default values in the database
-        const defaultValues = [
-            {
-                value_id: "value_sustainability",
-                name: "Sustainability",
-                creator_ref: "u_123",
-                cards_ref: {},
-                created_at: Date.now()
-            },
-            {
-                value_id: "value_community_resilience",
-                name: "Community Resilience",
-                creator_ref: "u_123",
-                cards_ref: {},
-                created_at: Date.now()
-            }
-        ];
-        
-        // Create each default value
-        for (const valueData of defaultValues) {
-            try {
-                gun.get(nodes.values).get(valueData.value_id).put(valueData);
-                console.log(`[createCard] Created default value: ${valueData.value_id}`);
-            } catch (e) {
-                console.warn(`[createCard] Error creating default value ${valueData.value_id}:`, e);
-            }
-        }
-    }
+    // Debug log values_ref
+    console.log(`[createCard] Values for card ${cardId}:`, Object.keys(values_ref));
+    
+    // We DO NOT add default values if the card doesn't specify any
+    // This is the correct approach per sampleDataService.ts
+    // Since we're parsing from card.values, if there are none, we'll have an empty values_ref object
+    // Let the capabilities_ref be empty if no capabilities are provided
     
     // Process capabilities from input data if provided (matches sampleDataService.ts pattern)
     // Create capabilities_ref object (Record<string, boolean>) directly following sampleDataService.ts
     const capabilities_ref: Record<string, boolean> = {};
     
-    if ((card as any).capabilities && typeof (card as any).capabilities === "string") {
+    // First, check if capabilities exists as an array
+    if (Array.isArray((card as any).capabilities)) {
+        // Handle array of capability names
+        for (const capName of (card as any).capabilities) {
+            if (typeof capName === 'string') {
+                // Format: capability_name (lowercase, underscore-separated)
+                const sanitized = capName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                const capabilityId = `capability_${sanitized}`;
+                capabilities_ref[capabilityId] = true;
+                
+                // Create the capability entity in the database
+                try {
+                    const displayName = capName.split(' ').map((word: string) => 
+                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                    ).join(' ');
+                    
+                    const capabilityData = {
+                        capability_id: capabilityId,
+                        name: displayName,
+                        creator_ref: "u_123",
+                        cards_ref: {},
+                        created_at: Date.now()
+                    };
+                    
+                    // Use fire-and-forget to create the capability
+                    gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
+                    console.log(`[createCard] Created capability from array: ${capabilityId} (${displayName})`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating capability ${capabilityId} from array:`, e);
+                }
+            }
+        }
+    }
+    // As a fallback, also check for comma-separated string capabilities
+    else if ((card as any).capabilities && typeof (card as any).capabilities === "string") {
         // Parse comma-separated capabilities string
         const capabilityNames = (card as any).capabilities.split(",").map((c: string) => c.trim()).filter(Boolean);
         
@@ -208,7 +245,7 @@ export async function createCard(
             
             // Create the capability in the database if it doesn't exist already
             try {
-                const displayName = capName.split(' ').map(word => 
+                const displayName = capName.split(' ').map((word: string) => 
                     word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
                 ).join(' ');
                 
@@ -222,46 +259,19 @@ export async function createCard(
                 
                 // Use fire-and-forget to create the capability
                 gun.get(nodes.capabilities).get(capabilityId).put(capabilityData);
-                console.log(`[createCard] Created capability: ${capabilityId} (${displayName})`);
+                console.log(`[createCard] Created capability from string: ${capabilityId} (${displayName})`);
             } catch (e) {
-                console.warn(`[createCard] Error creating capability ${capabilityId}:`, e);
+                console.warn(`[createCard] Error creating capability ${capabilityId} from string:`, e);
             }
         }
     }
     
-    // Ensure we have at least some default capabilities if none were provided
-    if (Object.keys(capabilities_ref).length === 0) {
-        capabilities_ref["capability_planning"] = true;
-        capabilities_ref["capability_coordination"] = true;
-        
-        // Create default capabilities in the database
-        const defaultCapabilities = [
-            {
-                capability_id: "capability_planning",
-                name: "Planning",
-                creator_ref: "u_123",
-                cards_ref: {},
-                created_at: Date.now()
-            },
-            {
-                capability_id: "capability_coordination",
-                name: "Coordination",
-                creator_ref: "u_123",
-                cards_ref: {},
-                created_at: Date.now()
-            }
-        ];
-        
-        // Create each default capability
-        for (const capabilityData of defaultCapabilities) {
-            try {
-                gun.get(nodes.capabilities).get(capabilityData.capability_id).put(capabilityData);
-                console.log(`[createCard] Created default capability: ${capabilityData.capability_id}`);
-            } catch (e) {
-                console.warn(`[createCard] Error creating default capability ${capabilityData.capability_id}:`, e);
-            }
-        }
-    }
+    // Debug log capabilities_ref
+    console.log(`[createCard] Capabilities for card ${cardId}:`, Object.keys(capabilities_ref));
+    
+    // We do NOT add default capabilities if none are provided
+    // This matches sampleDataService.ts approach
+    // If no capabilities are provided, capabilities_ref should be empty
     
     // Process goals - ensure it's a string (unchanged)
     const goalsString = typeof card.goals === "string" ? card.goals : "";
