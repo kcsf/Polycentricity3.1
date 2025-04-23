@@ -14,20 +14,19 @@
  * - Actor and card assignment with background verifications
  * - Agreement management with real-time subscriptions
  * - Optimized player role lookups and game joining/leaving
- * - Card value and capability name resolution
  */
 
 import { getGun, nodes, get, putSigned, getCollection, buildShardedPath, createRelationship, generateId } from './gunService';
 import { getCurrentUser } from './authService';
 import { currentGameStore, setUserGames } from '../stores/gameStore';
 import { get as getStore } from 'svelte/store';
-import type { Game, Actor, Card, CardWithPosition, NodePosition, Agreement, AgreementWithPosition } from '$lib/types';
+import type { Game, Actor, Card, NodePosition, Agreement, AgreementWithPosition } from '$lib/types';
 import { GameStatus, AgreementStatus } from '$lib/types';
 
 // Caches for performance
 const gameCache = new Map<string, Game>();
 const actorCache = new Map<string, Actor>();
-const cardCache = new Map<string, CardWithPosition>();
+const cardCache = new Map<string, Card>();
 const agreementCache = new Map<string, AgreementWithPosition>();
 const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 
@@ -49,7 +48,7 @@ function cacheActor(actorId: string, actor: Actor): void {
   actorCache.set(actorId, { ...actor, actor_id: actorId });
 }
 
-function cacheCard(cardId: string, card: CardWithPosition): void {
+function cacheCard(cardId: string, card: Card): void {
   cardCache.set(cardId, { ...card, card_id: cardId });
 }
 
@@ -60,25 +59,6 @@ function cacheRole(gameId: string, userId: string, actorId: string): void {
 
 function cacheAgreement(agreementId: string, agreement: AgreementWithPosition): void {
   agreementCache.set(agreementId, { ...agreement, agreement_id: agreementId });
-}
-
-/**
- * Process card values_ref and capabilities_ref to extract names
- * @param ref - Record of value or capability IDs
- * @param prefix - 'value_' or 'cap_'
- * @returns Array of human-readable names
- */
-function getCardNames(ref: Record<string, boolean> | undefined, prefix: 'value_' | 'cap_'): string[] {
-  if (!ref) return [];
-  return Object.keys(ref)
-    .filter(key => key !== '_' && ref[key] === true && key.startsWith(prefix))
-    .map(key => 
-      key
-        .replace(prefix, '')
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-    );
 }
 
 /**
@@ -303,7 +283,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   const actor = await getPlayerRole(gameId, currentUser.user_id);
   if (actor) {
     await putSigned(`${nodes.actors}/${actor.actor_id}`, { ...actor, user_ref: null });
-    const key = `${gameId}:${userId}`;
+    const key = `${gameId}:${currentUser.user_id}`;
     roleCache.delete(key);
   }
 
@@ -333,7 +313,7 @@ export async function getActorWithCard(actorId: string, gameId: string): Promise
   const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
   if (!actor || actor.game_ref !== gameId) return null;
 
-  const card = actor.card_ref ? await get<CardWithPosition>(`${nodes.cards}/${actor.card_ref}`) : null;
+  const card = actor.card_ref ? await get<Card>(`${nodes.cards}/${actor.card_ref}`) : null;
   const position = await get<NodePosition>(buildShardedPath(nodes.node_positions, gameId, actorId)) ?? {
     node_id: actorId,
     game_ref: gameId,
@@ -688,20 +668,16 @@ export async function updateAgreement(agreementId: string, updateData: Partial<A
  * Subscribe to game agreements
  * @param gameId - Game ID
  * @param callback - Callback for agreement updates
-/**
- * This function subscribes to game wedges (agreements with positions)
- * @param gameId - Game ID
- * @param callback - Callback for agreement updates
  * @returns Unsubscribe function
  */
-export function subscribeToGameWedges(gameId: string, callback: (agreements: AgreementWithPosition[]) => void): () => void {
+export function subscribeToGameAgreements(gameId: string, callback: (agreements: AgreementWithPosition[]) => void): () => void {
   log(`Subscribing to agreements for game: ${gameId}`);
   const gun = getGun();
   if (!gun) {
     logError('Gun not initialized');
     callback([]);
     return () => {};
-  }  }
+  }
 
   const agreementSubscriptions: any[] = [];
   let initialLoad = true;
@@ -743,10 +719,9 @@ export function subscribeToGameWedges(gameId: string, callback: (agreements: Agr
 /**
  * Get available cards for a game
  * @param gameId - Game ID
- * @param includeNames - Whether to include value and capability names
  * @returns Array of Cards
  */
-export async function getAvailableCardsForGame(gameId: string, includeNames: boolean = false): Promise<CardWithPosition[]> {
+export async function getAvailableCardsForGame(gameId: string): Promise<Card[]> {
   log(`Getting available cards for game ${gameId}`);
   const gun = getGun();
   if (!gun) {
@@ -771,15 +746,7 @@ export async function getAvailableCardsForGame(gameId: string, includeNames: boo
   const actors = await getCollection<Actor>(nodes.actors);
   actors.filter(actor => actor.game_ref === gameId && actor.card_ref).forEach(actor => usedCardIds.add(actor.card_ref));
 
-  const availableCards = cards
-    .filter(card => !usedCardIds.has(card.card_id) && card.decks_ref[deckId])
-    .map(card => ({
-      ...card,
-      position: { x: Math.random() * 800, y: Math.random() * 600 },
-      _valueNames: includeNames ? getCardNames(card.values_ref, 'value_') : undefined,
-      _capabilityNames: includeNames ? getCardNames(card.capabilities_ref, 'cap_') : undefined
-    }));
-
+  const availableCards = cards.filter(card => !usedCardIds.has(card.card_id) && card.decks_ref[deckId]);
   availableCards.forEach(card => cacheCard(card.card_id, card));
   log(`Found ${availableCards.length} available cards for game ${gameId}`);
   return availableCards;
@@ -788,20 +755,13 @@ export async function getAvailableCardsForGame(gameId: string, includeNames: boo
 /**
  * Get a card by ID
  * @param cardId - Card ID
- * @param includeNames - Whether to include value and capability names
  * @returns Card or null
  */
-export async function getCard(cardId: string, includeNames: boolean = false): Promise<CardWithPosition | null> {
+export async function getCard(cardId: string): Promise<Card | null> {
   log(`Fetching card: ${cardId}`);
   if (cardCache.has(cardId)) {
     log(`Cache hit: ${cardId}`);
-    const card = cardCache.get(cardId)!;
-    if (includeNames && (!card._valueNames || !card._capabilityNames)) {
-      card._valueNames = getCardNames(card.values_ref, 'value_');
-      card._capabilityNames = getCardNames(card.capabilities_ref, 'cap_');
-      cacheCard(cardId, card);
-    }
-    return card;
+    return cardCache.get(cardId)!;
   }
 
   const card = await get<Card>(`${nodes.cards}/${cardId}`);
@@ -810,37 +770,23 @@ export async function getCard(cardId: string, includeNames: boolean = false): Pr
     return null;
   }
 
-  const cardWithPosition: CardWithPosition = {
-    ...card,
-    position: { x: Math.random() * 800, y: Math.random() * 600 },
-    _valueNames: includeNames ? getCardNames(card.values_ref, 'value_') : undefined,
-    _capabilityNames: includeNames ? getCardNames(card.capabilities_ref, 'cap_') : undefined
-  };
-
-  cacheCard(cardId, cardWithPosition);
+  cacheCard(cardId, card);
   log(`Successfully retrieved card: ${cardId}`);
-  return cardWithPosition;
+  return card;
 }
 
 /**
  * Get a user's card in a game
  * @param gameId - Game ID
  * @param userId - User ID
- * @param includeNames - Whether to include value and capability names
  * @returns Card or null
  */
-export async function getUserCard(gameId: string, userId: string, includeNames: boolean = false): Promise<CardWithPosition | null> {
+export async function getUserCard(gameId: string, userId: string): Promise<Card | null> {
   log(`Fetching card for user ${userId} in game ${gameId}`);
   const cacheKey = `${gameId}:${userId}`;
   if (cardCache.has(cacheKey)) {
     log(`Cache hit: ${cacheKey}`);
-    const card = cardCache.get(cacheKey)!;
-    if (includeNames && (!card._valueNames || !card._capabilityNames)) {
-      card._valueNames = getCardNames(card.values_ref, 'value_');
-      card._capabilityNames = getCardNames(card.capabilities_ref, 'cap_');
-      cardCache.set(cacheKey, card);
-    }
-    return card;
+    return cardCache.get(cacheKey)!;
   }
 
   const actor = await getPlayerRole(gameId, userId);
@@ -849,7 +795,7 @@ export async function getUserCard(gameId: string, userId: string, includeNames: 
     return null;
   }
 
-  const card = await getCard(actor.card_ref, includeNames);
+  const card = await getCard(actor.card_ref);
   if (card) {
     cardCache.set(cacheKey, card);
     log(`Found card ${card.card_id} for user ${userId}`);
@@ -864,7 +810,7 @@ export async function getUserCard(gameId: string, userId: string, includeNames: 
  * @param callback - Callback for card updates
  * @returns Unsubscribe function
  */
-export function subscribeToUserCard(gameId: string, userId: string, callback: (card: CardWithPosition | null) => void): () => void {
+export function subscribeToUserCard(gameId: string, userId: string, callback: (card: Card | null) => void): () => void {
   log(`Subscribing to card for user ${userId} in game ${gameId}`);
   const gun = getGun();
   if (!gun) {
@@ -904,15 +850,8 @@ export function subscribeToUserCard(gameId: string, userId: string, callback: (c
           return;
         }
 
-        const cardWithPosition: CardWithPosition = {
-          ...cardData,
-          position: { x: Math.random() * 800, y: Math.random() * 600 },
-          _valueNames: getCardNames(cardData.values_ref, 'value_'),
-          _capabilityNames: getCardNames(cardData.capabilities_ref, 'cap_')
-        };
-
-        cardCache.set(cacheKey, cardWithPosition);
-        callback(cardWithPosition);
+        cardCache.set(cacheKey, cardData);
+        callback(cardData);
       });
     });
   });
