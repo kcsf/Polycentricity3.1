@@ -34,7 +34,7 @@ export async function generateSequentialCardId(): Promise<string> {
 /**
  * Ensures value identifiers are in standardized format
  * All value IDs should be prefixed with 'value_'
- * @param valueId - Original value ID
+ * @param valueId - Original value ID from input data (may be a human-readable value name)
  * @returns Standardized value ID
  */
 export function standardizeValueId(valueId: string): string {
@@ -43,7 +43,8 @@ export function standardizeValueId(valueId: string): string {
     return valueId;
   }
   
-  // If it's something else, prefix it with 'value_' and convert to snake case
-  console.log(`[standardizeValueId] Converting ID ${valueId} to standardized format`);
-  return `value_${valueId.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
+  // Strip any spaces, sanitize and convert to snake case
+  const sanitized = valueId.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  console.log(`[standardizeValueId] Converting "${valueId}" to standardized format: value_${sanitized}`);
+  return `value_${sanitized}`;
 }

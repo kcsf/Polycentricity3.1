@@ -121,11 +121,34 @@ export async function createCard(
         }[card.card_category] ||
         "User";
 
-    // Set up default values if none provided
-    const valuesArray = ["value_sustainability", "value_community_resilience"];
+        // Process values from input JSON (where values is a comma-separated string)
+    let valueIds: string[] = [];
+    if ((card as any).values && typeof (card as any).values === "string") {
+        // Split values by commas, remove extra whitespace, convert to proper IDs
+        valueIds = (card as any).values.split(",")
+            .map((v: string) => v.trim())
+            .filter(Boolean)
+            .map((valueName: string) => standardizeValueId(valueName));
+    } 
     
-    // Set up capabilities from capabilities_ref (if it exists) or use empty string
-    const capabilitiesStr = "";
+    // Use default values if none provided
+    if (valueIds.length === 0) {
+        valueIds = ["value_sustainability", "value_community_resilience"];
+    }
+    
+    // Process capabilities from input JSON (where capabilities is a comma-separated string)
+    let capabilityIds: string[] = [];
+    if ((card as any).capabilities && typeof (card as any).capabilities === "string") {
+        // Split capabilities by commas, remove extra whitespace, convert to proper IDs
+        capabilityIds = (card as any).capabilities.split(",")
+            .map((c: string) => c.trim())
+            .filter(Boolean)
+            .map((capName: string) => {
+                // Convert to standard capability ID format (capability_xxx)
+                const sanitized = capName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                return `capability_${sanitized}`;
+            });
+    }
     
     // Process goals - ensure it's a string
     const goalsString = typeof card.goals === "string" ? card.goals : "";
@@ -162,6 +185,7 @@ export async function createCard(
         goals: goalsString,
         obligations: card.obligations || "",
         intellectual_property: card.intellectual_property || "",
+        resources: card.resources || "",
         // Store values_ref as a Record<string, boolean> per schema
         values_ref: valuesRecord,
         // Store capabilities_ref as a Record<string, boolean> per schema
