@@ -90,7 +90,7 @@ export async function updateDeck(
 
 // Create a new card with optimized Gun.js handling
 export async function createCard(
-    card: Omit<Card, "card_id"> & { values?: string | string[] | Record<string, boolean> },
+    card: Omit<Card, "card_id">,
 ): Promise<Card | null> {
     console.log("[createCard] Creating card:", card.role_title);
     const gun = getGun();
@@ -120,44 +120,18 @@ export async function createCard(
         }[card.card_category] ||
         "User";
 
-    // Process values and capabilities from JSON strings
-    let valuesArray: string[] = [];
+    // Set up default values if none provided
+    const valuesArray = ["value_sustainability", "value_community_resilience"];
     
-    // Handle values based on type - with safeguards against type errors
-    if (card.values) {
-        if (typeof card.values === "string") {
-            // Split string, trim each value, and filter out empty strings
-            valuesArray = (card.values as string).split(",").map(v => v.trim()).filter(Boolean);
-        } else if (Array.isArray(card.values)) {
-            // Use array directly, making sure each value is a string
-            valuesArray = (card.values as any[]).map(v => String(v).trim()).filter(Boolean);
-        } else if (typeof card.values === 'object') {
-            // Extract keys from valuesRecord structure
-            valuesArray = Object.keys(card.values as Record<string, any>)
-                .filter(k => (card.values as Record<string, any>)[k] === true);
-        }
-    }
-    
-    // Add standard values if none specified - use standard value IDs
-    if (valuesArray.length === 0) {
-        // Default to these standard value IDs using proper naming convention
-        valuesArray = ["value_sustainability", "value_community_resilience"];
-    }
-    
-    // Process capabilities as a string to be compatible with existing code
-    const capabilitiesStr =
-        typeof card.capabilities_ref === "string"
-            ? card.capabilities_ref
-            : Array.isArray(card.capabilities_ref)
-              ? card.capabilities_ref.join(",")
-              : "";
+    // Set up capabilities from capabilities_ref (if it exists) or use empty string
+    const capabilitiesStr = "";
     
     // Process goals - ensure it's a string
     const goalsString = typeof card.goals === "string" ? card.goals : "";
 
     // Get record structures for values and capabilities
     // First, standardize all values to ensure they use proper value_xxx format
-    // Handle legacy c1, c2 IDs and human-readable names
+    // Apply standardization to value IDs
     const standardizedValuesArray = valuesArray.map(valueId => standardizeValueId(valueId));
     
     // Create all values to ensure they exist in the database
@@ -818,7 +792,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
     try {
         let capabilityIds: string[] = [];
         
-        // SCHEMA UPDATE: First check if we have capabilities_ref per new schema
+        // Check if we have capabilities_ref following the schema
         if (card.capabilities_ref && typeof card.capabilities_ref === 'object') {
             // If it's a Gun.js reference, follow it
             if ('#' in card.capabilities_ref) {
@@ -849,52 +823,7 @@ export async function getCardCapabilityNames(card: Card): Promise<string[]> {
             }
         }
         
-        // LEGACY SUPPORT: If we don't have capabilities_ref or it's empty, try the old capabilities field
-        const cardWithLegacyCapabilities = card as unknown as { capabilities?: Record<string, any> };
-        if (capabilityIds.length === 0 && cardWithLegacyCapabilities.capabilities) {
-            if (typeof cardWithLegacyCapabilities.capabilities === 'object') {
-                if ('#' in cardWithLegacyCapabilities.capabilities) {
-                    // It's a Gun reference in the old format
-                    console.log(`Card ${card.card_id} has legacy capabilities as a Gun reference`);
-                    const capsRef = cardWithLegacyCapabilities.capabilities['#'];
-                    
-                    try {
-                        // Try to get capabilities from the old reference format
-                        const refCaps = await get(capsRef);
-                        if (refCaps && typeof refCaps === 'object') {
-                            capabilityIds = Object.keys(refCaps)
-                                .filter(key => key !== '_' && key !== '#' && (refCaps as Record<string, any>)[key] === true);
-                            console.log(`Found ${capabilityIds.length} capabilities from legacy reference`);
-                        }
-                    } catch (err) {
-                        console.error(`Error following legacy capability reference at ${capsRef}:`, err);
-                    }
-                } else {
-                    // It's a direct map in the old format
-                    capabilityIds = Object.keys(cardWithLegacyCapabilities.capabilities)
-                        .filter(key => cardWithLegacyCapabilities.capabilities?.[key] === true && key !== '_' && key !== '#');
-                    console.log(`Found ${capabilityIds.length} capability IDs in legacy capabilities map`);
-                }
-            } else if (typeof cardWithLegacyCapabilities.capabilities === "string") {
-                // Handle legacy string format (comma-separated capabilities)
-                const capabilityString = cardWithLegacyCapabilities.capabilities as string;
-                const capStrings = capabilityString.split(",")
-                    .map((c: string) => c.trim())
-                    .filter(Boolean);
-                
-                console.log(`Found ${capStrings.length} capability names in legacy string format`);
-                return capStrings;
-            } else if (Array.isArray(cardWithLegacyCapabilities.capabilities)) {
-                // Handle legacy array format 
-                const capabilitiesArray = cardWithLegacyCapabilities.capabilities as any[];
-                const capStrings = capabilitiesArray
-                    .map((c: any) => String(c).trim())
-                    .filter(Boolean);
-                
-                console.log(`Found ${capStrings.length} capability names in legacy array format`);
-                return capStrings;
-            }
-        }
+        // We only use capabilities_ref in the schema, no legacy support
         
         // If we found no capabilities despite all our attempts, return empty array
         if (capabilityIds.length === 0) {
