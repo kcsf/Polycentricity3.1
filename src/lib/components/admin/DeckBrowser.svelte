@@ -381,8 +381,8 @@
                   <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500 to-{getCategoryColor(card.card_category)}-700 rounded-t-md">
                     <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
                       {#key card.icon}
-                        {#if getCardIcon(card.icon)}
-                          <svelte:element this={getCardIcon(card.icon)} class="w-6 h-6" />
+                        {#if card.icon}
+                          <svelte:component this={getCardIcon(card.icon)} class="w-6 h-6" />
                         {/if}
                       {/key}
                     </div>
