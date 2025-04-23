@@ -241,22 +241,34 @@
             }
           }
           
-          // Handle values_ref field that could be a string or array
-          // In the new schema, this should be named values_ref but we'll support both old and new field names
+          // Handle values field that could be a string, array, or object
+          // In the schema, this could be values or values_ref
           let valuesData = card.values_ref || card.values;
-          // If it's a string, keep it as is - it will be processed later
-          // If it's an array, convert it to a comma-separated string
-          if (Array.isArray(valuesData)) {
+          
+          // Don't convert object format (like { "value_sustainability": true }) - pass through directly
+          if (typeof valuesData === 'object' && valuesData !== null && !Array.isArray(valuesData)) {
+            // Keep the object as is - this is the correct format
+            console.log('Values in correct object format');
+          } 
+          // Only convert arrays to comma-separated strings (legacy support)
+          else if (Array.isArray(valuesData)) {
             valuesData = valuesData.join(', ');
+            console.log('Values converted from array to string');
           }
           
-          // Handle capabilities_ref field that could be a string or array
-          // In the new schema, this should be named capabilities_ref but we'll support both old and new field names
+          // Handle capabilities field that could be a string, array, or object
+          // In the schema, this could be capabilities or capabilities_ref
           let capabilitiesData = card.capabilities_ref || card.capabilities;
-          // If it's a string, keep it as is - it will be processed later
-          // If it's an array, convert it to a comma-separated string
-          if (Array.isArray(capabilitiesData)) {
+          
+          // Don't convert object format (like { "capability_permaculture-design": true }) - pass through directly
+          if (typeof capabilitiesData === 'object' && capabilitiesData !== null && !Array.isArray(capabilitiesData)) {
+            // Keep the object as is - this is the correct format
+            console.log('Capabilities in correct object format');
+          } 
+          // Only convert arrays to comma-separated strings (legacy support)
+          else if (Array.isArray(capabilitiesData)) {
             capabilitiesData = capabilitiesData.join(', ');
+            console.log('Capabilities converted from array to string');
           }
           
           // Set defaults for missing fields
@@ -460,36 +472,43 @@
         </div>
         <pre class="text-xs font-mono overflow-x-auto">
 {`// Example card format (you can import array of these):
-// Valid JSON format with updated field names:
+// RECOMMENDED FORMAT - Values and Capabilities as object maps (best for Gun.js schema):
 [
   {
-    "card_number": 1,    // Important: This is a numeric value (1-52) used for card sorting
+    "card_number": 1,
     "role_title": "Luminos Funder",
     "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
-    "values_ref": ["Sustainability", "Equity", "Community Resilience"], // Note: Updated field name
-    "goals": "Fund projects that reduce ecological footprints and promote self-reliance.",
-    "obligations": "Must report impact to a donor network; cannot fund profit-driven ventures.",
-    "capabilities_ref": "Grant-writing expertise, impact assessment", // Note: Updated field name
-    "intellectual_property": "Database of sustainable tech solutions, funding strategy playbook.",
-    "rivalrous_resources": "$50K in discretionary funds, limited staff time.",
+    "values": {                                      // The preferred format!
+      "value_sustainability": true,
+      "value_equity": true,
+      "value_community_resilience": true
+    },
+    "goals": "Fund projects that reduce ecological footprints.",
+    "obligations": "Must report impact to a donor network.",
+    "capabilities": {                               // The preferred format!
+      "capability_grant_writing": true,
+      "capability_impact_assessment": true
+    },
+    "intellectual_property": "Database of sustainable tech solutions.",
+    "resources": "$50K in discretionary funds, limited staff time.",
     "card_category": "Funders",
     "type": "Individual",
     "icon": "sun"
   }
 ]
 
-// OR you can use format with comma-separated values in strings:
+// OR you can use with array values (less preferred):
 [
   {
     "card_number": 3,
     "role_title": "Community Gardener",
     "backstory": "A permaculture expert who develops shared growing spaces.",
-    "values_ref": "Sustainability, Community Resilience, Health", // Note: Updated field name
+    "values": ["Sustainability", "Community Resilience", "Health"],
     "goals": "Build 5 community gardens, establish seed saving network.",
     "obligations": "Must share harvest with community members.",
-    "capabilities_ref": "Permaculture design, seed saving, harvest planning", // Note: Updated field name
+    "capabilities": ["Permaculture design", "Seed saving", "Harvest planning"],
     "intellectual_property": "Garden design plans, seed library.",
-    "rivalrous_resources": "Garden tools, limited water access.",
+    "resources": "Garden tools, limited water access.",
     "card_category": "Providers",
     "type": "Individual",
     "icon": "leaf"
