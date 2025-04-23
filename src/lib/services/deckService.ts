@@ -717,7 +717,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
     try {
         let valueIds: string[] = [];
         
-        // SCHEMA UPDATE: First check if we have values_ref per updated schema
+        // Check if we have values_ref following the schema
         if (card.values_ref && typeof card.values_ref === 'object') {
             // If it's a Gun.js reference, follow it
             if ('#' in card.values_ref) {
@@ -748,52 +748,7 @@ export async function getCardValueNames(card: Card): Promise<string[]> {
             }
         }
         
-        // LEGACY SUPPORT: If we don't have values_ref or it's empty, try the old values field
-        const cardWithLegacyFields = card as unknown as { values?: Record<string, any> };
-        if (valueIds.length === 0 && cardWithLegacyFields.values) {
-            if (typeof cardWithLegacyFields.values === 'object') {
-                if ('#' in cardWithLegacyFields.values) {
-                    // It's a Gun reference in the old format
-                    console.log(`Card ${card.card_id} has legacy values as a Gun reference`);
-                    const valuesRef = cardWithLegacyFields.values['#'];
-                    
-                    try {
-                        // Try to get values from the old reference format
-                        const refValues = await get(valuesRef);
-                        if (refValues && typeof refValues === 'object') {
-                            valueIds = Object.keys(refValues)
-                                .filter(key => key !== '_' && key !== '#' && (refValues as Record<string, any>)[key] === true);
-                            console.log(`Found ${valueIds.length} values from legacy reference`);
-                        }
-                    } catch (err) {
-                        console.error(`Error following legacy value reference at ${valuesRef}:`, err);
-                    }
-                } else {
-                    // It's a direct map in the old format
-                    valueIds = Object.keys(cardWithLegacyFields.values)
-                        .filter(key => cardWithLegacyFields.values?.[key] === true && key !== '_' && key !== '#');
-                    console.log(`Found ${valueIds.length} value IDs in legacy values map`);
-                }
-            } else if (typeof cardWithLegacyFields.values === "string") {
-                // Handle legacy string format (comma-separated values)
-                const valueString = cardWithLegacyFields.values as string;
-                const valueStrings = valueString.split(",")
-                    .map((v: string) => v.trim())
-                    .filter(Boolean);
-                
-                console.log(`Found ${valueStrings.length} value names in legacy string format`);
-                return valueStrings;
-            } else if (Array.isArray(cardWithLegacyFields.values)) {
-                // Handle legacy array format 
-                const valuesArray = cardWithLegacyFields.values as any[];
-                const valueStrings = valuesArray
-                    .map((v: any) => String(v).trim())
-                    .filter(Boolean);
-                
-                console.log(`Found ${valueStrings.length} value names in legacy array format`);
-                return valueStrings;
-            }
-        }
+        // We only use values_ref in the schema, no legacy support
         
         // If we found no values despite all our attempts, return empty array
         if (valueIds.length === 0) {
