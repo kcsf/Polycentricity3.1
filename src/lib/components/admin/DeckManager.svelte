@@ -460,16 +460,16 @@
         </div>
         <pre class="text-xs font-mono overflow-x-auto">
 {`// Example card format (you can import array of these):
-// Valid JSON format:
+// Valid JSON format with updated field names:
 [
   {
     "card_number": 1,    // Important: This is a numeric value (1-52) used for card sorting
     "role_title": "Luminos Funder",
     "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
-    "values": ["Sustainability", "Equity", "Community Resilience"],
+    "values_ref": ["Sustainability", "Equity", "Community Resilience"], // Note: Updated field name
     "goals": "Fund projects that reduce ecological footprints and promote self-reliance.",
     "obligations": "Must report impact to a donor network; cannot fund profit-driven ventures.",
-    "capabilities": "Grant-writing expertise, impact assessment",
+    "capabilities_ref": "Grant-writing expertise, impact assessment", // Note: Updated field name
     "intellectual_property": "Database of sustainable tech solutions, funding strategy playbook.",
     "rivalrous_resources": "$50K in discretionary funds, limited staff time.",
     "card_category": "Funders",
@@ -484,10 +484,10 @@
     "card_number": 3,
     "role_title": "Community Gardener",
     "backstory": "A permaculture expert who develops shared growing spaces.",
-    "values": "Sustainability, Community Resilience, Health",
+    "values_ref": "Sustainability, Community Resilience, Health", // Note: Updated field name
     "goals": "Build 5 community gardens, establish seed saving network.",
     "obligations": "Must share harvest with community members.",
-    "capabilities": "Permaculture design, seed saving, harvest planning",
+    "capabilities_ref": "Permaculture design, seed saving, harvest planning", // Note: Updated field name
     "intellectual_property": "Garden design plans, seed library.",
     "rivalrous_resources": "Garden tools, limited water access.",
     "card_category": "Providers",
@@ -496,16 +496,16 @@
   }
 ]
 
-// OR JavaScript object format (without quotes on property names):
+// OR JavaScript object format (without quotes on property names) with updated field names:
 [
   {
     card_number: 2,    // Your cards will use this exact number (1-52)
     role_title: 'DAO of the Green Veil',
     backstory: 'A blockchain-based collective pooling crypto for eco-village experiments.',
-    values: ['Decentralization', 'Sustainability', 'Transparency'],
+    values_ref: ['Decentralization', 'Sustainability', 'Transparency'], // Note: Updated field name
     goals: 'Invest in scalable eco-village models; increase DAO membership.',
     obligations: 'Decisions must pass a token-weighted vote; funds locked until consensus.',
-    capabilities: 'Smart contract development, crowdfunding coordination',
+    capabilities_ref: 'Smart contract development, crowdfunding coordination', // Note: Updated field name
     intellectual_property: 'Governance protocols, tokenomics model.',
     rivalrous_resources: '10 ETH in treasury, limited developer hours.',
     card_category: 'Funders',

@@ -91,8 +91,11 @@ export async function createCard(
         return null;
     }
 
-    // Generate unique ID for the card
-    const cardId = `card_${generateId()}`;
+    // Generate unique ID for the card using the standard pattern
+    // Make sure to follow card_DIGITS format to match existing cards and filtering patterns
+    // Replace generateId() with a numeric ID to ensure compatibility with DeckBrowser's filter
+    const randomNumber = Math.floor(Math.random() * 9000) + 1000; // 1000-9999 range
+    const cardId = `card_${randomNumber}`;
     
     // Process card number (either from string or number format)
     const cardNumber =
@@ -223,23 +226,85 @@ export async function createCard(
         
         // No delay needed between operations due to using "fire and forget"
         
-        // STEP 2: Create value relationships using batch operation
+        // STEP 2: Create value relationships using reliable approach
         const valueEdges = Object.keys(valuesRecord).map(valueId => ({
             fromSoul: `${nodes.values}/${valueId}`,
             field: 'cards_ref',
             toSoul: `${nodes.cards}/${cardId}`
         }));
         
-        if (valueEdges.length > 0) {
-            createEdgesBatch(valueEdges, gun);
+        // Also create edges in the reverse direction (card to value)
+        const cardToValueEdges = Object.keys(valuesRecord).map(valueId => ({
+            fromSoul: `${nodes.cards}/${cardId}`,
+            field: 'values_ref',
+            toSoul: `${nodes.values}/${valueId}`
+        }));
+        
+        // Combine the two edge types and process them
+        const allValueEdges = [...valueEdges, ...cardToValueEdges];
+        
+        // Process all values relationships
+        if (allValueEdges.length > 0) {
+            for (const edge of allValueEdges) {
+                try {
+                    const toId = edge.toSoul.split('/').pop();
+                    if (!toId) continue;
+                    
+                    // 1. Direct reference approach - set the field to true at the proper path
+                    gun.get(edge.fromSoul).get(edge.field).get(toId).put(true);
+                    
+                    // 2. Also ensure the reference exists with Gun's set API for redundancy
+                    gun.get(edge.fromSoul).get(edge.field).set(gun.get(edge.toSoul));
+                    
+                    console.log(`[createCard] Created value edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating value edge ${edge.fromSoul} -> ${edge.field} -> ${toId}:`, e);
+                }
+                
+                // Add a small delay between operations to ensure they have time to process
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
         }
         
-        // STEP 3: Create capability relationships using batch operation
+        // STEP 3: Create capability relationships using reliable approach
         const capabilityEdges = Object.keys(capabilitiesRecord).map(capId => ({
             fromSoul: `${nodes.capabilities}/${capId}`,
             field: 'cards_ref',
             toSoul: `${nodes.cards}/${cardId}`
         }));
+        
+        // Also create edges in the reverse direction (card to capability)
+        const cardToCapabilityEdges = Object.keys(capabilitiesRecord).map(capId => ({
+            fromSoul: `${nodes.cards}/${cardId}`,
+            field: 'capabilities_ref',
+            toSoul: `${nodes.capabilities}/${capId}`
+        }));
+        
+        // Combine the two edge types and process them
+        const allCapabilityEdges = [...capabilityEdges, ...cardToCapabilityEdges];
+        
+        // Process all capability relationships
+        if (allCapabilityEdges.length > 0) {
+            for (const edge of allCapabilityEdges) {
+                try {
+                    const toId = edge.toSoul.split('/').pop();
+                    if (!toId) continue;
+                    
+                    // 1. Direct reference approach - set the field to true at the proper path
+                    gun.get(edge.fromSoul).get(edge.field).get(toId).put(true);
+                    
+                    // 2. Also ensure the reference exists with Gun's set API for redundancy
+                    gun.get(edge.fromSoul).get(edge.field).set(gun.get(edge.toSoul));
+                    
+                    console.log(`[createCard] Created capability edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
+                } catch (e) {
+                    console.warn(`[createCard] Error creating capability edge ${edge.fromSoul} -> ${edge.field} -> ${toId}:`, e);
+                }
+                
+                // Add a small delay between operations to ensure they have time to process
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+        }
 
         // Return card data immediately without waiting for all relationships
         // This is crucial to prevent timeouts
@@ -326,16 +391,27 @@ export async function addCardToDeck(
             }
         ];
         
-        // Process both edges using the fire-and-forget pattern
-        // Define a quick helper function for edge creation
-        function createEdgesBatch(edges: {fromSoul: string, field: string, toSoul: string}[], gunInstance: any): void {
-            for (const {fromSoul, field, toSoul} of edges) {
-                // Use direct put without callbacks for maximum speed
-                gunInstance.get(fromSoul).get(field).get(toSoul.split('/').pop()).put(true);
+        // Process both edges using the fire-and-forget pattern but with more reliable approach
+        // Use a more reliable approach that directly writes to the nodes with the right structure
+        for (const {fromSoul, field, toSoul} of edgeDefinitions) {
+            const toId = toSoul.split('/').pop();
+            if (!toId) continue;
+            
+            try {
+                // 1. Direct reference approach - set the field to true at the proper path
+                gun.get(fromSoul).get(field).get(toId).put(true);
+                
+                // 2. Also ensure the reference exists with Gun's set API for redundancy
+                gun.get(fromSoul).get(field).set(gun.get(toSoul));
+                
+                console.log(`[addCardToDeck] Created edge: ${fromSoul} -> ${field} -> ${toId}`);
+            } catch (e) {
+                console.warn(`[addCardToDeck] Error creating edge ${fromSoul} -> ${field} -> ${toId}:`, e);
             }
+            
+            // Add a small delay between operations to ensure they have time to process
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
-        
-        createEdgesBatch(edgeDefinitions, gun);
         
         // Consider the operation successful immediately
         // This is crucial for preventing timeouts during imports
