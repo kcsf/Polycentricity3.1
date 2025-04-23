@@ -7,6 +7,8 @@
   import type { Deck, CardWithPosition } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
+  import { resetGunDatabase } from '$lib/services/gunResetService';
+  import { cleanupNullCardReferences } from '$lib/services/cleanupService';
 
   // State variables using Svelte 5 Runes
   let selectedDeckId = $state('');

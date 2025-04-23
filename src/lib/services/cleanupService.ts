@@ -326,6 +326,116 @@ export async function cleanupAllAgreements(): Promise<{success: boolean, removed
  * 
  * @returns Promise with details of the enhancement operation
  */
+/**
+ * Cleanup null card references in decks
+ * This removes null entries from deck cards_ref and ensures 
+ * database consistency
+ * 
+ * @returns Promise with details of the cleanup operation
+ */
+export async function cleanupNullCardReferences(): Promise<{
+  success: boolean;
+  removed: number;
+  error?: string;
+}> {
+  try {
+    const gun = getGun();
+    if (!gun) {
+      return { success: false, removed: 0, error: 'Gun database is not initialized' };
+    }
+
+    let removedCount = 0;
+    
+    return new Promise((resolve) => {
+      // First pass: check all decks for null card references
+      gun.get(nodes.decks).map().once((deckData: any, deckId: string) => {
+        if (!deckData) return;
+        
+        // Get cards_ref for this deck
+        gun.get(nodes.decks).get(deckId).get('cards_ref').map().once((value: any, cardId: string) => {
+          // If this is a null reference or an invalid format, remove it
+          const isValidCardId = /^card_\d+$/.test(cardId);
+          const isNullReference = value === null;
+          
+          if (isNullReference || !isValidCardId) {
+            console.log(`Removing null/invalid card reference ${cardId} from deck ${deckId}`);
+            gun.get(nodes.decks).get(deckId).get('cards_ref').get(cardId).put(null);
+            removedCount++;
+          } else {
+            // For valid cards, verify they actually exist
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+              if (!cardData) {
+                console.log(`Removing reference to non-existent card ${cardId} from deck ${deckId}`);
+                gun.get(nodes.decks).get(deckId).get('cards_ref').get(cardId).put(null);
+                removedCount++;
+              }
+            });
+          }
+        });
+      });
+      
+      // Second pass: check for null card references in values and capabilities
+      gun.get(nodes.values).map().once((valueData: any, valueId: string) => {
+        if (!valueData || !valueData.cards_ref) return;
+        
+        gun.get(nodes.values).get(valueId).get('cards_ref').map().once((value: any, cardId: string) => {
+          if (value === null || !cardId.startsWith('card_')) {
+            console.log(`Removing null/invalid card reference ${cardId} from value ${valueId}`);
+            gun.get(nodes.values).get(valueId).get('cards_ref').get(cardId).put(null);
+            removedCount++;
+          } else {
+            // Verify card exists
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+              if (!cardData) {
+                console.log(`Removing reference to non-existent card ${cardId} from value ${valueId}`);
+                gun.get(nodes.values).get(valueId).get('cards_ref').get(cardId).put(null);
+                removedCount++;
+              }
+            });
+          }
+        });
+      });
+      
+      // Third pass: check capabilities
+      gun.get(nodes.capabilities).map().once((capData: any, capId: string) => {
+        if (!capData || !capData.cards_ref) return;
+        
+        gun.get(nodes.capabilities).get(capId).get('cards_ref').map().once((value: any, cardId: string) => {
+          if (value === null || !cardId.startsWith('card_')) {
+            console.log(`Removing null/invalid card reference ${cardId} from capability ${capId}`);
+            gun.get(nodes.capabilities).get(capId).get('cards_ref').get(cardId).put(null);
+            removedCount++;
+          } else {
+            // Verify card exists
+            gun.get(nodes.cards).get(cardId).once((cardData: any) => {
+              if (!cardData) {
+                console.log(`Removing reference to non-existent card ${cardId} from capability ${capId}`);
+                gun.get(nodes.capabilities).get(capId).get('cards_ref').get(cardId).put(null);
+                removedCount++;
+              }
+            });
+          }
+        });
+      });
+      
+      // Give time for all operations to complete
+      setTimeout(() => {
+        resolve({
+          success: true,
+          removed: removedCount,
+        });
+      }, 3000);
+    });
+  } catch (error) {
+    console.error('Error cleaning up null card references:', error);
+    return {
+      success: false,
+      removed: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function enhanceCardValuesAndCapabilities(): Promise<{
   success: boolean,
   cardsUpdated: number,
