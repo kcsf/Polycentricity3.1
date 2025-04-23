@@ -241,16 +241,18 @@
             }
           }
           
-          // Handle values field that could be a string or array
-          let valuesData = card.values;
+          // Handle values_ref field that could be a string or array
+          // In the new schema, this should be named values_ref but we'll support both old and new field names
+          let valuesData = card.values_ref || card.values;
           // If it's a string, keep it as is - it will be processed later
           // If it's an array, convert it to a comma-separated string
           if (Array.isArray(valuesData)) {
             valuesData = valuesData.join(', ');
           }
           
-          // Handle capabilities field that could be a string or array
-          let capabilitiesData = card.capabilities;
+          // Handle capabilities_ref field that could be a string or array
+          // In the new schema, this should be named capabilities_ref but we'll support both old and new field names
+          let capabilitiesData = card.capabilities_ref || card.capabilities;
           // If it's a string, keep it as is - it will be processed later
           // If it's an array, convert it to a comma-separated string
           if (Array.isArray(capabilitiesData)) {
@@ -261,8 +263,12 @@
           return {
             ...card,
             card_number: cardNumber,
-            values: valuesData || '',
-            capabilities: capabilitiesData || '',
+            // Use the updated schema field names for values and capabilities
+            values_ref: valuesData || '',
+            capabilities_ref: capabilitiesData || '',
+            // Remove the old fields to prevent duplication/confusion
+            values: undefined, 
+            capabilities: undefined,
             backstory: card.backstory || '',
             goals: card.goals || '',
             obligations: card.obligations || '',
@@ -421,7 +427,7 @@
         <p><span class="font-semibold">Deck ID:</span> {deck.deck_id}</p>
         <p><span class="font-semibold">Name:</span> {deck.name || 'Unnamed'}</p>
         <p><span class="font-semibold">Creator:</span> {deck.creator || 'None'}</p>
-        <p><span class="font-semibold">Cards:</span> {deck.cards ? (Array.isArray(deck.cards) ? deck.cards.length : Object.keys(deck.cards).length) : 0}</p>
+        <p><span class="font-semibold">Cards:</span> {deck.cards_ref ? (Array.isArray(deck.cards_ref) ? deck.cards_ref.length : Object.keys(deck.cards_ref).length) : 0}</p>
       </div>
     </div>
     

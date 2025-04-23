@@ -136,10 +136,10 @@ export async function createCard(
     
     // Process capabilities as a string to be compatible with existing code
     const capabilitiesStr =
-        typeof card.capabilities === "string"
-            ? card.capabilities
-            : Array.isArray(card.capabilities)
-              ? card.capabilities.join(",")
+        typeof card.capabilities_ref === "string"
+            ? card.capabilities_ref
+            : Array.isArray(card.capabilities_ref)
+              ? card.capabilities_ref.join(",")
               : "";
     
     // Process goals - ensure it's a string
@@ -244,10 +244,8 @@ export async function createCard(
         // Return card data immediately without waiting for all relationships
         // This is crucial to prevent timeouts
         const cardData: Card = { 
-            ...gunCard, 
-            values: valuesRecord as Record<string, boolean>,
-            capabilities: capabilitiesRecord as Record<string, boolean>,
-            goals: goalsString,
+            ...gunCard,
+            // These fields are already in gunCard with the correct _ref names
             created_at: Date.now() // Ensure created_at is set to satisfy the Card interface
         };
         
@@ -372,18 +370,18 @@ export async function initializeBidirectionalRelationships(): Promise<{
 
         for (const deck of decks) {
             const deckId = deck.deck_id;
-            if (!deck.cards) {
+            if (!deck.cards_ref) {
                 console.log(
-                    `[initializeBidirectionalRelationships] Deck ${deckId} has no cards, skipping`,
+                    `[initializeBidirectionalRelationships] Deck ${deckId} has no cards_ref, skipping`,
                 );
                 continue;
             }
 
             const cardIds =
-                typeof deck.cards === "object" && deck.cards !== null
-                    ? Object.keys(deck.cards).filter(
-                          (id) => typeof deck.cards === "object" && deck.cards !== null && 
-                          id in deck.cards && deck.cards[id as keyof typeof deck.cards] === true,
+                typeof deck.cards_ref === "object" && deck.cards_ref !== null
+                    ? Object.keys(deck.cards_ref).filter(
+                          (id) => typeof deck.cards_ref === "object" && deck.cards_ref !== null && 
+                          id in deck.cards_ref && deck.cards_ref[id as keyof typeof deck.cards_ref] === true,
                       )
                     : [];
             console.log(
@@ -628,8 +626,8 @@ export async function getDecksForCard(cardId: string): Promise<Deck[]> {
 
 // Get value names for a card using the updated schema
 export async function getCardValueNames(card: Card): Promise<string[]> {
-    // If card has no values field, return empty array
-    if (!card || !card.values) return [];
+    // If card is null or undefined, return empty array 
+    if (!card) return [];
 
     const gun = getGun();
     if (!gun) {
