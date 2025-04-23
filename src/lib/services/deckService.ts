@@ -218,8 +218,8 @@ export async function createCard(
                         created_at: Date.now(),
                     };
 
-                    // Use fire-and-forget to create the value
-                    gun.get(nodes.values).get(valueId).put(valueData);
+                    // Use robustPut to create the value
+                    await robustPut(nodes.values, valueId, valueData);
                     console.log(
                         `[createCard] Created value from object format: ${valueId} (${capitalizedName})`,
                     );
@@ -259,8 +259,8 @@ export async function createCard(
                         created_at: Date.now(),
                     };
 
-                    // Use fire-and-forget to create the value
-                    gun.get(nodes.values).get(valueId).put(valueData);
+                    // Use robustPut to create the value
+                    await robustPut(nodes.values, valueId, valueData);
                     console.log(
                         `[createCard] Created value from values_ref object: ${valueId} (${capitalizedName})`,
                     );
@@ -298,8 +298,8 @@ export async function createCard(
                         created_at: Date.now(),
                     };
 
-                    // Use fire-and-forget to create the value
-                    gun.get(nodes.values).get(valueId).put(valueData);
+                    // Use robustPut to create the value
+                    await robustPut(nodes.values, valueId, valueData);
                     console.log(
                         `[createCard] Created value from array: ${valueId} (${capitalizedName})`,
                     );
@@ -351,8 +351,8 @@ export async function createCard(
                     created_at: Date.now(),
                 };
 
-                // Use fire-and-forget to create the value
-                gun.get(nodes.values).get(valueId).put(valueData);
+                // Use robustPut to create the value
+                await robustPut(nodes.values, valueId, valueData);
                 console.log(
                     `[createCard] Created value from string: ${valueId} (${capitalizedName})`,
                 );
