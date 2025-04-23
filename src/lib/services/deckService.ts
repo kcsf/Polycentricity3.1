@@ -245,11 +245,9 @@ export async function createCard(
                     const toId = edge.toSoul.split('/').pop();
                     if (!toId) continue;
                     
-                    // 1. Direct reference approach - set the field to true at the proper path
+                    // Set the field to true at the proper path, following the schema exactly
+                    // This creates entries like: cards/<card_id>/values_ref/<value_id>: true
                     gun.get(edge.fromSoul).get(edge.field).get(toId).put(true);
-                    
-                    // 2. Also ensure the reference exists with Gun's set API for redundancy
-                    gun.get(edge.fromSoul).get(edge.field).set(gun.get(edge.toSoul));
                     
                     console.log(`[createCard] Created value edge: ${edge.fromSoul} -> ${edge.field} -> ${toId}`);
                 } catch (e) {
