@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { 
     getUserActors, 
     getAvailableCardsForGame, 
@@ -42,7 +41,8 @@
   // Subscription cleanup
   let unsubscribe: (() => void) | null = null;
   
-  onMount(async () => {
+  // Use $effect to replace onMount and onDestroy for component lifecycle
+  $effect(async () => {
     try {
       isLoading = true;
       
@@ -103,11 +103,13 @@
     } finally {
       isLoading = false;
     }
-  });
-  
-  onDestroy(() => {
-    // Clean up any subscriptions
-    if (unsubscribe) unsubscribe();
+    
+    // Return a cleanup function (equivalent to onDestroy)
+    return () => {
+      // Clean up any subscriptions
+      if (unsubscribe) unsubscribe();
+      log('ActorSelector component destroyed, subscriptions cleaned up');
+    };
   });
   
   // Cleaned up for Svelte 5.28.1 - avoids state mutations in template expressions

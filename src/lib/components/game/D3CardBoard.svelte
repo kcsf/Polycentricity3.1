@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import type { SvelteComponent } from 'svelte';
   import * as d3 from 'd3';
   import { User } from '@lucide/svelte';
@@ -874,10 +873,14 @@
     }
   }
 
-  onMount(() => {
+  // Use $effect instead of onMount for component initialization and cleanup
+  $effect(() => {
     log('[D3CardBoard] Component mounted');
     initializeVisualization();
+    
+    // Return cleanup function to run when component is destroyed
     return () => {
+      log('[D3CardBoard] Component cleanup');
       if (simulation) simulation.stop();
       unsubscribe.forEach((unsub) => unsub());
     };
