@@ -1,6 +1,6 @@
 <script lang="ts">
   import * as icons from '@lucide/svelte';
-  import { getActors, getAgreement, getActor } from '$lib/services/gameService';
+  import { getActors, getAgreement, getActorWithCard, getPlayerRole } from '$lib/services/gameService';
   import type { Actor, Agreement } from '$lib/types';
   
   // Define Position type for nodes
@@ -66,7 +66,8 @@
         isLoading = true;
         
         if (selectedNodeType === 'actor') {
-          const actor = await getActor(selectedNodeId);
+          // Use getActorWithCard which fetches the actor with card details
+          const actor = await getActorWithCard(selectedNodeId, gameId);
           if (actor) {
             selectedNode = {
               ...actor,
