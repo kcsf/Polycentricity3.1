@@ -12,7 +12,9 @@
         joinGame,
         assignRole,
         updatePlayerActorMap,
-        updateGameStatus
+        updateGameStatus,
+        nodes,
+        getCollection
     } from '$lib/services/gameService';
     import { currentGameStore } from '$lib/stores/gameStore';
     import { getCurrentUser } from '$lib/services/authService';
@@ -115,9 +117,48 @@
             // Log card counts for debugging
             console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCards}`);
             
-            // Load available cards automatically if the user is logged in
+            // Also load the available cards data directly, rather than using the getAvailableCardsForGame method
+            // which appears to be having issues with deck references
             if ($userStore.user && game.status === GameStatus.ACTIVE && !isFull) {
-                await loadAvailableCards();
+                loadingCards = true;
+                
+                if (game.deck_ref) {
+                    try {
+                        // Get all cards from this deck
+                        const deckCardsPath = `${nodes.decks}/${game.deck_ref}/cards_ref`;
+                        const cardIds = await getCollection<string>(deckCardsPath);
+                        console.log(`Found ${cardIds.length} cards in deck ${game.deck_ref}`);
+                        
+                        // Create a set of used card IDs from actors
+                        const usedCardIds = new Set(actors.filter(a => a.card_ref).map(a => a.card_ref));
+                        console.log("Used card IDs:", Array.from(usedCardIds));
+                        
+                        // Load each card that isn't already used
+                        const cardsPromises = [];
+                        
+                        for (const cardId of cardIds) {
+                            if (!usedCardIds.has(cardId)) {
+                                cardsPromises.push(getCard(cardId, true));
+                            }
+                        }
+                        
+                        const availCards = (await Promise.all(cardsPromises)).filter(Boolean);
+                        console.log(`Got ${availCards.length} available cards`);
+                        
+                        availableCardsForActors = availCards;
+                        
+                        if (availCards.length > 0) {
+                            selectedCardId = availCards[0].card_id;
+                        }
+                    } catch (err) {
+                        console.error("Error loading available cards:", err);
+                        errorMessage = `Failed to load cards: ${err.message || 'Unknown error'}`;
+                    }
+                } else {
+                    console.error("No deck reference found for game");
+                }
+                
+                loadingCards = false;
             }
             
         } catch (err) {
