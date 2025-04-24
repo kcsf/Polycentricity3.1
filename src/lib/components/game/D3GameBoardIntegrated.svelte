@@ -65,7 +65,7 @@
     try {
       // Get actors and agreements from gameService
       const gameActors = await getGameActors(gameId);
-      const gameAgreements = await getAgreements(gameId);
+      const gameAgreements = await getAvailableAgreementsForGame(gameId);
       
       // Update local state
       actors = gameActors.map(actor => ({
@@ -153,7 +153,7 @@
         active: actor.actor_id === activeActorId,
       })),
       ...agreements.map((agreement) => ({
-        id: agreement.id,
+        id: agreement.agreement_id,
         name: agreement.title,
         type: "agreement" as const,
         data: agreement,
@@ -169,7 +169,7 @@
       agreement.obligations.forEach((obligation) => {
         links.push({
           source: obligation.fromActorId,
-          target: agreement.id,
+          target: agreement.agreement_id,
           type: "obligation",
           id: obligation.id,
         });
@@ -177,7 +177,7 @@
 
       agreement.benefits.forEach((benefit) => {
         links.push({
-          source: agreement.id,
+          source: agreement.agreement_id,
           target: benefit.toActorId,
           type: "benefit",
           id: benefit.id,
