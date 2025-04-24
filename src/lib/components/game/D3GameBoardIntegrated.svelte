@@ -6,7 +6,6 @@
   import { 
     getGameActors, 
     getAvailableAgreementsForGame, 
-    getGameGraph, 
     updateNodePosition 
   } from '$lib/services/gameService';
   import type { Game, Actor, Agreement } from '$lib/types';
