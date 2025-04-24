@@ -64,10 +64,19 @@
             
             // Destructure values from the game context
             game = gameContext.game;
-            totalCards = gameContext.totalCards;
-            usedCards = gameContext.usedCards;
-            availableCards = gameContext.availableCards;
+            
+            // For the card counts, we want to calculate them precisely based on actual actors
+            // The length of actors with card_ref represents the actual used cards
             actors = gameContext.actors; // Store actors from game context
+            
+            // Calculate total cards and used cards directly
+            totalCards = gameContext.totalCards;
+            
+            // Count the actual number of actors with card references
+            usedCards = actors.filter(actor => actor.card_ref).length;
+            
+            // Available cards is the difference between total and used
+            availableCards = totalCards - usedCards;
             
             // Determine if game is full based on players count and max_players
             const maxPlayers = typeof game.max_players === 'string' 
@@ -102,6 +111,9 @@
             }
             
             cardActorMappings = mappings;
+            
+            // Log card counts for debugging
+            console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCards}`);
             
         } catch (err) {
             console.error('Error loading game context:', err);
@@ -357,112 +369,145 @@
                     </div>
                     
                     <div>
-                        <h3 class="font-semibold text-tertiary-500 mb-2">Select Your Actor</h3>
+                        <h3 class="font-semibold text-tertiary-500 mb-2">Join Game</h3>
                         
-                        <div class="p-5 bg-surface-200-700-token/30 rounded-lg">
+                        <div class="card p-5 bg-surface-200-700-token/30 rounded-lg">
                             {#if game.status === GameStatus.ACTIVE && !isFull}
                                 <div class="space-y-4">
-                                    <!-- Load available cards button -->
-                                    {#if availableCardsForActors.length === 0}
-                                        <button 
-                                            class="btn variant-filled-primary w-full" 
-                                            onclick={loadAvailableCards}
-                                            disabled={loadingCards}
-                                        >
-                                            {#if loadingCards}
-                                                <span class="spinner-third w-4 h-4 mr-2"></span>
-                                                Loading Cards...
-                                            {:else}
-                                                <icons.RefreshCw size={18} class="mr-2" />
-                                                Load Available Cards
-                                            {/if}
-                                        </button>
-                                    {:else}
-                                        <!-- Card selection form -->
-                                        <div class="space-y-3">
-                                            <label class="label">
-                                                <span>Actor Type</span>
-                                                <select class="select" bind:value={actorType}>
-                                                    <option value="National Identity">National Identity</option>
-                                                    <option value="Sovereign Identity">Sovereign Identity</option>
-                                                </select>
-                                            </label>
-                                            
-                                            <label class="label">
-                                                <span>Custom Name (optional)</span>
-                                                <input 
-                                                    class="input" 
-                                                    type="text" 
-                                                    bind:value={customName} 
-                                                    placeholder="Enter a name for your actor" 
-                                                />
-                                            </label>
-                                            
-                                            <label class="label">
-                                                <span>Select a Card</span>
-                                                <select class="select" bind:value={selectedCardId}>
-                                                    {#each availableCardsForActors as card}
-                                                        <option value={card.card_id}>
-                                                            {formatCardTitle(card)}
-                                                        </option>
+                                    <h4 class="h4 mb-4 text-primary-500">Select Your Actor</h4>
+                                
+                                    {#if $userStore.user}
+                                        <!-- Load available cards button -->
+                                        {#if availableCardsForActors.length === 0}
+                                            <div class="flex flex-col justify-center items-center space-y-4">
+                                                <p class="text-center mb-4">
+                                                    To join this game, you need to select a card that will define your role and abilities.
+                                                </p>
+                                                
+                                                <button 
+                                                    class="btn variant-filled-primary w-full" 
+                                                    onclick={loadAvailableCards}
+                                                    disabled={loadingCards}
+                                                >
+                                                    {#if loadingCards}
+                                                        <span class="spinner-third w-4 h-4 mr-2"></span>
+                                                        Loading Cards...
+                                                    {:else}
+                                                        <icons.RefreshCw size={18} class="mr-2" />
+                                                        Show Available Cards
+                                                    {/if}
+                                                </button>
+                                            </div>
+                                        {:else}
+                                            <!-- Card selection form -->
+                                            <div class="space-y-4">
+                                                <label class="label pb-1 border-b border-surface-500/30">
+                                                    <span class="font-semibold text-tertiary-400">Select Identity Type</span>
+                                                    <select class="select mt-1 w-full" bind:value={actorType}>
+                                                        <option value="National Identity">National Identity</option>
+                                                        <option value="Sovereign Identity">Sovereign Identity</option>
+                                                    </select>
+                                                </label>
+                                                
+                                                <label class="label pb-1 border-b border-surface-500/30">
+                                                    <span class="font-semibold text-tertiary-400">Custom Name (Optional)</span>
+                                                    <input 
+                                                        class="input mt-1 w-full" 
+                                                        type="text" 
+                                                        bind:value={customName} 
+                                                        placeholder="Enter a name for your actor" 
+                                                    />
+                                                </label>
+                                                
+                                                <label class="label pb-1 border-b border-surface-500/30">
+                                                    <span class="font-semibold text-tertiary-400">Choose Your Card</span>
+                                                    <select class="select mt-1 w-full" bind:value={selectedCardId}>
+                                                        {#each availableCardsForActors as card}
+                                                            <option value={card.card_id}>
+                                                                {formatCardTitle(card)}
+                                                            </option>
+                                                        {/each}
+                                                    </select>
+                                                </label>
+                                                
+                                                <!-- Card preview -->
+                                                {#if selectedCardId && availableCardsForActors.length > 0}
+                                                    {#each availableCardsForActors.filter(card => card.card_id === selectedCardId) as selectedCard}
+                                                        <div class="card p-4 bg-primary-900/20 mt-3">
+                                                            <h3 class="h3 text-primary-400">{selectedCard.role_title || 'Unnamed Role'}</h3>
+                                                            <div class="badge variant-soft-secondary">{selectedCard.card_category || 'Uncategorized'}</div>
+                                                            
+                                                            <div class="mt-3">
+                                                                <h4 class="font-bold text-sm text-tertiary-400">Backstory:</h4>
+                                                                <p class="text-sm">{selectedCard.backstory || 'No backstory available'}</p>
+                                                            </div>
+                                                            
+                                                            <div class="mt-3">
+                                                                <h4 class="font-bold text-sm text-tertiary-400">Goals:</h4>
+                                                                <p class="text-sm">{selectedCard.goals || 'No goals defined'}</p>
+                                                            </div>
+                                                        </div>
                                                     {/each}
-                                                </select>
-                                            </label>
-                                            
-                                            <!-- Card preview -->
-                                            {#if selectedCardId && availableCardsForActors.length > 0}
-                                                {#each availableCardsForActors.filter(card => card.card_id === selectedCardId) as selectedCard}
-                                                    <div class="card p-4 bg-primary-900/20">
-                                                        <h3 class="h3 text-primary-500">{selectedCard.role_title || 'Unnamed Role'}</h3>
-                                                        <div class="badge variant-soft-secondary">{selectedCard.card_category || 'Uncategorized'}</div>
-                                                        
-                                                        <div class="mt-2">
-                                                            <h4 class="font-bold text-sm text-tertiary-500">Backstory:</h4>
-                                                            <p class="text-sm">{selectedCard.backstory || 'No backstory available'}</p>
-                                                        </div>
-                                                        
-                                                        <div class="mt-2">
-                                                            <h4 class="font-bold text-sm text-tertiary-500">Goals:</h4>
-                                                            <p class="text-sm">{selectedCard.goals || 'No goals defined'}</p>
-                                                        </div>
-                                                    </div>
-                                                {/each}
-                                            {/if}
-                                            
-                                            <button
-                                                class="btn variant-filled-success w-full"
-                                                onclick={handleCreateActor}
-                                                disabled={!selectedCardId || creatingActor}
-                                            >
-                                                {#if creatingActor}
-                                                    <span class="spinner-third w-4 h-4 mr-2"></span>
-                                                    Processing...
-                                                {:else}
-                                                    <icons.UserPlus size={18} class="mr-2" />
-                                                    Create Actor & Join Game
                                                 {/if}
+                                                
+                                                <div class="flex flex-col space-y-2 pt-3">
+                                                    <button
+                                                        class="btn variant-filled-primary w-full"
+                                                        onclick={handleCreateActor}
+                                                        disabled={!selectedCardId || creatingActor}
+                                                    >
+                                                        {#if creatingActor}
+                                                            <span class="spinner-third w-4 h-4 mr-2"></span>
+                                                            Creating Actor...
+                                                        {:else}
+                                                            <icons.UserPlus size={18} class="mr-2" />
+                                                            Join Game with Selected Card
+                                                        {/if}
+                                                    </button>
+                                                    
+                                                    <button class="btn variant-ghost-surface w-full" onclick={viewGame}>
+                                                        <icons.Eye size={18} class="mr-2" />
+                                                        View Game Without Joining
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        {/if}
+                                    {:else}
+                                        <div class="flex flex-col justify-center items-center space-y-4">
+                                            <p class="text-center mb-2 text-warning-500">
+                                                You must be logged in to join this game.
+                                            </p>
+                                            <a href="/login" class="btn variant-filled-primary w-full">
+                                                <icons.LogIn size={18} class="mr-2" />
+                                                Log In to Join
+                                            </a>
+                                            <button class="btn variant-ghost-surface w-full" onclick={viewGame}>
+                                                <icons.Eye size={18} class="mr-2" />
+                                                View Game as Guest
                                             </button>
                                         </div>
                                     {/if}
-                                    
-                                    <!-- View Game button at the bottom -->
-                                    <button class="btn variant-ghost w-full mt-4" onclick={viewGame}>
-                                        <icons.ArrowRight size={18} class="mr-2" />
+                                </div>
+                            {:else if game.status === GameStatus.ACTIVE && isFull}
+                                <div class="flex flex-col justify-center items-center space-y-4">
+                                    <p class="mb-4 text-sm text-warning-500">
+                                        This game is currently full. You can view the game, but cannot join until a player leaves.
+                                    </p>
+                                    <button class="btn variant-filled-primary w-full" onclick={viewGame}>
+                                        <icons.Eye size={18} class="mr-2" />
                                         View Game
                                     </button>
                                 </div>
-                            {:else if game.status === GameStatus.ACTIVE && isFull}
-                                <p class="mb-4 text-sm text-warning-500">This game is currently full. You can view the game, but cannot join until a player leaves.</p>
-                                <button class="btn variant-ghost-primary w-full" onclick={viewGame}>
-                                    <icons.ArrowRight size={18} class="mr-2" />
-                                    View Game
-                                </button>
                             {:else}
-                                <p class="mb-4 text-sm">This game is {game.status.toLowerCase()}. You can view the game, but joining is only available for active games.</p>
-                                <button class="btn variant-ghost-primary w-full" onclick={viewGame}>
-                                    <icons.ArrowRight size={18} class="mr-2" />
-                                    View Game
-                                </button>
+                                <div class="flex flex-col justify-center items-center space-y-4">
+                                    <p class="mb-4 text-sm text-warning-500">
+                                        This game is {game.status.toLowerCase()}. You can view the game, but joining is only available for active games.
+                                    </p>
+                                    <button class="btn variant-filled-primary w-full" onclick={viewGame}>
+                                        <icons.Eye size={18} class="mr-2" />
+                                        View Game
+                                    </button>
+                                </div>
                             {/if}
                         </div>
                     </div>
