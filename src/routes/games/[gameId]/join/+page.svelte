@@ -2,7 +2,8 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGame, isGameFull, joinGame, getUserActors, assignRole, updatePlayerActorMap } from '$lib/services/gameService';
+    import { getGame, isGameFull, joinGame, getPlayerRole, assignRole, updatePlayerActorMap } from '$lib/services/gameService';
+    import { getCurrentUser } from '$lib/services/authService';
     import { userStore } from '$lib/stores/userStore';
     import { currentGameStore, setCurrentGame } from '$lib/stores/gameStore';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
@@ -57,12 +58,13 @@
             // Check if current user already has a role in this game
             const userId = $userStore.user.user_id;
             if (userId) {
-                const existingActors = await getUserActors();
-                const actorForThisGame = existingActors.find(actor => actor.game_ref === gameId);
+                // Get the player's role (actor) in this specific game using getPlayerRole
+                // Use getPlayerRole which is optimized to find a player's role in a specific game
+                const myActor = await getPlayerRole(gameId, userId);
                 
-                console.log(`Checking existing actors: ${existingActors.length} actors, Game ID: ${gameId}`);
-                if (actorForThisGame) {
-                    console.log(`User already has actor ${actorForThisGame.actor_id} assigned to game ${gameId}`);
+                console.log(`Checking existing actors: ${myActor ? 1 : 0} actors, Game ID: ${gameId}`);
+                if (myActor) {
+                    console.log(`User already has actor ${myActor.actor_id} assigned to game ${gameId}`);
                     
                     // Update current game in the store
                     setCurrentGame(game);
