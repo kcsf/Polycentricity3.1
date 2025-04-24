@@ -9,15 +9,27 @@
   const { isOpen = false, deck = null } = $props<{ isOpen?: boolean, deck?: Deck | null }>();
   
   let isLoading = $state(false);
+  // Define formData with all Deck properties
   let formData = $state({
     name: '',
-    creator: ''
+    description: '',
+    creator_ref: '',
+    is_public: true,
+    image_url: '',
+    created_at: 0,
+    updated_at: 0
   });
   
+  // Update formData when deck changes or modal opens
   $effect(() => {
     if (deck && isOpen) {
       formData.name = deck.name || '';
-      formData.creator = deck.creator || '';
+      formData.description = deck.description || '';
+      formData.creator_ref = deck.creator_ref || ''; 
+      formData.is_public = deck.is_public !== undefined ? deck.is_public : true;
+      formData.image_url = deck.image_url || '';
+      formData.created_at = deck.created_at || 0;
+      formData.updated_at = Date.now(); // Always update the timestamp when editing
     }
   });
   
@@ -27,18 +39,30 @@
     dispatch('close', event);
   }
   
+  /**
+   * Handle form submission - update the deck with all form fields
+   */
   async function handleSubmit() {
     if (!deck) return;
     
     isLoading = true;
     
     try {
+      // Update with all form fields using the new schema fields
       const success = await updateDeck(deck.deck_id, {
         name: formData.name,
-        creator: formData.creator
+        description: formData.description,
+        creator_ref: formData.creator_ref, // Note: This is now creator_ref, not creator
+        is_public: formData.is_public,
+        image_url: formData.image_url,
+        // Pass along created_at from the original deck
+        created_at: formData.created_at,
+        // Always update the updated_at timestamp
+        updated_at: Date.now()
       });
       
       if (success) {
+        console.log(`Updated deck ${deck.deck_id} successfully`);
         // Close modal and dispatch success event
         closeModal();
         const updateEvent = new CustomEvent('update', { detail: { deckId: deck.deck_id } });
@@ -79,12 +103,42 @@
         </label>
         
         <label class="label">
-          <span>Creator ID</span>
-          <input type="text" bind:value={formData.creator} class="input" required />
+          <span>Description</span>
+          <textarea bind:value={formData.description} class="input h-24" placeholder="Describe the purpose and content of this deck"></textarea>
         </label>
         
-        <div class="flex justify-end space-x-2">
-          <button type="button" class="cancel-button" onclick={closeModal}>❌ Cancel</button>
+        <label class="label">
+          <span>Creator Reference ID</span>
+          <input type="text" bind:value={formData.creator_ref} class="input" required />
+        </label>
+        
+        <label class="label flex items-center gap-2 cursor-pointer">
+          <span>Public Deck</span>
+          <input type="checkbox" bind:checked={formData.is_public} class="checkbox" />
+          <span class="ml-1 text-sm opacity-70">{formData.is_public ? 'Available to all users' : 'Private deck'}</span>
+        </label>
+        
+        <label class="label">
+          <span>Deck Image URL (optional)</span>
+          <input type="url" bind:value={formData.image_url} class="input" placeholder="https://example.com/image.jpg" />
+          {#if formData.image_url}
+            <div class="mt-2 image-preview rounded overflow-hidden w-24 h-24">
+              <img src={formData.image_url} alt="Deck preview" class="w-full h-full object-cover" />
+            </div>
+          {/if}
+        </label>
+        
+        {#if formData.created_at}
+          <div class="text-sm opacity-70">
+            <div>Created: {new Date(formData.created_at).toLocaleString()}</div>
+            {#if formData.updated_at && formData.updated_at !== formData.created_at}
+              <div>Last Updated: {new Date(formData.updated_at).toLocaleString()}</div>
+            {/if}
+          </div>
+        {/if}
+        
+        <div class="flex justify-end space-x-2 mt-6">
+          <button type="button" class="cancel-button" onclick={closeModal}>Cancel</button>
           <button type="submit" class="save-button" disabled={isLoading}>
             {#if isLoading}
               <span class="loading-icon">⏳</span>
@@ -142,10 +196,36 @@
     border: 2px solid #3b82f6;
   }
   
-  .custom-modal input {
+  .custom-modal input,
+  .custom-modal textarea {
     background-color: #334155;
     color: white;
     border: 1px solid #475569;
+  }
+  
+  .custom-modal input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1.5px solid #3b82f6;
+    border-radius: 0.25rem;
+    position: relative;
+    cursor: pointer;
+    outline: none;
+  }
+  
+  .custom-modal input[type="checkbox"]:checked {
+    background-color: #3b82f6;
+  }
+  
+  .custom-modal input[type="checkbox"]:checked:after {
+    content: "✓";
+    color: white;
+    position: absolute;
+    font-size: 0.9rem;
+    top: -0.05rem;
+    left: 0.2rem;
   }
   
   .custom-modal .modal-header {
@@ -211,5 +291,16 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+  
+  .image-preview {
+    border: 2px solid #3b82f6;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+  }
+  
+  .image-preview:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   }
 </style>

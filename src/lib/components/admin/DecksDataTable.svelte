@@ -230,9 +230,9 @@
   <!-- Edit Modal -->
   <DeckEditModal 
     bind:isOpen={isModalOpen} 
-    deck={selectedDeck} 
-    onclose={handleModalClose}
-    onupdate={handleDeckUpdated}
+    deck={selectedDeck}
+    on:close={handleModalClose}
+    on:update={handleDeckUpdated}
   />
 </div>
 
