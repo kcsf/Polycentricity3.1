@@ -2,6 +2,7 @@ import {
   getGun,
   nodes,
   get,
+  put,
   putSigned,
   getCollection,
   buildShardedPath,
@@ -1435,37 +1436,29 @@ export async function updateGame(
       log(`[updateGame] Normalized max_players to: ${updates.max_players}`);
     }
 
-    // Create a merged update with existing and new values
-    const mergedUpdate = {
-      ...existingGame,
+    // Create update payload with timestamp
+    const payload = {
       ...updates,
-      game_id: gameId, // Ensure game_id is always set
       updated_at: Date.now() // Always update the timestamp
     };
-
-    // Use putSigned for database write
-    await putSigned(`${nodes.games}/${gameId}`, mergedUpdate);
     
-    // Update cache after successful write
-    cacheGame(gameId, mergedUpdate);
+    // Use regular put for database write - simpler than putSigned
+    await put(`${nodes.games}/${gameId}`, payload);
+    
+    // Update cache with merged data
+    const mergedGame = {
+      ...existingGame,
+      ...payload,
+    };
+    cacheGame(gameId, mergedGame);
     
     // Update any active game in store if it's the current game
     const currentGame = getStore(currentGameStore);
     if (currentGame && currentGame.game_id === gameId) {
-      currentGameStore.set(mergedUpdate);
+      currentGameStore.set(mergedGame);
     }
     
     log(`[updateGame] Updated game ${gameId}`);
-    
-    // Verify the update was applied after a small delay
-    setTimeout(async () => {
-      const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
-      if (!savedGame) {
-        log(`Game ${gameId} verification failed, retrying update`);
-        await putSigned(`${nodes.games}/${gameId}`, mergedUpdate);
-      }
-    }, 500);
-    
     return true;
   } catch (error) {
     logError("[updateGame] Error:", error);
@@ -1477,38 +1470,8 @@ export async function updateGameStatus(
   gameId: string,
   status: GameStatus,
 ): Promise<boolean> {
-  log(`Updating game ${gameId} status to ${status}`);
-  const gun = getGun();
-  if (!gun) {
-    logError("Gun not initialized");
-    return false;
-  }
-
-  let game = gameCache.has(gameId)
-    ? gameCache.get(gameId)
-    : await getGame(gameId);
-  if (!game) {
-    logError(`Game not found: ${gameId}`);
-    return false;
-  }
-
-  cacheGame(gameId, { ...game, status });
-  const currentGame = getStore(currentGameStore);
-  if (currentGame && currentGame.game_id === gameId) {
-    currentGameStore.set({ ...currentGame, status });
-  }
-
-  await putSigned(`${nodes.games}/${gameId}`, { ...game, status });
-
-  setTimeout(async () => {
-    const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
-    if (!savedGame || savedGame.status !== status) {
-      log(`Status verification failed, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, { ...game, status });
-    }
-  }, 500);
-
-  return true;
+  // Leverage the existing updateGame function with just the status change
+  return updateGame(gameId, { status });
 }
 
 /**
