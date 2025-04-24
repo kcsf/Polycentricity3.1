@@ -206,6 +206,9 @@
                                             </div>
                                         {/if}
                                     </span>
+                                    <a href="/games/{gameId}/card-actor-mappings" class="text-xs text-primary-500 hover:underline mt-1 inline-block">
+                                        View card assignments →
+                                    </a>
                                 </div>
                             </li>
                             <li class="flex items-center">
