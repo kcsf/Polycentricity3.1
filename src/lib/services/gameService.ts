@@ -289,11 +289,16 @@ export async function joinGame(gameId: string): Promise<boolean> {
   const updatedPlayers = { ...game.players, [currentUser.user_id]: true };
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
   
-  // Update with standard put instead of putSigned
-  await put(`${nodes.games}/${gameId}`, {
+  // Create a complete Game object for the update
+  const fullGameUpdate: Game = {
+    ...game,
     players: updatedPlayers,
     player_actor_map: updatedMap,
-  });
+    updated_at: Date.now()
+  };
+  
+  // Update with standard put instead of putSigned
+  await put(`${nodes.games}/${gameId}`, fullGameUpdate);
 
   // Update cache after successful write
   cacheGame(gameId, {
@@ -342,11 +347,16 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   const { [currentUser.user_id]: _, ...updatedPlayers } = game.players;
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
   
-  // Use put instead of putSigned
-  await put(`${nodes.games}/${gameId}`, {
+  // Create a complete Game object for the update
+  const fullGameUpdate: Game = {
+    ...game,
     players: updatedPlayers,
     player_actor_map: updatedMap,
-  });
+    updated_at: Date.now()
+  };
+  
+  // Use put instead of putSigned with the full game object
+  await put(`${nodes.games}/${gameId}`, fullGameUpdate);
   
   // Update cache
   cacheGame(gameId, {
@@ -358,9 +368,13 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   // Release the actor role if one is assigned
   const actor = await getPlayerRole(gameId, currentUser.user_id);
   if (actor) {
-    await put(`${nodes.actors}/${actor.actor_id}`, {
+    // Update actor with complete actor object
+    const actorUpdate: Actor = {
+      ...actor,
       user_ref: null,
-    });
+      updated_at: Date.now()
+    };
+    await put(`${nodes.actors}/${actor.actor_id}`, actorUpdate);
     const key = `${gameId}:${currentUser.user_id}`;
     roleCache.delete(key);
   }
@@ -1420,8 +1434,16 @@ export async function updateGame(
       updated_at: Date.now() // Always update the timestamp
     };
     
+    // Gun.js works better with partial updates when the object has all required fields
+    // So we create a complete Game object with all fields rather than just the updates
+    const fullGameUpdate: Game = {
+      ...existingGame,
+      ...payload,
+      game_id: gameId // Ensure game_id is always set
+    };
+    
     // Use regular put for database write - simpler than putSigned
-    await put(`${nodes.games}/${gameId}`, payload);
+    await put(`${nodes.games}/${gameId}`, fullGameUpdate);
     
     // Update cache with merged data
     const mergedGame = {
