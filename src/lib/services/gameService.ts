@@ -1602,24 +1602,38 @@ export async function getGameContext(
   const game = await getGame(gameId);
   if (!game) return null;
 
-  // 2) Compute deck counts
+  // 2) Fetch actors & agreements first (needed for card counting)
+  const actors = await getGameActors(gameId);
+  const agreements = await getAvailableAgreementsForGame(gameId);
+
+  // 3) Compute deck counts
   const deckId = game.deck_ref;
   let totalCards = 0,
     usedCards = 0,
     availableCards = 0;
   if (deckId) {
+    // Get total cards in deck
     const cardsRef = await getCollection<any>(
       `${nodes.decks}/${deckId}/cards_ref`,
     );
     totalCards = cardsRef.length;
+    
+    // Count cards actually used by actors in this game
+    const usedCardRefs = new Set();
+    actors.forEach(actor => {
+      if (actor.card_ref) {
+        usedCardRefs.add(actor.card_ref);
+      }
+    });
+    usedCards = usedCardRefs.size;
+    
+    // Calculate available cards (those in deck but not used)
     const avail = await getAvailableCardsForGame(gameId);
     availableCards = avail.length;
-    usedCards = totalCards - availableCards;
+    
+    // Log the calculation for debugging
+    console.log(`Card count calculation: Total=${totalCards}, Used=${usedCards}, Available=${availableCards}`);
   }
-
-  // 3) Fetch actors & agreements
-  const actors = await getGameActors(gameId);
-  const agreements = await getAvailableAgreementsForGame(gameId);
 
   return { game, totalCards, usedCards, availableCards, actors, agreements };
 }
