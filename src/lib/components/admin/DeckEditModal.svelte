@@ -201,6 +201,15 @@
     background-color: #334155;
     color: white;
     border: 1px solid #475569;
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+  }
+  
+  .custom-modal textarea {
+    resize: vertical;
+    min-height: 100px;
+    font-family: system-ui, -apple-system, sans-serif;
   }
   
   .custom-modal input[type="checkbox"] {

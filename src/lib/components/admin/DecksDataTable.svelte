@@ -71,7 +71,24 @@
   
   function openEditModal(deck: Deck) {
     // In Svelte 5 Runes, update state with direct assignment
-    selectedDeck = deck;
+    console.log('Opening edit modal for deck:', deck);
+    
+    // If the loaded deck is using old schema format, convert to new schema
+    // This handles the transition period where both schema formats might exist
+    if (deck.creator && !deck.creator_ref) {
+      console.log('Converting deck from old schema to new schema format');
+      selectedDeck = {
+        ...deck,
+        creator_ref: deck.creator || '',
+        is_public: deck.is_public ?? true,
+        description: deck.description || '',
+        // Any cards or additional fields should be preserved
+      };
+    } else {
+      // Just use the deck as-is
+      selectedDeck = deck;
+    }
+    
     isModalOpen = true;
   }
   
@@ -81,7 +98,8 @@
     selectedDeck = null;
   }
   
-  function handleDeckUpdated() {
+  function handleDeckUpdated(event: CustomEvent) {
+    console.log('Deck updated:', event.detail?.deckId);
     // Refresh the deck list
     loadDecks();
   }
@@ -135,7 +153,7 @@
         <div class="spinner-third w-4 h-4 mr-2"></div>
         Loading...
       {:else}
-        {icons.RefreshCw && icons.RefreshCw({ class: "w-4 h-4 mr-2" })}
+        <span class="mr-2">🔄</span>
         Refresh
       {/if}
     </button>
@@ -143,7 +161,7 @@
   
   {#if error}
     <div class="alert variant-filled-error mb-4">
-      {icons.AlertTriangle && icons.AlertTriangle()}
+      <span class="text-xl">⚠️</span>
       <div class="alert-message">
         <h4 class="h5">Error Loading Decks</h4>
         <p>{error}</p>
@@ -158,7 +176,7 @@
     </div>
   {:else if decks.length === 0}
     <div class="card p-6 variant-ghost-surface text-center">
-      {icons.Package && icons.Package({ class: "w-12 h-12 mx-auto mb-4 text-surface-500" })}
+      <span class="text-5xl mb-4 block">📦</span>
       <h4 class="h4 mb-2">No Decks Found</h4>
       <p class="text-sm max-w-lg mx-auto">
         There are no decks in the database yet. Create a deck to get started.
@@ -180,10 +198,21 @@
           {#each decks as deck}
             <tr>
               <td class="font-mono text-xs">{deck.id}</td>
-              <td>{deck.data.name || 'Unnamed'}</td>
-              <td class="font-mono text-xs">{deck.data.creator || 'None'}</td>
               <td>
-                {#if deck.data.cards}
+                {deck.data.name || 'Unnamed'} 
+                {#if deck.data.is_public}
+                  <span class="badge bg-green-600 text-white text-xs ml-2 px-1">Public</span>
+                {:else}
+                  <span class="badge bg-red-600 text-white text-xs ml-2 px-1">Private</span>
+                {/if}
+              </td>
+              <td class="font-mono text-xs">
+                {deck.data.creator_ref || deck.data.creator || 'None'}
+              </td>
+              <td>
+                {#if deck.data.cards_ref}
+                  {Object.keys(deck.data.cards_ref).length}
+                {:else if deck.data.cards}
                   {Array.isArray(deck.data.cards) ? deck.data.cards.length : Object.keys(deck.data.cards).length}
                 {:else}
                   0
@@ -305,5 +334,25 @@
   .icon {
     margin-right: 0.5rem;
     font-size: 1rem;
+  }
+  
+  .badge {
+    display: inline-block;
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .bg-green-600 {
+    background-color: #10b981;
+  }
+  
+  .bg-red-600 {
+    background-color: #ef4444;
+  }
+  
+  .text-white {
+    color: white;
   }
 </style>
