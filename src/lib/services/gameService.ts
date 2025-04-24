@@ -108,14 +108,13 @@ export async function createGame(
 
     const gameId = generateId();
     // Validate and normalize max_players
-    const normalizedMaxPlayers = typeof maxPlayers === 'number' && maxPlayers > 0 
-      ? maxPlayers 
-      : undefined;
-    
+    const normalizedMaxPlayers =
+      typeof maxPlayers === "number" && maxPlayers > 0 ? maxPlayers : undefined;
+
     if (normalizedMaxPlayers) {
       log(`Creating game with max_players: ${normalizedMaxPlayers}`);
     }
-    
+
     const gameData: Game = {
       game_id: gameId,
       name,
@@ -288,7 +287,7 @@ export async function joinGame(gameId: string): Promise<boolean> {
 
   const updatedPlayers = { ...game.players, [currentUser.user_id]: true };
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
-  
+
   // Update with standard put instead of putSigned
   await put(`${nodes.games}/${gameId}`, {
     players: updatedPlayers,
@@ -341,13 +340,13 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 
   const { [currentUser.user_id]: _, ...updatedPlayers } = game.players;
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
-  
+
   // Use put instead of putSigned
   await put(`${nodes.games}/${gameId}`, {
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
-  
+
   // Update cache
   cacheGame(gameId, {
     ...game,
@@ -1380,7 +1379,7 @@ export async function assignCardToActor(
  */
 /**
  * Update game properties with specified updates
- * 
+ *
  * @param gameId - The ID of the game to update
  * @param updates - Partial Game object with properties to update
  * @returns Promise resolving to boolean indicating success or failure
@@ -1403,12 +1402,12 @@ export async function updateGame(
       logError(`Game not found: ${gameId}`);
       return false;
     }
-    
+
     // Normalize max_players: ensure it's a number or undefined
     if (updates.max_players !== undefined) {
-      if (typeof updates.max_players === 'string') {
+      if (typeof updates.max_players === "string") {
         updates.max_players = parseInt(updates.max_players, 10);
-      } else if (typeof updates.max_players !== 'number') {
+      } else if (typeof updates.max_players !== "number") {
         updates.max_players = undefined;
       }
       log(`[updateGame] Normalized max_players to: ${updates.max_players}`);
@@ -1417,25 +1416,25 @@ export async function updateGame(
     // Create update payload with timestamp
     const payload = {
       ...updates,
-      updated_at: Date.now() // Always update the timestamp
+      updated_at: Date.now(), // Always update the timestamp
     };
-    
+
     // Use regular put for database write - simpler than putSigned
     await put(`${nodes.games}/${gameId}`, payload);
-    
+
     // Update cache with merged data
     const mergedGame = {
       ...existingGame,
       ...payload,
     };
     cacheGame(gameId, mergedGame);
-    
+
     // Update any active game in store if it's the current game
     const currentGame = getStore(currentGameStore);
     if (currentGame && currentGame.game_id === gameId) {
       currentGameStore.set(mergedGame);
     }
-    
+
     log(`[updateGame] Updated game ${gameId}`);
     return true;
   } catch (error) {
@@ -1564,19 +1563,65 @@ export async function isGameFull(gameId: string): Promise<boolean> {
   }
 
   // Ensure max_players is treated as a number
-  const maxPlayers = typeof game.max_players === 'string' 
-    ? parseInt(game.max_players as string, 10) 
-    : game.max_players;
-    
+  const maxPlayers =
+    typeof game.max_players === "string"
+      ? parseInt(game.max_players as string, 10)
+      : game.max_players;
+
   // If maxPlayers is undefined, 0, null, or NaN, the game has no player limit
   if (!maxPlayers) return false;
-  
+
   const playerCount = Object.keys(game.players || {}).length;
   const isFull = playerCount >= maxPlayers;
   log(
     `Game ${gameId} has ${playerCount}/${maxPlayers} players. Full: ${isFull}`,
   );
   return isFull;
+}
+
+/**
+ * Fetch all the data your Game Details page needs in one call:
+ * - Game record
+ * - Deck: total/used/available card counts
+ * - Actors in the game
+ * - Agreements in the game
+ */
+export interface GameContext {
+  game: Game;
+  totalCards: number;
+  usedCards: number;
+  availableCards: number;
+  actors: Actor[];
+  agreements: AgreementWithPosition[];
+}
+
+export async function getGameContext(
+  gameId: string,
+): Promise<GameContext | null> {
+  // 1) Fetch game
+  const game = await getGame(gameId);
+  if (!game) return null;
+
+  // 2) Compute deck counts
+  const deckId = game.deck_ref;
+  let totalCards = 0,
+    usedCards = 0,
+    availableCards = 0;
+  if (deckId) {
+    const cardsRef = await getCollection<any>(
+      `${nodes.decks}/${deckId}/cards_ref`,
+    );
+    totalCards = cardsRef.length;
+    const avail = await getAvailableCardsForGame(gameId);
+    availableCards = avail.length;
+    usedCards = totalCards - availableCards;
+  }
+
+  // 3) Fetch actors & agreements
+  const actors = await getGameActors(gameId);
+  const agreements = await getAvailableAgreementsForGame(gameId);
+
+  return { game, totalCards, usedCards, availableCards, actors, agreements };
 }
 
 /**
