@@ -34,7 +34,17 @@
       formData.deck_ref = game.deck_ref || '';
       formData.deck_type = game.deck_type || '';
       formData.status = game.status || 'active';
-      formData.max_players = game.max_players !== undefined ? game.max_players : 0;
+      
+      // Handle max_players properly - convert to a valid number or default to 0
+      if (game.max_players !== undefined && game.max_players !== null) {
+        const maxPlayerValue = typeof game.max_players === 'string' 
+          ? parseInt(game.max_players, 10) 
+          : game.max_players;
+        formData.max_players = !isNaN(maxPlayerValue) ? maxPlayerValue : 0;
+      } else {
+        formData.max_players = 0;
+      }
+      
       formData.password = game.password || '';
       formData.created_at = game.created_at || 0;
       formData.updated_at = Date.now(); // Always update the timestamp when editing
@@ -55,8 +65,13 @@
     
     isLoading = true;
     const gameId = game.game_id; // Store game_id before any state changes
-    const parsedMaxPlayers = parseInt(formData.max_players.toString(), 10);
-    console.log('[GameEditModal] Submitting with max_players value:', parsedMaxPlayers);
+    // Properly handle max_players conversion
+    let maxPlayers = undefined;
+    if (formData.max_players !== undefined && formData.max_players !== null) {
+      const parsedValue = parseInt(formData.max_players.toString(), 10);
+      maxPlayers = !isNaN(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
+    }
+    console.log('[GameEditModal] Submitting with max_players value:', maxPlayers);
     
     try {
       // Update with all form fields using the new schema fields
@@ -67,7 +82,7 @@
         deck_ref: formData.deck_ref,
         deck_type: formData.deck_type,
         status: formData.status,
-        max_players: parseInt(formData.max_players.toString(), 10),
+        max_players: maxPlayers,
         password: formData.password || undefined,
         // Pass along created_at from the original game
         created_at: formData.created_at,
