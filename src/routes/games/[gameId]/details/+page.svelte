@@ -4,6 +4,7 @@
     import { goto } from '$app/navigation';
     import { getGame, isGameFull } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
+    import { getCollection, nodes } from '$lib/services/gunService';
     import type { Game } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
@@ -16,6 +17,7 @@
     let errorMessage = $state('');
     let isFull = $state(false);
     let isJoining = $state(false);
+    let deckCardCount = $state<number>(0);
     
     // Use an effect to load data when the component mounts
     $effect(async () => {
@@ -33,6 +35,17 @@
             
             // Check if game is full
             isFull = await isGameFull(gameId);
+            
+            // Load card count for this game's deck
+            if (game.deck_ref) {
+                try {
+                    const deckCards = await getCollection(`${nodes.decks}/${game.deck_ref}/cards_ref`);
+                    deckCardCount = deckCards.length;
+                } catch (err) {
+                    console.error('Error loading deck card count:', err);
+                    deckCardCount = 0;
+                }
+            }
         } catch (err) {
             console.error('Error loading game:', err);
             errorMessage = 'Failed to load game data';
@@ -180,6 +193,9 @@
                                         {game.deck_type === 'eco-village' ? 'Eco-Village' :
                                          game.deck_type === 'community-garden' ? 'Community Garden' :
                                          game.deck_type}
+                                        {#if deckCardCount > 0}
+                                            <span class="badge variant-filled-secondary text-xs ml-2">{deckCardCount} cards</span>
+                                        {/if}
                                     </span>
                                 </div>
                             </li>

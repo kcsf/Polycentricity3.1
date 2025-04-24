@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import * as icons from '@lucide/svelte';
-  import { getGun, nodes } from '$lib/services/gunService';
+  import { getGun, getCollection, nodes } from '$lib/services/gunService';
   import { getDeck, updateDeck } from '$lib/services/deckService';
   import DeckEditModal from './DeckEditModal.svelte';
   import type { Deck } from '$lib/types';
@@ -10,7 +10,9 @@
   const { refreshTrigger = 0 } = $props(); // Increment this to trigger a refresh
   
   let isLoading = $state(true);
-  let decks = $state<{id: string, data: Deck}[]>([]);
+  let decks = $state<{id:string,data:Deck}[]>([]);
+  // New: cardCounts map
+  let cardCounts = $state<Record<string,number>>({});
   let error = $state<string | null>(null);
   
   // Modal state
@@ -24,6 +26,19 @@
   $effect(() => {
     if (refreshTrigger) {
       loadDecks();
+    }
+  });
+
+  // Whenever `decks` changes, re-compute cardCounts
+  $effect(async () => {
+    cardCounts = {};
+    for (const { id } of decks) {
+      try {
+        const items = await getCollection(`${nodes.decks}/${id}/cards_ref`);
+        cardCounts[id] = items.length;
+      } catch {
+        cardCounts[id] = 0;
+      }
     }
   });
   
@@ -209,20 +224,8 @@
               <td class="font-mono text-xs">
                 {deck.data.creator_ref || deck.data.creator || 'None'}
               </td>
-              <td>
-                {#if deck.data.cards_ref}
-                  {(() => {
-                    const cardKeys = Object.keys(deck.data.cards_ref);
-                    // Only count keys that have a truthy value (following Gun.js reference pattern)
-                    const validCardCount = cardKeys.filter(key => deck.data.cards_ref[key] === true).length;
-                    return validCardCount;
-                  })()}
-                {:else if deck.data.cards}
-                  {Array.isArray(deck.data.cards) ? deck.data.cards.length : Object.keys(deck.data.cards).length}
-                {:else}
-                  0
-                {/if}
-              </td>
+              <!-- UPDATED: show pre-computed count -->
+              <td class="text-center">{cardCounts[deck.id] ?? 0}</td>
               <td>
                 <div class="flex space-x-2">
                   <button 
