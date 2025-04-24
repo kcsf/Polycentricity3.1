@@ -32,6 +32,7 @@
   let creatingActor: boolean = $state(false);
   let mode: 'select' | 'create' = $state('select');
   let errorMessage: string = $state('');
+  let fetchError: boolean = $state(false);
   
   // Add conditional development logging
   const isDev = import.meta.env.DEV;
@@ -45,58 +46,88 @@
   $effect(async () => {
     try {
       isLoading = true;
+      fetchError = false;
       
       // Load actors and cards concurrently for better performance
       log(`Loading data for game ${gameId}`);
-      const [allUserActors, cards] = await Promise.all([
-        getUserActors(),
-        getAvailableCardsForGame(gameId)
-      ]);
       
-      // Display ALL user actors, not just ones from this game
-      log(`Processing ${allUserActors.length} user actors for selection`);
+      try {
+        // First attempt to get all user actors
+        const allUserActors = await getUserActors();
+        
+        // Display ALL user actors, not just ones from this game
+        log(`Processing ${allUserActors.length} user actors for selection`);
+        
+        // We want to show all user actors, not just those from this game
+        existingActors = allUserActors;
+        
+        // Log details for debugging
+        existingActors.forEach(actor => {
+          log(`Actor ${actor.actor_id}: game_id=${actor.game_id}, card_id=${actor.card_id}, name=${actor.custom_name || 'unnamed'}`);
+        });
+      } catch (actorErr) {
+        logError('Failed to load user actors:', actorErr);
+        errorMessage = 'Unable to load your existing actors. You may need to create a new one.';
+      }
       
-      // We want to show all user actors, not just those from this game
-      existingActors = allUserActors;
-      existingActors.forEach(actor => {
-        log(`Actor ${actor.actor_id}: game_id=${actor.game_id}, card_id=${actor.card_id}, name=${actor.custom_name || 'unnamed'}`);
-      });
-      
-      availableCards = cards;
-      
-      log(`Found ${existingActors.length} actors and ${availableCards.length} cards for game ${gameId}`);
+      try {
+        // Load available cards
+        const cards = await getAvailableCardsForGame(gameId, true); // Pass true to include value names
+        
+        // Set the cards in state
+        availableCards = cards;
+        
+        // Log the results
+        log(`Found ${availableCards.length} available cards for game ${gameId}`);
+        
+        // If we have cards, set a default selected card
+        if (availableCards.length > 0) {
+          selectedCardId = availableCards[0].card_id;
+        } else {
+          log('Warning: No available cards returned for this game');
+          // This doesn't necessarily mean there are no cards - could be a permissions or loading issue
+          fetchError = true;
+        }
+      } catch (cardsErr) {
+        logError('Failed to load available cards:', cardsErr);
+        errorMessage = 'Unable to load cards for this game.';
+        fetchError = true;
+      }
       
       // Retry if no actors found but expected some (retry with explicit getCurrentUser)
-      if (existingActors.length === 0 && allUserActors.length > 0) {
+      if (existingActors.length === 0) {
         log('No actors found for this game, retrying with explicit user ID');
-        const currentUser = getCurrentUser();
-        if (currentUser) {
-          const userActorsRetry = await getUserActors(currentUser.user_id);
-          log(`Retry returned ${userActorsRetry.length} total actors`);
-          
-          existingActors = userActorsRetry.filter(actor => {
-            const matches = actor.game_id === gameId;
-            log(`Retry: Actor ${actor.actor_id} game_id=${actor.game_id}, matches=${matches}`);
-            return matches;
-          });
-          
-          log(`After retry: found ${existingActors.length} actors for game ${gameId}`);
+        try {
+          const currentUser = getCurrentUser();
+          if (currentUser) {
+            const userActorsRetry = await getUserActors(currentUser.user_id);
+            log(`Retry returned ${userActorsRetry.length} total actors`);
+            
+            if (userActorsRetry.length > 0) {
+              // Filter to only actors associated with this game
+              const gameActors = userActorsRetry.filter(actor => actor.game_id === gameId);
+              
+              if (gameActors.length > 0) {
+                existingActors = gameActors;
+                log(`After retry: found ${existingActors.length} actors for game ${gameId}`);
+              }
+            }
+          }
+        } catch (retryErr) {
+          logError('Error during actor retry:', retryErr);
         }
       }
       
       // Determine initial mode based on data
       if (existingActors.length === 0) {
         mode = 'create';
-        if (availableCards.length > 0) {
-          selectedCardId = availableCards[0].card_id;
-        }
       } else {
         mode = 'select';
         selectedActorId = existingActors[0].actor_id;
-        if (availableCards.length > 0) {
-          selectedCardId = availableCards[0].card_id;
-        }
       }
+      
+      // Log overall results
+      log(`Final state: ${existingActors.length} actors and ${availableCards.length} cards for game ${gameId}`);
     } catch (err) {
       logError('Error loading actors and cards:', err);
       errorMessage = 'Failed to load actor data. Please try again.';
@@ -458,11 +489,28 @@
     {#if mode === 'create'}
       {#if availableCards.length === 0}
         <div class="card p-4 text-center">
-          <p>No cards available for this game. All cards have been assigned to players.</p>
+          {#if fetchError}
+            <div class="p-4 mb-2 bg-surface-200/20 rounded-lg">
+              <h3 class="h4 text-primary-500 mb-2">Cards Temporarily Unavailable</h3>
+              <p class="mb-2">We're experiencing an issue retrieving cards for this game.</p>
+              <button class="btn variant-filled-primary mt-2" onclick={() => window.location.reload()}>
+                <icons.RefreshCw size={16} class="mr-2" />
+                Refresh Page
+              </button>
+            </div>
+          {:else}
+            <p>No available cards found for this game.</p>
+            <p class="text-sm opacity-70 mt-2">All cards may have been assigned to other players.</p>
+          {/if}
+          
           {#if existingActors.length > 0}
-            <button class="btn variant-ghost-primary mt-2" onclick={() => setMode('select')}>
-              Use an existing actor instead
-            </button>
+            <div class="mt-4 pt-4 border-t border-surface-300/20">
+              <p class="mb-2">You have existing actors available.</p>
+              <button class="btn variant-ghost-primary" onclick={() => setMode('select')}>
+                <icons.Users size={16} class="mr-2" />
+                Use an existing actor instead
+              </button>
+            </div>
           {/if}
         </div>
       {:else}
