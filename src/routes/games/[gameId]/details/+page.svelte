@@ -2,9 +2,8 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGame, isGameFull } from '$lib/services/gameService';
+    import { getGameContext, type GameContext } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
-    import { getCollection, nodes } from '$lib/services/gunService';
     import type { Game } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
@@ -17,37 +16,39 @@
     let errorMessage = $state('');
     let isFull = $state(false);
     let isJoining = $state(false);
-    let deckCardCount = $state<number>(0);
+    let totalCards = $state<number>(0);
+    let usedCards = $state<number>(0);
+    let availableCards = $state<number>(0);
     
-    // Use an effect to load data when the component mounts
+    // Use an effect to load data when the component mounts using getGameContext
     $effect(async () => {
         try {
             isLoading = true;
             
-            // Load game data
-            const loadedGame = await getGame(gameId);
-            game = loadedGame;
+            // Load all game data with one optimized function call
+            const gameContext = await getGameContext(gameId);
             
-            if (!game) {
+            if (!gameContext) {
                 errorMessage = 'Game not found';
                 return;
             }
             
-            // Check if game is full
-            isFull = await isGameFull(gameId);
+            // Destructure values from the game context
+            game = gameContext.game;
+            totalCards = gameContext.totalCards;
+            usedCards = gameContext.usedCards;
+            availableCards = gameContext.availableCards;
             
-            // Load card count for this game's deck
-            if (game.deck_ref) {
-                try {
-                    const deckCards = await getCollection(`${nodes.decks}/${game.deck_ref}/cards_ref`);
-                    deckCardCount = deckCards.length;
-                } catch (err) {
-                    console.error('Error loading deck card count:', err);
-                    deckCardCount = 0;
-                }
-            }
+            // Determine if game is full based on players count and max_players
+            const maxPlayers = typeof game.max_players === 'string' 
+                ? parseInt(game.max_players, 10) 
+                : game.max_players;
+                
+            const playerCount = Object.keys(game.players || {}).length;
+            isFull = maxPlayers ? playerCount >= maxPlayers : false;
+            
         } catch (err) {
-            console.error('Error loading game:', err);
+            console.error('Error loading game context:', err);
             errorMessage = 'Failed to load game data';
         } finally {
             isLoading = false;
@@ -193,8 +194,16 @@
                                         {game.deck_type === 'eco-village' ? 'Eco-Village' :
                                          game.deck_type === 'community-garden' ? 'Community Garden' :
                                          game.deck_type}
-                                        {#if deckCardCount > 0}
-                                            <span class="badge variant-filled-secondary text-xs ml-2">{deckCardCount} cards</span>
+                                        {#if totalCards > 0}
+                                            <div class="flex flex-wrap gap-1 mt-1">
+                                                <span class="badge variant-filled-secondary text-xs">{totalCards} total cards</span>
+                                                {#if usedCards > 0}
+                                                    <span class="badge variant-filled-primary text-xs">{usedCards} used</span>
+                                                {/if}
+                                                {#if availableCards > 0}
+                                                    <span class="badge variant-filled-success text-xs">{availableCards} available</span>
+                                                {/if}
+                                            </div>
                                         {/if}
                                     </span>
                                 </div>
