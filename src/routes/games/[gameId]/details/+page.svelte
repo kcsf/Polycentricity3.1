@@ -351,8 +351,8 @@
                                                 {#if usedCards > 0}
                                                     <span class="badge variant-filled-primary text-xs">{usedCards} used</span>
                                                 {/if}
-                                                {#if availableCards?.length > 0}
-                                                    <span class="badge variant-filled-success text-xs">{availableCards.length} available</span>
+                                                {#if availableCardsCount > 0}
+                                                    <span class="badge variant-filled-success text-xs">{availableCardsCount} available</span>
                                                 {/if}
                                             </div>
                                         {/if}
