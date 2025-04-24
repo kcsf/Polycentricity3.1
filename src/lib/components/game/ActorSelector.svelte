@@ -7,8 +7,10 @@
     subscribeToUserCard,
     joinGame,
     assignRole,
-    updatePlayerActorMap
+    updatePlayerActorMap,
+    updateGameStatus
   } from '$lib/services/gameService';
+  import { GameStatus } from '$lib/types';
   import { nodes, createRelationship, getGun } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
   import type { Actor, Card } from '$lib/types';
@@ -280,11 +282,14 @@
         
         // Fire-and-forget: Update game status to active immediately
         try {
-          const gun = getGun();
-          if (gun) {
-            gun.get(nodes.games).get(gameId).get('status').put('active');
-            log(`Directly updated game status to active`);
-          }
+          // Use proper gameService function instead of direct put
+          updateGameStatus(gameId, GameStatus.ACTIVE)
+            .then(success => {
+              log(`Updated game status to active: ${success}`);
+            })
+            .catch(err => {
+              logError('Error updating game status:', err);
+            });
         } catch (statusErr) {
           logError('Error updating game status:', statusErr);
         }
