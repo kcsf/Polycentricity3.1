@@ -46,10 +46,11 @@
     if (!deck) return;
     
     isLoading = true;
+    const deckId = deck.deck_id; // Store deck_id before any state changes
     
     try {
       // Update with all form fields using the new schema fields
-      const success = await updateDeck(deck.deck_id, {
+      const success = await updateDeck(deckId, {
         name: formData.name,
         description: formData.description,
         creator_ref: formData.creator_ref, // Note: This is now creator_ref, not creator
@@ -62,10 +63,12 @@
       });
       
       if (success) {
-        console.log(`Updated deck ${deck.deck_id} successfully`);
-        // Close modal and dispatch success event
+        console.log(`Updated deck ${deckId} successfully`);
+        // Create event with deckId before closing modal
+        const updateEvent = new CustomEvent('update', { detail: { deckId } });
+        // Close modal first
         closeModal();
-        const updateEvent = new CustomEvent('update', { detail: { deckId: deck.deck_id } });
+        // Then dispatch event
         dispatch('update', updateEvent);
       } else {
         // Handle error
