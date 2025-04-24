@@ -45,7 +45,7 @@
             // Destructure values from the game context
             game = gameContext.game;
             totalCards = gameContext.totalCards;
-            usedCards = gameContext.usedCards;
+            // We'll calculate used cards based on actual card-actor mappings
             availableCards = gameContext.availableCards;
             actors = gameContext.actors; // Store actors from game context
             
@@ -59,6 +59,7 @@
             
             // Load card-actor mappings
             const mappings = [];
+            let assignedCardCount = 0;
             
             // For each actor with a card, get card details and create mapping
             for (const actor of actors) {
@@ -66,6 +67,7 @@
                     try {
                         const card = await getCard(actor.card_ref, true);
                         if (card) {
+                            assignedCardCount++;
                             mappings.push({
                                 actorId: actor.actor_id,
                                 actorName: actor.custom_name || '',
@@ -80,6 +82,9 @@
                     }
                 }
             }
+            
+            // Set used cards based on actual actor assignments
+            usedCards = assignedCardCount;
             
             cardActorMappings = mappings;
             
