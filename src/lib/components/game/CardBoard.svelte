@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import D3CardBoard from './D3CardBoard.svelte';
   import { getAvailableCardsForGame } from '$lib/services/gameService';
   import { currentGameStore } from '$lib/stores/gameStore';
@@ -16,7 +15,8 @@
   let error = $state('');
   let cards = $state<Card[]>([]);
   
-  onMount(async () => {
+  // Use $effect instead of onMount for initialization (Svelte 5 Runes)
+  $effect(async () => {
     console.log(`CardBoard: Initializing for game ${gameId}`);
     try {
       // This is just for UI feedback, the actual card loading happens in D3CardBoard

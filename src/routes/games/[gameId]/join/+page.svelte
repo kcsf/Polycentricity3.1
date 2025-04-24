@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import { getGame, isGameFull, joinGame, getPlayerRole, assignRole, updatePlayerActorMap } from '$lib/services/gameService';
@@ -23,7 +22,8 @@
     let selectedActor = $state<Actor | null>(null);
     let activeActorId = $state<string | null>(null);
     
-    onMount(async () => {
+    // Use $effect instead of onMount for initialization (Svelte 5 Runes)
+    $effect(async () => {
         try {
             // Check if user is logged in
             if (!$userStore.user) {
