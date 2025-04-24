@@ -394,25 +394,25 @@
                                 
                                     {#if $userStore.user}
                                         <!-- Load available cards button -->
-                                        {#if availableCardsForActors.length === 0}
+                                        {#if loadingCards}
                                             <div class="flex flex-col justify-center items-center space-y-4">
-                                                <p class="text-center mb-4">
-                                                    To join this game, you need to select a card that will define your role and abilities.
-                                                </p>
-                                                
-                                                <button 
-                                                    class="btn variant-filled-primary w-full" 
-                                                    onclick={loadAvailableCards}
-                                                    disabled={loadingCards}
-                                                >
-                                                    {#if loadingCards}
-                                                        <span class="spinner-third w-4 h-4 mr-2"></span>
-                                                        Loading Cards...
-                                                    {:else}
-                                                        <icons.RefreshCw size={18} class="mr-2" />
-                                                        Show Available Cards
-                                                    {/if}
-                                                </button>
+                                                <div class="spinner-third w-8 h-8 mb-4"></div>
+                                                <p class="text-center">Loading available cards...</p>
+                                            </div>
+                                        {:else if availableCardsForActors.length === 0}
+                                            <div class="flex flex-col justify-center items-center space-y-4">
+                                                <div class="p-4 bg-warning-500/10 rounded-lg text-center">
+                                                    <h4 class="font-semibold text-warning-500 mb-2">No Available Cards</h4>
+                                                    <p class="text-sm mb-4">
+                                                        All cards for this game have been assigned to actors. 
+                                                        Please try another game or view this game without joining.
+                                                    </p>
+                                                    
+                                                    <button class="btn variant-filled-primary w-full" onclick={viewGame}>
+                                                        <icons.Eye size={18} class="mr-2" />
+                                                        View Game Without Joining
+                                                    </button>
+                                                </div>
                                             </div>
                                         {:else}
                                             <!-- Card selection form -->
