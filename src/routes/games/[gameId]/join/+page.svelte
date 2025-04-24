@@ -232,9 +232,14 @@
     
     {#if isLoading}
         <div class="card p-8 text-center bg-surface-100-800-token">
-            <div class="flex justify-center items-center h-32">
-                <div class="spinner-third w-8 h-8"></div>
-                <p class="ml-4 text-lg">Loading game data...</p>
+            <div class="flex flex-col items-center justify-center h-48">
+                <div class="spinner-third w-10 h-10 mb-4"></div>
+                <h3 class="h3 mb-2 text-primary-500">Loading Game</h3>
+                <p class="text-lg mb-4">Retrieving game information and available cards...</p>
+                <div class="w-full max-w-md bg-surface-200/30 rounded-full h-2.5 mb-4">
+                    <div class="bg-primary-500 h-2.5 rounded-full animate-pulse" style="width: 70%"></div>
+                </div>
+                <p class="text-sm opacity-60">This may take a moment, especially for large games</p>
             </div>
         </div>
     {:else if errorMessage}
@@ -255,30 +260,43 @@
         </div>
     {:else if isFull}
         <div class="card p-8 text-center bg-surface-100-800-token">
-            <icons.UserX size={40} class="mx-auto mb-4 text-error-500" />
-            <h2 class="h2 mb-2">Game is Full</h2>
-            <p class="mb-4">This game has reached its maximum player capacity.</p>
-            <button class="btn variant-filled-primary" onclick={goBack}>
-                Find Another Game
-            </button>
+            <div class="flex justify-center mb-4">
+                <icons.UserX size={40} class="text-warning-500" />
+            </div>
+            <h2 class="h2 mb-4 text-warning-500">Game is Full</h2>
+            <div class="p-6 bg-surface-200/30 rounded-lg mb-6">
+                <p class="mb-2">This game has reached its maximum player capacity.</p>
+                <p class="text-sm opacity-80">The game owner has limited the number of players who can join.</p>
+            </div>
+            <div class="flex justify-center gap-4">
+                <button class="btn variant-filled-primary px-6" onclick={goBack}>
+                    <icons.Search size={18} class="mr-2" />
+                    Find Another Game
+                </button>
+                <button class="btn variant-ghost-surface" onclick={() => window.location.reload()}>
+                    <icons.RefreshCw size={18} class="mr-2" />
+                    Refresh
+                </button>
+            </div>
         </div>
     {:else if game}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Game Details -->
             <div class="card p-4 bg-surface-100-800-token">
-                <h2 class="h2 mb-4 text-primary-500">Game Details</h2>
-                <div class="space-y-4">
-                    <div>
-                        <h3 class="font-bold text-tertiary-500">Game Name:</h3>
-                        <p>{game.name}</p>
-                    </div>
+                <div class="flex items-center mb-4">
+                    <icons.Info size={20} class="text-primary-500 mr-2" />
+                    <h2 class="h2 text-primary-500">Game Details</h2>
+                </div>
+                
+                <div class="p-4 bg-surface-200/20 rounded-lg mb-4">
+                    <h3 class="h3 mb-2">{game.name}</h3>
                     
                     {#if game.description}
-                        <div>
-                            <h3 class="font-bold text-tertiary-500">Description:</h3>
-                            <p>{game.description}</p>
-                        </div>
+                        <p class="text-sm opacity-90">{game.description}</p>
                     {/if}
+                </div>
+                
+                <div class="space-y-4 pl-2">
                     
                     <div>
                         <h3 class="font-bold text-tertiary-500">Status:</h3>
@@ -336,8 +354,15 @@
             <!-- Actor Selection -->
             <div class="lg:col-span-2">
                 <div class="card p-4 bg-surface-100-800-token">
-                    <h2 class="h2 mb-4 text-primary-500">Select Your Actor</h2>
-                    <p class="mb-4">Choose an existing actor or create a new one to join this game.</p>
+                    <div class="flex items-center mb-4">
+                        <icons.Users size={20} class="text-primary-500 mr-2" />
+                        <h2 class="h2 text-primary-500">Select Your Actor</h2>
+                    </div>
+                    
+                    <div class="p-4 bg-surface-200/20 rounded-lg mb-4">
+                        <p>Choose an existing actor or create a new one to join this game.</p>
+                        <p class="text-sm opacity-70 mt-1">Each actor has unique capabilities and values that affect gameplay.</p>
+                    </div>
                     
                     <ActorSelector {gameId} onSelectActor={handleActorSelection} />
                 </div>
