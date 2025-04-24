@@ -70,29 +70,55 @@
         errorMessage = 'Unable to load your existing actors. You may need to create a new one.';
       }
       
-      try {
-        // Load available cards
-        const cards = await getAvailableCardsForGame(gameId, true); // Pass true to include value names
-        
-        // Set the cards in state
-        availableCards = cards;
-        
-        // Log the results
-        log(`Found ${availableCards.length} available cards for game ${gameId}`);
-        
-        // If we have cards, set a default selected card
-        if (availableCards.length > 0) {
-          selectedCardId = availableCards[0].card_id;
-        } else {
-          log('Warning: No available cards returned for this game');
-          // This doesn't necessarily mean there are no cards - could be a permissions or loading issue
-          fetchError = true;
+      // Load cards with retry mechanism
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      async function loadCards() {
+        try {
+          // Load available cards
+          const cards = await getAvailableCardsForGame(gameId, true); // Pass true to include value names
+          
+          // Set the cards in state
+          availableCards = cards;
+          
+          // Log the results
+          log(`Found ${availableCards.length} available cards for game ${gameId}`);
+          
+          // If we have cards, set a default selected card
+          if (availableCards.length > 0) {
+            selectedCardId = availableCards[0].card_id;
+            fetchError = false; // Ensure we clear any error state if we have cards
+            return true; // Success
+          } else if (retryCount < maxRetries) {
+            log(`No cards found, retrying (attempt ${retryCount + 1}/${maxRetries})...`);
+            retryCount++;
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return await loadCards(); // Retry
+          } else {
+            log('Warning: No available cards returned for this game after retries');
+            // Don't set fetchError=true just because no cards are returned
+            return false;
+          }
+        } catch (cardsErr) {
+          logError('Failed to load available cards:', cardsErr);
+          if (retryCount < maxRetries) {
+            log(`Error loading cards, retrying (attempt ${retryCount + 1}/${maxRetries})...`);
+            retryCount++;
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return await loadCards(); // Retry
+          } else {
+            errorMessage = 'Unable to load cards for this game after multiple attempts.';
+            fetchError = true;
+            return false;
+          }
         }
-      } catch (cardsErr) {
-        logError('Failed to load available cards:', cardsErr);
-        errorMessage = 'Unable to load cards for this game.';
-        fetchError = true;
       }
+      
+      // Start the card loading process
+      await loadCards();
       
       // Retry if no actors found but expected some (retry with explicit getCurrentUser)
       if (existingActors.length === 0) {
@@ -515,8 +541,14 @@
               </button>
             </div>
           {:else}
-            <p>No available cards found for this game.</p>
-            <p class="text-sm opacity-70 mt-2">All cards may have been assigned to other players.</p>
+            <div class="p-4 mt-4 bg-surface-200/20 rounded-lg">
+              <h3 class="h4 text-primary-500 mb-2">Available Cards</h3>
+              <p>Loading available cards for this game...</p>
+              <button class="btn variant-filled-primary mt-4" onclick={() => window.location.reload()}>
+                <icons.RefreshCw size={16} class="mr-2" />
+                Refresh Page
+              </button>
+            </div>
           {/if}
           
           {#if existingActors.length > 0}
