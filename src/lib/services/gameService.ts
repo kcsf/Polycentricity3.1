@@ -7,7 +7,6 @@ import {
   buildShardedPath,
   createRelationship,
   generateId,
-  robustPut,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
@@ -1415,25 +1414,38 @@ export async function updateGame(
       return false;
     }
 
-    // Ensure we're passing a valid type by including required fields
-    const validUpdate = {
+    // Create a merged update with existing and new values
+    const mergedUpdate = {
+      ...existingGame,
       ...updates,
       game_id: gameId, // Ensure game_id is always set
-    } as Game;
+      updated_at: Date.now() // Always update the timestamp
+    };
 
-    // Use robustPut instead of put for consistency with sampleDataService pattern
-    const result = await robustPut(nodes.games, gameId, validUpdate);
+    // Use putSigned for database write
+    await putSigned(`${nodes.games}/${gameId}`, mergedUpdate);
     
-    // Update cache if successful
-    if (result) {
-      cacheGame(gameId, {
-        ...existingGame,
-        ...updates,
-      });
+    // Update cache after successful write
+    cacheGame(gameId, mergedUpdate);
+    
+    // Update any active game in store if it's the current game
+    const currentGame = getStore(currentGameStore);
+    if (currentGame && currentGame.game_id === gameId) {
+      currentGameStore.set(mergedUpdate);
     }
     
-    log(`[updateGame] Updated game ${gameId}: ${result ? 'success' : 'failed'}`);
-    return result;
+    log(`[updateGame] Updated game ${gameId}`);
+    
+    // Verify the update was applied after a small delay
+    setTimeout(async () => {
+      const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
+      if (!savedGame) {
+        log(`Game ${gameId} verification failed, retrying update`);
+        await putSigned(`${nodes.games}/${gameId}`, mergedUpdate);
+      }
+    }, 500);
+    
+    return true;
   } catch (error) {
     logError("[updateGame] Error:", error);
     return false;

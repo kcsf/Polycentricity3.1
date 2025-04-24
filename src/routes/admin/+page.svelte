@@ -9,6 +9,7 @@
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
   import DeckBrowser from '$lib/components/admin/DeckBrowser.svelte';
   import DecksDataTable from '$lib/components/admin/DecksDataTable.svelte';
+  import GamesDataTable from '$lib/components/admin/GamesDataTable.svelte';
   import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
   import DatabaseTools from '$lib/components/admin/DatabaseTools.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
