@@ -225,3 +225,11 @@ export interface UserSession {
     isLoading: boolean;
     lastError?: string | null;
 }
+
+export interface GameContext {
+    game: Game;
+    actors: Actor[];
+    totalCards: number;
+    usedCards: number;
+    availableCards: CardWithPosition[];
+}

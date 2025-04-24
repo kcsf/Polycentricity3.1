@@ -30,7 +30,7 @@
     let isFull = $state(false);
     let totalCards = $state<number>(0);
     let usedCards = $state<number>(0);
-    let availableCards = $state<number>(0);
+    let availableCards = $state<CardWithPosition[]>([]);
     let actors = $state<Actor[]>([]);
     let cardActorMappings = $state<{
         actorId: string;
@@ -41,7 +41,7 @@
         cardTitle: string;
     }[]>([]);
     
-    // Actor selector state variables
+    // Actor selector state variables - linked to GameContext's availableCards
     let availableCardsForActors = $state<CardWithPosition[]>([]);
     let selectedCardId = $state<string>('');
     let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
@@ -62,21 +62,29 @@
                 return;
             }
             
-            // Destructure values from the game context
-            game = gameContext.game;
+            // Now destructure everything from gameContext in one step
+            const {
+                game: contextGame,
+                actors: contextActors,
+                totalCards: contextTotalCards,
+                usedCards: contextUsedCards,
+                availableCards: contextAvailableCards
+            } = gameContext;
             
-            // For the card counts, we want to calculate them precisely based on actual actors
-            // The length of actors with card_ref represents the actual used cards
-            actors = gameContext.actors; // Store actors from game context
+            // Set all state variables from context
+            game = contextGame;
+            actors = contextActors;
+            totalCards = contextTotalCards;
+            usedCards = contextUsedCards;
+            availableCards = contextAvailableCards;
             
-            // Calculate total cards and used cards directly
-            totalCards = gameContext.totalCards;
+            // Set the actor selector cards directly from context
+            availableCardsForActors = contextAvailableCards;
             
-            // Count the actual number of actors with card references
-            usedCards = actors.filter(actor => actor.card_ref).length;
-            
-            // Available cards is the difference between total and used
-            availableCards = totalCards - usedCards;
+            // Set the first card as selected by default
+            if (contextAvailableCards.length > 0) {
+                selectedCardId = contextAvailableCards[0].card_id;
+            }
             
             // Determine if game is full based on players count and max_players
             const maxPlayers = typeof game.max_players === 'string' 
@@ -113,13 +121,8 @@
             cardActorMappings = mappings;
             
             // Log card counts for debugging
-            console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCards}`);
-            
-            // Load available cards from the game context if the user is logged in and game is active
-            if ($userStore.user && game.status === GameStatus.ACTIVE && !isFull) {
-                // Use the loadAvailableCards function that uses getAvailableCardsForGame from gameService
-                await loadAvailableCards();
-            }
+            console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCards.length}`);
+            console.log(`Retrieved ${availableCards.length} available cards from game context`);
             
         } catch (err) {
             console.error('Error loading game context:', err);
@@ -137,32 +140,7 @@
         goto(`/games/${gameId}`);
     }
     
-    // Load available cards for the actor selector
-    async function loadAvailableCards() {
-      loadingCards = true;
-      errorMessage = '';
-
-      try {
-        console.log(`Loading available cards for game: ${gameId}`);
-        const cards = await getAvailableCardsForGame(gameId, /* includeNames= */ true);
-        console.log(`Retrieved ${cards.length} available cards`);
-
-        availableCardsForActors = cards;
-        if (cards.length > 0) {
-          selectedCardId = cards[0].card_id;
-        } else {
-          console.log('No cards available to select');
-        }
-
-        return cards.length > 0;
-      } catch (err) {
-        console.error('Error loading available cards:', err);
-        errorMessage = `Failed to load cards: ${err?.message ?? err}`;
-        return false;
-      } finally {
-        loadingCards = false;
-      }
-    }
+    // No custom loadAvailableCards function needed - we get all data from GameContext
     
     // Function to handle actor creation
     async function handleCreateActor() {
@@ -361,8 +339,8 @@
                                                 {#if usedCards > 0}
                                                     <span class="badge variant-filled-primary text-xs">{usedCards} used</span>
                                                 {/if}
-                                                {#if availableCards > 0}
-                                                    <span class="badge variant-filled-success text-xs">{availableCards} available</span>
+                                                {#if availableCards?.length > 0}
+                                                    <span class="badge variant-filled-success text-xs">{availableCards.length} available</span>
                                                 {/if}
                                             </div>
                                         {/if}
