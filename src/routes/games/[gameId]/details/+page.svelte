@@ -12,9 +12,9 @@
         joinGame,
         assignRole,
         updatePlayerActorMap,
-        updateGameStatus,
-        setCurrentGame 
+        updateGameStatus
     } from '$lib/services/gameService';
+    import { currentGameStore } from '$lib/stores/gameStore';
     import { getCurrentUser } from '$lib/services/authService';
     import { userStore } from '$lib/stores/userStore';
     import type { Game, Actor, Card } from '$lib/types';
@@ -181,8 +181,10 @@
                 await updatePlayerActorMap(gameId, $userStore.user.user_id, newActor.actor_id);
             }
             
-            // Set the current game for the navigation system
-            await setCurrentGame(gameId);
+            // Set the current game in the store for the navigation system
+            if (game) {
+                currentGameStore.set(game);
+            }
             
             // Navigate directly to the game board
             viewGame();
