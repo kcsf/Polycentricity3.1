@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import { userStore } from '$lib/stores/userStore';
@@ -37,7 +36,9 @@
         }
     });
     
-    onMount(() => {
+    // Use $effect for the initial data loading and cleanup
+    $effect(() => {
+        // Load game data when component mounts
         loadGameData().then(() => {
             // Once game data is loaded, safely set up user in game status
             if (game) {
@@ -45,6 +46,7 @@
             }
         });
         
+        // Return cleanup function equivalent to onDestroy
         return () => {
             if (unsubscribe) {
                 unsubscribe();

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { fade, slide } from 'svelte/transition';
   import { 
     Menu, 
@@ -83,10 +82,12 @@
     }
   }
   
-  onMount(() => {
+  // Use $effect for setup and cleanup of document event listeners (replaces onMount/onDestroy)
+  $effect(() => {
     // Add global click handler for closing sidebars when clicking outside
     document.addEventListener('click', handleClickOutside);
     
+    // Return cleanup function to run when component is destroyed
     return () => {
       // Cleanup the event listener on component destroy
       document.removeEventListener('click', handleClickOutside);
