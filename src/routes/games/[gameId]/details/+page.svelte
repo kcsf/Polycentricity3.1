@@ -2,7 +2,20 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGameContext, type GameContext, getCard, getGameActors } from '$lib/services/gameService';
+    import { 
+        getGameContext, 
+        type GameContext, 
+        getCard, 
+        getGameActors, 
+        getAvailableCardsForGame,
+        createActor,
+        joinGame,
+        assignRole,
+        updatePlayerActorMap,
+        updateGameStatus,
+        setCurrentGame 
+    } from '$lib/services/gameService';
+    import { getCurrentUser } from '$lib/services/authService';
     import { userStore } from '$lib/stores/userStore';
     import type { Game, Actor, Card } from '$lib/types';
     import { GameStatus } from '$lib/types';
@@ -28,6 +41,13 @@
         cardId: string;
         cardTitle: string;
     }[]>([]);
+    
+    // Actor selector state variables
+    let availableCardsForActors = $state<Card[]>([]);
+    let selectedCardId = $state<string>('');
+    let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
+    let customName = $state<string>('');
+    let creatingActor = $state<boolean>(false);
     
     // Use an effect to load data when the component mounts using getGameContext
     $effect(async () => {
@@ -100,18 +120,101 @@
         goto('/games');
     }
     
-    function handleJoinGame() {
-        if (!$userStore.user) {
-            goto('/login');
-            return;
-        }
-        
-        isJoining = true;
-        goto(`/games/${gameId}/join`);
-    }
+    // This function is replaced by direct actor creation on this page
     
     function viewGame() {
         goto(`/games/${gameId}`);
+    }
+    
+    // Load available cards for the actor selector
+    async function loadAvailableCards() {
+        try {
+            const cards = await getAvailableCardsForGame(gameId, true);
+            availableCardsForActors = cards;
+            
+            if (cards.length > 0) {
+                selectedCardId = cards[0].card_id;
+            }
+            
+            return cards.length > 0;
+        } catch (err) {
+            console.error('Error loading available cards:', err);
+            return false;
+        }
+    }
+    
+    // Function to handle actor creation
+    async function handleCreateActor() {
+        try {
+            if (!$userStore.user) {
+                errorMessage = 'You must be logged in to create an actor';
+                return;
+            }
+            
+            if (!selectedCardId) {
+                errorMessage = 'Please select a card';
+                return;
+            }
+            
+            creatingActor = true;
+            errorMessage = '';
+            
+            const newActor = await createActor(
+                gameId,
+                selectedCardId,
+                actorType,
+                customName || undefined
+            );
+            
+            if (!newActor) {
+                throw new Error('Actor creation failed - no actor ID returned');
+            }
+            
+            console.log(`Actor created successfully: ${newActor.actor_id}`);
+            
+            // Store actor ID in localStorage
+            localStorage.setItem(`game_${gameId}_actor`, newActor.actor_id);
+            
+            // Update game status to active
+            await updateGameStatus(gameId, GameStatus.ACTIVE);
+            
+            // Join the game and assign the actor to the user
+            const joinSuccess = await joinGame(gameId);
+            if (joinSuccess && $userStore.user?.user_id) {
+                await assignRole(gameId, $userStore.user.user_id, newActor.actor_id);
+                await updatePlayerActorMap(gameId, $userStore.user.user_id, newActor.actor_id);
+            }
+            
+            // Set the current game for the navigation system
+            await setCurrentGame(gameId);
+            
+            // Navigate directly to the game board
+            viewGame();
+        } catch (err) {
+            console.error('Error creating actor:', err);
+            errorMessage = 'Failed to create actor';
+        } finally {
+            creatingActor = false;
+        }
+    }
+    
+    // Helper function to get game status icon
+    function getGameStatusIcon(status: string) {
+        switch (status) {
+            case GameStatus.ACTIVE:
+                return icons.Play;
+            case GameStatus.DRAFT:
+                return icons.Edit;
+            case GameStatus.COMPLETE:
+                return icons.CheckCircle;
+            default:
+                return icons.HelpCircle;
+        }
+    }
+    
+    // Format card title for display
+    function formatCardTitle(card: Card): string {
+        return `${card.role_title || 'Card'} ${card.card_category ? `(${card.card_category})` : ''}`;
     }
     
     // Get the day's difference between now and the game created date
@@ -183,7 +286,15 @@
                 <div class="flex justify-between items-start mb-4">
                     <h2 class="h2 text-primary-500">{game.name}</h2>
                     <div class="badge {game.status === GameStatus.ACTIVE ? 'variant-filled-success' : 'variant-filled-warning'} text-sm">
-                        <svelte:component this={getGameStatusIcon(game.status)} size={16} class="mr-1" />
+                        {#if game.status === GameStatus.ACTIVE}
+                            <icons.Play size={16} class="mr-1" />
+                        {:else if game.status === GameStatus.DRAFT}
+                            <icons.Edit size={16} class="mr-1" />
+                        {:else if game.status === GameStatus.COMPLETE}
+                            <icons.CheckCircle size={16} class="mr-1" />
+                        {:else}
+                            <icons.HelpCircle size={16} class="mr-1" />
+                        {/if}
                         {game.status}
                     </div>
                 </div>
@@ -262,29 +373,94 @@
                     </div>
                     
                     <div>
-                        <h3 class="font-semibold text-tertiary-500 mb-2">Game Actions</h3>
+                        <h3 class="font-semibold text-tertiary-500 mb-2">Select Your Actor</h3>
                         
                         <div class="p-5 bg-surface-200-700-token/30 rounded-lg">
                             {#if game.status === GameStatus.ACTIVE && !isFull}
-                                <p class="mb-4 text-sm">This game is currently active. You can join now to participate with other players.</p>
-                                <button 
-                                    class="btn variant-filled-success w-full mb-3" 
-                                    onclick={handleJoinGame}
-                                    disabled={isJoining || isFull}
-                                >
-                                    {#if isJoining}
-                                        <div class="spinner-third w-4 h-4 mr-2"></div>
-                                        Joining...
+                                <div class="space-y-4">
+                                    <!-- Load available cards button -->
+                                    {#if availableCardsForActors.length === 0}
+                                        <button 
+                                            class="btn variant-filled-primary w-full" 
+                                            onclick={loadAvailableCards}
+                                        >
+                                            <icons.RefreshCw size={18} class="mr-2" />
+                                            Load Available Cards
+                                        </button>
                                     {:else}
-                                        <icons.UserPlus size={18} class="mr-2" />
-                                        Join Game
+                                        <!-- Card selection form -->
+                                        <div class="space-y-3">
+                                            <label class="label">
+                                                <span>Actor Type</span>
+                                                <select class="select" bind:value={actorType}>
+                                                    <option value="National Identity">National Identity</option>
+                                                    <option value="Sovereign Identity">Sovereign Identity</option>
+                                                </select>
+                                            </label>
+                                            
+                                            <label class="label">
+                                                <span>Custom Name (optional)</span>
+                                                <input 
+                                                    class="input" 
+                                                    type="text" 
+                                                    bind:value={customName} 
+                                                    placeholder="Enter a name for your actor" 
+                                                />
+                                            </label>
+                                            
+                                            <label class="label">
+                                                <span>Select a Card</span>
+                                                <select class="select" bind:value={selectedCardId}>
+                                                    {#each availableCardsForActors as card}
+                                                        <option value={card.card_id}>
+                                                            {formatCardTitle(card)}
+                                                        </option>
+                                                    {/each}
+                                                </select>
+                                            </label>
+                                            
+                                            <!-- Card preview -->
+                                            {#if selectedCardId && availableCardsForActors.length > 0}
+                                                {#each availableCardsForActors.filter(card => card.card_id === selectedCardId) as selectedCard}
+                                                    <div class="card p-4 bg-primary-900/20">
+                                                        <h3 class="h3 text-primary-500">{selectedCard.role_title || 'Unnamed Role'}</h3>
+                                                        <div class="badge variant-soft-secondary">{selectedCard.card_category || 'Uncategorized'}</div>
+                                                        
+                                                        <div class="mt-2">
+                                                            <h4 class="font-bold text-sm text-tertiary-500">Backstory:</h4>
+                                                            <p class="text-sm">{selectedCard.backstory || 'No backstory available'}</p>
+                                                        </div>
+                                                        
+                                                        <div class="mt-2">
+                                                            <h4 class="font-bold text-sm text-tertiary-500">Goals:</h4>
+                                                            <p class="text-sm">{selectedCard.goals || 'No goals defined'}</p>
+                                                        </div>
+                                                    </div>
+                                                {/each}
+                                            {/if}
+                                            
+                                            <button
+                                                class="btn variant-filled-success w-full"
+                                                onclick={handleCreateActor}
+                                                disabled={!selectedCardId || creatingActor}
+                                            >
+                                                {#if creatingActor}
+                                                    <span class="spinner-third w-4 h-4 mr-2"></span>
+                                                    Processing...
+                                                {:else}
+                                                    <icons.UserPlus size={18} class="mr-2" />
+                                                    Create Actor & Join Game
+                                                {/if}
+                                            </button>
+                                        </div>
                                     {/if}
-                                </button>
-                                
-                                <button class="btn variant-ghost w-full" onclick={viewGame}>
-                                    <icons.ArrowRight size={18} class="mr-2" />
-                                    View Game
-                                </button>
+                                    
+                                    <!-- View Game button at the bottom -->
+                                    <button class="btn variant-ghost w-full mt-4" onclick={viewGame}>
+                                        <icons.ArrowRight size={18} class="mr-2" />
+                                        View Game
+                                    </button>
+                                </div>
                             {:else if game.status === GameStatus.ACTIVE && isFull}
                                 <p class="mb-4 text-sm text-warning-500">This game is currently full. You can view the game, but cannot join until a player leaves.</p>
                                 <button class="btn variant-ghost-primary w-full" onclick={viewGame}>
@@ -380,21 +556,3 @@
     {/if}
 </div>
 
-<script context="module">
-    function getGameStatusIcon(status: GameStatus) {
-        switch (status) {
-            case GameStatus.CREATED:
-                return icons.FileSparkles;
-            case GameStatus.SETUP:
-                return icons.Settings;
-            case GameStatus.ACTIVE:
-                return icons.Play;
-            case GameStatus.PAUSED:
-                return icons.Pause;
-            case GameStatus.COMPLETED:
-                return icons.CheckCircle;
-            default:
-                return icons.FileSparkles;
-        }
-    }
-</script>
