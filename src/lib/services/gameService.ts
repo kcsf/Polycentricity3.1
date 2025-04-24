@@ -1413,6 +1413,16 @@ export async function updateGame(
       logError(`Game not found: ${gameId}`);
       return false;
     }
+    
+    // Normalize max_players: ensure it's a number or undefined
+    if (updates.max_players !== undefined) {
+      if (typeof updates.max_players === 'string') {
+        updates.max_players = parseInt(updates.max_players, 10);
+      } else if (typeof updates.max_players !== 'number') {
+        updates.max_players = undefined;
+      }
+      log(`[updateGame] Normalized max_players to: ${updates.max_players}`);
+    }
 
     // Create a merged update with existing and new values
     const mergedUpdate = {

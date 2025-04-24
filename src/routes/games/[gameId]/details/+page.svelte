@@ -152,7 +152,7 @@
                                     <span class="block text-sm font-medium">Players</span>
                                     <span class="text-sm opacity-80">
                                         {Object.keys(game.players || {}).length} 
-                                        {game.max_players ? `/ ${game.max_players}` : 'players'}
+                                        {game.max_players ? `/ ${game.max_players}` : 'players'} 
                                         {#if isFull}
                                             <span class="badge variant-filled-warning text-xs ml-1">Full</span>
                                         {/if}
