@@ -2,9 +2,9 @@
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { getGameContext, type GameContext } from '$lib/services/gameService';
+    import { getGameContext, type GameContext, getCard, getGameActors } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
-    import type { Game } from '$lib/types';
+    import type { Game, Actor, Card } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
     
@@ -19,6 +19,15 @@
     let totalCards = $state<number>(0);
     let usedCards = $state<number>(0);
     let availableCards = $state<number>(0);
+    let actors = $state<Actor[]>([]);
+    let cardActorMappings = $state<{
+        actorId: string;
+        actorName: string;
+        actorType: string;
+        userRef: string;
+        cardId: string;
+        cardTitle: string;
+    }[]>([]);
     
     // Use an effect to load data when the component mounts using getGameContext
     $effect(async () => {
@@ -38,6 +47,7 @@
             totalCards = gameContext.totalCards;
             usedCards = gameContext.usedCards;
             availableCards = gameContext.availableCards;
+            actors = gameContext.actors; // Store actors from game context
             
             // Determine if game is full based on players count and max_players
             const maxPlayers = typeof game.max_players === 'string' 
@@ -46,6 +56,32 @@
                 
             const playerCount = Object.keys(game.players || {}).length;
             isFull = maxPlayers ? playerCount >= maxPlayers : false;
+            
+            // Load card-actor mappings
+            const mappings = [];
+            
+            // For each actor with a card, get card details and create mapping
+            for (const actor of actors) {
+                if (actor.card_ref) {
+                    try {
+                        const card = await getCard(actor.card_ref, true);
+                        if (card) {
+                            mappings.push({
+                                actorId: actor.actor_id,
+                                actorName: actor.custom_name || '',
+                                actorType: actor.actor_type || '',
+                                userRef: actor.user_ref || '',
+                                cardId: card.card_id,
+                                cardTitle: card.role_title || card.name || ''
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Error loading card ${actor.card_ref} for actor ${actor.actor_id}:`, err);
+                    }
+                }
+            }
+            
+            cardActorMappings = mappings;
             
         } catch (err) {
             console.error('Error loading game context:', err);
@@ -206,9 +242,6 @@
                                             </div>
                                         {/if}
                                     </span>
-                                    <a href="/games/{gameId}/card-actor-mappings" class="text-xs text-primary-500 hover:underline mt-1 inline-block">
-                                        View card assignments →
-                                    </a>
                                 </div>
                             </li>
                             <li class="flex items-center">
@@ -264,6 +297,43 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Card-Actor Mappings Card -->
+            {#if cardActorMappings.length > 0}
+                <div class="card p-6 bg-surface-100-800-token lg:col-span-3 mb-8">
+                    <h3 class="h3 mb-4 text-primary-500">Card-Actor Assignments</h3>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="table table-compact table-hover">
+                            <thead>
+                                <tr>
+                                    <th class="text-secondary-500">Actor Name</th>
+                                    <th class="text-secondary-500">Type</th>
+                                    <th class="text-secondary-500">User</th>
+                                    <th class="text-secondary-500">Card Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#each cardActorMappings as mapping}
+                                    <tr>
+                                        <td class="font-medium">{mapping.actorName || 'Unnamed Actor'}</td>
+                                        <td>{mapping.actorType || 'N/A'}</td>
+                                        <td>{mapping.userRef || 'No User'}</td>
+                                        <td class="text-primary-500 font-medium">{mapping.cardTitle || 'Unknown Card'}</td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 p-3 bg-surface-200-700-token/30 rounded-lg">
+                        <p class="text-sm">
+                            <span class="font-semibold">{cardActorMappings.length}</span> 
+                            {cardActorMappings.length === 1 ? 'actor has a' : 'actors have'} card assigned in this game.
+                        </p>
+                    </div>
+                </div>
+            {/if}
             
             <!-- Rules & Instructions Card -->
             <div class="card p-6 bg-surface-100-800-token">
