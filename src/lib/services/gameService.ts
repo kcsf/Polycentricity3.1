@@ -88,6 +88,7 @@ export async function createGame(
   name: string,
   deckType: string,
   roleAssignmentType: string = "random",
+  maxPlayers?: number,
 ): Promise<Game | null> {
   try {
     log(`Creating game: ${name} with deck type: ${deckType}`);
@@ -105,6 +106,15 @@ export async function createGame(
     }
 
     const gameId = generateId();
+    // Validate and normalize max_players
+    const normalizedMaxPlayers = typeof maxPlayers === 'number' && maxPlayers > 0 
+      ? maxPlayers 
+      : undefined;
+    
+    if (normalizedMaxPlayers) {
+      log(`Creating game with max_players: ${normalizedMaxPlayers}`);
+    }
+    
     const gameData: Game = {
       game_id: gameId,
       name,
@@ -124,6 +134,7 @@ export async function createGame(
       actors_ref: {},
       agreements_ref: {},
       chat_rooms_ref: {},
+      max_players: normalizedMaxPlayers,
     };
 
     cacheGame(gameId, gameData);
