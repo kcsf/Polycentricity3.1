@@ -434,16 +434,32 @@
     {#if mode === 'select'}
       {#if existingActors.length === 0}
         <div class="card p-4 text-center">
-          <p>You don't have any existing actors to use in this game.</p>
-          <button 
-            class="btn variant-ghost-primary mt-2" 
-            onclick={() => setMode('create')}
-            disabled={availableCards.length === 0}
-          >
-            Create a new actor instead
-          </button>
-          {#if availableCards.length === 0}
-            <p class="text-error-500 mt-2">No cards available. All cards have been assigned.</p>
+          <div class="p-4 bg-surface-200/20 rounded-lg">
+            <h3 class="h4 text-primary-500 mb-2">No Existing Actors</h3>
+            <p>You don't have any existing actors available to use in this game.</p>
+          </div>
+          
+          {#if availableCards.length > 0}
+            <button 
+              class="btn variant-filled-primary mt-4" 
+              onclick={() => setMode('create')}
+            >
+              <icons.UserPlus size={16} class="mr-2" />
+              Create a new actor instead
+            </button>
+          {:else if fetchError}
+            <div class="p-4 mt-4 bg-surface-200/20 rounded-lg">
+              <p class="mb-2">Cards are temporarily unavailable.</p>
+              <button class="btn variant-filled-primary" onclick={() => window.location.reload()}>
+                <icons.RefreshCw size={16} class="mr-2" />
+                Refresh Page
+              </button>
+            </div>
+          {:else}
+            <div class="p-4 mt-4 bg-surface-200/20 rounded-lg">
+              <p class="text-warning-500">No cards available for new actors.</p>
+              <p class="text-sm opacity-70 mt-2">All cards may have been assigned to other players.</p>
+            </div>
           {/if}
         </div>
       {:else}

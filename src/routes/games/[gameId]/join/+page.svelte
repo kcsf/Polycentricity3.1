@@ -238,15 +238,20 @@
             </div>
         </div>
     {:else if errorMessage}
-        <div class="alert variant-filled-error p-4 mb-4">
-            <icons.AlertCircle size={20} />
-            <span>{errorMessage}</span>
-        </div>
-        <div class="flex justify-center mt-4">
-            <button class="btn variant-filled-primary" onclick={goBack}>
-                <icons.ArrowLeft size={20} class="mr-2" />
-                Back to Games
-            </button>
+        <div class="card p-8 bg-surface-100-800-token text-center">
+            <div class="flex justify-center mb-4">
+                <icons.AlertCircle size={40} class="text-error-500" />
+            </div>
+            <h2 class="h2 mb-4 text-error-500">Unable to Join Game</h2>
+            <div class="alert variant-filled-error p-4 mb-6">
+                <span>{errorMessage}</span>
+            </div>
+            <div class="flex justify-center">
+                <button class="btn variant-filled-primary px-6" onclick={goBack}>
+                    <icons.ArrowLeft size={20} class="mr-2" />
+                    Back to Games List
+                </button>
+            </div>
         </div>
     {:else if isFull}
         <div class="card p-8 text-center bg-surface-100-800-token">
@@ -267,29 +272,63 @@
                         <h3 class="font-bold text-tertiary-500">Game Name:</h3>
                         <p>{game.name}</p>
                     </div>
+                    
                     {#if game.description}
                         <div>
                             <h3 class="font-bold text-tertiary-500">Description:</h3>
                             <p>{game.description}</p>
                         </div>
                     {/if}
+                    
                     <div>
                         <h3 class="font-bold text-tertiary-500">Status:</h3>
-                        <div class="badge {game.status === 'active' ? 'variant-filled-success' : 'variant-filled-warning'}">
+                        <div class="badge {
+                            game.status === 'active' ? 'variant-filled-success' : 
+                            game.status === 'pending' ? 'variant-filled-warning' :
+                            game.status === 'completed' ? 'variant-filled-tertiary' : 
+                            'variant-filled-error'
+                        }">
+                            {#if game.status === 'active'}
+                                <icons.Check size={14} class="mr-1" />
+                            {:else if game.status === 'pending'}
+                                <icons.Clock size={14} class="mr-1" />
+                            {:else if game.status === 'completed'}
+                                <icons.CheckCircle size={14} class="mr-1" />
+                            {:else}
+                                <icons.AlertTriangle size={14} class="mr-1" />
+                            {/if}
                             {game.status}
                         </div>
                     </div>
+                    
                     <div>
                         <h3 class="font-bold text-tertiary-500">Deck Type:</h3>
-                        <p class="capitalize">{game.deck_type}</p>
+                        <p class="capitalize">{game.deck_type || 'Custom'}</p>
                     </div>
+                    
                     <div>
-                        <h3 class="font-bold text-tertiary-500">Role Assignment:</h3>
-                        <p class="capitalize">{game.role_assignment || 'random'}</p>
+                        <h3 class="font-bold text-tertiary-500">Created:</h3>
+                        <p>{game.created_at ? new Date(game.created_at).toLocaleDateString() : 'Unknown'}</p>
                     </div>
+                    
                     <div>
                         <h3 class="font-bold text-tertiary-500">Players:</h3>
-                        <p>{Object.keys(game.players || {}).length} {game.max_players ? `/ ${game.max_players}` : ''}</p>
+                        <div class="flex items-center">
+                            <p class="mr-2">{Object.keys(game.players || {}).filter(k => k !== '_').length}</p>
+                            {#if game.max_players}
+                                <div class="flex items-center">
+                                    <span class="mx-1">/</span>
+                                    <span>{game.max_players}</span>
+                                </div>
+                            {/if}
+                            
+                            {#if game.password}
+                                <div class="badge variant-filled-warning ml-2">
+                                    <icons.Lock size={12} class="mr-1" />
+                                    Private
+                                </div>
+                            {/if}
+                        </div>
                     </div>
                 </div>
             </div>
