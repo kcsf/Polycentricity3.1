@@ -30,7 +30,7 @@
     let isFull = $state(false);
     let totalCards = $state<number>(0);
     let usedCards = $state<number>(0);
-    let availableCards = $state<CardWithPosition[]>([]);
+    let availableCardsCount = $state<number>(0);
     let actors = $state<Actor[]>([]);
     let cardActorMappings = $state<{
         actorId: string;
@@ -68,7 +68,7 @@
                 actors: contextActors,
                 totalCards: contextTotalCards,
                 usedCards: contextUsedCards,
-                availableCards: contextAvailableCards
+                availableCards: contextAvailableCardsCount
             } = gameContext;
             
             // Set all state variables from context
@@ -76,14 +76,26 @@
             actors = contextActors;
             totalCards = contextTotalCards;
             usedCards = contextUsedCards;
-            availableCards = contextAvailableCards;
+            availableCardsCount = contextAvailableCardsCount;
             
-            // Set the actor selector cards directly from context
-            availableCardsForActors = contextAvailableCards;
-            
-            // Set the first card as selected by default
-            if (contextAvailableCards.length > 0) {
-                selectedCardId = contextAvailableCards[0].card_id;
+            // Directly get available cards with the includeNames parameter
+            loadingCards = true;
+            try {
+                // This is a separate call from getGameContext because we need includeNames=true
+                const cards = await getAvailableCardsForGame(gameId, /* includeNames= */ true);
+                console.log(`Retrieved ${cards.length} available cards with names included`);
+                
+                // Set the cards in the selector state
+                availableCardsForActors = cards;
+                
+                // Set the first card as selected by default if available
+                if (cards.length > 0) {
+                    selectedCardId = cards[0].card_id;
+                }
+            } catch (error) {
+                console.error('Error loading available cards:', error);
+            } finally {
+                loadingCards = false;
             }
             
             // Determine if game is full based on players count and max_players
@@ -121,8 +133,8 @@
             cardActorMappings = mappings;
             
             // Log card counts for debugging
-            console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCards.length}`);
-            console.log(`Retrieved ${availableCards.length} available cards from game context`);
+            console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
+            console.log(`Retrieved ${availableCardsForActors.length} available cards with full data`);
             
         } catch (err) {
             console.error('Error loading game context:', err);
