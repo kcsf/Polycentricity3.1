@@ -211,7 +211,12 @@
               </td>
               <td>
                 {#if deck.data.cards_ref}
-                  {Object.keys(deck.data.cards_ref).length}
+                  {(() => {
+                    const cardKeys = Object.keys(deck.data.cards_ref);
+                    // Only count keys that have a truthy value (following Gun.js reference pattern)
+                    const validCardCount = cardKeys.filter(key => deck.data.cards_ref[key] === true).length;
+                    return validCardCount;
+                  })()}
                 {:else if deck.data.cards}
                   {Array.isArray(deck.data.cards) ? deck.data.cards.length : Object.keys(deck.data.cards).length}
                 {:else}
