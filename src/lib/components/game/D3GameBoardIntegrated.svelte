@@ -4,7 +4,7 @@
   import * as icons from '@lucide/svelte';
   import { currentGameStore } from '$lib/stores/gameStore';
   import { 
-    getActors, 
+    getGameActors, 
     getAgreements, 
     getGameGraph, 
     updateNodePosition 
@@ -64,7 +64,7 @@
     
     try {
       // Get actors and agreements from gameService
-      const gameActors = await getActors(gameId);
+      const gameActors = await getGameActors(gameId);
       const gameAgreements = await getAgreements(gameId);
       
       // Update local state
