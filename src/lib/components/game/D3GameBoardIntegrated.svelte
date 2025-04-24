@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import * as d3 from 'd3';
   import * as icons from '@lucide/svelte';
   import { currentGameStore } from '$lib/stores/gameStore';
@@ -523,7 +522,8 @@
     });
   };
 
-  onMount(() => {
+  // Use $effect to run setup code once component is mounted (replaces onMount)
+  $effect(() => {
     // Add CSS variables for node sizing to root
     document.documentElement.style.setProperty('--actor-node-radius', '35px');
     document.documentElement.style.setProperty('--agreement-node-radius', '17px');
@@ -533,7 +533,7 @@
     
     // Log the active actor ID if provided for debugging
     if (activeActorId) {
-      console.log(`Active actor in D3GameBoard onMount: ${activeActorId}`);
+      console.log(`Active actor in D3GameBoard: ${activeActorId}`);
     }
   });
 
