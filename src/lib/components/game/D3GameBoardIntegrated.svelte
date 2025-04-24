@@ -4,9 +4,9 @@
   import { currentGameStore } from '$lib/stores/gameStore';
   import { 
     getGameActors, 
-    getAvailableAgreementsForGame, 
-    updateNodePosition 
+    getAvailableAgreementsForGame
   } from '$lib/services/gameService';
+  import { buildShardedPath, nodes, putSigned } from '$lib/services/gunService';
   import type { Game, Actor, Agreement } from '$lib/types';
   import AgreementModalIntegrated from './AgreementModalIntegrated.svelte';
   import NodeDetailsPanelIntegrated from './NodeDetailsPanelIntegrated.svelte';
@@ -126,6 +126,39 @@
     totalItems: number;
   }
 
+  /**
+   * Custom implementation of updateNodePosition to save node positions to Gun.js
+   * This replaces the missing function from gameService.ts
+   * 
+   * @param gameId - Game ID
+   * @param nodeId - Node ID (actor_id or agreement_id)
+   * @param x - X coordinate
+   * @param y - Y coordinate
+   */
+  async function updateNodePosition(gameId: string, nodeId: string, x: number, y: number): Promise<void> {
+    try {
+      // Create the node position data
+      const nodePosition = {
+        node_id: nodeId,
+        game_ref: gameId,
+        type: nodeId.startsWith('a_') ? 'actor' : 'agreement',
+        x: x,
+        y: y,
+        updated_at: Date.now()
+      };
+      
+      // Build the sharded path for this node position
+      const path = buildShardedPath(nodes.node_positions, gameId, nodeId);
+      
+      // Write the position data using putSigned from gunService
+      await putSigned(path, nodePosition);
+      
+      console.log(`Node position updated: ${nodeId} at (${x}, ${y}) in game ${gameId}`);
+    } catch (err) {
+      console.error('Error updating node position:', err);
+    }
+  }
+  
   // Function to initialize D3 visualization
   const initializeGraph = () => {
     if (!svgRef) return;
