@@ -202,12 +202,12 @@
       
       if (editMode && agreement) {
         // Update existing agreement
-        await updateAgreement(agreement.id, agreementData);
-        console.log(`Agreement ${agreement.id} updated successfully`);
+        await updateAgreement(agreement.agreement_id, agreementData);
+        console.log(`Agreement ${agreement.agreement_id} updated successfully`);
       } else {
         // Create new agreement
         const newAgreement = await createAgreement(agreementData);
-        console.log('New agreement created with ID:', newAgreement?.id);
+        console.log('New agreement created with ID:', newAgreement?.agreement_id);
       }
       
       // Close modal
