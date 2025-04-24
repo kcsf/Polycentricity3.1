@@ -112,8 +112,8 @@
       if (confirm('Are you sure you want to delete this agreement?')) {
         try {
           // Note: Would need a deleteAgreement method in gameService
-          // await deleteAgreement(selectedNode.id);
-          dispatch('delete-agreement', { id: selectedNode.id });
+          // await deleteAgreement(selectedNode.agreement_id);
+          dispatch('delete-agreement', { id: selectedNode.agreement_id });
           closePanel();
         } catch (error) {
           console.error('Failed to delete agreement:', error);
