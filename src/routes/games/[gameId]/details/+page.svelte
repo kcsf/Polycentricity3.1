@@ -137,28 +137,77 @@
         goto(`/games/${gameId}`);
     }
     
-    // Load available cards for the actor selector
+    // Load available cards for the actor selector with a custom approach
+    // This works around issues with getAvailableCardsForGame
     async function loadAvailableCards() {
         try {
             loadingCards = true;
             console.log("Loading available cards for game:", gameId);
             
-            // Get available cards from the game service
-            const cards = await getAvailableCardsForGame(gameId, true);
-            console.log("Retrieved available cards:", cards.length, cards);
+            if (!game || !game.deck_ref) {
+                console.error("No game or deck reference available");
+                return false;
+            }
+            
+            // First, get all cards from this deck
+            // We already have totalCards and usedCards from gameContext
+            console.log(`Need to find ${availableCards} available cards`);
+            
+            // Get a fresh copy of all actors to ensure we have the latest card assignments
+            const allActors = await getGameActors(gameId);
+            const usedCardIds = new Set();
+            
+            // Create a set of all card IDs that are already in use by actors
+            for (const actor of allActors) {
+                if (actor.card_ref) {
+                    usedCardIds.add(actor.card_ref);
+                }
+            }
+            console.log(`Found ${usedCardIds.size} cards already in use`);
+            
+            // Now we need to get all cards from gameService one by one until we find
+            // ones that are not in the usedCardIds set
+            const gameCards = [];
+            let foundCount = 0;
+            
+            // We need to get all cards and filter them ourselves
+            // This iterates through the cards 1 by 1 until we find enough that aren't used
+            let cardNumber = 1;
+            while (foundCount < availableCards && cardNumber <= totalCards + 10) {
+                const cardId = `card_${cardNumber}`;
+                try {
+                    const card = await getCard(cardId, true);
+                    if (card) {
+                        // Check if this card belongs to our deck and isn't already used
+                        if (card.decks_ref && 
+                            card.decks_ref[game.deck_ref] && 
+                            !usedCardIds.has(card.card_id)) {
+                            // We found an available card!
+                            gameCards.push(card);
+                            foundCount++;
+                            console.log(`Found available card: ${card.card_id} - ${card.role_title || 'Unnamed'}`);
+                        }
+                    }
+                } catch (error) {
+                    // Ignore errors for cards that don't exist
+                }
+                cardNumber++;
+            }
+            
+            console.log(`Retrieved ${gameCards.length} available cards`);
             
             // Set the cards in the local state
-            availableCardsForActors = cards;
+            availableCardsForActors = gameCards;
             
             // Set the first card as selected by default
-            if (cards.length > 0) {
-                selectedCardId = cards[0].card_id;
+            if (gameCards.length > 0) {
+                selectedCardId = gameCards[0].card_id;
                 console.log("Selected card ID:", selectedCardId);
             } else {
                 console.log("No cards available to select");
             }
             
-            return cards.length > 0;
+            return gameCards.length > 0;
         } catch (err) {
             console.error('Error loading available cards:', err);
             errorMessage = `Failed to load cards: ${err.message || 'Unknown error'}`;
