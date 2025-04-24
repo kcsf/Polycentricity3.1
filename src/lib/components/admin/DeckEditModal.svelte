@@ -23,10 +23,15 @@
   // Update formData when deck changes or modal opens
   $effect(() => {
     if (deck && isOpen) {
+      console.log('[DeckEditModal] Opening edit modal for deck:', deck);
+      
       formData.name = deck.name || '';
       formData.description = deck.description || '';
       formData.creator_ref = deck.creator_ref || ''; 
-      formData.is_public = deck.is_public !== undefined ? deck.is_public : true;
+      
+      // Handle is_public as a boolean properly
+      formData.is_public = deck.is_public !== undefined ? !!deck.is_public : true;
+      
       formData.image_url = deck.image_url || '';
       formData.created_at = deck.created_at || 0;
       formData.updated_at = Date.now(); // Always update the timestamp when editing
@@ -39,43 +44,36 @@
     dispatch('close', event);
   }
   
-  /**
-   * Handle form submission - update the deck with all form fields
-   */
+  /** Handle form submission  */
   async function handleSubmit() {
     if (!deck) return;
-    
     isLoading = true;
-    const deckId = deck.deck_id; // Store deck_id before any state changes
-    
+
+    const deckId = deck.deck_id;
+    const updates: Partial<Deck> = {
+      name: formData.name,
+      description: formData.description,
+      creator_ref: formData.creator_ref,
+      is_public: formData.is_public,
+      image_url: formData.image_url,
+      created_at: formData.created_at, // preserve original
+      updated_at: Date.now(),          // bump timestamp
+    };
+
+    console.log('[DeckEditModal] Submitting updates:', updates);
+
     try {
-      // Update with all form fields using the new schema fields
-      const success = await updateDeck(deckId, {
-        name: formData.name,
-        description: formData.description,
-        creator_ref: formData.creator_ref, // Note: This is now creator_ref, not creator
-        is_public: formData.is_public,
-        image_url: formData.image_url,
-        // Pass along created_at from the original deck
-        created_at: formData.created_at,
-        // Always update the updated_at timestamp
-        updated_at: Date.now()
-      });
-      
+      const success = await updateDeck(deckId, updates);
       if (success) {
-        console.log(`Updated deck ${deckId} successfully`);
-        // Create event with deckId before closing modal
-        const updateEvent = new CustomEvent('update', { detail: { deckId } });
-        // Close modal first
+        console.log(`[DeckEditModal] Updated deck ${deckId}`);
+        // fire update event with deckId
+        dispatch('update', { deckId });
         closeModal();
-        // Then dispatch event
-        dispatch('update', updateEvent);
       } else {
-        // Handle error
-        console.error('Failed to update deck');
+        console.error('[DeckEditModal] Failed to update deck');
       }
-    } catch (error) {
-      console.error('Error updating deck:', error);
+    } catch (err) {
+      console.error('[DeckEditModal] Error updating deck:', err);
     } finally {
       isLoading = false;
     }

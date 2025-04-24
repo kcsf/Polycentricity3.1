@@ -57,57 +57,55 @@
     dispatch('close', event);
   }
   
-  /**
-   * Handle form submission - update the game with all form fields
-   */
+  /** Handle form submission  */
   async function handleSubmit() {
     if (!game) return;
-    
     isLoading = true;
-    const gameId = game.game_id; // Store game_id before any state changes
-    // Properly handle max_players conversion
-    let maxPlayers = undefined;
-    if (formData.max_players !== undefined && formData.max_players !== null) {
-      const parsedValue = parseInt(formData.max_players.toString(), 10);
-      maxPlayers = !isNaN(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
-    }
-    console.log('[GameEditModal] Submitting with max_players value:', maxPlayers);
-    
-    try {
-      // Update with all form fields using the new schema fields
-      const success = await updateGame(gameId, {
-        name: formData.name,
-        description: formData.description,
-        creator_ref: formData.creator_ref,
-        deck_ref: formData.deck_ref,
-        deck_type: formData.deck_type,
-        status: formData.status,
-        max_players: maxPlayers,
-        password: formData.password || undefined,
-        // Pass along created_at from the original game
-        created_at: formData.created_at,
-        // Always update the updated_at timestamp
-        updated_at: Date.now()
-      });
-      
-      if (success) {
-        console.log(`Updated game ${gameId} successfully`);
-        // Create event with gameId before closing modal
-        const updateEvent = new CustomEvent('update', { detail: { gameId } });
-        // Close modal first
-        closeModal();
-        // Then dispatch event
-        dispatch('update', updateEvent);
-      } else {
-        // Handle error
-        console.error('Failed to update game');
+
+    const gameId = game.game_id;
+    const updates: Partial<Game> = {
+      name: formData.name,
+      description: formData.description,
+      creator_ref: formData.creator_ref,
+      deck_ref: formData.deck_ref,
+      deck_type: formData.deck_type,
+      status: formData.status,
+      created_at: formData.created_at, // preserve original
+      updated_at: Date.now(),          // bump timestamp
+    };
+
+    // only include max_players if it's a positive integer
+    {
+      const parsed = parseInt(formData.max_players.toString(), 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        updates.max_players = parsed;
       }
-    } catch (error) {
-      console.error('Error updating game:', error);
+    }
+
+    // only include password if non-empty
+    if (formData.password?.trim()) {
+      updates.password = formData.password.trim();
+    }
+
+    console.log('[GameEditModal] Submitting updates:', updates);
+
+    try {
+      const success = await updateGame(gameId, updates);
+      if (success) {
+        console.log(`[GameEditModal] Updated game ${gameId}`);
+        // fire update event with gameId
+        dispatch('update', { gameId });
+        closeModal();
+      } else {
+        console.error('[GameEditModal] Failed to update game');
+      }
+    } catch (err) {
+      console.error('[GameEditModal] Error updating game:', err);
     } finally {
       isLoading = false;
     }
   }
+
 </script>
 
 <!-- Modal Backdrop -->
