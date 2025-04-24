@@ -5,7 +5,7 @@
   import { currentGameStore } from '$lib/stores/gameStore';
   import { 
     getGameActors, 
-    getAgreements, 
+    getAvailableAgreementsForGame, 
     getGameGraph, 
     updateNodePosition 
   } from '$lib/services/gameService';
