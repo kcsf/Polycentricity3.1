@@ -28,7 +28,6 @@
     let isLoading = $state(true);
     let errorMessage = $state('');
     let isFull = $state(false);
-    let isJoining = $state(false);
     let totalCards = $state<number>(0);
     let usedCards = $state<number>(0);
     let availableCards = $state<number>(0);
@@ -48,6 +47,7 @@
     let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
     let customName = $state<string>('');
     let creatingActor = $state<boolean>(false);
+    let loadingCards = $state<boolean>(false);
     
     // Use an effect to load data when the component mounts using getGameContext
     $effect(async () => {
@@ -65,7 +65,7 @@
             // Destructure values from the game context
             game = gameContext.game;
             totalCards = gameContext.totalCards;
-            // We'll calculate used cards based on actual card-actor mappings
+            usedCards = gameContext.usedCards;
             availableCards = gameContext.availableCards;
             actors = gameContext.actors; // Store actors from game context
             
@@ -79,7 +79,6 @@
             
             // Load card-actor mappings
             const mappings = [];
-            let assignedCardCount = 0;
             
             // For each actor with a card, get card details and create mapping
             for (const actor of actors) {
@@ -87,7 +86,6 @@
                     try {
                         const card = await getCard(actor.card_ref, true);
                         if (card) {
-                            assignedCardCount++;
                             mappings.push({
                                 actorId: actor.actor_id,
                                 actorName: actor.custom_name || '',
@@ -103,9 +101,6 @@
                 }
             }
             
-            // Set used cards based on actual actor assignments
-            usedCards = assignedCardCount;
-            
             cardActorMappings = mappings;
             
         } catch (err) {
@@ -120,8 +115,6 @@
         goto('/games');
     }
     
-    // This function is replaced by direct actor creation on this page
-    
     function viewGame() {
         goto(`/games/${gameId}`);
     }
@@ -129,6 +122,7 @@
     // Load available cards for the actor selector
     async function loadAvailableCards() {
         try {
+            loadingCards = true;
             const cards = await getAvailableCardsForGame(gameId, true);
             availableCardsForActors = cards;
             
@@ -140,6 +134,8 @@
         } catch (err) {
             console.error('Error loading available cards:', err);
             return false;
+        } finally {
+            loadingCards = false;
         }
     }
     
@@ -195,20 +191,6 @@
             errorMessage = 'Failed to create actor';
         } finally {
             creatingActor = false;
-        }
-    }
-    
-    // Helper function to get game status icon
-    function getGameStatusIcon(status: string) {
-        switch (status) {
-            case GameStatus.ACTIVE:
-                return icons.Play;
-            case GameStatus.DRAFT:
-                return icons.Edit;
-            case GameStatus.COMPLETE:
-                return icons.CheckCircle;
-            default:
-                return icons.HelpCircle;
         }
     }
     
@@ -383,9 +365,15 @@
                                         <button 
                                             class="btn variant-filled-primary w-full" 
                                             onclick={loadAvailableCards}
+                                            disabled={loadingCards}
                                         >
-                                            <icons.RefreshCw size={18} class="mr-2" />
-                                            Load Available Cards
+                                            {#if loadingCards}
+                                                <span class="spinner-third w-4 h-4 mr-2"></span>
+                                                Loading Cards...
+                                            {:else}
+                                                <icons.RefreshCw size={18} class="mr-2" />
+                                                Load Available Cards
+                                            {/if}
                                         </button>
                                     {:else}
                                         <!-- Card selection form -->
@@ -523,12 +511,12 @@
                 <div class="space-y-4">
                     <div>
                         <h4 class="font-semibold text-secondary-400 mb-1">1. Join the Game</h4>
-                        <p class="text-sm">Click "Join Game" to enter the game and select your actor role.</p>
+                        <p class="text-sm">Click "Create Actor & Join Game" to enter the game and select your actor role.</p>
                     </div>
                     
                     <div>
                         <h4 class="font-semibold text-secondary-400 mb-1">2. Select Your Actor</h4>
-                        <p class="text-sm">Choose a role from the available options. Each actor has unique values, capabilities, and goals.</p>
+                        <p class="text-sm">Choose a role from the available cards. Each actor has unique values, capabilities, and goals.</p>
                     </div>
                     
                     <div>
@@ -555,4 +543,3 @@
         </div>
     {/if}
 </div>
-
