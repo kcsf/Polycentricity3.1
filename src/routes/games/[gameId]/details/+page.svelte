@@ -115,6 +115,11 @@
             // Log card counts for debugging
             console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCards}`);
             
+            // Load available cards automatically if the user is logged in
+            if ($userStore.user && game.status === GameStatus.ACTIVE && !isFull) {
+                await loadAvailableCards();
+            }
+            
         } catch (err) {
             console.error('Error loading game context:', err);
             errorMessage = 'Failed to load game data';
@@ -135,16 +140,27 @@
     async function loadAvailableCards() {
         try {
             loadingCards = true;
+            console.log("Loading available cards for game:", gameId);
+            
+            // Get available cards from the game service
             const cards = await getAvailableCardsForGame(gameId, true);
+            console.log("Retrieved available cards:", cards.length, cards);
+            
+            // Set the cards in the local state
             availableCardsForActors = cards;
             
+            // Set the first card as selected by default
             if (cards.length > 0) {
                 selectedCardId = cards[0].card_id;
+                console.log("Selected card ID:", selectedCardId);
+            } else {
+                console.log("No cards available to select");
             }
             
             return cards.length > 0;
         } catch (err) {
             console.error('Error loading available cards:', err);
+            errorMessage = `Failed to load cards: ${err.message || 'Unknown error'}`;
             return false;
         } finally {
             loadingCards = false;
