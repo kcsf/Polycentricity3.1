@@ -952,6 +952,9 @@
               {:else if activeDataTab === 'decks'}
                 <!-- Special handling for decks with our enhanced component -->
                 <DecksDataTable refreshTrigger={nodeCount} />
+              {:else if activeDataTab === 'games'}
+                <!-- Special handling for games with our enhanced component -->
+                <GamesDataTable refreshTrigger={nodeCount} />
               {:else}
                 {#each databaseNodes.filter(n => n.type === activeDataTab) as nodeType}
                   {#if nodeType.count === 0}

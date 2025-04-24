@@ -7,6 +7,7 @@ import {
   buildShardedPath,
   createRelationship,
   generateId,
+  robustPut,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
@@ -1388,6 +1389,57 @@ export async function assignCardToActor(
  * @param status - New status
  * @returns Success status
  */
+/**
+ * Update game properties with specified updates
+ * 
+ * @param gameId - The ID of the game to update
+ * @param updates - Partial Game object with properties to update
+ * @returns Promise resolving to boolean indicating success or failure
+ */
+export async function updateGame(
+  gameId: string,
+  updates: Partial<Game>,
+): Promise<boolean> {
+  log(`[updateGame] Updating game ${gameId} with`, updates);
+  try {
+    const gun = getGun();
+    if (!gun) {
+      logError("Gun not initialized");
+      return false;
+    }
+
+    // Get existing game to ensure it exists
+    const existingGame = await getGame(gameId);
+    if (!existingGame) {
+      logError(`Game not found: ${gameId}`);
+      return false;
+    }
+
+    // Ensure we're passing a valid type by including required fields
+    const validUpdate = {
+      ...updates,
+      game_id: gameId, // Ensure game_id is always set
+    } as Game;
+
+    // Use robustPut instead of put for consistency with sampleDataService pattern
+    const result = await robustPut(nodes.games, gameId, validUpdate);
+    
+    // Update cache if successful
+    if (result) {
+      cacheGame(gameId, {
+        ...existingGame,
+        ...updates,
+      });
+    }
+    
+    log(`[updateGame] Updated game ${gameId}: ${result ? 'success' : 'failed'}`);
+    return result;
+  } catch (error) {
+    logError("[updateGame] Error:", error);
+    return false;
+  }
+}
+
 export async function updateGameStatus(
   gameId: string,
   status: GameStatus,
