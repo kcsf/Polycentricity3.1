@@ -10,18 +10,21 @@
     
     const gameId = $page.params.gameId;
     
-    let game: Game | null = null;
-    let isLoading = true;
-    let errorMessage = '';
-    let isFull = false;
-    let isJoining = false;
+    // Use Svelte 5 Runes for state variables
+    let game = $state<Game | null>(null);
+    let isLoading = $state(true);
+    let errorMessage = $state('');
+    let isFull = $state(false);
+    let isJoining = $state(false);
     
-    onMount(async () => {
+    // Use an effect to load data when the component mounts
+    $effect(async () => {
         try {
             isLoading = true;
             
             // Load game data
-            game = await getGame(gameId);
+            const loadedGame = await getGame(gameId);
+            game = loadedGame;
             
             if (!game) {
                 errorMessage = 'Game not found';
@@ -82,7 +85,7 @@
                     {/if}
                 </p>
             </div>
-            <button class="btn variant-ghost-surface" on:click={goBack}>
+            <button class="btn variant-ghost-surface" onclick={goBack}>
                 <icons.ArrowLeft size={20} class="mr-2" />
                 Back to Games
             </button>
@@ -102,7 +105,7 @@
             <span>{errorMessage}</span>
         </div>
         <div class="flex justify-center mt-4">
-            <button class="btn variant-filled-primary" on:click={goBack}>
+            <button class="btn variant-filled-primary" onclick={goBack}>
                 <icons.ArrowLeft size={20} class="mr-2" />
                 Back to Games
             </button>
@@ -187,7 +190,7 @@
                                 <p class="mb-4 text-sm">This game is currently active. You can join now to participate with other players.</p>
                                 <button 
                                     class="btn variant-filled-success w-full mb-3" 
-                                    on:click={handleJoinGame}
+                                    onclick={handleJoinGame}
                                     disabled={isJoining || isFull}
                                 >
                                     {#if isJoining}
@@ -199,19 +202,19 @@
                                     {/if}
                                 </button>
                                 
-                                <button class="btn variant-ghost w-full" on:click={viewGame}>
+                                <button class="btn variant-ghost w-full" onclick={viewGame}>
                                     <icons.ArrowRight size={18} class="mr-2" />
                                     View Game
                                 </button>
                             {:else if game.status === GameStatus.ACTIVE && isFull}
                                 <p class="mb-4 text-sm text-warning-500">This game is currently full. You can view the game, but cannot join until a player leaves.</p>
-                                <button class="btn variant-ghost-primary w-full" on:click={viewGame}>
+                                <button class="btn variant-ghost-primary w-full" onclick={viewGame}>
                                     <icons.ArrowRight size={18} class="mr-2" />
                                     View Game
                                 </button>
                             {:else}
                                 <p class="mb-4 text-sm">This game is {game.status.toLowerCase()}. You can view the game, but joining is only available for active games.</p>
-                                <button class="btn variant-ghost-primary w-full" on:click={viewGame}>
+                                <button class="btn variant-ghost-primary w-full" onclick={viewGame}>
                                     <icons.ArrowRight size={18} class="mr-2" />
                                     View Game
                                 </button>
