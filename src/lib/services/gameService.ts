@@ -1404,49 +1404,29 @@ export async function updateGame(
       return false;
     }
     
-    // Normalize max_players: ensure it's a number (or undefined for no change)
-    let maxPlayers = updates.max_players;
-    if (maxPlayers !== undefined) {
-      if (typeof maxPlayers === 'string') {
-        maxPlayers = parseInt(maxPlayers, 10);
+    // Normalize max_players: ensure it's a number or undefined
+    if (updates.max_players !== undefined) {
+      if (typeof updates.max_players === 'string') {
+        updates.max_players = parseInt(updates.max_players, 10);
+      } else if (typeof updates.max_players !== 'number') {
+        updates.max_players = undefined;
       }
-      // If not a valid number, treat as 0 (unlimited)
-      if (typeof maxPlayers !== 'number' || isNaN(maxPlayers)) {
-        maxPlayers = 0; 
-      } else if (maxPlayers < 0) {
-        // For negative values, use 0 to indicate no limit
-        maxPlayers = 0;
-      }
-      log(`[updateGame] Normalized max_players to: ${maxPlayers}`);
+      log(`[updateGame] Normalized max_players to: ${updates.max_players}`);
     }
+
+    // Create update payload with timestamp
+    const payload = {
+      ...updates,
+      updated_at: Date.now() // Always update the timestamp
+    };
     
-    // Create a clean update object without any undefined values
-    const cleanUpdates: Record<string, any> = {};
-    
-    // Only include properties that have defined values
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
-        cleanUpdates[key] = value;
-      }
-    }
-    
-    // Specifically handle max_players
-    if (maxPlayers !== undefined) {
-      cleanUpdates.max_players = maxPlayers;
-    }
-    
-    // Add timestamp
-    cleanUpdates.updated_at = Date.now();
-    
-    log(`[updateGame] Clean updates:`, cleanUpdates);
-    
-    // Use regular put for database write
-    await put(`${nodes.games}/${gameId}`, cleanUpdates);
+    // Use regular put for database write - simpler than putSigned
+    await put(`${nodes.games}/${gameId}`, payload);
     
     // Update cache with merged data
     const mergedGame = {
       ...existingGame,
-      ...cleanUpdates,
+      ...payload,
     };
     cacheGame(gameId, mergedGame);
     

@@ -67,30 +67,19 @@ export function getUser(): IGunUserInstance | undefined {
 /**
  * Put data into Gun at a specific soul location
  * @param soul - Node path (e.g., 'games/g_456')
- * @param data - Data to write (partial or complete schema data)
+ * @param data - Data to write (typed with schema)
  * @returns Promise resolving to GunAck
  */
-export async function put(
+export async function put<T extends User | Game | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition>(
   soul: string,
-  data: Record<string, any> | null
+  data: T | null
 ): Promise<GunAck> {
   const g = getGun();
   if (!g) throw new Error('Gun not ready');
 
-  // Filter out any undefined values which Gun.js doesn't handle well
-  let cleanData = null;
-  if (data !== null) {
-    cleanData = {} as Record<string, any>;
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) {
-        cleanData[key] = value;
-      }
-    }
-  }
-
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ ok: true, err: undefined, raw: { fallback: true, message: 'Fallback resolver' } }), 1000);
-    g.get(soul).put(cleanData, (ack: { err?: string; ok?: boolean }) => {
+    g.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
       const hasError = ack && (ack.err || typeof ack.err !== 'undefined');
       resolve({
