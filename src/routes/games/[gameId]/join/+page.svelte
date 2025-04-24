@@ -333,10 +333,10 @@
                         <h3 class="font-bold text-tertiary-500">Players:</h3>
                         <div class="flex items-center">
                             <p class="mr-2">{Object.keys(game.players || {}).filter(k => k !== '_').length}</p>
-                            {#if game.max_players}
+                            {#if game.max_players !== undefined && game.max_players > 0}
                                 <div class="flex items-center">
                                     <span class="mx-1">/</span>
-                                    <span>{game.max_players}</span>
+                                    <span>{Number(game.max_players)}</span>
                                 </div>
                             {/if}
                             
