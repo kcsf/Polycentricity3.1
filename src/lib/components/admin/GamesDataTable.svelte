@@ -214,8 +214,8 @@
               <td>
                 {#if game.data.players}
                   {Object.keys(game.data.players).filter(k => k !== '_').length}
-                  {#if game.data.max_players}
-                    / {game.data.max_players}
+                  {#if game.data.max_players !== undefined && game.data.max_players > 0}
+                    / {Number(game.data.max_players)}
                   {/if}
                 {:else}
                   0

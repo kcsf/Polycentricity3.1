@@ -61,14 +61,25 @@
     
     // Get the day's difference between now and the game created date
     function getDaysSinceCreation(createdTimestamp: number): string {
-        const now = new Date();
-        const created = new Date(createdTimestamp);
-        const diffTime = Math.abs(now.getTime() - created.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (!createdTimestamp) return 'Unknown date';
         
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday';
-        return `${diffDays} days ago`;
+        try {
+            const now = new Date();
+            const created = new Date(createdTimestamp);
+            
+            // Check if date is valid
+            if (isNaN(created.getTime())) return 'Invalid date';
+            
+            const diffTime = Math.abs(now.getTime() - created.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            return `${diffDays} days ago`;
+        } catch (error) {
+            console.error('Error calculating date difference:', error);
+            return 'Date error';
+        }
     }
 </script>
 
@@ -152,7 +163,9 @@
                                     <span class="block text-sm font-medium">Players</span>
                                     <span class="text-sm opacity-80">
                                         {Object.keys(game.players || {}).length} 
-                                        {game.max_players ? `/ ${game.max_players}` : 'players'} 
+                                        {game.max_players !== undefined && game.max_players > 0 
+                                            ? `/ ${Number(game.max_players)}` 
+                                            : 'players'} 
                                         {#if isFull}
                                             <span class="badge variant-filled-warning text-xs ml-1">Full</span>
                                         {/if}

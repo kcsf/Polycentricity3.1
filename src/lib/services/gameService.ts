@@ -1629,11 +1629,18 @@ export async function isGameFull(gameId: string): Promise<boolean> {
     return false;
   }
 
-  if (!game.max_players) return false;
-  const playerCount = Object.keys(game.players).length;
-  const isFull = playerCount >= game.max_players;
+  // Ensure max_players is treated as a number
+  const maxPlayers = typeof game.max_players === 'string' 
+    ? parseInt(game.max_players as string, 10) 
+    : game.max_players;
+    
+  // If maxPlayers is undefined, 0, null, or NaN, the game has no player limit
+  if (!maxPlayers) return false;
+  
+  const playerCount = Object.keys(game.players || {}).length;
+  const isFull = playerCount >= maxPlayers;
   log(
-    `Game ${gameId} has ${playerCount}/${game.max_players} players. Full: ${isFull}`,
+    `Game ${gameId} has ${playerCount}/${maxPlayers} players. Full: ${isFull}`,
   );
   return isFull;
 }
