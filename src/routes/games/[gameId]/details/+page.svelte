@@ -5,21 +5,14 @@
     import { 
         getGameContext, 
         type GameContext, 
-        getCard, 
-        getGameActors, 
-        getAvailableCardsForGame,
-        createActor,
-        joinGame,
-        assignRole,
-        updatePlayerActorMap,
-        updateGameStatus
+        getCard
     } from '$lib/services/gameService';
     import { currentGameStore } from '$lib/stores/gameStore';
-    import { getCurrentUser } from '$lib/services/authService';
     import { userStore } from '$lib/stores/userStore';
-    import type { Game, Actor, Card, CardWithPosition } from '$lib/types';
+    import type { Game, Actor, Card } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
+    import ActorSelector from '$lib/components/game/ActorSelector.svelte';
     
     const gameId = $page.params.gameId;
     
@@ -40,14 +33,6 @@
         cardId: string;
         cardTitle: string;
     }[]>([]);
-    
-    // Actor selector state variables - linked to GameContext's availableCards
-    let availableCardsForActors = $state<CardWithPosition[]>([]);
-    let selectedCardId = $state<string>('');
-    let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
-    let customName = $state<string>('');
-    let creatingActor = $state<boolean>(false);
-    let loadingCards = $state<boolean>(false);
     
     // Use an effect to load data when the component mounts using getGameContext
     $effect(async () => {

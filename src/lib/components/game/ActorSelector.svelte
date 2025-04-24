@@ -1,631 +1,495 @@
 <script lang="ts">
-  import { 
-    getUserActors, 
-    getAvailableCardsForGame, 
-    createActor, 
-    subscribeToUserCard,
-    joinGame,
-    assignRole,
-    updatePlayerActorMap,
-    updateGameStatus
-  } from '$lib/services/gameService';
-  import { GameStatus } from '$lib/types';
-  import { nodes, createRelationship, getGun } from '$lib/services/gunService';
-  import { getCurrentUser } from '$lib/services/authService';
-  import type { Actor, Card } from '$lib/types';
-  import * as icons from '@lucide/svelte';
-  
-  // Use Svelte 5 $props() syntax
-  const { gameId, onSelectActor } = $props<{
-    gameId: string;
-    onSelectActor: (actor: Actor) => void;
-  }>();
-  
-  // State with strict TypeScript types
-  let isLoading: boolean = $state(true);
-  let existingActors: Actor[] = $state([]);
-  let availableCards: Card[] = $state([]);
-  let selectedActorId: string = $state('');
-  let selectedCardId: string = $state('');
-  let actorType: 'National Identity' | 'Sovereign Identity' = $state('National Identity');
-  let customName: string = $state('');
-  let creatingActor: boolean = $state(false);
-  let mode: 'select' | 'create' = $state('select');
-  let errorMessage: string = $state('');
-  let fetchError: boolean = $state(false);
-  
-  // Add conditional development logging
-  const isDev = import.meta.env.DEV;
-  const log = (...args: any[]) => isDev && console.log('[ActorSelector]', ...args);
-  const logError = (...args: any[]) => console.error('[ActorSelector]', ...args);
-  
-  // Subscription cleanup
-  let unsubscribe: (() => void) | null = null;
-  
-  // Use $effect to replace onMount and onDestroy for component lifecycle
-  $effect(async () => {
-    try {
-      isLoading = true;
-      fetchError = false;
-      
-      // Load actors and cards concurrently for better performance
-      log(`Loading data for game ${gameId}`);
-      
-      try {
-        // First attempt to get all user actors
-        const allUserActors = await getUserActors();
+    import { onMount } from 'svelte';
+    import { userStore } from '$lib/stores/userStore';
+    import { currentGameStore } from '$lib/stores/gameStore';
+    import { goto } from '$app/navigation';
+    import * as icons from '@lucide/svelte';
+    import { 
+        getGame, 
+        getAvailableCardsForGame, 
+        createActor, 
+        joinGame, 
+        assignRole, 
+        updatePlayerActorMap, 
+        updateGameStatus,
+        getUserActors,
+        getGameActors,
+        getCard
+    } from '$lib/services/gameService';
+    import type { Actor, Card, CardWithPosition, Game } from '$lib/types';
+    import { GameStatus } from '$lib/types';
+
+    // Props
+    export let gameId: string;
+    export let game: Game | null = null;
+
+    // State variables (using Svelte 5 Runes syntax)
+    let isLoading = $state(true);
+    let isJoining = $state(false);
+    let errorMessage = $state('');
+    
+    // User's existing actors
+    let userActors = $state<Actor[]>([]);
+    let userActorsWithCards = $state<{actor: Actor, card: Card | null}[]>([]);
+    let filteredActors = $state<{actor: Actor, card: Card | null}[]>([]);
+    let selectedExistingActorId = $state('');
+    
+    // New actor creation state
+    let availableCards = $state<CardWithPosition[]>([]);
+    let selectedCardId = $state('');
+    let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
+    let customName = $state('');
+    
+    // Tab state
+    let activeTab = $state<'join-existing' | 'create-new'>('create-new');
+    
+    // Function to check if user has already joined the game
+    async function checkUserJoined(): Promise<boolean> {
+        if (!game || !$userStore.user) return false;
         
-        // Display ALL user actors, not just ones from this game
-        log(`Processing ${allUserActors.length} user actors for selection`);
-        
-        // We want to show all user actors, not just those from this game
-        existingActors = allUserActors;
-        
-        // Log details for debugging
-        existingActors.forEach(actor => {
-          log(`Actor ${actor.actor_id}: game_id=${actor.game_id}, card_id=${actor.card_id}, name=${actor.custom_name || 'unnamed'}`);
-        });
-      } catch (actorErr) {
-        logError('Failed to load user actors:', actorErr);
-        errorMessage = 'Unable to load your existing actors. You may need to create a new one.';
-      }
-      
-      // Load cards with retry mechanism
-      let retryCount = 0;
-      const maxRetries = 2;
-      
-      async function loadCards() {
-        try {
-          // Load available cards
-          const cards = await getAvailableCardsForGame(gameId, true); // Pass true to include value names
-          
-          // Set the cards in state
-          availableCards = cards;
-          
-          // Log the results
-          log(`Found ${availableCards.length} available cards for game ${gameId}`);
-          
-          // If we have cards, set a default selected card
-          if (availableCards.length > 0) {
-            selectedCardId = availableCards[0].card_id;
-            fetchError = false; // Ensure we clear any error state if we have cards
-            return true; // Success
-          } else if (retryCount < maxRetries) {
-            log(`No cards found, retrying (attempt ${retryCount + 1}/${maxRetries})...`);
-            retryCount++;
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return await loadCards(); // Retry
-          } else {
-            log('Warning: No available cards returned for this game after retries');
-            // Don't set fetchError=true just because no cards are returned
-            return false;
-          }
-        } catch (cardsErr) {
-          logError('Failed to load available cards:', cardsErr);
-          if (retryCount < maxRetries) {
-            log(`Error loading cards, retrying (attempt ${retryCount + 1}/${maxRetries})...`);
-            retryCount++;
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return await loadCards(); // Retry
-          } else {
-            errorMessage = 'Unable to load cards for this game after multiple attempts.';
-            fetchError = true;
-            return false;
-          }
-        }
-      }
-      
-      // Start the card loading process
-      await loadCards();
-      
-      // Retry if no actors found but expected some (retry with explicit getCurrentUser)
-      if (existingActors.length === 0) {
-        log('No actors found for this game, retrying with explicit user ID');
-        try {
-          const currentUser = getCurrentUser();
-          if (currentUser) {
-            const userActorsRetry = await getUserActors(currentUser.user_id);
-            log(`Retry returned ${userActorsRetry.length} total actors`);
-            
-            if (userActorsRetry.length > 0) {
-              // Filter to only actors associated with this game
-              const gameActors = userActorsRetry.filter(actor => actor.game_id === gameId);
-              
-              if (gameActors.length > 0) {
-                existingActors = gameActors;
-                log(`After retry: found ${existingActors.length} actors for game ${gameId}`);
-              }
-            }
-          }
-        } catch (retryErr) {
-          logError('Error during actor retry:', retryErr);
-        }
-      }
-      
-      // Determine initial mode based on data
-      if (existingActors.length === 0) {
-        mode = 'create';
-      } else {
-        mode = 'select';
-        selectedActorId = existingActors[0].actor_id;
-      }
-      
-      // Log overall results
-      log(`Final state: ${existingActors.length} actors and ${availableCards.length} cards for game ${gameId}`);
-    } catch (err) {
-      logError('Error loading actors and cards:', err);
-      errorMessage = 'Failed to load actor data. Please try again.';
-    } finally {
-      isLoading = false;
+        const userId = $userStore.user.user_id;
+        return !!game.players[userId];
     }
     
-    // Return a cleanup function (equivalent to onDestroy)
-    return () => {
-      // Clean up any subscriptions
-      if (unsubscribe) unsubscribe();
-      log('ActorSelector component destroyed, subscriptions cleaned up');
-    };
-  });
-  
-  // Cleaned up for Svelte 5.28.1 - avoids state mutations in template expressions
-  async function handleSelectActor() {
-    try {
-      // Input validation
-      if (existingActors.length === 0) {
-        errorMessage = 'No actors available to select';
-        return;
-      }
-      
-      if (!selectedActorId) {
-        errorMessage = 'Please select an actor';
-        return;
-      }
-      
-      // Update UI state
-      creatingActor = true;
-      errorMessage = '';
-      
-      // Find the selected actor in our list
-      const actor = existingActors.find(a => a.actor_id === selectedActorId);
-      if (!actor) {
-        log(`Actor with ID ${selectedActorId} not found`);
-        errorMessage = 'Selected actor not found';
-        creatingActor = false;
-        return;
-      }
-      
-      log(`Selected actor: ${actor.actor_id} from game ${actor.game_id}`);
-      
-      // Handle missing user_id by creating a new actor object (no direct mutation)
-      const currentUser = getCurrentUser();
-      const actorWithUser = !actor.user_id && currentUser?.user_id
-        ? { ...actor, user_id: currentUser.user_id }
-        : actor;
+    // Function to load user's existing actors
+    async function loadUserActors() {
+        if (!$userStore.user) return;
         
-      if (!actorWithUser.user_id) {
-        logError('Cannot select actor: Missing user_id and no current user');
-        errorMessage = 'Actor data is incomplete. Please try creating a new actor.';
-        creatingActor = false;
-        return;
-      }
-      
-      // If actor is from a different game, handle the transfer
-      const isCrossGameTransfer = actorWithUser.game_id !== gameId;
-      const finalActor = isCrossGameTransfer
-        ? { ...actorWithUser, game_id: gameId }
-        : actorWithUser;
-      
-      // Always store in localStorage - critical for game page detection
-      localStorage.setItem(`game_${gameId}_actor`, finalActor.actor_id);
-      
-      // Handle actors from other games
-      if (isCrossGameTransfer) {
-        log(`Transferring actor from game ${actorWithUser.game_id} to ${gameId}`);
-        
-        // Background operations for cross-game transfer
-        setTimeout(() => {
-          try {
-            // Create relationships
-            createRelationship(
-              `${nodes.actors}/${finalActor.actor_id}`, 
-              'game', 
-              `${nodes.games}/${gameId}`
+        try {
+            const actors = await getUserActors($userStore.user.user_id);
+            
+            // Get card details for each actor
+            const actorsWithCards = await Promise.all(
+                actors.map(async (actor) => {
+                    let card = null;
+                    if (actor.card_ref) {
+                        try {
+                            card = await getCard(actor.card_ref, true);
+                        } catch (err) {
+                            console.error(`Error loading card for actor ${actor.actor_id}:`, err);
+                        }
+                    }
+                    return { actor, card };
+                })
             );
             
-            if (finalActor.card_id) {
-              createRelationship(
-                `${nodes.actors}/${finalActor.actor_id}`, 
-                'card', 
-                `${nodes.cards}/${finalActor.card_id}`
-              );
+            userActors = actors;
+            userActorsWithCards = actorsWithCards;
+            
+            // Filter actors that could be assigned to this game
+            filterActorsForGame();
+            
+            // Set default selection if available
+            if (filteredActors.length > 0) {
+                selectedExistingActorId = filteredActors[0].actor.actor_id;
+                activeTab = 'join-existing';
+            } else {
+                activeTab = 'create-new';
             }
             
-            // Chain join operations
-            joinGame(gameId)
-              .then(joinSuccess => {
-                log(`Background joinGame complete: ${joinSuccess}`);
-                return joinSuccess && finalActor.user_id
-                  ? assignRole(gameId, finalActor.user_id, finalActor.actor_id)
-                  : false;
-              })
-              .then(assignSuccess => {
-                log(`Background assignRole complete: ${assignSuccess}`);
-                if (assignSuccess && finalActor.user_id) {
-                  updatePlayerActorMap(gameId, finalActor.user_id, finalActor.actor_id);
-                }
-              })
-              .catch(err => logError('Background operations error:', err));
-          } catch (err) {
-            logError('Error in background setup:', err);
-          }
-        }, 100);
-      }
-      
-      // Set up card subscription
-      setTimeout(() => {
-        try {
-          if (unsubscribe) unsubscribe();
-          unsubscribe = subscribeToUserCard(gameId, finalActor.user_id, card => {
-            log('Card data updated via subscription');
-          });
-        } catch (subErr) {
-          logError('Subscription error:', subErr);
+            console.log(`Loaded ${userActors.length} user actors, ${filteredActors.length} can join this game`);
+        } catch (err) {
+            console.error('Error loading user actors:', err);
+            errorMessage = 'Failed to load your existing actors';
         }
-      }, 200);
-      
-      // Finish up
-      creatingActor = false;
-      onSelectActor(finalActor);
-    } catch (err) {
-      logError('Error selecting actor:', err);
-      errorMessage = 'Failed to select actor';
-      creatingActor = false;
-    }
-  }
-  
-  // Modified with fire-and-forget pattern to avoid navigation issues
-  // Streamlined actor creation function for Svelte 5.28.1
-  async function handleCreateActor() {
-    try {
-      creatingActor = true;
-      errorMessage = '';
-      
-      // Get the current user - required for creating actor
-      const user = getCurrentUser();
-      if (!user?.user_id) {
-        errorMessage = 'You must be logged in to create an actor';
-        creatingActor = false;
-        return;
-      }
-      
-      // Validate required fields
-      if (!selectedCardId) {
-        errorMessage = 'Please select a card';
-        creatingActor = false;
-        return;
-      }
-      
-      if (!actorType) {
-        errorMessage = 'Please select an actor type';
-        creatingActor = false;
-        return;
-      }
-      
-      log(`Creating actor with card ${selectedCardId} for game ${gameId}`);
-      
-      try {
-        // Create actor with proper parameters
-        const newActor = await createActor(
-          gameId,
-          selectedCardId,
-          actorType,
-          customName || undefined
-        );
-        
-        if (!newActor) {
-          throw new Error('Actor creation failed - no actor ID returned');
-        }
-        
-        log(`Actor created successfully: ${newActor.actor_id}`);
-        
-        // Ensure actor has user_id set - create a new object if needed (avoid direct mutation)
-        const actorWithUser = newActor.user_id 
-          ? newActor 
-          : { ...newActor, user_id: user.user_id };
-        
-        // CRITICAL: Store actor ID in localStorage for persistence between page loads
-        // This is the PRIMARY way the game page detects if a player has joined
-        localStorage.setItem(`game_${gameId}_actor`, actorWithUser.actor_id);
-        
-        // Fire-and-forget: Update game status to active immediately
-        try {
-          // Use proper gameService function instead of direct put
-          updateGameStatus(gameId, GameStatus.ACTIVE)
-            .then(success => {
-              log(`Updated game status to active: ${success}`);
-            })
-            .catch(err => {
-              logError('Error updating game status:', err);
-            });
-        } catch (statusErr) {
-          logError('Error updating game status:', statusErr);
-        }
-        
-        // Background relationship creation - non-blocking
-        setTimeout(() => {
-          // Chain all the operations with proper error handling
-          joinGame(gameId)
-            .then(joinSuccess => {
-              log(`Background joinGame complete: ${joinSuccess}`);
-              return joinSuccess && actorWithUser.user_id
-                ? assignRole(gameId, actorWithUser.user_id, actorWithUser.actor_id)
-                : false;
-            })
-            .then(assignSuccess => {
-              log(`Background assignRole complete: ${assignSuccess}`);
-              if (assignSuccess && actorWithUser.user_id) {
-                updatePlayerActorMap(gameId, actorWithUser.user_id, actorWithUser.actor_id);
-              }
-            })
-            .catch(bgErr => logError('Background operations error:', bgErr));
-        }, 100);
-        
-        // Call the parent handler immediately to proceed with navigation
-        onSelectActor(actorWithUser);
-        
-        // Reset creating state
-        creatingActor = false;
-      } catch (actorErr) {
-        logError('Error in actor creation:', actorErr);
-        errorMessage = 'Failed to create actor';
-        creatingActor = false;
-      }
-    } catch (err) {
-      logError('Error in handleCreateActor:', err);
-      errorMessage = 'Failed to create actor';
-      creatingActor = false;
-    }
-  }
-  
-  function setMode(newMode: 'select' | 'create') {
-    mode = newMode;
-    errorMessage = '';
-  }
-  
-  // Format card info with null checks for display
-  function formatCardTitle(card: Card): string {
-    return `${card.role_title || 'Card'} ${card.card_category ? `(${card.card_category})` : ''}`;
-  }
-  
-  // Helper function to show proper game origin for actors
-  function formatActorOrigin(actor: Actor): string {
-    if (actor.game_id === gameId) {
-      return '';
     }
     
-    // Try to get a short display ID
-    const shortId = actor.game_id.substring(0, 4);
-    return ` [from other game: ${shortId}...]`;
-  }
-  
-  // Helper function to check if selected actor is from another game
-  function isSelectedActorFromOtherGame(): boolean {
-    if (!selectedActorId) return false;
-    const actor = existingActors.find(a => a.actor_id === selectedActorId);
-    return actor ? actor.game_id !== gameId : false;
-  }
+    // Filter actors that can be assigned to this game 
+    // (not already in this game and right actor type)
+    function filterActorsForGame() {
+        filteredActors = userActorsWithCards.filter(({ actor, card }) => 
+            // Actor isn't already in this game
+            actor.game_ref !== gameId &&
+            // Card matches the game's deck type (optional check)
+            (game?.deck_type ? 
+                card?.card_category.toLowerCase().includes(game.deck_type.toLowerCase()) : 
+                true)
+        );
+    }
+    
+    // Load available cards that can be used to create new actors
+    async function loadAvailableCards() {
+        if (!gameId) return;
+        
+        try {
+            // Use the getAvailableCardsForGame function with includeNames=true
+            const cards = await getAvailableCardsForGame(gameId, true);
+            availableCards = cards;
+            
+            // Set the first card as selected by default if available
+            if (cards.length > 0) {
+                selectedCardId = cards[0].card_id;
+            }
+            
+            console.log(`Loaded ${availableCards.length} available cards for actor creation`);
+        } catch (err) {
+            console.error('Error loading available cards:', err);
+            errorMessage = 'Failed to load available cards';
+        }
+    }
+    
+    // Function to handle using an existing actor
+    async function handleUseExistingActor() {
+        if (!$userStore.user || !gameId || !selectedExistingActorId) {
+            errorMessage = 'Please select an actor to join with';
+            return;
+        }
+        
+        isJoining = true;
+        errorMessage = '';
+        
+        try {
+            // Join the game first
+            const joinSuccess = await joinGame(gameId);
+            if (!joinSuccess) {
+                throw new Error('Failed to join game');
+            }
+            
+            // Update the actor's game reference
+            const assignSuccess = await assignRole(
+                gameId, 
+                $userStore.user.user_id, 
+                selectedExistingActorId
+            );
+            
+            if (!assignSuccess) {
+                throw new Error('Failed to assign actor to game');
+            }
+            
+            // Update player-actor map
+            await updatePlayerActorMap(
+                gameId, 
+                $userStore.user.user_id, 
+                selectedExistingActorId
+            );
+            
+            // Update game status to active
+            await updateGameStatus(gameId, GameStatus.ACTIVE);
+            
+            // Store actor ID in localStorage
+            localStorage.setItem(`game_${gameId}_actor`, selectedExistingActorId);
+            
+            // Set the current game in the store for navigation
+            if (game) {
+                currentGameStore.set(game);
+            }
+            
+            // Navigate to the game board
+            goto(`/games/${gameId}`);
+        } catch (err) {
+            console.error('Error using existing actor:', err);
+            errorMessage = 'Failed to join game with existing actor';
+        } finally {
+            isJoining = false;
+        }
+    }
+    
+    // Function to handle creating a new actor
+    async function handleCreateNewActor() {
+        if (!$userStore.user) {
+            errorMessage = 'You must be logged in to create an actor';
+            return;
+        }
+        
+        if (!selectedCardId) {
+            errorMessage = 'Please select a card';
+            return;
+        }
+        
+        isJoining = true;
+        errorMessage = '';
+        
+        try {
+            // Create a new actor
+            const newActor = await createActor(
+                gameId,
+                selectedCardId,
+                actorType,
+                customName || undefined
+            );
+            
+            if (!newActor) {
+                throw new Error('Actor creation failed - no actor ID returned');
+            }
+            
+            console.log(`Actor created successfully: ${newActor.actor_id}`);
+            
+            // Store actor ID in localStorage
+            localStorage.setItem(`game_${gameId}_actor`, newActor.actor_id);
+            
+            // Update game status to active
+            await updateGameStatus(gameId, GameStatus.ACTIVE);
+            
+            // Join the game and assign the actor to the user
+            const joinSuccess = await joinGame(gameId);
+            if (joinSuccess && $userStore.user?.user_id) {
+                await assignRole(gameId, $userStore.user.user_id, newActor.actor_id);
+                await updatePlayerActorMap(gameId, $userStore.user.user_id, newActor.actor_id);
+            }
+            
+            // Set the current game in the store for the navigation system
+            if (game) {
+                currentGameStore.set(game);
+            }
+            
+            // Navigate directly to the game board
+            goto(`/games/${gameId}`);
+        } catch (err) {
+            console.error('Error creating actor:', err);
+            errorMessage = 'Failed to create actor';
+        } finally {
+            isJoining = false;
+        }
+    }
+    
+    // Format card title for display
+    function formatCardTitle(card: Card): string {
+        return `${card.role_title || 'Card'} ${card.card_category ? `(${card.card_category})` : ''}`;
+    }
+    
+    // Initialize everything when the component mounts
+    onMount(async () => {
+        try {
+            isLoading = true;
+            
+            if (!gameId) {
+                errorMessage = 'Game ID not provided';
+                return;
+            }
+            
+            // Load game if not provided
+            if (!game) {
+                game = await getGame(gameId);
+                if (!game) {
+                    errorMessage = 'Game not found';
+                    return;
+                }
+            }
+            
+            // Check if user already joined the game
+            const hasJoined = await checkUserJoined();
+            if (hasJoined) {
+                // User already joined, just navigate to the game
+                goto(`/games/${gameId}`);
+                return;
+            }
+            
+            // Load existing user actors and available cards in parallel
+            await Promise.all([
+                loadUserActors(),
+                loadAvailableCards()
+            ]);
+            
+        } catch (err) {
+            console.error('Error initializing ActorSelector:', err);
+            errorMessage = 'Failed to initialize game join interface';
+        } finally {
+            isLoading = false;
+        }
+    });
 </script>
 
-<div class="p-4 bg-surface-100-800-token rounded-lg">
-  {#if isLoading}
-    <div class="flex justify-center items-center p-8">
-      <div class="spinner-third w-12 h-12"></div>
-      <p class="ml-4">Loading actors and cards...</p>
-    </div>
-  {:else}
-    <!-- Tab navigation -->
-    <div class="flex border-b border-surface-300-600-token mb-4">
-      <button
-        class="px-4 py-2 {mode === 'select' ? 'border-b-2 border-primary-500 text-primary-500' : 'text-surface-600'}"
-        onclick={() => setMode('select')}
-        disabled={existingActors.length === 0}
-      >
-        <span class="flex items-center">
-          <icons.Users size={16} class="mr-2" />
-          Use Existing Actor
-        </span>
-      </button>
-      <button
-        class="px-4 py-2 {mode === 'create' ? 'border-b-2 border-primary-500 text-primary-500' : 'text-surface-600'}"
-        onclick={() => setMode('create')}
-        disabled={availableCards.length === 0}
-      >
-        <span class="flex items-center">
-          <icons.UserPlus size={16} class="mr-2" />
-          Create New Actor
-        </span>
-      </button>
-    </div>
+<div class="h-full">
+    <h2 class="h4 mb-5 text-primary-500">Select Your Actor</h2>
     
-    {#if errorMessage}
-      <div class="alert variant-filled-error mb-4">
-        <icons.AlertCircle size={16} />
-        <span>{errorMessage}</span>
-      </div>
-    {/if}
-    
-    <!-- Select existing actor -->
-    {#if mode === 'select'}
-      {#if existingActors.length === 0}
-        <div class="card p-4 text-center">
-          <div class="p-4 bg-surface-200/20 rounded-lg">
-            <h3 class="h4 text-primary-500 mb-2">No Existing Actors</h3>
-            <p>You don't have any existing actors available to use in this game.</p>
-          </div>
-          
-          {#if availableCards.length > 0}
-            <button 
-              class="btn variant-filled-primary mt-4" 
-              onclick={() => setMode('create')}
-            >
-              <icons.UserPlus size={16} class="mr-2" />
-              Create a new actor instead
+    {#if isLoading}
+        <div class="flex flex-col justify-center items-center space-y-4 py-8">
+            <div class="spinner-third w-8 h-8 mb-4"></div>
+            <p class="text-center">Loading options...</p>
+        </div>
+    {:else if errorMessage}
+        <div class="alert variant-filled-error p-4 mb-4">
+            <icons.AlertCircle size={20} />
+            <span>{errorMessage}</span>
+        </div>
+    {:else if !$userStore.user}
+        <div class="flex flex-col justify-center items-center space-y-4">
+            <p class="text-center mb-2 text-warning-500">
+                You must be logged in to join this game.
+            </p>
+            <a href="/login" class="btn variant-filled-primary w-full">
+                <icons.LogIn size={18} class="mr-2" />
+                Log In to Join
+            </a>
+            <button class="btn variant-ghost-surface w-full" onclick={() => goto(`/games/${gameId}`)}>
+                <icons.Eye size={18} class="mr-2" />
+                View Game as Guest
             </button>
-          {:else if fetchError}
-            <div class="p-4 mt-4 bg-surface-200/20 rounded-lg">
-              <p class="mb-2">Cards are temporarily unavailable.</p>
-              <button class="btn variant-filled-primary" onclick={() => window.location.reload()}>
-                <icons.RefreshCw size={16} class="mr-2" />
-                Refresh Page
-              </button>
-            </div>
-          {:else}
-            <div class="p-4 mt-4 bg-surface-200/20 rounded-lg">
-              <p class="text-warning-500">No cards available for new actors.</p>
-              <p class="text-sm opacity-70 mt-2">All cards may have been assigned to other players.</p>
-            </div>
-          {/if}
         </div>
-      {:else}
-        <div class="space-y-4">
-          <label class="label">
-            <span>Select an existing actor</span>
-            <select class="select" bind:value={selectedActorId}>
-              {#each existingActors as actor}
-                <option value={actor.actor_id}>
-                  {actor.custom_name || 'Actor'} ({actor.actor_type || 'Unknown Type'})
-                  {formatActorOrigin(actor)}
-                </option>
-              {/each}
-            </select>
-          </label>
-          
-          <!-- Show spinner when working -->
-          <button
-            class="btn variant-filled-primary w-full"
-            onclick={handleSelectActor}
-            disabled={!selectedActorId || creatingActor}
-          >
-            {#if creatingActor}
-              <span class="spinner-third w-4 h-4 mr-2"></span>
-              {#if isSelectedActorFromOtherGame()}
-                Associating Actor with this Game...
-              {:else}
-                Selecting Actor...
-              {/if}
-            {:else}
-              {#if isSelectedActorFromOtherGame()}
-                Use Actor from Other Game
-              {:else}
-                Continue with Selected Actor
-              {/if}
-            {/if}
-          </button>
-        </div>
-      {/if}
-    {/if}
-    
-    <!-- Create new actor -->
-    {#if mode === 'create'}
-      {#if availableCards.length === 0}
-        <div class="card p-4 text-center">
-          {#if fetchError}
-            <div class="p-4 mb-2 bg-surface-200/20 rounded-lg">
-              <h3 class="h4 text-primary-500 mb-2">Cards Temporarily Unavailable</h3>
-              <p class="mb-2">We're experiencing an issue retrieving cards for this game.</p>
-              <button class="btn variant-filled-primary mt-2" onclick={() => window.location.reload()}>
-                <icons.RefreshCw size={16} class="mr-2" />
-                Refresh Page
-              </button>
-            </div>
-          {:else}
-            <div class="p-4 mt-4 bg-surface-200/20 rounded-lg">
-              <h3 class="h4 text-primary-500 mb-2">Available Cards</h3>
-              <p>Loading available cards for this game...</p>
-              <button class="btn variant-filled-primary mt-4" onclick={() => window.location.reload()}>
-                <icons.RefreshCw size={16} class="mr-2" />
-                Refresh Page
-              </button>
-            </div>
-          {/if}
-          
-          {#if existingActors.length > 0}
-            <div class="mt-4 pt-4 border-t border-surface-300/20">
-              <p class="mb-2">You have existing actors available.</p>
-              <button class="btn variant-ghost-primary" onclick={() => setMode('select')}>
-                <icons.Users size={16} class="mr-2" />
-                Use an existing actor instead
-              </button>
-            </div>
-          {/if}
-        </div>
-      {:else}
-        <div class="space-y-4">
-          <label class="label">
-            <span>Actor Type</span>
-            <select class="select" bind:value={actorType}>
-              <option value="National Identity">National Identity</option>
-              <option value="Sovereign Identity">Sovereign Identity</option>
-            </select>
-          </label>
-          
-          <label class="label">
-            <span>Custom Name (optional)</span>
-            <input 
-              class="input" 
-              type="text" 
-              bind:value={customName} 
-              placeholder="Enter a name for your actor" 
-            />
-          </label>
-          
-          <label class="label">
-            <span>Select a Card</span>
-            <select class="select" bind:value={selectedCardId}>
-              {#each availableCards as card}
-                <option value={card.card_id}>
-                  {formatCardTitle(card)}
-                </option>
-              {/each}
-            </select>
-          </label>
-          
-          <!-- Card preview with null checks -->
-          {#if selectedCardId && availableCards.length > 0}
-            {#each availableCards.filter(card => card.card_id === selectedCardId) as selectedCard}
-              <div class="card p-4 bg-primary-900/20">
-                <h3 class="h3 text-primary-500">{selectedCard.role_title || 'Unnamed Role'}</h3>
-                <div class="badge variant-soft-secondary">{selectedCard.card_category || 'Uncategorized'}</div>
+    {:else if availableCards.length === 0 && filteredActors.length === 0}
+        <div class="flex flex-col justify-center items-center space-y-4">
+            <div class="p-4 bg-warning-500/10 rounded-lg text-center">
+                <h4 class="font-semibold text-warning-500 mb-2">No Available Options</h4>
+                <p class="text-sm mb-4">
+                    All cards for this game have been assigned to actors and you don't have any compatible existing actors.
+                    Please try another game or view this game without joining.
+                </p>
                 
-                <div class="mt-2">
-                  <h4 class="font-bold text-sm text-tertiary-500">Backstory:</h4>
-                  <p class="text-sm">{selectedCard.backstory ?? 'No backstory available'}</p>
-                </div>
-                
-                <div class="mt-2">
-                  <h4 class="font-bold text-sm text-tertiary-500">Goals:</h4>
-                  <p class="text-sm">{selectedCard.goals ?? 'No goals defined'}</p>
-                </div>
-              </div>
-            {/each}
-          {/if}
-          
-          <button
-            class="btn variant-filled-primary w-full"
-            onclick={handleCreateActor}
-            disabled={!selectedCardId || creatingActor}
-          >
-            {#if creatingActor}
-              <span class="spinner-third w-4 h-4 mr-2"></span>
-              Processing...
-            {:else}
-              Create New Actor
-            {/if}
-          </button>
+                <button class="btn variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}`)}>
+                    <icons.Eye size={18} class="mr-2" />
+                    View Game Without Joining
+                </button>
+            </div>
         </div>
-      {/if}
+    {:else}
+        <!-- Tabs for join options -->
+        <div class="border-b border-surface-500/30 mb-4">
+            <div class="flex">
+                {#if filteredActors.length > 0}
+                    <button 
+                        class="px-4 py-2 font-medium text-sm border-b-2 transition-colors duration-150 
+                            {activeTab === 'join-existing' ? 
+                                'border-primary-500 text-primary-500' : 
+                                'border-transparent hover:border-surface-500/50'}"
+                        onclick={() => activeTab = 'join-existing'}
+                    >
+                        Use Existing Actor
+                    </button>
+                {/if}
+                
+                {#if availableCards.length > 0}
+                    <button 
+                        class="px-4 py-2 font-medium text-sm border-b-2 transition-colors duration-150 
+                            {activeTab === 'create-new' ? 
+                                'border-primary-500 text-primary-500' : 
+                                'border-transparent hover:border-surface-500/50'}"
+                        onclick={() => activeTab = 'create-new'}
+                    >
+                        Create New Actor
+                    </button>
+                {/if}
+            </div>
+        </div>
+        
+        <!-- Tab content -->
+        {#if activeTab === 'join-existing' && filteredActors.length > 0}
+            <div class="space-y-4">
+                <label class="label pb-1 border-b border-surface-500/30">
+                    <span class="font-semibold text-tertiary-400">Select Existing Actor</span>
+                    <select class="select mt-1 w-full" bind:value={selectedExistingActorId}>
+                        {#each filteredActors as { actor, card }}
+                            <option value={actor.actor_id}>
+                                {actor.custom_name || (card ? card.role_title : 'Unnamed Actor')} ({actor.actor_type})
+                            </option>
+                        {/each}
+                    </select>
+                </label>
+                
+                <!-- Actor preview -->
+                {#if selectedExistingActorId}
+                    {#each filteredActors.filter(item => item.actor.actor_id === selectedExistingActorId) as { actor, card }}
+                        <div class="card p-4 bg-primary-900/20 mt-3">
+                            <h3 class="h3 text-primary-400">{actor.custom_name || (card ? card.role_title : 'Unnamed Actor')}</h3>
+                            <div class="badge variant-soft-secondary">{actor.actor_type}</div>
+                            
+                            {#if card}
+                                <div class="mt-3">
+                                    <h4 class="font-bold text-sm text-tertiary-400">Card:</h4>
+                                    <p class="text-sm">{card.role_title || 'Unnamed Card'} ({card.card_category})</p>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h4 class="font-bold text-sm text-tertiary-400">Backstory:</h4>
+                                    <p class="text-sm">{card.backstory || 'No backstory available'}</p>
+                                </div>
+                            {/if}
+                        </div>
+                    {/each}
+                {/if}
+                
+                <div class="flex flex-col space-y-2 pt-3">
+                    <button
+                        class="btn variant-filled-primary w-full"
+                        onclick={handleUseExistingActor}
+                        disabled={!selectedExistingActorId || isJoining}
+                    >
+                        {#if isJoining}
+                            <span class="spinner-third w-4 h-4 mr-2"></span>
+                            Joining Game...
+                        {:else}
+                            <icons.UserPlus size={18} class="mr-2" />
+                            Join Game with Selected Actor
+                        {/if}
+                    </button>
+                    
+                    <button class="btn variant-ghost-surface w-full" onclick={() => goto(`/games/${gameId}`)}>
+                        <icons.Eye size={18} class="mr-2" />
+                        View Game Without Joining
+                    </button>
+                </div>
+            </div>
+        {:else if activeTab === 'create-new' && availableCards.length > 0}
+            <div class="space-y-4">
+                <label class="label pb-1 border-b border-surface-500/30">
+                    <span class="font-semibold text-tertiary-400">Select Identity Type</span>
+                    <select class="select mt-1 w-full" bind:value={actorType}>
+                        <option value="National Identity">National Identity</option>
+                        <option value="Sovereign Identity">Sovereign Identity</option>
+                    </select>
+                </label>
+                
+                <label class="label pb-1 border-b border-surface-500/30">
+                    <span class="font-semibold text-tertiary-400">Custom Name (Optional)</span>
+                    <input 
+                        class="input mt-1 w-full" 
+                        type="text" 
+                        bind:value={customName} 
+                        placeholder="Enter a name for your actor" 
+                    />
+                </label>
+                
+                <label class="label pb-1 border-b border-surface-500/30">
+                    <span class="font-semibold text-tertiary-400">Choose Your Card</span>
+                    <select class="select mt-1 w-full" bind:value={selectedCardId}>
+                        {#each availableCards as card}
+                            <option value={card.card_id}>
+                                {formatCardTitle(card)}
+                            </option>
+                        {/each}
+                    </select>
+                </label>
+                
+                <!-- Card preview -->
+                {#if selectedCardId && availableCards.length > 0}
+                    {#each availableCards.filter(card => card.card_id === selectedCardId) as selectedCard}
+                        <div class="card p-4 bg-primary-900/20 mt-3">
+                            <h3 class="h3 text-primary-400">{selectedCard.role_title || 'Unnamed Role'}</h3>
+                            <div class="badge variant-soft-secondary">{selectedCard.card_category || 'Uncategorized'}</div>
+                            
+                            <div class="mt-3">
+                                <h4 class="font-bold text-sm text-tertiary-400">Backstory:</h4>
+                                <p class="text-sm">{selectedCard.backstory || 'No backstory available'}</p>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <h4 class="font-bold text-sm text-tertiary-400">Goals:</h4>
+                                <p class="text-sm">{selectedCard.goals || 'No goals defined'}</p>
+                            </div>
+                        </div>
+                    {/each}
+                {/if}
+                
+                <div class="flex flex-col space-y-2 pt-3">
+                    <button
+                        class="btn variant-filled-primary w-full"
+                        onclick={handleCreateNewActor}
+                        disabled={!selectedCardId || isJoining}
+                    >
+                        {#if isJoining}
+                            <span class="spinner-third w-4 h-4 mr-2"></span>
+                            Creating Actor...
+                        {:else}
+                            <icons.UserPlus size={18} class="mr-2" />
+                            Join Game with New Actor
+                        {/if}
+                    </button>
+                    
+                    <button class="btn variant-ghost-surface w-full" onclick={() => goto(`/games/${gameId}`)}>
+                        <icons.Eye size={18} class="mr-2" />
+                        View Game Without Joining
+                    </button>
+                </div>
+            </div>
+        {/if}
     {/if}
-  {/if}
 </div>
