@@ -288,12 +288,21 @@ export async function joinGame(gameId: string): Promise<boolean> {
 
   const updatedPlayers = { ...game.players, [currentUser.user_id]: true };
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
+  
+  // Update with standard put instead of putSigned
+  await put(`${nodes.games}/${gameId}`, {
+    players: updatedPlayers,
+    player_actor_map: updatedMap,
+  });
+
+  // Update cache after successful write
   cacheGame(gameId, {
     ...game,
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
 
+  // Setup relationships in background
   createRelationship(
     `${nodes.users}/${currentUser.user_id}`,
     "games_ref",
@@ -304,29 +313,6 @@ export async function joinGame(gameId: string): Promise<boolean> {
     "players",
     `${nodes.users}/${currentUser.user_id}`,
   );
-  await putSigned(`${nodes.games}/${gameId}`, {
-    ...game,
-    players: updatedPlayers,
-    player_actor_map: updatedMap,
-  });
-
-  setTimeout(async () => {
-    const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
-    if (!savedGame?.players[currentUser.user_id]) {
-      log(`Player not added, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, {
-        ...game,
-        players: updatedPlayers,
-      });
-    }
-    if (!savedGame?.player_actor_map[currentUser.user_id]) {
-      log(`Player actor map not updated, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, {
-        ...game,
-        player_actor_map: updatedMap,
-      });
-    }
-  }, 200);
 
   log(`Joined game: ${gameId}`);
   return true;
@@ -355,37 +341,29 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 
   const { [currentUser.user_id]: _, ...updatedPlayers } = game.players;
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
+  
+  // Use put instead of putSigned
+  await put(`${nodes.games}/${gameId}`, {
+    players: updatedPlayers,
+    player_actor_map: updatedMap,
+  });
+  
+  // Update cache
   cacheGame(gameId, {
     ...game,
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
 
-  await putSigned(`${nodes.games}/${gameId}`, {
-    ...game,
-    players: updatedPlayers,
-    player_actor_map: updatedMap,
-  });
+  // Release the actor role if one is assigned
   const actor = await getPlayerRole(gameId, currentUser.user_id);
   if (actor) {
-    await putSigned(`${nodes.actors}/${actor.actor_id}`, {
-      ...actor,
+    await put(`${nodes.actors}/${actor.actor_id}`, {
       user_ref: null,
     });
     const key = `${gameId}:${currentUser.user_id}`;
     roleCache.delete(key);
   }
-
-  setTimeout(async () => {
-    const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
-    if (savedGame?.players[currentUser.user_id]) {
-      log(`Player still in game, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, {
-        ...game,
-        players: updatedPlayers,
-      });
-    }
-  }, 500);
 
   log(`Left game: ${gameId}`);
   return true;
@@ -1532,6 +1510,7 @@ export async function setGameActors(
   const batchSize = 4;
   const startTime = performance.now();
 
+  // Process first batch immediately
   for (let i = 0; i < Math.min(batchSize, actors.length); i++) {
     const actor = actors[i];
     const actorId = actor.actor_id || generateId();
@@ -1543,46 +1522,27 @@ export async function setGameActors(
       status: "active",
     };
     cacheActor(actorId, actorData);
-    await putSigned(`${nodes.actors}/${actorId}`, actorData);
+    await put(`${nodes.actors}/${actorId}`, actorData);
   }
 
-  setTimeout(async () => {
-    const remainingActors = actors.slice(batchSize);
-    for (const actor of remainingActors) {
-      const actorId = actor.actor_id || generateId();
-      const actorData: Actor = {
-        ...actor,
-        actor_id: actorId,
-        game_ref: gameId,
-        created_at: Date.now(),
-        status: "active",
-      };
-      cacheActor(actorId, actorData);
-      await putSigned(`${nodes.actors}/${actorId}`, actorData);
-    }
-
+  // Process remaining actors in background
+  if (actors.length > batchSize) {
     setTimeout(async () => {
-      const samplesToVerify = Math.min(3, actors.length);
-      for (let i = 0; i < samplesToVerify; i++) {
-        const index = Math.floor(Math.random() * actors.length);
-        const actorId = actors[index].actor_id || "";
-        if (actorId) {
-          const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
-          if (!savedActor) {
-            log(`Verification failed for actor ${actorId}, retrying`);
-            const actorData: Actor = {
-              ...actors[index],
-              actor_id: actorId,
-              game_ref: gameId,
-              created_at: Date.now(),
-              status: "active",
-            };
-            await putSigned(`${nodes.actors}/${actorId}`, actorData);
-          }
-        }
+      const remainingActors = actors.slice(batchSize);
+      for (const actor of remainingActors) {
+        const actorId = actor.actor_id || generateId();
+        const actorData: Actor = {
+          ...actor,
+          actor_id: actorId,
+          game_ref: gameId,
+          created_at: Date.now(),
+          status: "active",
+        };
+        cacheActor(actorId, actorData);
+        await put(`${nodes.actors}/${actorId}`, actorData);
       }
-    }, 1000);
-  }, 50);
+    }, 50);
+  }
 
   log(
     `Initiated actor setup for ${actors.length} actors in ${performance.now() - startTime}ms`,
