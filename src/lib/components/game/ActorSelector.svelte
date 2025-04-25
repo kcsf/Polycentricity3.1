@@ -20,16 +20,12 @@
         gameId, 
         game, 
         availableCardsForActors = [],
-        onCreateActor
+        onGameEnter = () => goto(`/games/${gameId}`)
     } = $props<{
         gameId: string;
         game: Game;
         availableCardsForActors?: CardWithPosition[];
-        onCreateActor?: (cardInfo: {
-            selectedCardId: string;
-            actorType: 'National Identity' | 'Sovereign Identity';
-            customName: string;
-        }) => Promise<void>;
+        onGameEnter?: () => void;
     }>();
 
     // State variables
@@ -152,8 +148,8 @@
             // Set the current game in the store for navigation
             currentGameStore.set(game);
             
-            // Navigate to the game board
-            goto(`/games/${gameId}`);
+            // Use the navigation callback provided by parent
+            onGameEnter();
         } catch (err) {
             console.error('Error using existing actor:', err);
             errorMessage = 'Failed to join game with existing actor';
@@ -178,17 +174,7 @@
         errorMessage = '';
         
         try {
-            // If parent provided a handler, use it
-            if (onCreateActor) {
-                await onCreateActor({
-                    selectedCardId,
-                    actorType,
-                    customName
-                });
-                return; // Parent handles navigation
-            }
-            
-            // Otherwise use default implementation
+            // Create a new actor for this game
             const newActor = await createActor(
                 gameId,
                 selectedCardId,
@@ -215,8 +201,8 @@
             // Set the current game in the store for the navigation system
             currentGameStore.set(game);
             
-            // Navigate directly to the game board
-            goto(`/games/${gameId}`);
+            // Use the navigation callback provided by parent or default to goto
+            onGameEnter();
         } catch (err) {
             console.error('Error creating actor:', err);
             errorMessage = 'Failed to create actor';
@@ -235,8 +221,8 @@
         try {
             const hasJoined = checkUserJoined();
             if (hasJoined) {
-                // User already joined, just navigate to the game
-                goto(`/games/${gameId}`);
+                // User already joined, use the callback to navigate
+                onGameEnter();
                 return;
             }
             
