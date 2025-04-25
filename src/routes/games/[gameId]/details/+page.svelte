@@ -96,31 +96,28 @@
             const playerCount = Object.keys(game.players || {}).length;
             isFull = maxPlayers ? playerCount >= maxPlayers : false;
             
-            // Load card-actor mappings
-            const mappings = [];
-            
-            // For each actor with a card, get card details and create mapping
-            for (const actor of actors) {
-                if (actor.card_ref) {
+            // Load card-actor mappings using Promise.all for better performance
+            const mappings = await Promise.all(
+                actors.map(async (actor) => {
+                    if (!actor.card_ref) return null;
                     try {
-                        const card = await getCard(actor.card_ref, true);
-                        if (card) {
-                            mappings.push({
-                                actorId: actor.actor_id,
-                                actorName: actor.custom_name || '',
-                                actorType: actor.actor_type || '',
-                                userRef: actor.user_ref || '',
-                                cardId: card.card_id,
-                                cardTitle: card.role_title || card.name || ''
-                            });
-                        }
+                        const card = await getCard(actor.card_ref, true); // Cached call
+                        return card ? {
+                            actorId: actor.actor_id,
+                            actorName: actor.custom_name || '',
+                            actorType: actor.actor_type || '',
+                            userRef: actor.user_ref || '',
+                            cardId: card.card_id,
+                            cardTitle: card.role_title || card.name || ''
+                        } : null;
                     } catch (err) {
                         console.error(`Error loading card ${actor.card_ref} for actor ${actor.actor_id}:`, err);
+                        return null;
                     }
-                }
-            }
+                })
+            );
             
-            cardActorMappings = mappings;
+            cardActorMappings = mappings.filter(Boolean);
             
             // Log card counts for debugging
             console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
