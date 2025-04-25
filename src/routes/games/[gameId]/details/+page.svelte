@@ -42,11 +42,6 @@
     
     // Actor selector state variables - linked to GameContext's availableCards
     let availableCardsForActors = $state<CardWithPosition[]>([]);
-    let selectedCardId = $state<string>('');
-    let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
-    let customName = $state<string>('');
-    let creatingActor = $state<boolean>(false);
-    let loadingCards = $state<boolean>(false);
     
     // Use an effect to load data when the component mounts using getGameContext
     $effect(async () => {
@@ -142,26 +137,29 @@
     // No custom loadAvailableCards function needed - we get all data from GameContext
     
     // Function to handle actor creation
-    async function handleCreateActor() {
+    async function handleCreateActor(cardInfo: {
+        selectedCardId: string;
+        actorType: 'National Identity' | 'Sovereign Identity';
+        customName: string;
+    }) {
         try {
             if (!$userStore.user) {
                 errorMessage = 'You must be logged in to create an actor';
                 return;
             }
             
-            if (!selectedCardId) {
+            if (!cardInfo.selectedCardId) {
                 errorMessage = 'Please select a card';
                 return;
             }
             
-            creatingActor = true;
             errorMessage = '';
             
             const newActor = await createActor(
                 gameId,
-                selectedCardId,
-                actorType,
-                customName || undefined
+                cardInfo.selectedCardId,
+                cardInfo.actorType,
+                cardInfo.customName || undefined
             );
             
             if (!newActor) {
@@ -193,8 +191,6 @@
         } catch (err) {
             console.error('Error creating actor:', err);
             errorMessage = 'Failed to create actor';
-        } finally {
-            creatingActor = false;
         }
     }
     
@@ -364,7 +360,12 @@
                         <div class="card p-5 bg-surface-200-700-token/30 rounded-lg">
                             {#if game.status === GameStatus.ACTIVE && !isFull}
                                 <!-- Use the reusable ActorSelector component -->
-                                <ActorSelector {gameId} {game} availableCardsForActors={availableCardsForActors} />
+                                <ActorSelector 
+                                    {gameId} 
+                                    {game} 
+                                    availableCardsForActors={availableCardsForActors}
+                                    onCreateActor={handleCreateActor} 
+                                />
                             {:else if game.status === GameStatus.ACTIVE && isFull}
                                 <div class="flex flex-col justify-center items-center space-y-4">
                                     <p class="mb-4 text-sm text-warning-500">

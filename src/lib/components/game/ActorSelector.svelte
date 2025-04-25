@@ -19,11 +19,17 @@
     const { 
         gameId, 
         game, 
-        availableCardsForActors = [] 
+        availableCardsForActors = [],
+        onCreateActor
     } = $props<{
         gameId: string;
         game: Game;
         availableCardsForActors?: CardWithPosition[];
+        onCreateActor?: (cardInfo: {
+            selectedCardId: string;
+            actorType: 'National Identity' | 'Sovereign Identity';
+            customName: string;
+        }) => Promise<void>;
     }>();
 
     // State variables
@@ -173,7 +179,17 @@
         errorMessage = '';
         
         try {
-            // Create a new actor
+            // If parent provided a handler, use it
+            if (onCreateActor) {
+                await onCreateActor({
+                    selectedCardId,
+                    actorType,
+                    customName
+                });
+                return; // Parent handles navigation
+            }
+            
+            // Otherwise use default implementation
             const newActor = await createActor(
                 gameId,
                 selectedCardId,
