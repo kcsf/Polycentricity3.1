@@ -77,24 +77,15 @@
             usedCards = contextUsedCards;
             availableCardsCount = contextAvailableCardsCount;
             
-            // Directly get available cards with the includeNames parameter
-            loadingCards = true;
+            // Get available cards directly from gameContext
             try {
-                // This is a separate call from getGameContext because we need includeNames=true
-                const cards = await getAvailableCardsForGame(gameId, /* includeNames= */ true);
-                console.log(`Retrieved ${cards.length} available cards with names included`);
+                // Convert availableCards count to actual card objects for actor selection
+                const availableCardObjects = await getAvailableCardsForGame(gameId, /* includeNames= */ true);
+                availableCardsForActors = availableCardObjects;
                 
-                // Set the cards in the selector state
-                availableCardsForActors = cards;
-                
-                // Set the first card as selected by default if available
-                if (cards.length > 0) {
-                    selectedCardId = cards[0].card_id;
-                }
+                console.log(`Retrieved ${availableCardObjects.length} available cards with names included`);
             } catch (error) {
                 console.error('Error loading available cards:', error);
-            } finally {
-                loadingCards = false;
             }
             
             // Determine if game is full based on players count and max_players

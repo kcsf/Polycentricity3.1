@@ -1,0 +1,23 @@
+1. Issues Identified
+Game Details Page (details.svelte):
+
+Redundant Card Fetching: The page calls getAvailableCardsForGame separately after getGameContext, which already provides availableCards. This is inefficient and redundant.
+Inefficient Card-Actor Mapping: The cardActorMappings computation loops through actors and calls getCard for each, leading to multiple unnecessary database queries.
+Unnecessary State Variables: Variables like availableCardsForActors, selectedCardId, actorType, and customName are defined in the parent but should be managed by ActorSelector.svelte.
+Legacy Support: The role_assignment_type check in the UI is not present in the Game type or schema, indicating outdated code.
+LocalStorage Usage: handleCreateActor uses localStorage to store the actor ID, which is unnecessary since game.player_actor_map already persists this relationship in Gun.js.
+Error Handling: Error handling is inconsistent, with some errors logged but not displayed to the user.
+ActorSelector Component (ActorSelector.svelte):
+
+Not Working as Expected: The component shows "No Available Options" despite available cards, likely due to incorrect filtering or state management.
+Redundant Actor Fetching: loadUserActors and filteredActors attempt to support "existing actor" functionality, but this feature is not in the README.md completed features and conflicts with the schema’s design (actors are game-specific, not reusable across games).
+Legacy Support: The "Use Existing Actor" tab and related logic (join-existing, handleUseExistingActor) are unnecessary and not supported by the schema or gameService.
+Inefficient Card Filtering: The filteredActors logic checks card_category against deck_type, which is overly complex and not schema-aligned.
+LocalStorage Usage: Like the parent, it unnecessarily uses localStorage to store the actor ID.
+Tab State: The tab system (join-existing vs create-new) is overly complex for the current feature set, as only "create-new" is needed.
+Error Handling: Errors are not consistently surfaced to the user.
+General:
+
+Svelte 5 Runes: Both files use Runes ($state, $effect), but some logic can be simplified.
+Schema Misalignment: The "existing actor" feature violates the schema’s design, where Actor.game_ref ties actors to a specific game, preventing reuse.
+Performance: Multiple redundant database calls (getCard, getUserActors) slow down the page.
