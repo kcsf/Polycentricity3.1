@@ -23,7 +23,7 @@
     } = $props<{
         gameId: string;
         game: Game;
-        availableCardsForActors: CardWithPosition[];
+        availableCardsForActors?: CardWithPosition[];
     }>();
 
     // State variables
@@ -38,7 +38,7 @@
     let selectedExistingActorId = $state('');
     
     // New actor creation state
-    let selectedCardId = $state<string>(availableCardsForActors.length > 0 ? availableCardsForActors[0].card_id : '');
+    let selectedCardId = $state<string>('');
     let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
     let customName = $state<string>('');
     
@@ -230,6 +230,13 @@
         // Load user actors if the user is logged in
         if ($userStore.user) {
             loadUserActors();
+        }
+    });
+    
+    // Set the selectedCardId when availableCardsForActors changes
+    $effect(() => {
+        if (availableCardsForActors.length > 0 && !selectedCardId) {
+            selectedCardId = availableCardsForActors[0].card_id;
         }
     });
 </script>
