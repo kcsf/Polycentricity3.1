@@ -376,7 +376,7 @@
                         <div class="card p-5 bg-surface-200-700-token/30 rounded-lg">
                             {#if game.status === GameStatus.ACTIVE && !isFull}
                                 <!-- Use the reusable ActorSelector component -->
-                                <ActorSelector {gameId} {game} />
+                                <ActorSelector {gameId} {game} availableCardsForActors={availableCardsForActors} />
                             {:else if game.status === GameStatus.ACTIVE && isFull}
                                 <div class="flex flex-col justify-center items-center space-y-4">
                                     <p class="mb-4 text-sm text-warning-500">

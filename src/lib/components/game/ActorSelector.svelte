@@ -1,32 +1,33 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { userStore } from '$lib/stores/userStore';
-    import { currentGameStore } from '$lib/stores/gameStore';
     import { goto } from '$app/navigation';
     import * as icons from '@lucide/svelte';
     import { 
-        getGame, 
-        getAvailableCardsForGame, 
         createActor, 
         joinGame, 
         assignRole, 
         updatePlayerActorMap, 
         updateGameStatus,
         getUserActors,
-        getGameActors,
         getCard
     } from '$lib/services/gameService';
+    import { currentGameStore } from '$lib/stores/gameStore';
+    import { userStore } from '$lib/stores/userStore';
     import type { Actor, Card, CardWithPosition, Game } from '$lib/types';
     import { GameStatus } from '$lib/types';
 
-    // Props using Svelte 5 Runes syntax
-    const { gameId, game = null } = $props<{
+    // Props using Svelte 5 Runes syntax - using data from parent
+    const { 
+        gameId, 
+        game, 
+        availableCardsForActors = [] 
+    } = $props<{
         gameId: string;
-        game?: Game | null;
+        game: Game;
+        availableCardsForActors: CardWithPosition[];
     }>();
 
-    // State variables (using Svelte 5 Runes syntax)
-    let isLoading = $state(true);
+    // State variables
+    let isLoading = $state(false);
     let isJoining = $state(false);
     let errorMessage = $state('');
     
@@ -37,25 +38,22 @@
     let selectedExistingActorId = $state('');
     
     // New actor creation state
-    let availableCards = $state<CardWithPosition[]>([]);
-    let selectedCardId = $state('');
+    let selectedCardId = $state<string>(availableCardsForActors.length > 0 ? availableCardsForActors[0].card_id : '');
     let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
-    let customName = $state('');
+    let customName = $state<string>('');
     
-    // Tab state
+    // Tab state - default to 'create-new' initially
     let activeTab = $state<'join-existing' | 'create-new'>('create-new');
     
     // Function to check if user has already joined the game
-    async function checkUserJoined(): Promise<boolean> {
-        // Use a local variable to avoid modifying the immutable prop
-        let gameData = game;
-        if (!gameData || !$userStore.user) return false;
+    function checkUserJoined(): boolean {
+        if (!game || !$userStore.user) return false;
         
         const userId = $userStore.user.user_id;
-        return !!gameData.players[userId];
+        return !!game.players[userId];
     }
     
-    // Function to load user's existing actors
+    // Load user's existing actors
     async function loadUserActors() {
         if (!$userStore.user) return;
         
@@ -81,7 +79,14 @@
             userActorsWithCards = actorsWithCards;
             
             // Filter actors that could be assigned to this game
-            filterActorsForGame();
+            filteredActors = userActorsWithCards.filter(({ actor, card }) => 
+                // Actor isn't already in this game
+                actor.game_ref !== gameId &&
+                // Card matches the game's deck type (optional check)
+                (game?.deck_type ? 
+                    card?.card_category.toLowerCase().includes(game.deck_type.toLowerCase()) : 
+                    true)
+            );
             
             // Set default selection if available
             if (filteredActors.length > 0) {
@@ -95,43 +100,6 @@
         } catch (err) {
             console.error('Error loading user actors:', err);
             errorMessage = 'Failed to load your existing actors';
-        }
-    }
-    
-    // Filter actors that can be assigned to this game 
-    // (not already in this game and right actor type)
-    function filterActorsForGame() {
-        // Use a local variable to avoid modifying the immutable prop
-        let gameData = game;
-        
-        filteredActors = userActorsWithCards.filter(({ actor, card }) => 
-            // Actor isn't already in this game
-            actor.game_ref !== gameId &&
-            // Card matches the game's deck type (optional check)
-            (gameData?.deck_type ? 
-                card?.card_category.toLowerCase().includes(gameData.deck_type.toLowerCase()) : 
-                true)
-        );
-    }
-    
-    // Load available cards that can be used to create new actors
-    async function loadAvailableCards() {
-        if (!gameId) return;
-        
-        try {
-            // Use the getAvailableCardsForGame function with includeNames=true
-            const cards = await getAvailableCardsForGame(gameId, true);
-            availableCards = cards;
-            
-            // Set the first card as selected by default if available
-            if (cards.length > 0) {
-                selectedCardId = cards[0].card_id;
-            }
-            
-            console.log(`Loaded ${availableCards.length} available cards for actor creation`);
-        } catch (err) {
-            console.error('Error loading available cards:', err);
-            errorMessage = 'Failed to load available cards';
         }
     }
     
@@ -177,9 +145,7 @@
             localStorage.setItem(`game_${gameId}_actor`, selectedExistingActorId);
             
             // Set the current game in the store for navigation
-            if (gameData) {
-                currentGameStore.set(gameData);
-            }
+            currentGameStore.set(game);
             
             // Navigate to the game board
             goto(`/games/${gameId}`);
@@ -235,9 +201,7 @@
             }
             
             // Set the current game in the store for the navigation system
-            if (gameData) {
-                currentGameStore.set(gameData);
-            }
+            currentGameStore.set(game);
             
             // Navigate directly to the game board
             goto(`/games/${gameId}`);
@@ -254,48 +218,18 @@
         return `${card.role_title || 'Card'} ${card.card_category ? `(${card.card_category})` : ''}`;
     }
     
-    // We need gameData to be accessible through the component
-    let gameData = $state<Game | null>(null);
-    
-    // Initialize everything when the component mounts
-    onMount(async () => {
-        try {
-            isLoading = true;
-            
-            if (!gameId) {
-                errorMessage = 'Game ID not provided';
-                return;
-            }
-            
-            // Load game if not provided
-            gameData = game;
-            if (!gameData) {
-                gameData = await getGame(gameId);
-                if (!gameData) {
-                    errorMessage = 'Game not found';
-                    return;
-                }
-            }
-            
-            // Check if user already joined the game
-            const hasJoined = await checkUserJoined();
-            if (hasJoined) {
-                // User already joined, just navigate to the game
-                goto(`/games/${gameId}`);
-                return;
-            }
-            
-            // Load existing user actors and available cards in parallel
-            await Promise.all([
-                loadUserActors(),
-                loadAvailableCards()
-            ]);
-            
-        } catch (err) {
-            console.error('Error initializing ActorSelector:', err);
-            errorMessage = 'Failed to initialize game join interface';
-        } finally {
-            isLoading = false;
+    // Check if user has already joined and load existing actors
+    $effect(() => {
+        const hasJoined = checkUserJoined();
+        if (hasJoined) {
+            // User already joined, just navigate to the game
+            goto(`/games/${gameId}`);
+            return;
+        }
+        
+        // Load user actors if the user is logged in
+        if ($userStore.user) {
+            loadUserActors();
         }
     });
 </script>
@@ -327,7 +261,7 @@
                 View Game as Guest
             </button>
         </div>
-    {:else if availableCards.length === 0 && filteredActors.length === 0}
+    {:else if availableCardsForActors.length === 0 && filteredActors.length === 0}
         <div class="flex flex-col justify-center items-center space-y-4">
             <div class="p-4 bg-warning-500/10 rounded-lg text-center">
                 <h4 class="font-semibold text-warning-500 mb-2">No Available Options</h4>
@@ -358,7 +292,7 @@
                     </button>
                 {/if}
                 
-                {#if availableCards.length > 0}
+                {#if availableCardsForActors.length > 0}
                     <button 
                         class="px-4 py-2 font-medium text-sm border-b-2 transition-colors duration-150 
                             {activeTab === 'create-new' ? 
@@ -429,7 +363,7 @@
                     </button>
                 </div>
             </div>
-        {:else if activeTab === 'create-new' && availableCards.length > 0}
+        {:else if activeTab === 'create-new' && availableCardsForActors.length > 0}
             <div class="space-y-4">
                 <label class="label pb-1 border-b border-surface-500/30">
                     <span class="font-semibold text-tertiary-400">Select Identity Type</span>
@@ -452,7 +386,7 @@
                 <label class="label pb-1 border-b border-surface-500/30">
                     <span class="font-semibold text-tertiary-400">Choose Your Card</span>
                     <select class="select mt-1 w-full" bind:value={selectedCardId}>
-                        {#each availableCards as card}
+                        {#each availableCardsForActors as card}
                             <option value={card.card_id}>
                                 {formatCardTitle(card)}
                             </option>
@@ -461,8 +395,8 @@
                 </label>
                 
                 <!-- Card preview -->
-                {#if selectedCardId && availableCards.length > 0}
-                    {#each availableCards.filter(card => card.card_id === selectedCardId) as selectedCard}
+                {#if selectedCardId && availableCardsForActors.length > 0}
+                    {#each availableCardsForActors.filter(card => card.card_id === selectedCardId) as selectedCard}
                         <div class="card p-4 bg-primary-900/20 mt-3">
                             <h3 class="h3 text-primary-400">{selectedCard.role_title || 'Unnamed Role'}</h3>
                             <div class="badge variant-soft-secondary">{selectedCard.card_category || 'Uncategorized'}</div>
