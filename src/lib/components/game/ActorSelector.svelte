@@ -19,9 +19,11 @@
     import type { Actor, Card, CardWithPosition, Game } from '$lib/types';
     import { GameStatus } from '$lib/types';
 
-    // Props
-    export let gameId: string;
-    export let game: Game | null = null;
+    // Props using Svelte 5 Runes syntax
+    const { gameId, game = null } = $props<{
+        gameId: string;
+        game?: Game | null;
+    }>();
 
     // State variables (using Svelte 5 Runes syntax)
     let isLoading = $state(true);
@@ -45,10 +47,12 @@
     
     // Function to check if user has already joined the game
     async function checkUserJoined(): Promise<boolean> {
-        if (!game || !$userStore.user) return false;
+        // Use a local variable to avoid modifying the immutable prop
+        let gameData = game;
+        if (!gameData || !$userStore.user) return false;
         
         const userId = $userStore.user.user_id;
-        return !!game.players[userId];
+        return !!gameData.players[userId];
     }
     
     // Function to load user's existing actors
@@ -97,12 +101,15 @@
     // Filter actors that can be assigned to this game 
     // (not already in this game and right actor type)
     function filterActorsForGame() {
+        // Use a local variable to avoid modifying the immutable prop
+        let gameData = game;
+        
         filteredActors = userActorsWithCards.filter(({ actor, card }) => 
             // Actor isn't already in this game
             actor.game_ref !== gameId &&
             // Card matches the game's deck type (optional check)
-            (game?.deck_type ? 
-                card?.card_category.toLowerCase().includes(game.deck_type.toLowerCase()) : 
+            (gameData?.deck_type ? 
+                card?.card_category.toLowerCase().includes(gameData.deck_type.toLowerCase()) : 
                 true)
         );
     }
@@ -170,8 +177,8 @@
             localStorage.setItem(`game_${gameId}_actor`, selectedExistingActorId);
             
             // Set the current game in the store for navigation
-            if (game) {
-                currentGameStore.set(game);
+            if (gameData) {
+                currentGameStore.set(gameData);
             }
             
             // Navigate to the game board
@@ -228,8 +235,8 @@
             }
             
             // Set the current game in the store for the navigation system
-            if (game) {
-                currentGameStore.set(game);
+            if (gameData) {
+                currentGameStore.set(gameData);
             }
             
             // Navigate directly to the game board
@@ -247,6 +254,9 @@
         return `${card.role_title || 'Card'} ${card.card_category ? `(${card.card_category})` : ''}`;
     }
     
+    // We need gameData to be accessible through the component
+    let gameData = $state<Game | null>(null);
+    
     // Initialize everything when the component mounts
     onMount(async () => {
         try {
@@ -258,9 +268,10 @@
             }
             
             // Load game if not provided
-            if (!game) {
-                game = await getGame(gameId);
-                if (!game) {
+            gameData = game;
+            if (!gameData) {
+                gameData = await getGame(gameId);
+                if (!gameData) {
                     errorMessage = 'Game not found';
                     return;
                 }
