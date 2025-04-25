@@ -232,16 +232,21 @@
     
     // Check if user has already joined and load existing actors
     $effect(() => {
-        const hasJoined = checkUserJoined();
-        if (hasJoined) {
-            // User already joined, just navigate to the game
-            goto(`/games/${gameId}`);
-            return;
-        }
-        
-        // Load user actors if the user is logged in
-        if ($userStore.user) {
-            loadUserActors();
+        try {
+            const hasJoined = checkUserJoined();
+            if (hasJoined) {
+                // User already joined, just navigate to the game
+                goto(`/games/${gameId}`);
+                return;
+            }
+            
+            // Load user actors if the user is logged in
+            if ($userStore.user) {
+                loadUserActors();
+            }
+        } catch (err) {
+            console.error('Error checking user joined status:', err);
+            errorMessage = 'Failed to verify game status';
         }
     });
     
@@ -249,6 +254,8 @@
     $effect(() => {
         if (availableCardsForActors.length > 0 && !selectedCardId) {
             selectedCardId = availableCardsForActors[0].card_id;
+        } else if (availableCardsForActors.length === 0 && filteredActors.length === 0 && !errorMessage) {
+            errorMessage = 'No available cards or actors found';
         }
     });
 </script>

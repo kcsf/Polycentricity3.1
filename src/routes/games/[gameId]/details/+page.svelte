@@ -79,8 +79,14 @@
                 availableCardsForActors = availableCardObjects;
                 
                 console.log(`Retrieved ${availableCardObjects.length} available cards with names included`);
+                
+                // Check if there are no cards and no actors
+                if (!availableCardObjects.length && !actors.length) {
+                    errorMessage = 'No available cards or actors found for this game';
+                }
             } catch (error) {
                 console.error('Error loading available cards:', error);
+                errorMessage = 'Failed to load available cards for this game';
             }
             
             // Determine if game is full based on players count and max_players
@@ -92,27 +98,42 @@
             isFull = maxPlayers ? playerCount >= maxPlayers : false;
             
             // Load card-actor mappings using Promise.all for better performance
-            const mappings = await Promise.all(
-                actors.map(async (actor) => {
-                    if (!actor.card_ref) return null;
-                    try {
-                        const card = await getCard(actor.card_ref, true); // Cached call
-                        return card ? {
-                            actorId: actor.actor_id,
-                            actorName: actor.custom_name || '',
-                            actorType: actor.actor_type || '',
-                            userRef: actor.user_ref || '',
-                            cardId: card.card_id,
-                            cardTitle: card.role_title || card.name || ''
-                        } : null;
-                    } catch (err) {
-                        console.error(`Error loading card ${actor.card_ref} for actor ${actor.actor_id}:`, err);
-                        return null;
+            try {
+                const mappings = await Promise.all(
+                    actors.map(async (actor) => {
+                        if (!actor.card_ref) return null;
+                        try {
+                            const card = await getCard(actor.card_ref, true); // Cached call
+                            return card ? {
+                                actorId: actor.actor_id,
+                                actorName: actor.custom_name || '',
+                                actorType: actor.actor_type || '',
+                                userRef: actor.user_ref || '',
+                                cardId: card.card_id,
+                                cardTitle: card.role_title || card.name || ''
+                            } : null;
+                        } catch (err) {
+                            console.error(`Error loading card ${actor.card_ref} for actor ${actor.actor_id}:`, err);
+                            return null;
+                        }
+                    })
+                );
+                
+                cardActorMappings = mappings.filter(Boolean);
+                
+                // Show warning if some mappings failed
+                const failedMappings = actors.length - mappings.filter(Boolean).length;
+                if (failedMappings > 0) {
+                    console.warn(`Failed to load card data for ${failedMappings} actor(s)`);
+                    // Only set error if there's no other error and no successful mappings
+                    if (!errorMessage && cardActorMappings.length === 0) {
+                        errorMessage = 'Failed to load card data for all actors';
                     }
-                })
-            );
-            
-            cardActorMappings = mappings.filter(Boolean);
+                }
+            } catch (err) {
+                console.error('Error loading card-actor mappings:', err);
+                errorMessage = errorMessage || 'Failed to load actor information';
+            }
             
             // Log card counts for debugging
             console.log(`Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
@@ -136,60 +157,7 @@
     
     // No custom loadAvailableCards function needed - we get all data from GameContext
     
-    // Function to handle actor creation
-    async function handleCreateActor(cardInfo: {
-        selectedCardId: string;
-        actorType: 'National Identity' | 'Sovereign Identity';
-        customName: string;
-    }) {
-        try {
-            if (!$userStore.user) {
-                errorMessage = 'You must be logged in to create an actor';
-                return;
-            }
-            
-            if (!cardInfo.selectedCardId) {
-                errorMessage = 'Please select a card';
-                return;
-            }
-            
-            errorMessage = '';
-            
-            const newActor = await createActor(
-                gameId,
-                cardInfo.selectedCardId,
-                cardInfo.actorType,
-                cardInfo.customName || undefined
-            );
-            
-            if (!newActor) {
-                throw new Error('Actor creation failed - no actor ID returned');
-            }
-            
-            console.log(`Actor created successfully: ${newActor.actor_id}`);
-            
-            // Update game status to active
-            await updateGameStatus(gameId, GameStatus.ACTIVE);
-            
-            // Join the game and assign the actor to the user
-            const joinSuccess = await joinGame(gameId);
-            if (joinSuccess && $userStore.user?.user_id) {
-                await assignRole(gameId, $userStore.user.user_id, newActor.actor_id);
-                await updatePlayerActorMap(gameId, $userStore.user.user_id, newActor.actor_id);
-            }
-            
-            // Set the current game in the store for the navigation system
-            if (game) {
-                currentGameStore.set(game);
-            }
-            
-            // Navigate directly to the game board
-            viewGame();
-        } catch (err) {
-            console.error('Error creating actor:', err);
-            errorMessage = 'Failed to create actor';
-        }
-    }
+    // No custom handleCreateActor function needed - this is now handled in ActorSelector component
     
     // Format card title for display
     function formatCardTitle(card: Card): string {
@@ -361,7 +329,7 @@
                                     {gameId} 
                                     {game} 
                                     availableCardsForActors={availableCardsForActors}
-                                    onCreateActor={handleCreateActor} 
+                                    onGameEnter={viewGame}
                                 />
                             {:else if game.status === GameStatus.ACTIVE && isFull}
                                 <div class="flex flex-col justify-center items-center space-y-4">
