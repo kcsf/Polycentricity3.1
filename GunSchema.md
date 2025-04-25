@@ -119,6 +119,7 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
     actors_ref: Record<string, boolean>; // e.g., { actor_1: true }
     agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }
     chat_rooms_ref: Record<string, boolean>; // e.g., { chat_g_456: true }
+    role_assignment_type?: 'player-choice' | 'random';
   }
   ```
 - **Edges**:

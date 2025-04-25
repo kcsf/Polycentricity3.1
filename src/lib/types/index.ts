@@ -87,6 +87,7 @@ export interface Game {
     creator_ref: string; // e.g., 'u_838'
     deck_ref: string; // e.g., 'd1'
     deck_type: string; // e.g., 'eco-village'
+    role_assignment_type?: "player-choice" | "random";
     status: GameStatus; // e.g., 'active'
     created_at: number;
     updated_at?: number;

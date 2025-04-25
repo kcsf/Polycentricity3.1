@@ -168,9 +168,6 @@
             
             console.log(`Actor created successfully: ${newActor.actor_id}`);
             
-            // Store actor ID in localStorage
-            localStorage.setItem(`game_${gameId}_actor`, newActor.actor_id);
-            
             // Update game status to active
             await updateGameStatus(gameId, GameStatus.ACTIVE);
             
