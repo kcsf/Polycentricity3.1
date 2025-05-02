@@ -70,6 +70,7 @@
             usedCards = ctx.usedCards;
             availableCardsForActors = ctx.availableCards;
             availableCardsCount = ctx.availableCardsCount;
+            actors = ctx.actors; // Missing assignment
             // Log card counts for debugging
             console.log(`[GameDetailsPage] Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
             console.log(`[GameDetailsPage] Available Cards:`, availableCardsForActors);
@@ -99,6 +100,7 @@
                 usedCards = ctx.usedCards;
                 availableCardsForActors = ctx.availableCards;
                 availableCardsCount = ctx.availableCardsCount;
+                actors = ctx.actors; // Missing assignment
                 const max = typeof game.max_players === 'string'
                     ? parseInt(game.max_players, 10)
                     : game.max_players;
