@@ -112,46 +112,5 @@
     {/if}
   </div>
   
-  <!-- Graph Visualization Tools Section -->
-  <div class="card p-4 bg-surface-50-900 rounded-container-token">
-    <h3 class="h4 mb-4 flex items-center">
-      {icons.Network && icons.Network({ class: "w-5 h-5 mr-2 text-primary-500" })}
-      Graph Visualization Tools
-    </h3>
-    
-    <p class="mb-4 text-surface-900-50">
-      These tools help manage the relationships between entities in the graph visualization.
-    </p>
-    
-    <button 
-      class="btn bg-primary-500 hover:bg-primary-600 text-white w-full sm:w-auto" 
-      onclick={fixGameGraphRelationships}
-      disabled={isFixingGames}
-    >
-      {#if isFixingGames}
-        <div class="spinner-third w-4 h-4 mr-2"></div>
-        Fixing Game Relationships...
-      {:else}
-        {icons.GitMerge && icons.GitMerge({ class: "w-4 h-4 mr-2" })}
-        Fix Game Relationships
-      {/if}
-    </button>
-    
-    <p class="text-xs text-surface-600-300 mt-2">
-      This will create missing graph relationships for all games, allowing them to appear correctly in the visualization.
-    </p>
-    
-    {#if gameFixResult}
-      <div class="alert {gameFixResult.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mt-4 rounded-container-token">
-        {gameFixResult.success 
-          ? (icons.CheckCircle && icons.CheckCircle({ class: "w-5 h-5" }))
-          : (icons.AlertTriangle && icons.AlertTriangle({ class: "w-5 h-5" }))
-        }
-        <div class="alert-message">
-          <h4 class="h5">{gameFixResult.success ? 'Success' : 'Error'}</h4>
-          <p>{gameFixResult.message}</p>
-        </div>
-      </div>
-    {/if}
-  </div>
+
 </div>
