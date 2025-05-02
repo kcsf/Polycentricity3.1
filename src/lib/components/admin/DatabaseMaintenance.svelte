@@ -4,12 +4,9 @@
   AlertTriangle, 
   CheckCircle, 
   Database, 
-  FileText, 
   FilePen, 
   HardDrive, 
   Network, 
-  RefreshCw, 
-  RefreshCcw,
   Shield, 
   Radiation,
   Trash2,
@@ -20,17 +17,8 @@
 } from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import AdminTools from './AdminTools.svelte';
-  import { initializeBidirectionalRelationships } from '$lib/services/deckService';
   import { getGun, nodes } from '$lib/services/gunService';
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
-  
-  // Using $state() for reactivity
-  let isLoading = $state(false);
-  let error = $state<string | null>(null);
-  let success = $state(false);
-  let result = $state<{ success: boolean; processed: number } | null>(null);
-  
-
   
   // Sample data initialization variables
   let isInitializingSample = $state(false);
@@ -40,138 +28,6 @@
   
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state([]);
-  
-  async function initializeRelationships() {
-    isLoading = true;
-    error = null;
-    success = false;
-    
-    try {
-      console.log('Starting initialization of bidirectional relationships');
-      result = await initializeBidirectionalRelationships();
-      console.log('Initialization complete', result);
-      success = result.success;
-      
-      // Refresh the statistics after initialization
-      if (success) {
-        await getRelationshipStats();
-      }
-    } catch (err) {
-      console.error('Error initializing relationships:', err);
-      error = err instanceof Error ? err.message : 'An unknown error occurred';
-    } finally {
-      isLoading = false;
-    }
-  }
-  
-  let relationshipStats = $state({
-    cardsWithDecks: 0,
-    decksWithCards: 0,
-    cards: 0,
-    decks: 0
-  });
-  
-  async function getRelationshipStats() {
-    try {
-      const gun = getGun();
-      let cardsWithDecks = 0;
-      let cards = 0;
-      let decks = 0;
-      let decksWithCards = 0;
-      
-      console.log('Getting relationship statistics...');
-      
-      // Count cards
-      await new Promise<void>(resolve => {
-        gun.get(nodes.cards).map().once((cardData, cardId) => {
-          if (!cardData) return;
-          
-          cards++;
-          console.log(`Processing card ${cardId}`, cardData);
-          
-          // Check if card has decks and the decks property is an object
-          if (cardData.decks) {
-            if (typeof cardData.decks === 'object') {
-              // Handle direct object format
-              if (!cardData.decks['#']) {
-                const deckCount = Object.keys(cardData.decks).length;
-                if (deckCount > 0) {
-                  cardsWithDecks++;
-                  console.log(`Card ${cardId} has ${deckCount} decks`);
-                }
-              } 
-              // Handle Gun.js reference format
-              else {
-                console.log(`Card ${cardId} has decks reference: ${cardData.decks['#']}`);
-                cardsWithDecks++; // Assume it has at least one deck if there's a reference
-              }
-            } 
-            // Handle array format (though this should be rare with Gun.js)
-            else if (Array.isArray(cardData.decks) && cardData.decks.length > 0) {
-              cardsWithDecks++;
-              console.log(`Card ${cardId} has ${cardData.decks.length} decks (array format)`);
-            }
-          }
-        });
-        
-        // Give it a moment to fetch data before resolving
-        setTimeout(resolve, 1000);
-      });
-      
-      // Count decks
-      await new Promise<void>(resolve => {
-        gun.get(nodes.decks).map().once((deckData, deckId) => {
-          if (!deckData) return;
-          
-          decks++;
-          console.log(`Processing deck ${deckId}`, deckData);
-          
-          // Check if deck has cards and the cards property is an object or array
-          if (deckData.cards) {
-            if (typeof deckData.cards === 'object') {
-              // Handle direct object format
-              if (!deckData.cards['#']) {
-                const cardCount = Object.keys(deckData.cards).length;
-                if (cardCount > 0) {
-                  decksWithCards++;
-                  console.log(`Deck ${deckId} has ${cardCount} cards`);
-                }
-              } 
-              // Handle Gun.js reference format
-              else {
-                console.log(`Deck ${deckId} has cards reference: ${deckData.cards['#']}`);
-                decksWithCards++; // Assume it has at least one card if there's a reference
-              }
-            } 
-            // Handle array format (though this should be rare with Gun.js)
-            else if (Array.isArray(deckData.cards) && deckData.cards.length > 0) {
-              decksWithCards++;
-              console.log(`Deck ${deckId} has ${deckData.cards.length} cards (array format)`);
-            }
-          }
-        });
-        
-        // Give it a moment to fetch data before resolving
-        setTimeout(resolve, 1000);
-      });
-      
-      console.log('Relationship statistics gathered:', {
-        cards,
-        cardsWithDecks,
-        decks,
-        decksWithCards
-      });
-      
-      relationshipStats = {
-        cardsWithDecks,
-        decksWithCards,
-        cards,
-        decks
-      };
-    } catch (err) {
-      console.error('Error getting relationship statistics:', err);
-    }
-  }
   
   // Cleanup functions
   import { 
@@ -226,8 +82,6 @@
       console.log('Decks cleanup complete', cleanupResult);
       cleanupSuccess = cleanupResult.success;
       
-      // Refresh statistics after cleanup
-      await getRelationshipStats();
     } catch (err) {
       console.error('Error cleaning up decks:', err);
       cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -251,8 +105,6 @@
       console.log('Cards cleanup complete', cleanupResult);
       cleanupSuccess = cleanupResult.success;
       
-      // Refresh statistics after cleanup
-      await getRelationshipStats();
     } catch (err) {
       console.error('Error cleaning up cards:', err);
       cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -354,9 +206,6 @@
       console.log('Card enhancement complete', cardEnhanceResult);
       cardEnhanceSuccess = cardEnhanceResult.success;
       
-      // Refresh statistics after enhancement
-      await getRelationshipStats();
-      
       // Dispatch a custom event for parent components
       dispatch('cardsEnhanced', cardEnhanceResult);
     } catch (err) {
@@ -382,9 +231,6 @@
       sampleDataResult = await initializeSampleData();
       console.log('Sample data initialization complete', sampleDataResult);
       sampleDataSuccess = sampleDataResult.success;
-      
-      // Refresh statistics after initialization
-      await getRelationshipStats();
       
       // Dispatch a custom event for parent components
       dispatch('sampleDataInitialized', sampleDataResult);
