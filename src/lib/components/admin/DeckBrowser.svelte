@@ -2,9 +2,8 @@
   import { onMount } from 'svelte';
   import * as icons from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
-  import { getCollection, nodes } from '$lib/services/gunService';
-  import { getCard } from '$lib/services/gameService';
-  import type { Deck, CardWithPosition } from '$lib/types';
+  import { get, getCollection, nodes } from '$lib/services/gunService';
+  import type { Deck, Card, CardWithPosition, Value, Capability } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
 
@@ -41,6 +40,23 @@
     }
   }
 
+  // Helper to format raw value/capability IDs into human names (from original getCard)
+  function getCardNames(
+    ref: Record<string, boolean> | undefined,
+    prefix: "value_" | "cap_",
+  ): string[] {
+    if (!ref) return [];
+    return Object.keys(ref)
+      .filter((key) => key !== "_" && ref[key] && key.startsWith(prefix))
+      .map((key) =>
+        key
+          .replace(prefix, "")
+          .split(/[-_]/)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" "),
+      );
+  }
+
   // Load cards for a specific deck using cards_ref
   async function loadDeckCards(deckId: string) {
     isLoading = true;
@@ -50,18 +66,18 @@
     console.log(`[DeckBrowser] Loading cards for deck ${deckId}...`);
 
     try {
-      // find our deck in the local store
+      // Find our deck in the local store
       const deck = decks.find(d => d.deck_id === deckId);
       if (!deck) {
         throw new Error(`Deck ${deckId} not found`);
       }
       console.log('[DeckBrowser] Deck details:', { id: deck.deck_id, name: deck.name });
 
-      // pull the flat list of pointers under decks/<deckId>/cards_ref
+      // Pull the flat list of pointers under decks/<deckId>/cards_ref
       const cardRefs = await getCollection<{ id: string }>(
         `${nodes.decks}/${deckId}/cards_ref`
       );
-      // filter to only clean card IDs (e.g. "card_1", "card_2", etc.)
+      // Filter to only clean card IDs (e.g. "card_1", "card_2", etc.)
       const cardIds = cardRefs
         .map(r => r.id)
         .filter(id => /^card_\d+$/.test(id));
@@ -76,17 +92,42 @@
         error = `No cards found for deck ${deckId}. Please verify the deck's card references in the database.`;
       }
 
-      // now load each card with its value & capability names
+      // Load each card with its value & capability names
       const loadedCards = await Promise.all(
         cardIds.map(async (cardId) => {
           try {
-            const card = await getCard(cardId, true);
+            const card = await get<Card>(`${nodes.cards}/${cardId}`);
             if (card) {
+              // Fetch values_ref and capabilities_ref
+              const values = await getCollection<Value>(`${nodes.cards}/${cardId}/values_ref`);
+              const capabilities = await getCollection<Capability>(`${nodes.cards}/${cardId}/capabilities_ref`);
+
+              const flatValues: Record<string, boolean> = {};
+              values.forEach(v => {
+                const vid = v.value_id || v.id;
+                if (vid) flatValues[vid] = true;
+              });
+
+              const flatCaps: Record<string, boolean> = {};
+              capabilities.forEach(c => {
+                const cid = c.capability_id || c.id;
+                if (cid) flatCaps[cid] = true;
+              });
+
+              const cardWithPosition: CardWithPosition = {
+                ...card,
+                values_ref: flatValues,
+                capabilities_ref: flatCaps,
+                position: { x: 0, y: 0 },
+                _valueNames: getCardNames(flatValues, "value_"),
+                _capabilityNames: getCardNames(flatCaps, "cap_"),
+              };
+
               console.log(
                 `[DeckBrowser] Loaded card ${cardId} (${card.role_title})`,
-                { values: card._valueNames, capabilities: card._capabilityNames }
+                { values: cardWithPosition._valueNames, capabilities: cardWithPosition._capabilityNames }
               );
-              return card;
+              return cardWithPosition;
             }
             console.warn(`[DeckBrowser] Card ${cardId} not found`);
             return null;
@@ -97,7 +138,7 @@
         })
       );
 
-      // filter out any nulls and sort by card_number
+      // Filter out any nulls and sort by card_number
       cards = loadedCards
         .filter((c): c is CardWithPosition => c !== null)
         .sort((a, b) => a.card_number - b.card_number);
@@ -112,9 +153,6 @@
       isLoading = false;
     }
   }
-
-
-
 
   // Format goals for display (goals is already a string)
   function formatGoals(goals: string): string {
@@ -197,7 +235,7 @@
                   <option value="">No decks available</option>
                 {:else}
                   {#each decks as deck}
-                    <option value={deck.deck_id}>{deck.name}</option>
+                    <option value={deck.deck_id}>{deck.name || deck.deck_id}</option>
                   {/each}
                 {/if}
               </select>
