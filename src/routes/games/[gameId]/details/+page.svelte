@@ -6,6 +6,7 @@
         subscribeToGame,
         type GameContext
     } from '$lib/services/gameService';
+    import { getGun } from '$lib/services/gunService';
     import { userStore } from '$lib/stores/userStore';
     import type { Game, ActorWithCard, CardWithPosition } from '$lib/types';
     import { GameStatus } from '$lib/types';
@@ -49,6 +50,32 @@
         isLoading = true;
         errorMessage = '';
         console.log(`[GameDetailsPage] Loading context for ${gameId}`);
+        
+        // Direct lookup of actors for debugging
+        const gun = getGun();
+        if (gun) {
+            console.log(`[GameDetailsPage] Direct lookup of game data for ${gameId}`);
+            gun.get('games').get(gameId).once((data) => {
+                console.log(`[GameDetailsPage] Raw game data:`, data);
+                if (data && data.actors_ref) {
+                    console.log(`[GameDetailsPage] Raw actors_ref:`, data.actors_ref);
+                    
+                    // Extract actor IDs from boolean true values
+                    const directActorIds = Object.keys(data.actors_ref).filter(key => 
+                        data.actors_ref[key] === true
+                    );
+                    console.log(`[GameDetailsPage] Direct actor IDs:`, directActorIds);
+                    
+                    // Debug load of first actor
+                    if (directActorIds.length > 0) {
+                        gun.get('actors').get(directActorIds[0]).once((actorData) => {
+                            console.log(`[GameDetailsPage] First actor data:`, actorData);
+                        });
+                    }
+                }
+            });
+        }
+        
         const ctx: GameContext | null = await getGameContext(gameId);
         if (!ctx) {
             errorMessage = 'Game not found';
