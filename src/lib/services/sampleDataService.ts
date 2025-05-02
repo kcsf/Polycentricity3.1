@@ -9,7 +9,7 @@
  * Excludes chat rooms and messages
  ***************************************************************************************/
 
-import { getGun, nodes, put } from "./gunService";
+import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
 
 // Helper function to wait between Gun operations
 function delay(ms: number): Promise<void> {
@@ -72,7 +72,7 @@ async function robustPut(
             resolve(true);
           }
         });
-      setTimeout(() => resolve(true), 200);
+      setTimeout(() => resolve(true), 1000);
     } catch (error) {
       console.error(`[sampleData] Exception for ${path}/${key}:`, error);
       resolve(false);
@@ -91,9 +91,9 @@ async function saveBatch<T extends { [key: string]: any }>(
   console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
   for (const item of items) {
     await robustPut(nodePath, String(item[idField]), item);
-    await delay(10);
+    await delay(100);
   }
-  await delay(20);
+  await delay(200);
 }
 
 /**
@@ -674,12 +674,15 @@ export async function initializeSampleData() {
   await saveBatch(nodes.agreements, agreements, "agreement_id");
   await saveBatch(
     nodes.node_positions,
-    [...actorPositions, ...agreementPositions],
+    [...actorPositions, ...agreementPositions].map((pos) => ({
+      ...pos,
+      node_id: `${pos.game_ref}/${pos.node_id}`,
+    })),
     "node_id",
   );
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Now write all boolean‐map refs and denormalized parties exactly per schema:
+  // ----------------------------------------------------------------------
+  // Now write all boolean-map refs and denormalized parties exactly per schema:
 
   // Deck ↔ Card
   for (const c of cards) {
@@ -861,7 +864,7 @@ export async function verifySampleData() {
             count++;
           }
         });
-      setTimeout(() => resolve(count), 200);
+      setTimeout(() => resolve(count), 2000); // Increased timeout to ensure all nodes are counted
     });
   }
 
@@ -872,7 +875,7 @@ export async function verifySampleData() {
     } catch (error) {
       console.error(`[verify] Error counting ${nodeType}:`, error);
     }
-    await delay(10);
+    await delay(100);
   }
 
   return { success: true, message: "Verification done", counts };
@@ -915,7 +918,7 @@ export async function clearSampleData() {
               result[key] = null;
             }
           });
-        setTimeout(() => resolve(result), 200);
+        setTimeout(() => resolve(result), 1000);
       });
 
       for (const key of Object.keys(nodeData)) {
@@ -940,7 +943,7 @@ export async function clearSampleData() {
             });
         });
       }
-      await delay(10);
+      await delay(100);
     } catch (error) {
       console.error(`[clear] Error clearing ${nodeType}:`, error);
     }

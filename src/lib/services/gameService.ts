@@ -6,6 +6,7 @@ import {
   createRelationship,
   buildShardedPath,
   generateId,
+  get,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
@@ -24,18 +25,6 @@ import { GameStatus, AgreementStatus } from "$lib/types";
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers: read/write a single record from a collection
 // ─────────────────────────────────────────────────────────────────────────────
-async function getNode<T>(collection: string, id: string): Promise<T | null> {
-  const gun = getGun();
-  if (!gun) throw new Error("Gun not ready");
-  return new Promise((resolve) => {
-    gun
-      .get(collection)
-      .get(id)
-      .once((d: any) =>
-        resolve(d ? ({ ...d, _removeMe: undefined } as T) : null),
-      );
-  });
-}
 
 // Wrapper for putSigned with retry logic
 async function signedPutOrRetry<T>(
@@ -60,7 +49,7 @@ async function signedPutOrRetry<T>(
   });
 
   setTimeout(async () => {
-    const savedData = await getNode<T>(collection, id);
+    const savedData = await get<T>(`${collection}/${id}`);
     if (!savedData) {
       console.error(`Data at ${collection}/${id} not saved, retrying`);
       await putSigned(`${collection}/${id}`, data);
@@ -126,8 +115,8 @@ export async function createGame(
 }
 
 export async function getGame(gameId: string): Promise<Game | null> {
-  const data = await getNode<Omit<Game, "game_id">>(nodes.games, gameId);
-  return data ? ({ ...data, game_id: gameId } as Game) : null;
+  const data = await get<Game>(`${nodes.games}/${gameId}`);
+  return data ? { ...data, game_id: gameId } : null;
 }
 
 export async function getAllGames(): Promise<Game[]> {
@@ -253,7 +242,7 @@ export async function createAgreement(
 
   const partiesRecord: Record<string, any> = {};
   for (const actorId of parties) {
-    const actor = await getNode<Actor>(nodes.actors, actorId);
+    const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
     if (actor && actor.cards_by_game[gameId]) {
       partiesRecord[actorId] = {
         card_ref: actor.cards_by_game[gameId],
@@ -349,30 +338,73 @@ export async function getGameContext(
           } as Record<string, string>
         )[game.deck_type] || game.deck_type;
 
-      // 1) Actors and their cards
-      const rawActors = await getCollection<Actor>(nodes.actors);
+      // 1) Actors and their cards - Fetch explicitly using actors_ref
       const actors: ActorWithCard[] = [];
-      for (const a of rawActors.filter((x) => x.games_ref?.[gameId])) {
-        const pos = await getNode<NodePosition>(
-          buildShardedPath(nodes.node_positions, gameId, a.actor_id),
-        );
-        const cardId = a.cards_by_game[gameId];
-        let card: CardWithPosition | undefined;
-        if (cardId) {
-          const rawCard = await getNode<Card>(nodes.cards, cardId);
-          if (rawCard) {
-            card = { ...rawCard, position: randomPos() };
+      const actorRefs = game.actors_ref || {};
+      console.log(
+        `[GameService] Raw actor refs for game ${gameId}:`,
+        actorRefs,
+      );
+
+      // Extract actor IDs from both boolean values and nested objects
+      const actorIds = Object.keys(actorRefs)
+        .filter((key) => {
+          if (typeof actorRefs[key] === "boolean" && actorRefs[key])
+            return true;
+          if (typeof actorRefs[key] === "object" && key.startsWith("actors/"))
+            return true;
+          return false;
+        })
+        .map((key) => {
+          if (key.startsWith("actors/")) return key.split("/")[1];
+          return key;
+        });
+
+      console.log(
+        `[GameService] Extracted actor IDs for game ${gameId}:`,
+        actorIds,
+      );
+
+      for (const actorId of actorIds) {
+        const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
+        if (actor) {
+          const pos = await get<NodePosition>(
+            buildShardedPath(nodes.node_positions, gameId, actor.actor_id),
+          );
+          const cardId = actor.cards_by_game?.[gameId];
+          let card: CardWithPosition | undefined;
+          if (cardId) {
+            const rawCard = await get<Card>(`${nodes.cards}/${cardId}`);
+            if (rawCard) {
+              card = { ...rawCard, position: randomPos() };
+            }
           }
+          actors.push({ ...actor, card, position: pos || randomPos() });
         }
-        actors.push({ ...a, card, position: pos || randomPos() });
       }
+      console.log(`[GameService] Loaded actors for game ${gameId}:`, actors);
 
       // 2) Cards
-      const deck = await getNode<any>(nodes.decks, game.deck_ref);
-      const total = deck?.cards_ref ? Object.keys(deck.cards_ref).length : 0;
+      const deck = await get<any>(`${nodes.decks}/${game.deck_ref}`);
+      console.log(
+        `[GameService] Raw deck ${game.deck_ref} for game ${gameId}:`,
+        deck,
+      );
+
+      // Ensure deck.cards_ref is a flat object of card IDs
+      const deckCardsRef = deck?.cards_ref || {};
+      const cardIds = Object.keys(deckCardsRef).filter(
+        (key) => deckCardsRef[key] === true,
+      );
+      const total = cardIds.length;
+      console.log(`[GameService] Deck card IDs for game ${gameId}:`, cardIds);
+
       const used = actors.filter((a) => a.cards_by_game?.[gameId]).length;
-      const usedSet = new Set(actors.map((a) => a.cards_by_game![gameId]));
+      const usedSet = new Set(
+        actors.map((a) => a.cards_by_game?.[gameId]).filter(Boolean),
+      );
       const allCards = await getCollection<Card>(nodes.cards);
+      console.log(`[GameService] All cards:`, allCards);
       const availableCards = allCards
         .filter((c) => c.decks_ref?.[game.deck_ref] && !usedSet.has(c.card_id))
         .map((c) => ({ ...c, position: randomPos() }));
