@@ -323,10 +323,22 @@ export async function getGameContext(
     return _contextCache.get(gameId)!;
   }
 
-  const promise = (async (): Promise<GameContext | null> => {
+  const promise = new Promise<GameContext | null>(async (resolve) => {
     try {
+      // Direct lookup for game data to address gun.js reference issue
+      const gun = getGun();
+      if (!gun) {
+        console.error("[GameService] Gun not available");
+        resolve(null);
+        return;
+      }
+      
+      // Get the game with standard method
       const game = await getGame(gameId);
-      if (!game) return null;
+      if (!game) {
+        resolve(null);
+        return;
+      }
 
       // Compute deckName from game.deck_type
       const deckName =
@@ -340,30 +352,32 @@ export async function getGameContext(
 
       // 1) Actors and their cards - Fetch explicitly using actors_ref
       const actors: ActorWithCard[] = [];
-      const actorRefs = game.actors_ref || {};
-      console.log(
-        `[GameService] Raw actor refs for game ${gameId}:`,
-        actorRefs,
-      );
-
-      // Extract actor IDs from both boolean values and nested objects
-      const actorIds = Object.keys(actorRefs)
-        .filter((key) => {
-          if (typeof actorRefs[key] === "boolean" && actorRefs[key])
-            return true;
-          if (typeof actorRefs[key] === "object" && key.startsWith("actors/"))
-            return true;
-          return false;
-        })
-        .map((key) => {
-          if (key.startsWith("actors/")) return key.split("/")[1];
-          return key;
-        });
-
-      console.log(
-        `[GameService] Extracted actor IDs for game ${gameId}:`,
-        actorIds,
-      );
+      
+      // Direct fetching actor references since we have Gun reference issues
+      gun.get(`games/${gameId}/actors_ref`).once(async (actorRefs) => {
+        try {
+          if (!actorRefs) {
+            console.error(`[GameService] No actor refs found for game ${gameId}`);
+            resolve(null);
+            return;
+          }
+          
+          console.log(
+            `[GameService] Raw actor refs for game ${gameId}:`,
+            actorRefs,
+          );
+          
+          // Extract actor IDs from boolean true values
+          const actorIds = Object.keys(actorRefs).filter(key => 
+            !key.startsWith('_') && 
+            !key.startsWith('actors/') && 
+            actorRefs[key] === true
+          );
+          
+          console.log(
+            `[GameService] Extracted actor IDs for game ${gameId}:`,
+            actorIds,
+          );
 
       for (const actorId of actorIds) {
         const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
