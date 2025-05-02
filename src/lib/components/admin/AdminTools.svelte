@@ -1,6 +1,6 @@
 <script lang="ts">
   import { updateUserToAdmin } from '$lib/services/authService';
-  import * as icons from '@lucide/svelte';
+  import { ShieldCheck, UserCog, CheckCircle, XCircle } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   
   let isUpdating = $state(false);
@@ -68,7 +68,7 @@
   <!-- User Management Section -->
   <div class="card p-4 bg-surface-50-900 rounded-container-token">
     <h3 class="h4 mb-4 flex items-center">
-      {icons.UserCog && icons.UserCog({ class: "w-5 h-5 mr-2 text-primary-500" })}
+      <UserCog class="w-5 h-5 mr-2 text-primary-500" />
       Admin User Management
     </h3>
     
@@ -92,7 +92,7 @@
           <div class="spinner-third w-4 h-4 mr-2"></div>
           Updating...
         {:else}
-          {icons.ShieldCheck && icons.ShieldCheck({ class: "w-4 h-4 mr-2" })}
+          <ShieldCheck class="w-4 h-4 mr-2" />
           Make Admin
         {/if}
       </button>
@@ -100,10 +100,11 @@
     
     {#if result}
       <div class="alert {result.success ? 'bg-success-500 text-white' : 'bg-error-500 text-white'} mt-4 rounded-container-token">
-        {result.success 
-          ? (icons.CheckCircle && icons.CheckCircle({ class: "w-5 h-5" }))
-          : (icons.AlertTriangle && icons.AlertTriangle({ class: "w-5 h-5" }))
-        }
+        {#if result.success}
+          <CheckCircle class="w-5 h-5" />
+        {:else}
+          <XCircle class="w-5 h-5" />
+        {/if}
         <div class="alert-message">
           <h4 class="h5">{result.success ? 'Success' : 'Error'}</h4>
           <p>{result.message}</p>
