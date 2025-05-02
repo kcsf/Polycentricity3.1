@@ -9,8 +9,8 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
 - **SEA Preparation**: Reserves `users/<user_id>/pub` for SEA public keys; `creator_ref` fields anchor future ACLs.
 - **Pagination/Sharding**: Splits large boolean maps (e.g., `cards_ref`, `messages_ref`) into time- or page-based buckets.
 - **Debounced Updates**: Batches or debounces high-frequency writes (e.g., `node_positions`).
-- **Consistent ID Prefixes**: Uses uniform prefixes (`u_`, `g_`, `actor_`, `card_`, `ag_`, `chat_`, `msg_`, `value_`, `cap_`) for pattern-based code helpers.
-- **Type Safety**: Aligns with TypeScript interfaces, using enums for status fields.
+- **Consistent ID Prefixes**: Uses uniform prefixes (`u_`, `g_`, `actor_`, `card_`, `ag_`, `chat_`, `msg_`, `value_`, `cap_`) for pattern-based code helpers in sample data; `generateId` creates timestamp-based IDs without strict prefixes.
+- **Type Safety**: Aligns with TypeScript interfaces in `/types/index.ts`, using `_ref` for relationships and enums for status fields.
 
 ## Nodes and Edges
 
@@ -53,28 +53,29 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
 
 ### 2. Actors
 - **Path**: `actors/<actor_id>`
-- **Description**: Represents a user’s role in a game, linked to a Card.
+- **Description**: An individual Identity that a user owns and can bring into one or more Games. Each Actor may join multiple Games and, within each Game, is associated with a specific Card.
 - **Fields**:
   ```typescript
   {
-    actor_id: string; // e.g., 'actor_1'
-    user_ref: string | null; // e.g., 'u_838' or null if unassigned
-    game_ref: string; // e.g., 'g_456'
-    card_ref: string; // e.g., 'card_1'
-    actor_type: 'National Identity' | 'Sovereign Identity' | 'Farmer' | 'Funder' | 'Builder' | 'Organizer' | 'Technologist';
-    custom_name?: string; // e.g., 'Jobu'
-    status: 'active' | 'inactive';
-    agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }
-    created_at: number;
+    actor_id: string;                     // Unique Actor identifier, e.g., 'actor_1'
+    user_ref: string | null;              // Owning User ID, e.g., 'u_838' or null
+    games_ref: Record<string, boolean>;   // Games this Actor has joined, e.g., { g_456: true, g_789: true }
+    cards_by_game: Record<string, string>; // Card assignment per Game, e.g., { g_456: 'card_1', g_789: 'card_4' }
+    actor_type: 'National Identity' | 'Sovereign Identity';
+    custom_name?: string;                 // Optional display name, e.g., 'Jobu'
+    status: 'active' | 'inactive';        // Current participation state
+    agreements_ref: Record<string, boolean>; // Agreements this Actor is part of, e.g., { ag_1: true }
+    created_at: number;                   // Unix timestamp of creation
+    updated_at?: number;                  // Unix timestamp of last update
   }
   ```
 - **Edges**:
   - **Actors → User**: `actors/<actor_id>/user_ref: <user_id>`
     - Example: `actors/actor_1/user_ref: u_838`
-  - **Actors → Game**: `actors/<actor_id>/game_ref: <game_id>`
-    - Example: `actors/actor_1/game_ref: g_456`
-  - **Actors → Card**: `actors/<actor_id>/card_ref: <card_id>`
-    - Example: `actors/actor_1/card_ref: card_1`
+  - **Actors → Games**: `actors/<actor_id>/games_ref/<game_id>: true`
+    - Example: `actors/actor_1/games_ref/g_456: true`
+  - **Actors → Cards**: `actors/<actor_id>/cards_by_game/<game_id>: <card_id>`
+    - Example: `actors/actor_1/cards_by_game/g_456: card_1`
   - **Actors → Agreements**: `actors/<actor_id>/agreements_ref/<agreement_id>: true`
     - Example: `actors/actor_1/agreements_ref/ag_1: true`
   - **Games → Actors**: `games/<game_id>/actors_ref/<actor_id>: true`
@@ -84,16 +85,18 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
   await gun.get('actors').get(actorId).put({
     actor_id: actorId,
     user_ref: userId || null,
-    game_ref: gameId,
-    card_ref: cardId,
+    games_ref: { [gameId]: true }, // Add the game to games_ref
+    cards_by_game: { [gameId]: cardId }, // Assign the card for this game
     actor_type,
     custom_name,
     status: 'active',
     agreements_ref: {},
-    created_at: Date.now()
+    created_at: Date.now(),
+    updated_at: Date.now()
   });
-  await gun.get('games').get(gameId).get('actors_ref').get(actorId).put(true);
-  await gun.get('actors').get(actorId).get('agreements_ref').get(agreementId).put(true);
+  await gun.get('games').get(gameId).get('actors_ref').get(actorId).put(true); // Link Actor under the Game node
+  await gun.get('actors').get(actorId).get('cards_by_game').get(gameId).put(cardId); // Record the Card assignment for this Game
+  await gun.get('actors').get(actorId).get('agreements_ref').get(agreementId).put(true); // When joining an Agreement
   ```
 
 ### 3. Games
@@ -108,6 +111,7 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
     creator_ref: string; // e.g., 'u_838'
     deck_ref: string; // e.g., 'd1'
     deck_type: string; // e.g., 'eco-village'
+    role_assignment_type?: 'player-choice' | 'random';
     status: GameStatus; // e.g., 'active'
     created_at: number;
     updated_at?: number;
@@ -119,7 +123,6 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
     actors_ref: Record<string, boolean>; // e.g., { actor_1: true }
     agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }
     chat_rooms_ref: Record<string, boolean>; // e.g., { chat_g_456: true }
-    role_assignment_type?: 'player-choice' | 'random';
   }
   ```
 - **Edges**:
@@ -146,6 +149,7 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
     creator_ref: creatorId,
     deck_ref: deckId,
     deck_type: 'eco-village',
+    role_assignment_type: 'player-choice',
     status: 'active',
     created_at: Date.now(),
     players: { [creatorId]: true },
@@ -391,12 +395,28 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
     chat_id: string; // e.g., 'chat_g_456' or 'chat_private_u_838_u_123'
     game_ref?: string; // e.g., 'g_456' (required for group chats)
     type: 'group' | 'private';
-    participants_ref: Record<string, boolean>; // e.g., { u_838: true } (user_ids for private, actor_ids for group)
+    participants_ref: Record<string, boolean>; // e.g., { u_838: true } (user_ids for private chats, actor_ids for group chats linked via actors/<actor_id>/games_ref)
     messages_ref: Record<string, boolean>; // e.g., { day_20250421: true }
     created_at: number;
     last_message_at?: number;
   }
   ```
+- **Derived Types**:
+  - **GameChatRoom**: For group chats, requires `game_ref` and uses `actor_ids` in `participants_ref`.
+    ```typescript
+    interface GameChatRoom extends ChatRoom {
+      type: 'group';
+      game_ref: string; // Required
+      participants_ref: Record<string, boolean>; // actor_ids, e.g., { actor_1: true } (linked via actors/<actor_id>/games_ref)
+    }
+    ```
+  - **PrivateChatRoom**: For private chats, uses `user_ids` in `participants_ref`.
+    ```typescript
+    interface PrivateChatRoom extends ChatRoom {
+      type: 'private';
+      participants_ref: Record<string, boolean>; // user_ids, e.g., { u_838: true }
+    }
+    ```
 - **Edges**:
   - **ChatRooms → Game**: `chat_rooms/<chat_id>/game_ref: <game_id>`
     - Example: `chat_rooms/chat_g_456/game_ref: g_456`
@@ -519,13 +539,20 @@ For `D3CardBoard.svelte`:
     position: { x: number; y: number };
   }
   ```
+- **ActorWithCard**:
+  ```typescript
+  interface ActorWithCard extends Actor {
+    card?: CardWithPosition; // Card assigned in this game
+    position?: { x: number; y: number }; // Optional stored layout
+  }
+  ```
 - **D3Node**:
   ```typescript
   interface D3Node {
     id: string; // card_id, agreement_id, or actor_id
     name: string;
     type: 'card' | 'agreement' | 'actor';
-    data: Card | Agreement | Actor;
+    data: Card | Agreement | Actor | ActorWithCard; // For Actors or ActorWithCard, use data.cards_by_game[gameId] or data.card to get the Card for a specific Game
     x?: number;
     y?: number;
     fx?: number | null;
@@ -568,7 +595,7 @@ For `D3CardBoard.svelte`:
 
 ## Implementation Notes
 - **Top-Level Nodes**: Store at `users/<user_id>`, `games/<game_id>`, etc., avoiding nested structures.
-- **Simple IDs**: Use prefixes (`u_`, `g_`, `actor_`, `card_`, `ag_`, `chat_`, `msg_`, `value_`, `cap_`) with formats like `<prefix><increment>` or `<prefix><name>_<timestamp>`.
+- **Simple IDs**: Use prefixes (`u_`, `g_`, `actor_`, `card_`, `ag_`, `chat_`, `msg_`, `value_`, `cap_`) with formats like `<prefix><increment>` or `<prefix><name>_<timestamp>` in sample data; `generateId` creates timestamp-based IDs (e.g., `_${timestamp}_${random}`) without strict prefixes.
 - **Edges**: Use `_ref` fields for relationships (e.g., `creator_ref: u_838`) and `put` operations for child maps (e.g., `users/u_838/actors_ref/actor_1: true`).
 - **No Circular References**: Store IDs, not objects, in `_ref` fields to prevent `[Circular]` loops.
 - **SEA Integration**: Reserve `users/<user_id>/pub` for SEA public keys. Use `gun.user().create()/auth()` for authentication and sign writes with SEA. Optionally encrypt private chats with SEA.

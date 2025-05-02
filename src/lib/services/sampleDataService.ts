@@ -9,7 +9,7 @@
  * Excludes chat rooms and messages
  ***************************************************************************************/
 
-import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
+import { getGun, nodes, put } from "./gunService";
 
 // Helper function to wait between Gun operations
 function delay(ms: number): Promise<void> {
@@ -72,7 +72,7 @@ async function robustPut(
             resolve(true);
           }
         });
-      setTimeout(() => resolve(true), 1000);
+      setTimeout(() => resolve(true), 200);
     } catch (error) {
       console.error(`[sampleData] Exception for ${path}/${key}:`, error);
       resolve(false);
@@ -91,9 +91,9 @@ async function saveBatch<T extends { [key: string]: any }>(
   console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
   for (const item of items) {
     await robustPut(nodePath, String(item[idField]), item);
-    await delay(100);
+    await delay(10);
   }
-  await delay(200);
+  await delay(20);
 }
 
 /**
@@ -267,7 +267,7 @@ export async function initializeSampleData() {
         cap_crowdfunding_mgmt: true,
         cap_community_outreach: true,
       },
-      agreements_ref: { ag_3: true, ag_4: true },
+      agreements_ref: { ag_3: true, ag_4: true, ag_5: true },
       decks_ref: { d_1: true },
       created_at: now,
     },
@@ -293,7 +293,7 @@ export async function initializeSampleData() {
         cap_tech_scouting: true,
         cap_blockchain_integration: true,
       },
-      agreements_ref: { ag_4: true, ag_5: true },
+      agreements_ref: {},
       decks_ref: { d_1: true },
       created_at: now,
     },
@@ -448,6 +448,7 @@ export async function initializeSampleData() {
     creator_ref: "u_123",
     deck_ref: "d_1",
     deck_type: "eco-village",
+    role_assignment_type: "player-choice",
     status: "active",
     created_at: now,
     updated_at: now,
@@ -467,6 +468,7 @@ export async function initializeSampleData() {
       ag_4: true,
       ag_5: true,
     },
+    chat_rooms_ref: {},
   };
 
   // 7. Actors
@@ -474,8 +476,8 @@ export async function initializeSampleData() {
     {
       actor_id: "actor_1",
       user_ref: "u_123",
-      game_ref: "g_456",
-      card_ref: "card_1",
+      games_ref: { g_456: true },
+      cards_by_game: { g_456: "card_1" },
       actor_type: "National Identity",
       custom_name: "Alice's Luminos Funder",
       status: "active",
@@ -485,8 +487,8 @@ export async function initializeSampleData() {
     {
       actor_id: "actor_2",
       user_ref: "u_124",
-      game_ref: "g_456",
-      card_ref: "card_2",
+      games_ref: { g_456: true },
+      cards_by_game: { g_456: "card_2" },
       actor_type: "National Identity",
       custom_name: "Bob's Green Veil DAO",
       status: "active",
@@ -496,8 +498,8 @@ export async function initializeSampleData() {
     {
       actor_id: "actor_3",
       user_ref: "u_125",
-      game_ref: "g_456",
-      card_ref: "card_3",
+      games_ref: { g_456: true },
+      cards_by_game: { g_456: "card_3" },
       actor_type: "Sovereign Identity",
       custom_name: "Charlie's PMA Seedkeeper",
       status: "active",
@@ -507,12 +509,12 @@ export async function initializeSampleData() {
     {
       actor_id: "actor_4",
       user_ref: "u_126",
-      game_ref: "g_456",
-      card_ref: "card_4",
+      games_ref: { g_456: true },
+      cards_by_game: { g_456: "card_4" },
       actor_type: "Sovereign Identity",
       custom_name: "David's Eco-Patron",
       status: "active",
-      agreements_ref: { ag_3: true, ag_4: true },
+      agreements_ref: { ag_3: true, ag_4: true, ag_5: true },
       created_at: now,
     },
   ];
@@ -728,6 +730,11 @@ export async function initializeSampleData() {
       a.actor_id,
       true,
     );
+    await robustPut(
+      `${nodes.actors}/${a.actor_id}/games_ref`,
+      game.game_id,
+      true,
+    );
   }
   for (const ag of agreements) {
     await robustPut(
@@ -756,7 +763,65 @@ export async function initializeSampleData() {
       );
     }
   }
-  // ──────────────────────────────────────────────────────────────────────
+
+  // Actor ↔ Agreements
+  for (const a of actors) {
+    for (const agId of Object.keys(a.agreements_ref)) {
+      if (a.agreements_ref[agId]) {
+        await robustPut(
+          `${nodes.actors}/${a.actor_id}/agreements_ref`,
+          agId,
+          true,
+        );
+      }
+    }
+  }
+
+  // Card ↔ Agreements
+  for (const c of cards) {
+    for (const agId of Object.keys(c.agreements_ref)) {
+      if (c.agreements_ref[agId]) {
+        await robustPut(
+          `${nodes.cards}/${c.card_id}/agreements_ref`,
+          agId,
+          true,
+        );
+        await robustPut(
+          `${nodes.agreements}/${agId}/cards_ref`,
+          c.card_id,
+          true,
+        );
+      }
+    }
+  }
+
+  // User ↔ Games
+  for (const u of users) {
+    await robustPut(
+      `${nodes.users}/${u.user_id}/games_ref`,
+      game.game_id,
+      true,
+    );
+  }
+
+  // Game ↔ Creator
+  await robustPut(
+    `${nodes.games}/${game.game_id}/creator_ref`,
+    game.creator_ref,
+    true,
+  );
+
+  // Game ↔ Deck
+  await robustPut(
+    `${nodes.games}/${game.game_id}/deck_ref`,
+    deck.deck_id,
+    true,
+  );
+
+  // Game ↔ Players
+  for (const userId of Object.keys(game.players)) {
+    await robustPut(`${nodes.games}/${game.game_id}/players`, userId, true);
+  }
 
   console.log("[seed] Sample data initialization complete!");
   return { success: true, message: "Sample data initialized" };
@@ -796,7 +861,7 @@ export async function verifySampleData() {
             count++;
           }
         });
-      setTimeout(() => resolve(count), 1000);
+      setTimeout(() => resolve(count), 200);
     });
   }
 
@@ -807,7 +872,7 @@ export async function verifySampleData() {
     } catch (error) {
       console.error(`[verify] Error counting ${nodeType}:`, error);
     }
-    await delay(100);
+    await delay(10);
   }
 
   return { success: true, message: "Verification done", counts };
@@ -832,9 +897,9 @@ export async function clearSampleData() {
     nodes.values,
     nodes.capabilities,
     nodes.agreements,
+    nodes.node_positions,
     nodes.chat_rooms,
     nodes.chat_messages,
-    nodes.node_positions,
   ];
 
   for (const nodeType of nodeTypes) {
@@ -850,7 +915,7 @@ export async function clearSampleData() {
               result[key] = null;
             }
           });
-        setTimeout(() => resolve(result), 1000);
+        setTimeout(() => resolve(result), 200);
       });
 
       for (const key of Object.keys(nodeData)) {
@@ -875,7 +940,7 @@ export async function clearSampleData() {
             });
         });
       }
-      await delay(100);
+      await delay(10);
     } catch (error) {
       console.error(`[clear] Error clearing ${nodeType}:`, error);
     }

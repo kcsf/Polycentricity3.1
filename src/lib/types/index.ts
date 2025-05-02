@@ -104,8 +104,8 @@ export interface Game {
 export interface Actor {
     actor_id: string; // e.g., 'actor_1'
     user_ref: string | null; // e.g., 'u_838' or null if unassigned
-    game_ref: string; // e.g., 'g_456'
-    card_ref: string; // e.g., 'card_1'
+    games_ref: Record<string, boolean>; // Games this Actor has joined, e.g., { g_456: true, g_789: true }
+    cards_by_game: Record<string, string>; // Card assignment per Game, e.g., { g_456: 'card_1', g_789: 'card_4' }
     actor_type: "National Identity" | "Sovereign Identity";
     custom_name?: string; // e.g., 'Jobu'
     status: "active" | "inactive";
@@ -114,11 +114,18 @@ export interface Actor {
     updated_at?: number;
 }
 
+export interface ActorWithCard extends Actor {
+    /** Card assigned in this game */
+    card?: CardWithPosition;
+    /** Optional stored layout */
+    position?: { x: number; y: number };
+}
+
 export interface ChatRoom {
     chat_id: string; // e.g., 'chat_g_456' or 'chat_private_u_838_u_123'
     game_ref?: string; // e.g., 'g_456' (required for group chats)
     type: "group" | "private";
-    participants_ref: Record<string, boolean>; // e.g., { u_838: true } (user_ids for private, actor_ids for group)
+    participants_ref: Record<string, boolean>; // e.g., { u_838: true } (user_ids for private chats, actor_ids for group chats linked via actors/<actor_id>/games_ref)
     messages_ref: Record<string, boolean>; // e.g., { day_20250421: true }
     created_at: number;
     last_message_at?: number;
@@ -127,7 +134,7 @@ export interface ChatRoom {
 export interface GameChatRoom extends ChatRoom {
     type: "group";
     game_ref: string; // Required
-    participants_ref: Record<string, boolean>; // actor_ids, e.g., { actor_1: true }
+    participants_ref: Record<string, boolean>; // actor_ids, e.g., { actor_1: true } (linked via actors/<actor_id>/games_ref)
 }
 
 export interface PrivateChatRoom extends ChatRoom {
@@ -183,7 +190,7 @@ export interface D3Node {
     id: string; // card_id, agreement_id, or actor_id
     name: string;
     type: "card" | "agreement" | "actor";
-    data: Card | Agreement | Actor;
+    data: Card | Agreement | Actor | ActorWithCard; // For Actors or ActorWithCard, use data.cards_by_game[gameId] or data.card to get the Card for a specific Game
     x?: number;
     y?: number;
     fx?: number | null;
@@ -229,8 +236,9 @@ export interface UserSession {
 
 export interface GameContext {
     game: Game;
-    actors: Actor[];
     totalCards: number;
     usedCards: number;
     availableCards: CardWithPosition[];
+    actors: ActorWithCard[];
+    agreements: AgreementWithPosition[];
 }

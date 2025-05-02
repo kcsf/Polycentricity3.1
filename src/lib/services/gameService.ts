@@ -15,6 +15,7 @@ import { get as getStore } from "svelte/store";
 import type {
   Game,
   Actor,
+  ActorWithCard,
   Card,
   CardWithPosition,
   NodePosition,
@@ -26,11 +27,12 @@ import { GameStatus, AgreementStatus } from "$lib/types";
 // Caches for performance
 const gameCache = new Map<string, Game>();
 const actorCache = new Map<string, Actor>();
+const actorWithCardCache = new Map<string, ActorWithCard>(); // Separate cache for ActorWithCard
 const cardCache = new Map<string, CardWithPosition>();
 const agreementCache = new Map<string, AgreementWithPosition>();
 const roleCache = new Map<string, string>(); // gameId:userId -> actorId
 
-export { actorCache, cardCache, agreementCache };
+export { actorCache, actorWithCardCache, cardCache, agreementCache };
 
 const isDev =
   typeof process !== "undefined" && process.env.NODE_ENV !== "production";
@@ -39,12 +41,49 @@ const logWarn = (...args: any[]) =>
   isDev && console.warn("[gameService]", ...args);
 const logError = (...args: any[]) => console.error("[gameService]", ...args);
 
+// Utility for random position
+function randomPos(): { x: number; y: number } {
+  return { x: Math.random() * 800, y: Math.random() * 600 };
+}
+
+// Wrapper for putSigned with retry logic
+async function signedPutOrRetry<T>(
+  path: string,
+  data: T,
+  timeoutMs: number = 800,
+): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const writeTimeout = setTimeout(() => {
+      log(`Write to ${path} timed out, proceeding anyway`);
+      resolve();
+    }, timeoutMs);
+
+    putSigned(path, data).then((ack) => {
+      clearTimeout(writeTimeout);
+      if (ack.err) logError(`Write to ${path} error: ${ack.err}`);
+      else log(`Write to ${path} completed`);
+      resolve();
+    });
+  });
+
+  setTimeout(async () => {
+    const savedData = await get<T>(path);
+    if (!savedData) {
+      logError(`Data at ${path} not saved, retrying`);
+      await putSigned(path, data);
+    }
+  }, 500);
+}
+
 // Cache helpers
 function cacheGame(gameId: string, game: Game): void {
   gameCache.set(gameId, { ...game, game_id: gameId });
 }
 function cacheActor(actorId: string, actor: Actor): void {
   actorCache.set(actorId, { ...actor, actor_id: actorId });
+}
+function cacheActorWithCard(actorId: string, actor: ActorWithCard): void {
+  actorWithCardCache.set(actorId, { ...actor, actor_id: actorId });
 }
 function cacheCard(cardId: string, card: CardWithPosition): void {
   cardCache.set(cardId, { ...card, card_id: cardId });
@@ -82,13 +121,13 @@ function getCardNames(
  * Create a new game with fire-and-forget approach for non-blocking UI
  * @param name - Game name
  * @param deckType - Deck type (e.g., 'eco-village')
- * @param roleAssignmentType - Role assignment strategy
+ * @param roleAssignmentType - Role assignment strategy ('player-choice' or 'random')
  * @returns Created Game or null if failed
  */
 export async function createGame(
   name: string,
   deckType: string,
-  roleAssignmentType: string = "random",
+  roleAssignmentType: "player-choice" | "random" = "random",
   maxPlayers?: number,
 ): Promise<Game | null> {
   try {
@@ -96,18 +135,12 @@ export async function createGame(
     const gun = getGun();
     const currentUser = getCurrentUser();
 
-    if (!gun) {
-      logError("Gun not initialized");
-      return null;
-    }
-
-    if (!currentUser) {
-      logWarn("No authenticated user. Using mock user for development");
+    if (!gun || !currentUser) {
+      logError("Gun or user not initialized");
       return null;
     }
 
     const gameId = generateId();
-    // Validate and normalize max_players
     const normalizedMaxPlayers =
       typeof maxPlayers === "number" && maxPlayers > 0 ? maxPlayers : undefined;
 
@@ -127,6 +160,7 @@ export async function createGame(
             ? "d2"
             : "d1",
       deck_type: deckType,
+      role_assignment_type: roleAssignmentType,
       status: GameStatus.ACTIVE,
       created_at: Date.now(),
       players: { [currentUser.user_id]: true },
@@ -141,19 +175,7 @@ export async function createGame(
     currentGameStore.set(gameData);
 
     const writeStart = performance.now();
-    await new Promise<void>((resolve) => {
-      const writeTimeout = setTimeout(() => {
-        log("Primary game data write timed out, proceeding anyway");
-        resolve();
-      }, 800);
-
-      putSigned(`${nodes.games}/${gameId}`, gameData).then((ack) => {
-        clearTimeout(writeTimeout);
-        if (ack.err) logError(`Primary game data write error: ${ack.err}`);
-        else log("Primary game data write completed");
-        resolve();
-      });
-    });
+    await signedPutOrRetry(`${nodes.games}/${gameId}`, gameData);
 
     log(`Primary game data wrote in ${performance.now() - writeStart}ms`);
 
@@ -176,22 +198,6 @@ export async function createGame(
         `${nodes.decks}/${deckId}`,
       );
     }
-
-    setTimeout(async () => {
-      const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
-      if (!savedGame) {
-        logError(`Game ${gameId} not saved, retrying`);
-        await putSigned(`${nodes.games}/${gameId}`, gameData);
-      }
-      const map = await get<Game>(`${nodes.games}/${gameId}`);
-      if (!map?.player_actor_map?.[currentUser.user_id]) {
-        log(`Fixed missing player_actor_map for game ${gameId}`);
-        await putSigned(`${nodes.games}/${gameId}`, {
-          ...gameData,
-          player_actor_map: { [currentUser.user_id]: null },
-        });
-      }
-    }, 500);
 
     return gameData;
   } catch (error) {
@@ -288,20 +294,17 @@ export async function joinGame(gameId: string): Promise<boolean> {
   const updatedPlayers = { ...game.players, [currentUser.user_id]: true };
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
 
-  // Update with standard put instead of putSigned
   await put(`${nodes.games}/${gameId}`, {
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
 
-  // Update cache after successful write
   cacheGame(gameId, {
     ...game,
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
 
-  // Setup relationships in background
   createRelationship(
     `${nodes.users}/${currentUser.user_id}`,
     "games_ref",
@@ -341,27 +344,41 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   const { [currentUser.user_id]: _, ...updatedPlayers } = game.players;
   const updatedMap = { ...game.player_actor_map, [currentUser.user_id]: null };
 
-  // Use put instead of putSigned
   await put(`${nodes.games}/${gameId}`, {
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
 
-  // Update cache
   cacheGame(gameId, {
     ...game,
     players: updatedPlayers,
     player_actor_map: updatedMap,
   });
 
-  // Release the actor role if one is assigned
   const actor = await getPlayerRole(gameId, currentUser.user_id);
   if (actor) {
+    const updatedGamesRef = { ...actor.games_ref };
+    delete updatedGamesRef[gameId];
+    const updatedCardsByGame = { ...actor.cards_by_game };
+    delete updatedCardsByGame[gameId];
+
     await put(`${nodes.actors}/${actor.actor_id}`, {
-      user_ref: null,
+      ...actor,
+      games_ref: updatedGamesRef,
+      cards_by_game: updatedCardsByGame,
     });
+
+    gun
+      .get(nodes.games)
+      .get(gameId)
+      .get("actors_ref")
+      .get(actor.actor_id)
+      .put(null);
+
     const key = `${gameId}:${currentUser.user_id}`;
     roleCache.delete(key);
+    actorCache.delete(actor.actor_id);
+    actorWithCardCache.delete(actor.actor_id);
   }
 
   log(`Left game: ${gameId}`);
@@ -369,7 +386,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 }
 
 /**
- * Get an actor with card details
+ * Get an actor with card details for a specific game
  * @param actorId - Actor ID
  * @param gameId - Game ID
  * @returns Actor with card details or null
@@ -377,32 +394,41 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 export async function getActorWithCard(
   actorId: string,
   gameId: string,
-): Promise<Actor | null> {
+): Promise<ActorWithCard | null> {
   log(`Getting actor with card: ${actorId} in game ${gameId}`);
+  if (actorWithCardCache.has(actorId)) {
+    const cached = actorWithCardCache.get(actorId)!;
+    if (cached.games_ref[gameId]) {
+      log(`Cache hit for actor with card: ${actorId}`);
+      return cached;
+    }
+  }
+
   const gun = getGun();
   if (!gun) return null;
 
   const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-  if (!actor || actor.game_ref !== gameId) return null;
+  if (!actor || !actor.games_ref[gameId]) return null;
 
-  const card = actor.card_ref
-    ? await get<CardWithPosition>(`${nodes.cards}/${actor.card_ref}`)
-    : null;
-  const position = (await get<NodePosition>(
-    buildShardedPath(nodes.node_positions, gameId, actorId),
-  )) ?? {
-    node_id: actorId,
-    game_ref: gameId,
-    type: "actor",
-    x: 0,
-    y: 0,
-    updated_at: Date.now(),
+  const position =
+    (await get<NodePosition>(
+      buildShardedPath(nodes.node_positions, gameId, actorId),
+    )) ?? undefined;
+
+  const cardId = actor.cards_by_game[gameId];
+  let card: CardWithPosition | undefined;
+  if (cardId) {
+    card = await getCard(cardId, true);
+  }
+
+  const out: ActorWithCard = {
+    ...actor,
+    card,
+    position: position && { x: position.x, y: position.y },
   };
-
-  if (!card) return null;
-
   cacheActor(actorId, actor);
-  return actor;
+  cacheActorWithCard(actorId, out);
+  return out;
 }
 
 /**
@@ -435,7 +461,7 @@ export async function getPlayerRole(
 
   if (specifiedActorId) {
     const actor = await get<Actor>(`${nodes.actors}/${specifiedActorId}`);
-    if (actor && actor.game_ref === gameId && actor.user_ref === userId) {
+    if (actor && actor.games_ref[gameId] && actor.user_ref === userId) {
       cacheActor(specifiedActorId, actor);
       cacheRole(gameId, userId, specifiedActorId);
       return actor;
@@ -450,7 +476,7 @@ export async function getPlayerRole(
   if (!actorId) return null;
 
   const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-  if (actor && actor.game_ref === gameId && actor.user_ref === userId) {
+  if (actor && actor.games_ref[gameId] && actor.user_ref === userId) {
     cacheActor(actorId, actor);
     cacheRole(gameId, userId, actorId);
     return actor;
@@ -459,18 +485,22 @@ export async function getPlayerRole(
 }
 
 /**
- * Assign a role to a player
+ * Assign a role to a player by adding an existing Actor to a Game
  * @param gameId - Game ID
  * @param userId - User ID
  * @param actorId - Actor ID
+ * @param cardId - Card ID for the Game
  * @returns Success status
  */
 export async function assignRole(
   gameId: string,
   userId: string,
   actorId: string,
+  cardId: string,
 ): Promise<boolean> {
-  log(`Assigning role ${actorId} to user ${userId} in game ${gameId}`);
+  log(
+    `Assigning role ${actorId} to user ${userId} in game ${gameId} with card ${cardId}`,
+  );
   const gun = getGun();
   if (!gun) {
     logError("Gun not initialized");
@@ -478,36 +508,46 @@ export async function assignRole(
   }
 
   const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-  if (!actor || actor.game_ref !== gameId || actor.user_ref) return false;
-
-  cacheRole(gameId, userId, actorId);
-  if (actorCache.has(actorId)) {
-    const cachedActor = actorCache.get(actorId)!;
-    cacheActor(actorId, { ...cachedActor, user_ref: userId });
-  }
+  if (!actor || actor.user_ref !== userId) return false;
 
   const game = await getGame(gameId);
   if (!game) return false;
 
+  const updatedGamesRef = { ...actor.games_ref, [gameId]: true };
+  const updatedCardsByGame = { ...actor.cards_by_game, [gameId]: cardId };
+
+  cacheRole(gameId, userId, actorId);
+  if (actorCache.has(actorId)) {
+    const cachedActor = actorCache.get(actorId)!;
+    cacheActor(actorId, {
+      ...cachedActor,
+      games_ref: updatedGamesRef,
+      cards_by_game: updatedCardsByGame,
+    });
+  }
+  if (actorWithCardCache.has(actorId)) {
+    const cachedActorWithCard = actorWithCardCache.get(actorId)!;
+    cacheActorWithCard(actorId, {
+      ...cachedActorWithCard,
+      games_ref: updatedGamesRef,
+      cards_by_game: updatedCardsByGame,
+      card: cardCache.get(cardId),
+    });
+  }
+
   const updatedMap = { ...game.player_actor_map, [userId]: actorId };
   cacheGame(gameId, { ...game, player_actor_map: updatedMap });
 
-  await putSigned(`${nodes.actors}/${actorId}`, { ...actor, user_ref: userId });
-  await putSigned(`${nodes.games}/${gameId}`, {
+  await signedPutOrRetry(`${nodes.actors}/${actorId}`, {
+    ...actor,
+    games_ref: updatedGamesRef,
+    cards_by_game: updatedCardsByGame,
+  });
+  await signedPutOrRetry(`${nodes.games}/${gameId}`, {
     ...game,
     player_actor_map: updatedMap,
+    actors_ref: { ...game.actors_ref, [actorId]: true },
   });
-
-  setTimeout(async () => {
-    const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
-    if (!savedActor || savedActor.user_ref !== userId) {
-      log(`Actor user_ref verification failed, retrying`);
-      await putSigned(`${nodes.actors}/${actorId}`, {
-        ...actor,
-        user_ref: userId,
-      });
-    }
-  }, 500);
 
   return true;
 }
@@ -540,21 +580,10 @@ export async function updatePlayerActorMap(
   cacheGame(gameId, { ...game, player_actor_map: updatedMap });
   cacheRole(gameId, userId, actorId);
 
-  await putSigned(`${nodes.games}/${gameId}`, {
+  await signedPutOrRetry(`${nodes.games}/${gameId}`, {
     ...game,
     player_actor_map: updatedMap,
   });
-
-  setTimeout(async () => {
-    const savedGame = await get<Game>(`${nodes.games}/${gameId}`);
-    if (!savedGame?.player_actor_map[userId]) {
-      log(`Player-actor mapping verification delayed, retrying`);
-      await putSigned(`${nodes.games}/${gameId}`, {
-        ...game,
-        player_actor_map: updatedMap,
-      });
-    }
-  }, 500);
 
   return true;
 }
@@ -581,7 +610,7 @@ export async function getAgreement(
 
   const agreementWithPosition: AgreementWithPosition = {
     ...agreement,
-    position: { x: Math.random() * 800, y: Math.random() * 600 },
+    position: randomPos(),
   };
 
   cacheAgreement(agreementId, agreementWithPosition);
@@ -615,7 +644,7 @@ export async function getAvailableAgreementsForGame(
     .filter((agreement) => agreement.game_ref === gameId)
     .map((agreement) => ({
       ...agreement,
-      position: { x: Math.random() * 800, y: Math.random() * 600 },
+      position: randomPos(),
     }));
 
   gameAgreements.forEach((agreement) =>
@@ -665,9 +694,9 @@ export async function createAgreement(
 
   for (const actorId of parties) {
     const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-    if (actor && actor.card_ref) {
+    if (actor && actor.cards_by_game[gameId]) {
       partiesRecord[actorId] = {
-        card_ref: actor.card_ref,
+        card_ref: actor.cards_by_game[gameId],
         obligation: terms[actorId]?.obligations.join("; ") || "",
         benefit: terms[actorId]?.benefits.join("; ") || "",
       };
@@ -692,13 +721,13 @@ export async function createAgreement(
 
   const agreementWithPosition: AgreementWithPosition = {
     ...agreement,
-    position: { x: Math.random() * 800, y: Math.random() * 600 },
+    position: randomPos(),
   };
 
   cacheAgreement(agreementId, agreementWithPosition);
 
   const startTime = performance.now();
-  await putSigned(`${nodes.agreements}/${agreementId}`, agreement);
+  await signedPutOrRetry(`${nodes.agreements}/${agreementId}`, agreement);
   await createRelationship(
     `${nodes.games}/${gameId}`,
     "agreements_ref",
@@ -716,16 +745,6 @@ export async function createAgreement(
       `${nodes.agreements}/${agreementId}`,
     );
   }
-
-  setTimeout(async () => {
-    const savedAgreement = await get<Agreement>(
-      `${nodes.agreements}/${agreementId}`,
-    );
-    if (!savedAgreement) {
-      log(`Agreement ${agreementId} not saved, retrying`);
-      await putSigned(`${nodes.agreements}/${agreementId}`, agreement);
-    }
-  }, 1000);
 
   log(
     `Agreement creation initiated: ${agreementId} (${performance.now() - startTime}ms)`,
@@ -767,7 +786,10 @@ export async function updateAgreement(
   };
 
   cacheAgreement(agreementId, updatedAgreement);
-  await putSigned(`${nodes.agreements}/${agreementId}`, updatedAgreement);
+  await signedPutOrRetry(
+    `${nodes.agreements}/${agreementId}`,
+    updatedAgreement,
+  );
 
   if (updateData.parties) {
     const previousParties = Object.keys(existingAgreement.parties || {});
@@ -806,23 +828,6 @@ export async function updateAgreement(
       );
     }
   }
-
-  setTimeout(async () => {
-    const savedAgreement = await get<Agreement>(
-      `${nodes.agreements}/${agreementId}`,
-    );
-    if (
-      !savedAgreement ||
-      Object.keys(updatedData).some(
-        (key) =>
-          savedAgreement[key as keyof Agreement] !==
-          updatedData[key as keyof Agreement],
-      )
-    ) {
-      log(`Agreement update verification failed, retrying`);
-      await putSigned(`${nodes.agreements}/${agreementId}`, updatedAgreement);
-    }
-  }, 1000);
 
   return updatedAgreement;
 }
@@ -865,7 +870,7 @@ export function subscribeToGameAgreements(
                   ...agreement,
                   position: agreementCache.has(agreementId)
                     ? agreementCache.get(agreementId)!.position
-                    : { x: Math.random() * 800, y: Math.random() * 600 },
+                    : randomPos(),
                 };
                 cacheAgreement(agreementId, agreementWithPos);
                 const agreements = Array.from(agreementCache.values()).filter(
@@ -926,14 +931,14 @@ export async function getAvailableCardsForGame(
   const usedCardIds = new Set<string>();
   const actors = await getCollection<Actor>(nodes.actors);
   actors
-    .filter((actor) => actor.game_ref === gameId && actor.card_ref)
-    .forEach((actor) => usedCardIds.add(actor.card_ref));
+    .filter((actor) => actor.games_ref[gameId] && actor.cards_by_game[gameId])
+    .forEach((actor) => usedCardIds.add(actor.cards_by_game[gameId]));
 
   const availableCards = cards
     .filter((card) => !usedCardIds.has(card.card_id) && card.decks_ref[deckId])
     .map((card) => ({
       ...card,
-      position: { x: Math.random() * 800, y: Math.random() * 600 },
+      position: randomPos(),
       _valueNames: includeNames
         ? getCardNames(card.values_ref, "value_")
         : undefined,
@@ -957,7 +962,6 @@ export async function getCard(
   includeNames: boolean = false,
 ): Promise<CardWithPosition | null> {
   log(`Fetching card: ${cardId}`);
-  // Cache hit
   if (cardCache.has(cardId)) {
     const cached = cardCache.get(cardId)!;
     if (includeNames && (!cached._valueNames || !cached._capabilityNames)) {
@@ -968,18 +972,15 @@ export async function getCard(
     return cached;
   }
 
-  // Load the shallow card node
   const rawCard = await get<Card>(`${nodes.cards}/${cardId}`);
   if (!rawCard) {
     log(`Card not found: ${cardId}`);
     return null;
   }
 
-  // Re-flatten graph-set entries into boolean maps
   const flatValues: Record<string, boolean> = {};
   const flatCaps: Record<string, boolean> = {};
 
-  // Load and flatten values_ref set
   const valueEntries = await getCollection<any>(
     `${nodes.cards}/${cardId}/values_ref`,
   );
@@ -988,7 +989,6 @@ export async function getCard(
     if (vid) flatValues[vid] = true;
   });
 
-  // Load and flatten capabilities_ref set
   const capEntries = await getCollection<any>(
     `${nodes.cards}/${cardId}/capabilities_ref`,
   );
@@ -997,7 +997,6 @@ export async function getCard(
     if (cid) flatCaps[cid] = true;
   });
 
-  // Human-friendly names
   const _valueNames = includeNames
     ? getCardNames(flatValues, "value_")
     : undefined;
@@ -1009,7 +1008,7 @@ export async function getCard(
     ...rawCard,
     values_ref: flatValues,
     capabilities_ref: flatCaps,
-    position: { x: Math.random() * 800, y: Math.random() * 600 },
+    position: randomPos(),
     _valueNames,
     _capabilityNames,
   };
@@ -1045,12 +1044,12 @@ export async function getUserCard(
   }
 
   const actor = await getPlayerRole(gameId, userId);
-  if (!actor || !actor.card_ref) {
+  if (!actor || !actor.cards_by_game[gameId]) {
     log(`No card found for user ${userId} in game ${gameId}`);
     return null;
   }
 
-  const card = await getCard(actor.card_ref, includeNames);
+  const card = await getCard(actor.cards_by_game[gameId], includeNames);
   if (card) {
     cardCache.set(cacheKey, card);
     log(`Found card ${card.card_id} for user ${userId}`);
@@ -1081,8 +1080,9 @@ export function subscribeToUserCard(
   const cacheKey = `${gameId}:${userId}`;
   let cardSubscription: any;
   let actorSubscription: any;
+  let playerSubscription: any;
 
-  const playerSubscription = gun
+  playerSubscription = gun
     .get(nodes.games)
     .get(gameId)
     .get("player_actor_map")
@@ -1100,8 +1100,8 @@ export function subscribeToUserCard(
         .get(nodes.actors)
         .get(actorId)
         .on((actorData: Actor) => {
-          if (!actorData || !actorData.card_ref) {
-            log(`No card_ref for actor ${actorId}`);
+          if (!actorData || !actorData.cards_by_game[gameId]) {
+            log(`No card for actor ${actorId} in game ${gameId}`);
             cardCache.delete(cacheKey);
             callback(null);
             return;
@@ -1110,10 +1110,10 @@ export function subscribeToUserCard(
           if (cardSubscription) cardSubscription.off();
           cardSubscription = gun
             .get(nodes.cards)
-            .get(actorData.card_ref)
+            .get(actorData.cards_by_game[gameId])
             .on((cardData: Card) => {
               if (!cardData) {
-                log(`Card ${actorData.card_ref} not found`);
+                log(`Card ${actorData.cards_by_game[gameId]} not found`);
                 cardCache.delete(cacheKey);
                 callback(null);
                 return;
@@ -1121,7 +1121,7 @@ export function subscribeToUserCard(
 
               const cardWithPosition: CardWithPosition = {
                 ...cardData,
-                position: { x: Math.random() * 800, y: Math.random() * 600 },
+                position: randomPos(),
                 _valueNames: getCardNames(cardData.values_ref, "value_"),
                 _capabilityNames: getCardNames(
                   cardData.capabilities_ref,
@@ -1146,7 +1146,7 @@ export function subscribeToUserCard(
 /**
  * Create a new actor
  * @param gameId - Game ID
- * @param cardId - Card ID
+ * @param cardId - Card ID for the Game
  * @param actorType - Actor type
  * @param customName - Optional custom name
  * @returns Created Actor or null
@@ -1157,7 +1157,7 @@ export async function createActor(
   actorType: Actor["actor_type"],
   customName?: string,
 ): Promise<Actor | null> {
-  log(`Creating actor in game ${gameId} with card ${cardId}`);
+  log(`Creating actor for game ${gameId} with card ${cardId}`);
   const gun = getGun();
   const currentUser = getCurrentUser();
 
@@ -1176,8 +1176,8 @@ export async function createActor(
   const actor: Actor = {
     actor_id: actorId,
     user_ref: currentUser.user_id,
-    game_ref: gameId,
-    card_ref: cardId,
+    games_ref: { [gameId]: true },
+    cards_by_game: { [gameId]: cardId },
     actor_type: actorType,
     custom_name: customName,
     status: "active",
@@ -1188,31 +1188,18 @@ export async function createActor(
   cacheActor(actorId, actor);
   cacheRole(gameId, currentUser.user_id, actorId);
 
-  putSigned(`${nodes.actors}/${actorId}`, actor);
-  createRelationship(
+  await signedPutOrRetry(`${nodes.actors}/${actorId}`, actor);
+  await createRelationship(
     `${nodes.users}/${currentUser.user_id}`,
     "actors_ref",
     `${nodes.actors}/${actorId}`,
   );
-  createRelationship(
-    `${nodes.actors}/${actorId}`,
-    "card_ref",
-    `${nodes.cards}/${cardId}`,
-  );
-  createRelationship(
-    `${nodes.actors}/${actorId}`,
-    "game_ref",
+  await createRelationship(
     `${nodes.games}/${gameId}`,
+    "actors_ref",
+    `${nodes.actors}/${actorId}`,
   );
-  updatePlayerActorMap(gameId, currentUser.user_id, actorId);
-
-  setTimeout(async () => {
-    const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
-    if (!savedActor) {
-      log(`Actor ${actorId} not saved, retrying`);
-      await putSigned(`${nodes.actors}/${actorId}`, actor);
-    }
-  }, 500);
+  await updatePlayerActorMap(gameId, currentUser.user_id, actorId);
 
   return actor;
 }
@@ -1248,9 +1235,9 @@ export async function getUserActors(userId?: string): Promise<Actor[]> {
 /**
  * Get all actors for a game
  * @param gameId - Game ID
- * @returns Array of Actors
+ * @returns Array of ActorWithCard
  */
-export async function getGameActors(gameId: string): Promise<Actor[]> {
+export async function getGameActors(gameId: string): Promise<ActorWithCard[]> {
   log(`Getting actors for game: ${gameId}`);
   const gun = getGun();
   if (!gun) {
@@ -1259,8 +1246,17 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
   }
 
   const actors = await getCollection<Actor>(nodes.actors);
-  const gameActors = actors.filter((actor) => actor.game_ref === gameId);
-  gameActors.forEach((actor) => cacheActor(actor.actor_id, actor));
+  const gameActorsPromises = actors
+    .filter((actor) => actor.games_ref[gameId])
+    .map((actor) => getActorWithCard(actor.actor_id, gameId));
+
+  const gameActors = (await Promise.all(gameActorsPromises)).filter(
+    (actor): actor is ActorWithCard => actor !== null,
+  );
+  gameActors.forEach((actor) => {
+    cacheActor(actor.actor_id, actor);
+    cacheActorWithCard(actor.actor_id, actor);
+  });
   log(`Found ${gameActors.length} actors for game ${gameId}`);
   return gameActors;
 }
@@ -1273,7 +1269,7 @@ export async function getGameActors(gameId: string): Promise<Actor[]> {
  */
 export function subscribeToGameActors(
   gameId: string,
-  callback: (actors: Actor[]) => void,
+  callback: (actors: ActorWithCard[]) => void,
 ): () => void {
   log(`Subscribing to actors for game ${gameId}`);
   const gun = getGun();
@@ -1284,7 +1280,7 @@ export function subscribeToGameActors(
   }
 
   const actorSubscriptions: any[] = [];
-  const actors: Actor[] = [];
+  const actors: ActorWithCard[] = [];
   const uniqueIds = new Set<string>();
 
   const subscription = gun
@@ -1298,19 +1294,22 @@ export function subscribeToGameActors(
           const actorSubscription = gun
             .get(nodes.actors)
             .get(actorId)
-            .on((actorData: Actor) => {
-              if (actorData && actorData.game_ref === gameId) {
+            .on(async (actorData: Actor) => {
+              if (actorData && actorData.games_ref[gameId]) {
+                const actorWithCard = await getActorWithCard(actorId, gameId);
+                if (!actorWithCard) return;
+
                 const actorIndex = actors.findIndex(
                   (a) => a.actor_id === actorId,
                 );
-                const actor = { ...actorData, actor_id: actorId };
                 if (actorIndex >= 0) {
-                  actors[actorIndex] = actor;
+                  actors[actorIndex] = actorWithCard;
                 } else {
-                  actors.push(actor);
+                  actors.push(actorWithCard);
                   uniqueIds.add(actorId);
                 }
-                cacheActor(actorId, actor);
+                cacheActor(actorId, actorData);
+                cacheActorWithCard(actorId, actorWithCard);
                 callback([...actors]);
               }
             });
@@ -1327,62 +1326,10 @@ export function subscribeToGameActors(
 }
 
 /**
- * Assign a card to an actor
- * @param actorId - Actor ID
- * @param cardId - Card ID
- * @returns Success status
- */
-export async function assignCardToActor(
-  actorId: string,
-  cardId: string,
-): Promise<boolean> {
-  log(`Assigning card ${cardId} to actor ${actorId}`);
-  const gun = getGun();
-  if (!gun) {
-    logError("Gun not initialized");
-    return false;
-  }
-
-  const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-  if (!actor) {
-    logError(`Actor not found: ${actorId}`);
-    return false;
-  }
-
-  cacheActor(actorId, { ...actor, card_ref: cardId });
-  putSigned(`${nodes.actors}/${actorId}`, { ...actor, card_ref: cardId });
-  createRelationship(
-    `${nodes.actors}/${actorId}`,
-    "card_ref",
-    `${nodes.cards}/${cardId}`,
-  );
-
-  setTimeout(async () => {
-    const savedActor = await get<Actor>(`${nodes.actors}/${actorId}`);
-    if (!savedActor || savedActor.card_ref !== cardId) {
-      log(`Card assignment verification failed, retrying`);
-      await putSigned(`${nodes.actors}/${actorId}`, {
-        ...actor,
-        card_ref: cardId,
-      });
-    }
-  }, 500);
-
-  return true;
-}
-
-/**
  * Update game status
  * @param gameId - Game ID
  * @param status - New status
  * @returns Success status
- */
-/**
- * Update game properties with specified updates
- *
- * @param gameId - The ID of the game to update
- * @param updates - Partial Game object with properties to update
- * @returns Promise resolving to boolean indicating success or failure
  */
 export async function updateGame(
   gameId: string,
@@ -1396,40 +1343,39 @@ export async function updateGame(
       return false;
     }
 
-    // Get existing game to ensure it exists
     const existingGame = await getGame(gameId);
     if (!existingGame) {
       logError(`Game not found: ${gameId}`);
       return false;
     }
 
-    // Normalize max_players: ensure it's a number or undefined
     if (updates.max_players !== undefined) {
       if (typeof updates.max_players === "string") {
         updates.max_players = parseInt(updates.max_players, 10);
-      } else if (typeof updates.max_players !== "number") {
+      }
+      if (
+        typeof updates.max_players !== "number" ||
+        updates.max_players <= 0 ||
+        isNaN(updates.max_players)
+      ) {
         updates.max_players = undefined;
       }
       log(`[updateGame] Normalized max_players to: ${updates.max_players}`);
     }
 
-    // Create update payload with timestamp
     const payload = {
       ...updates,
-      updated_at: Date.now(), // Always update the timestamp
+      updated_at: Date.now(),
     };
 
-    // Use regular put for database write - simpler than putSigned
     await put(`${nodes.games}/${gameId}`, payload);
 
-    // Update cache with merged data
     const mergedGame = {
       ...existingGame,
       ...payload,
     };
     cacheGame(gameId, mergedGame);
 
-    // Update any active game in store if it's the current game
     const currentGame = getStore(currentGameStore);
     if (currentGame && currentGame.game_id === gameId) {
       currentGameStore.set(mergedGame);
@@ -1447,7 +1393,6 @@ export async function updateGameStatus(
   gameId: string,
   status: GameStatus,
 ): Promise<boolean> {
-  // Leverage the existing updateGame function with just the status change
   return updateGame(gameId, { status });
 }
 
@@ -1509,22 +1454,27 @@ export async function setGameActors(
   const batchSize = 4;
   const startTime = performance.now();
 
-  // Process first batch immediately
   for (let i = 0; i < Math.min(batchSize, actors.length); i++) {
     const actor = actors[i];
     const actorId = actor.actor_id || generateId();
     const actorData: Actor = {
       ...actor,
       actor_id: actorId,
-      game_ref: gameId,
+      games_ref: { ...actor.games_ref, [gameId]: true },
+      cards_by_game: { ...actor.cards_by_game },
       created_at: Date.now(),
       status: "active",
     };
     cacheActor(actorId, actorData);
     await put(`${nodes.actors}/${actorId}`, actorData);
+    await gun
+      .get(nodes.games)
+      .get(gameId)
+      .get("actors_ref")
+      .get(actorId)
+      .put(true);
   }
 
-  // Process remaining actors in background
   if (actors.length > batchSize) {
     setTimeout(async () => {
       const remainingActors = actors.slice(batchSize);
@@ -1533,12 +1483,19 @@ export async function setGameActors(
         const actorData: Actor = {
           ...actor,
           actor_id: actorId,
-          game_ref: gameId,
+          games_ref: { ...actor.games_ref, [gameId]: true },
+          cards_by_game: { ...actor.cards_by_game },
           created_at: Date.now(),
           status: "active",
         };
         cacheActor(actorId, actorData);
         await put(`${nodes.actors}/${actorId}`, actorData);
+        await gun
+          .get(nodes.games)
+          .get(gameId)
+          .get("actors_ref")
+          .get(actorId)
+          .put(true);
       }
     }, 50);
   }
@@ -1562,13 +1519,11 @@ export async function isGameFull(gameId: string): Promise<boolean> {
     return false;
   }
 
-  // Ensure max_players is treated as a number
   const maxPlayers =
     typeof game.max_players === "string"
       ? parseInt(game.max_players as string, 10)
       : game.max_players;
 
-  // If maxPlayers is undefined, 0, null, or NaN, the game has no player limit
   if (!maxPlayers) return false;
 
   const playerCount = Object.keys(game.players || {}).length;
@@ -1590,50 +1545,44 @@ export interface GameContext {
   game: Game;
   totalCards: number;
   usedCards: number;
-  availableCards: number;
-  actors: Actor[];
+  availableCards: CardWithPosition[];
+  actors: ActorWithCard[];
   agreements: AgreementWithPosition[];
 }
 
 export async function getGameContext(
   gameId: string,
 ): Promise<GameContext | null> {
-  // 1) Fetch game
   const game = await getGame(gameId);
   if (!game) return null;
 
-  // 2) Fetch actors & agreements first (needed for card counting)
   const actors = await getGameActors(gameId);
   const agreements = await getAvailableAgreementsForGame(gameId);
 
-  // 3) Compute deck counts
   const deckId = game.deck_ref;
-  let totalCards = 0,
-    usedCards = 0,
-    availableCards = 0;
+  let totalCards = 0;
+  let usedCards = 0;
+  let availableCards: CardWithPosition[] = [];
   if (deckId) {
-    // Get total cards in deck
     const cardsRef = await getCollection<any>(
       `${nodes.decks}/${deckId}/cards_ref`,
     );
     totalCards = cardsRef.length;
-    
-    // Count cards actually used by actors in this game
+
     const usedCardRefs = new Set();
-    actors.forEach(actor => {
-      if (actor.card_ref) {
-        usedCardRefs.add(actor.card_ref);
+    actors.forEach((actor) => {
+      if (actor.cards_by_game[gameId]) {
+        usedCardRefs.add(actor.cards_by_game[gameId]);
       }
     });
     usedCards = usedCardRefs.size;
-    
-    // Calculate available cards (those in deck but not used)
-    const avail = await getAvailableCardsForGame(gameId);
-    availableCards = avail.length;
-    
-    // Log the calculation for debugging
-    console.log(`Card count calculation: Total=${totalCards}, Used=${usedCards}, Available=${availableCards}`);
+
+    availableCards = await getAvailableCardsForGame(gameId);
   }
+
+  log(
+    `Card count calculation: Total=${totalCards}, Used=${usedCards}, Available=${availableCards.length}`,
+  );
 
   return { game, totalCards, usedCards, availableCards, actors, agreements };
 }
@@ -1662,7 +1611,7 @@ export async function fixGameRelationships(): Promise<{
       promises.push(
         createRelationship(
           `${nodes.users}/${game.creator_ref}`,
-          "games",
+          "games_ref",
           `${nodes.games}/${game.game_id}`,
         ),
       );
@@ -1683,7 +1632,7 @@ export async function fixGameRelationships(): Promise<{
         promises.push(
           createRelationship(
             `${nodes.users}/${playerId}`,
-            "games",
+            "games_ref",
             `${nodes.games}/${game.game_id}`,
           ),
         );
@@ -1708,7 +1657,7 @@ export async function fixGameRelationships(): Promise<{
       promises.push(
         createRelationship(
           `${nodes.actors}/${actorId}`,
-          "game",
+          "games_ref",
           `${nodes.games}/${game.game_id}`,
         ),
       );

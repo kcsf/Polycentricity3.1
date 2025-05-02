@@ -71,11 +71,8 @@
 
       return new Promise<string>((resolve) => {
         gunRef.open((data: any) => {
-          if (data) {
-            resolve(safeStringify(data));
-          } else {
-            resolve('No data found');
-          }
+          resolve(data ? safeStringify(data) : 'No data')
+          gunRef.off()    // stop the live‐feed before it floods you again
         });
       });
     } catch (e) {
