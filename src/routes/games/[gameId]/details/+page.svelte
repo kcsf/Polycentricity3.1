@@ -87,6 +87,15 @@
 
     // 2️⃣ Live‐update subscription for this one game
     $effect(() => {
+        // Only setup subscription if we have a valid game
+        if (!game || errorMessage) {
+            console.log(`[GameDetailsPage] Not setting up subscription for ${gameId} - game is null or error exists`);
+            return () => {}; // Return empty cleanup function
+        }
+        
+        console.log(`[GameDetailsPage] Setting up subscription for ${gameId}`);
+        
+        // Set up subscription only if we have a valid game
         const unsubscribe = subscribeToGame(gameId, () => {
             // Re‐run the same load logic
             getGameContext(gameId).then(ctx => {
@@ -109,6 +118,7 @@
                 console.log(`[GameDetailsPage] Subscription updated - Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
             });
         });
+        
         return () => unsubscribe();
     });
 
