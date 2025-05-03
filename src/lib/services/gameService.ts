@@ -1,5 +1,6 @@
 import {
   get,
+  getGun,
   putSigned,
   getCollection,
   createRelationship,
