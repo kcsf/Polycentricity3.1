@@ -2,13 +2,10 @@
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import {
-        getGame,
-        subscribeToGame
+        getGameContext,
+        subscribeToGame,
+        type GameContext
     } from '$lib/services/gameService';
-    
-    // Temporarily import our test functions
-    import { getActorsDirectly } from '$lib/services/gameService.min';
-
     import { userStore } from '$lib/stores/userStore';
     import type { Game, ActorWithCard, CardWithPosition } from '$lib/types';
     import { GameStatus } from '$lib/types';
@@ -51,15 +48,13 @@
     $effect(async () => {
         isLoading = true;
         errorMessage = '';
-        console.log(`[GameDetailsPage] Loading data for ${gameId}`);
-        
-        // Get the game data
-        game = await getGame(gameId);
-        
-        if (!game) {
+        console.log(`[GameDetailsPage] Loading context for ${gameId}`);
+        const ctx: GameContext | null = await getGameContext(gameId);
+        if (!ctx) {
             errorMessage = 'Game not found';
-            console.error(`[GameDetailsPage] No game data for ${gameId}`);
+            console.error(`[GameDetailsPage] No context for ${gameId}`);
             // Reset state on failure
+            game = null;
             deckName = '';
             totalCards = 0;
             usedCards = 0;
@@ -67,74 +62,52 @@
             actors = [];
             availableCardsForActors = [];
             isFull = false;
-            isLoading = false;
-            return;
-        }
-        
-        // Set deck name based on game type
-        deckName =
-            (
-            {
-                "eco-village": "Eco-Village",
-                "community-garden": "Community Garden",
-                custom: "Custom Deck",
-            } as Record<string, string>
-            )[game.deck_type] || game.deck_type;
-        
-        // Get actors directly
-        actors = await getActorsDirectly(gameId);
-        console.log(`[GameDetailsPage] Found ${actors.length} actors:`, actors);
-        
-        // Set card counts
-        totalCards = 10; // This would come from deck info in full implementation
-        usedCards = actors.filter(a => a.card).length;
-        availableCardsCount = totalCards - usedCards;
-        
-        // Set fallback cards for now
-        availableCardsForActors = [];
-        
-        // Compute if game is full
-        const max = typeof game.max_players === 'string'
-            ? parseInt(game.max_players, 10)
-            : game.max_players;
-        const count = Object.keys(game.players || {}).length;
-        isFull = max ? count >= max : false;
-        
-        console.log(`[GameDetailsPage] Game data loaded - Actors: ${actors.length}, Cards: ${usedCards}/${totalCards}`);
-        isLoading = false;
-    });
-
-    // 2️⃣ Live‐update subscription for this one game
-    $effect(() => {
-        const unsubscribe = subscribeToGame(gameId, async (updatedGame) => {
-            // Re‐run the same load logic but more efficiently
-            if (!updatedGame) {
-                console.error(`[GameDetailsPage] Subscription update failed for ${gameId}`);
-                return;
-            }
-            
-            // Update game data
-            game = updatedGame;
-            
-            // Get updated actors
-            const updatedActors = await getActorsDirectly(gameId);
-            if (updatedActors.length > 0) {
-                actors = updatedActors;
-                console.log(`[GameDetailsPage] Updated actors:`, actors);
-            }
-            
-            // Recompute derived data
-            usedCards = actors.filter(a => a.card).length;
-            availableCardsCount = totalCards - usedCards;
-            
-            // Recompute if game is full
+        } else {
+            // Destructure and assign
+            game = ctx.game;
+            deckName = ctx.deckName;
+            totalCards = ctx.totalCards;
+            usedCards = ctx.usedCards;
+            availableCardsForActors = ctx.availableCards;
+            availableCardsCount = ctx.availableCardsCount;
+            actors = ctx.actors; // Missing assignment
+            // Log card counts for debugging
+            console.log(`[GameDetailsPage] Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
+            console.log(`[GameDetailsPage] Available Cards:`, availableCardsForActors);
+            console.log(`[GameDetailsPage] Actors:`, actors);
+            // Compute isFull
             const max = typeof game.max_players === 'string'
                 ? parseInt(game.max_players, 10)
                 : game.max_players;
             const count = Object.keys(game.players || {}).length;
             isFull = max ? count >= max : false;
-            
-            console.log(`[GameDetailsPage] Subscription updated - Actors: ${actors.length}, Cards: ${usedCards}/${totalCards}`);
+        }
+        isLoading = false;
+    });
+
+    // 2️⃣ Live‐update subscription for this one game
+    $effect(() => {
+        const unsubscribe = subscribeToGame(gameId, () => {
+            // Re‐run the same load logic
+            getGameContext(gameId).then(ctx => {
+                if (!ctx) {
+                    console.error(`[GameDetailsPage] Subscription update failed for ${gameId}`);
+                    return;
+                }
+                game = ctx.game;
+                deckName = ctx.deckName;
+                totalCards = ctx.totalCards;
+                usedCards = ctx.usedCards;
+                availableCardsForActors = ctx.availableCards;
+                availableCardsCount = ctx.availableCardsCount;
+                actors = ctx.actors; // Missing assignment
+                const max = typeof game.max_players === 'string'
+                    ? parseInt(game.max_players, 10)
+                    : game.max_players;
+                const count = Object.keys(game.players || {}).length;
+                isFull = max ? count >= max : false;
+                console.log(`[GameDetailsPage] Subscription updated - Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
+            });
         });
         return () => unsubscribe();
     });

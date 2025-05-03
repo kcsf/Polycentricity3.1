@@ -303,10 +303,6 @@ export async function updateAgreement(
 // Bulk-fetch everything your Game Details page needs (with caching)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Get the complete context for a game, including
- * actors, cards, agreements and all needed data
- */
 export interface GameContext {
   game: Game;
   actors: ActorWithCard[];
@@ -320,50 +316,15 @@ export interface GameContext {
 
 const _contextCache = new Map<string, Promise<GameContext | null>>();
 
-/**
- * Custom function to directly get actor references from a game
- * This works around Gun.js reference issues where actors_ref is not being loaded properly
- */
-async function getActorRefsForGame(gameId: string): Promise<string[]> {
-  return new Promise((resolve) => {
-    const gun = getGun();
-    if (!gun) {
-      console.error("[GameService] Gun not available for actor refs");
-      resolve([]);
-      return;
-    }
-    
-    // Direct approach using game ID path
-    gun.get('games').get(gameId).get('actors_ref').once((actorRefs) => {
-      if (!actorRefs) {
-        console.error(`[GameService] No actor refs found for game ${gameId}`);
-        resolve([]);
-        return;
-      }
-      
-      console.log(`[GameService] Raw actor refs for game ${gameId}:`, actorRefs);
-      
-      // Extract actor IDs from boolean true values
-      const actorIds = Object.keys(actorRefs).filter(key => 
-        !key.startsWith('_') && 
-        !key.startsWith('actors/') && 
-        actorRefs[key] === true
-      );
-      
-      console.log(`[GameService] Extracted actor IDs for game ${gameId}:`, actorIds);
-      resolve(actorIds);
-    });
-  });
-}
-
-export async function getGameContext(gameId: string): Promise<GameContext | null> {
+export async function getGameContext(
+  gameId: string,
+): Promise<GameContext | null> {
   if (_contextCache.has(gameId)) {
     return _contextCache.get(gameId)!;
   }
 
-  const promise = (async () => {
+  const promise = (async (): Promise<GameContext | null> => {
     try {
-      // Get the game with standard method
       const game = await getGame(gameId);
       if (!game) return null;
 
@@ -379,11 +340,30 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
 
       // 1) Actors and their cards - Fetch explicitly using actors_ref
       const actors: ActorWithCard[] = [];
-      
-      // Get actor references directly from the Gun database
-      const actorIds = await getActorRefsForGame(gameId);
-      
-      console.log(`[GameService] Processing ${actorIds.length} actors for game ${gameId}`);
+      const actorRefs = game.actors_ref || {};
+      console.log(
+        `[GameService] Raw actor refs for game ${gameId}:`,
+        actorRefs,
+      );
+
+      // Extract actor IDs from both boolean values and nested objects
+      const actorIds = Object.keys(actorRefs)
+        .filter((key) => {
+          if (typeof actorRefs[key] === "boolean" && actorRefs[key])
+            return true;
+          if (typeof actorRefs[key] === "object" && key.startsWith("actors/"))
+            return true;
+          return false;
+        })
+        .map((key) => {
+          if (key.startsWith("actors/")) return key.split("/")[1];
+          return key;
+        });
+
+      console.log(
+        `[GameService] Extracted actor IDs for game ${gameId}:`,
+        actorIds,
+      );
 
       for (const actorId of actorIds) {
         const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
