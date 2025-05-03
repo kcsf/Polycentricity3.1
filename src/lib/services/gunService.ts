@@ -65,30 +65,15 @@ export function getUser(): IGunUserInstance | undefined {
 }
 
 /**
- * Utility to remove circular references and clean Gun.js metadata
+ * Utility to remove Gun.js metadata
  */
 function cleanData<T>(data: any): T | null {
   if (!data) return null;
 
-  // Remove Gun.js metadata
+  // Shallow copy to avoid mutating the original data
   const cleaned = { ...data };
+  // Remove Gun.js metadata key "_"
   delete cleaned["_"];
-
-  // Handle nested objects and arrays
-  for (const key in cleaned) {
-    if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
-      const value = cleaned[key];
-      if (typeof value === "object" && value !== null) {
-        if (value["#"] || (value[":"] && value[">"])) {
-          // Skip Gun.js references (e.g., "#": "games/g_456/players")
-          delete cleaned[key];
-        } else {
-          cleaned[key] = cleanData(value);
-        }
-      }
-    }
-  }
-
   return cleaned as T;
 }
 
@@ -163,13 +148,11 @@ export async function get<
     const timeout = setTimeout(() => resolve(null), 5000);
     g.get(soul).once((data: T | undefined, key: string) => {
       clearTimeout(timeout);
-      console.log(`[Debug] Raw Gun.js data for ${soul}:`, data);
       if (!data) {
         resolve(null);
         return;
       }
       const cleanedData = cleanData<T>(data);
-      console.log(`[Debug] Cleaned data for ${soul}:`, cleanedData);
       resolve(cleanedData);
     });
   });
@@ -303,6 +286,23 @@ export async function getCollection<
         }
       });
     setTimeout(() => resolve(results), 1000);
+  });
+}
+
+/**
+ * Read a real Gun set at `path/field` into an array of IDs.
+ */
+export async function getSet(path: string, field: string): Promise<string[]> {
+  const g = getGun()!;
+  return new Promise((resolve) => {
+    const ids: string[] = [];
+    g.get(path)
+      .get(field)
+      .map()
+      .once((_, key) => {
+        if (key !== "_") ids.push(key);
+      });
+    setTimeout(() => resolve(ids), 1000);
   });
 }
 

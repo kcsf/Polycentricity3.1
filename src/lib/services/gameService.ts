@@ -1,12 +1,12 @@
 import {
-  getGun,
-  nodes,
-  getCollection,
+  get,
   putSigned,
+  getCollection,
   createRelationship,
   buildShardedPath,
   generateId,
-  get,
+  getSet,
+  nodes,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
@@ -19,6 +19,7 @@ import type {
   Agreement,
   AgreementWithPosition,
   NodePosition,
+  Deck,
 } from "$lib/types";
 import { GameStatus, AgreementStatus } from "$lib/types";
 
@@ -83,7 +84,7 @@ export async function createGame(
     name,
     description: "",
     creator_ref: user.user_id,
-    deck_ref: deckType === "eco-village" ? "d1" : "d2",
+    deck_ref: deckType === "eco-village" ? "d_1" : "d_2", // Fixed deck_ref to match DB
     deck_type: deckType,
     role_assignment_type: roleAssignmentType,
     status: GameStatus.ACTIVE,
@@ -116,6 +117,7 @@ export async function createGame(
 
 export async function getGame(gameId: string): Promise<Game | null> {
   const data = await get<Game>(`${nodes.games}/${gameId}`);
+  console.log(`[GameService] Fetched game ${gameId} raw data:`, data);
   return data ? { ...data, game_id: gameId } : null;
 }
 
@@ -300,7 +302,7 @@ export async function updateAgreement(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Bulk-fetch everything your Game Details page needs (with caching)
+// Bulk-fetch everything your Game Details page needs
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface GameContext {
@@ -314,127 +316,109 @@ export interface GameContext {
   deckName: string;
 }
 
-const _contextCache = new Map<string, Promise<GameContext | null>>();
-
 export async function getGameContext(
   gameId: string,
 ): Promise<GameContext | null> {
-  if (_contextCache.has(gameId)) {
-    return _contextCache.get(gameId)!;
-  }
-
-  const promise = (async (): Promise<GameContext | null> => {
-    try {
-      const game = await getGame(gameId);
-      if (!game) return null;
-
-      // Compute deckName from game.deck_type
-      const deckName =
-        (
-          {
-            "eco-village": "Eco-Village",
-            "community-garden": "Community Garden",
-            custom: "Custom Deck",
-          } as Record<string, string>
-        )[game.deck_type] || game.deck_type;
-
-      // 1) Actors and their cards - Fetch explicitly using actors_ref
-      const actors: ActorWithCard[] = [];
-      const actorRefs = game.actors_ref || {};
-      console.log(
-        `[GameService] Raw actor refs for game ${gameId}:`,
-        actorRefs,
-      );
-
-      // Extract actor IDs from both boolean values and nested objects
-      const actorIds = Object.keys(actorRefs)
-        .filter((key) => {
-          if (typeof actorRefs[key] === "boolean" && actorRefs[key])
-            return true;
-          if (typeof actorRefs[key] === "object" && key.startsWith("actors/"))
-            return true;
-          return false;
-        })
-        .map((key) => {
-          if (key.startsWith("actors/")) return key.split("/")[1];
-          return key;
-        });
-
-      console.log(
-        `[GameService] Extracted actor IDs for game ${gameId}:`,
-        actorIds,
-      );
-
-      for (const actorId of actorIds) {
-        const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-        if (actor) {
-          const pos = await get<NodePosition>(
-            buildShardedPath(nodes.node_positions, gameId, actor.actor_id),
-          );
-          const cardId = actor.cards_by_game?.[gameId];
-          let card: CardWithPosition | undefined;
-          if (cardId) {
-            const rawCard = await get<Card>(`${nodes.cards}/${cardId}`);
-            if (rawCard) {
-              card = { ...rawCard, position: randomPos() };
-            }
-          }
-          actors.push({ ...actor, card, position: pos || randomPos() });
-        }
-      }
-      console.log(`[GameService] Loaded actors for game ${gameId}:`, actors);
-
-      // 2) Cards
-      const deck = await get<any>(`${nodes.decks}/${game.deck_ref}`);
-      console.log(
-        `[GameService] Raw deck ${game.deck_ref} for game ${gameId}:`,
-        deck,
-      );
-
-      // Ensure deck.cards_ref is a flat object of card IDs
-      const deckCardsRef = deck?.cards_ref || {};
-      const cardIds = Object.keys(deckCardsRef).filter(
-        (key) => deckCardsRef[key] === true,
-      );
-      const total = cardIds.length;
-      console.log(`[GameService] Deck card IDs for game ${gameId}:`, cardIds);
-
-      const used = actors.filter((a) => a.cards_by_game?.[gameId]).length;
-      const usedSet = new Set(
-        actors.map((a) => a.cards_by_game?.[gameId]).filter(Boolean),
-      );
-      const allCards = await getCollection<Card>(nodes.cards);
-      console.log(`[GameService] All cards:`, allCards);
-      const availableCards = allCards
-        .filter((c) => c.decks_ref?.[game.deck_ref] && !usedSet.has(c.card_id))
-        .map((c) => ({ ...c, position: randomPos() }));
-      const availableCardsCount = availableCards.length;
-
-      // 3) Agreements
-      const allAg = await getCollection<Agreement>(nodes.agreements);
-      const agreements = allAg
-        .filter((ag) => ag.game_ref === gameId)
-        .map((ag) => ({ ...ag, position: randomPos() }));
-
-      return {
-        game,
-        actors,
-        totalCards: total,
-        usedCards: used,
-        availableCards,
-        availableCardsCount,
-        agreements,
-        deckName,
-      };
-    } catch (err) {
-      console.error(
-        `[GameService] Error in getGameContext for gameId ${gameId}:`,
-        err,
-      );
+  try {
+    const game = await getGame(gameId);
+    if (!game) {
+      console.error(`[GameService] Game ${gameId} not found`);
       return null;
     }
-  })();
 
-  _contextCache.set(gameId, promise);
-  return promise;
+    // 1) Actors - Fetch directly from games/<gameId>/actors_ref
+    const actorIds = await getSet(`${nodes.games}/${gameId}`, "actors_ref");
+    console.log(
+      `[GameService] Fetched actor IDs for game ${gameId}:`,
+      actorIds,
+    );
+
+    const actors: ActorWithCard[] = [];
+    for (const actorId of actorIds) {
+      const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
+      console.log(
+        `[GameService] Fetched actor ${actorId} for game ${gameId}:`,
+        actor,
+      );
+      if (actor) {
+        const pos = await get<NodePosition>(
+          buildShardedPath(nodes.node_positions, gameId, actor.actor_id),
+        );
+        const cardId = actor.cards_by_game?.[gameId];
+        console.log(
+          `[GameService] Actor ${actorId} card ID for game ${gameId}:`,
+          cardId,
+        );
+        let card: CardWithPosition | undefined;
+        if (cardId) {
+          const rawCard = await get<Card>(`${nodes.cards}/${cardId}`);
+          console.log(
+            `[GameService] Fetched card ${cardId} for actor ${actorId}:`,
+            rawCard,
+          );
+          if (rawCard) {
+            card = { ...rawCard, position: randomPos() };
+          }
+        }
+        actors.push({ ...actor, card, position: pos || randomPos() });
+      }
+    }
+    console.log(`[GameService] Loaded actors for game ${gameId}:`, actors);
+
+    // 2) Cards - Fetch directly from decks/<deckId>/cards_ref
+    const deck = await get<Deck>(`${nodes.decks}/${game.deck_ref}`);
+    console.log(
+      `[GameService] Fetched deck ${game.deck_ref} for game ${gameId}:`,
+      deck,
+    );
+
+    const cardIds = await getSet(
+      `${nodes.decks}/${game.deck_ref}`,
+      "cards_ref",
+    );
+    console.log(`[GameService] Deck card IDs for game ${gameId}:`, cardIds);
+    const total = cardIds.length;
+
+    const used = actors.length; // Since each actor uses one card
+    const usedSet = new Set(
+      actors.map((a) => a.cards_by_game?.[gameId]).filter(Boolean),
+    );
+
+    const allCards = await Promise.all(
+      cardIds.map(async (cardId) => {
+        const card = await get<Card>(`${nodes.cards}/${cardId}`);
+        return card ? { ...card, position: randomPos() } : null;
+      }),
+    );
+    const availableCards = allCards
+      .filter((c): c is CardWithPosition => c !== null)
+      .filter((c) => !usedSet.has(c.card_id));
+    const availableCardsCount = availableCards.length;
+
+    // 3) Agreements
+    const allAg = await getCollection<Agreement>(nodes.agreements);
+    const agreements = allAg
+      .filter((ag) => ag.game_ref === gameId)
+      .map((ag) => ({ ...ag, position: randomPos() }));
+
+    // 4) Deck Name
+    const deckName = deck?.name || game.deck_type;
+
+    return {
+      game,
+      actors,
+      totalCards: total,
+      usedCards: used,
+      availableCards,
+      availableCardsCount,
+      agreements,
+      deckName,
+    };
+  } catch (err) {
+    console.error(
+      `[GameService] Error in getGameContext for gameId ${gameId}:`,
+      err,
+    );
+    return null;
+  }
 }
