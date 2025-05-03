@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { getGun } from '$lib/services/gunService';
     import { fade, slide } from 'svelte/transition';
     import * as icons from '@lucide/svelte';
     import { userStore } from '$lib/stores/userStore';

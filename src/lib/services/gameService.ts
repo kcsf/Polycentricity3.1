@@ -1,12 +1,13 @@
 import {
   get,
-  getGun,
   putSigned,
   getCollection,
   createRelationship,
   buildShardedPath,
   generateId,
   getSet,
+  getGun,
+  subscribe,
   nodes,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
@@ -128,34 +129,26 @@ export async function getAllGames(): Promise<Game[]> {
 }
 
 export function subscribeToGames(callback: (g: Game) => void): () => void {
-  const gun = getGun();
-  if (!gun) return () => {};
-  const sub = gun
-    .get(nodes.games)
-    .map()
-    .on((data: any, key: string) => {
-      if (key && key !== "_" && data) {
-        callback({ ...data, game_id: key });
-      }
-    });
-  return () => sub.off();
+  return subscribe<Omit<Game, "game_id">>(nodes.games, (data) => {
+    if (data && data.id /* from cleanData */) {
+      callback({ ...(data as any), game_id: data.id });
+    }
+  });
 }
 
 export function subscribeToGame(
   gameId: string,
   callback: (g: Game) => void,
 ): () => void {
-  const gun = getGun();
-  if (!gun) {
-    return () => {};
-  }
-  const sub = gun
-    .get(nodes.games)
-    .get(gameId)
-    .on((data: any) => {
-      if (data) callback({ ...data, game_id: gameId });
-    });
-  return () => sub.off();
+  // subscribe() will clean the raw data, including id==gameId
+  return subscribe<Omit<Game, "game_id">>(
+    `${nodes.games}/${gameId}`,
+    (data) => {
+      if (data) {
+        callback({ ...(data as any), game_id: gameId });
+      }
+    },
+  );
 }
 
 export async function updateGame(

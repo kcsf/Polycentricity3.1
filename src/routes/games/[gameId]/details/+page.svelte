@@ -70,7 +70,7 @@
             usedCards = ctx.usedCards;
             availableCardsForActors = ctx.availableCards;
             availableCardsCount = ctx.availableCardsCount;
-            actors = ctx.actors; // Missing assignment
+            actors = ctx.actors;
             // Log card counts for debugging
             console.log(`[GameDetailsPage] Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
             console.log(`[GameDetailsPage] Available Cards:`, availableCardsForActors);
@@ -85,29 +85,21 @@
         isLoading = false;
     });
 
-    // 2️⃣ Live‐update subscription for this one game
+    // 2️⃣ Live-update subscription for this one game
     $effect(() => {
-        const unsubscribe = subscribeToGame(gameId, () => {
-            // Re‐run the same load logic
-            getGameContext(gameId).then(ctx => {
-                if (!ctx) {
-                    console.error(`[GameDetailsPage] Subscription update failed for ${gameId}`);
-                    return;
-                }
-                game = ctx.game;
-                deckName = ctx.deckName;
-                totalCards = ctx.totalCards;
-                usedCards = ctx.usedCards;
-                availableCardsForActors = ctx.availableCards;
-                availableCardsCount = ctx.availableCardsCount;
-                actors = ctx.actors; // Missing assignment
-                const max = typeof game.max_players === 'string'
-                    ? parseInt(game.max_players, 10)
-                    : game.max_players;
-                const count = Object.keys(game.players || {}).length;
-                isFull = max ? count >= max : false;
-                console.log(`[GameDetailsPage] Subscription updated - Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
-            });
+        const unsubscribe = subscribeToGame(gameId, (updatedGame) => {
+            if (!updatedGame) {
+                console.warn(`[GameDetailsPage] No update for game ${gameId}`);
+                return;
+            }
+            // Update only necessary state to avoid full reload
+            game = updatedGame;
+            const max = typeof game.max_players === 'string'
+                ? parseInt(game.max_players, 10)
+                : game.max_players;
+            const count = Object.keys(game.players || {}).length;
+            isFull = max ? count >= max : false;
+            console.log(`[GameDetailsPage] Subscription updated for ${gameId}`);
         });
         return () => unsubscribe();
     });
