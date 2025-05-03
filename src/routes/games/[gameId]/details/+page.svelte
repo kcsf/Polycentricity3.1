@@ -3,7 +3,6 @@
     import { page } from '$app/stores';
     import {
         getGameContext,
-        subscribeToGame,
         type GameContext
     } from '$lib/services/gameService';
     import { userStore } from '$lib/stores/userStore';
@@ -85,13 +84,18 @@
         isLoading = false;
     });
 
-    // 2️⃣ Live‐update subscription for this one game
+    // 2️⃣ Live‐update polling for this game (workaround for getGun issue)
     $effect(() => {
-        const unsubscribe = subscribeToGame(gameId, () => {
-            // Re‐run the same load logic
-            getGameContext(gameId).then(ctx => {
+        // Set up a polling interval instead of direct subscription
+        let intervalId: ReturnType<typeof setInterval>;
+        
+        const startPolling = () => {
+            // Poll every 5 seconds to check for updates
+            intervalId = setInterval(async () => {
+                // Re‐run the same load logic with polling instead of subscription
+                const ctx = await getGameContext(gameId);
                 if (!ctx) {
-                    console.error(`[GameDetailsPage] Subscription update failed for ${gameId}`);
+                    console.error(`[GameDetailsPage] Polling update failed for ${gameId}`);
                     return;
                 }
                 game = ctx.game;
@@ -100,16 +104,22 @@
                 usedCards = ctx.usedCards;
                 availableCardsForActors = ctx.availableCards;
                 availableCardsCount = ctx.availableCardsCount;
-                actors = ctx.actors; // Missing assignment
+                actors = ctx.actors;
                 const max = typeof game.max_players === 'string'
                     ? parseInt(game.max_players, 10)
                     : game.max_players;
                 const count = Object.keys(game.players || {}).length;
                 isFull = max ? count >= max : false;
-                console.log(`[GameDetailsPage] Subscription updated - Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
-            });
-        });
-        return () => unsubscribe();
+                console.log(`[GameDetailsPage] Polling updated - Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
+            }, 5000); // 5 second interval
+        };
+        
+        startPolling();
+        
+        return () => {
+            // Clean up interval on component unmount
+            if (intervalId) clearInterval(intervalId);
+        };
     });
 
     // Navigation helpers
