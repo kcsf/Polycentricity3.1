@@ -9,74 +9,132 @@
  * Excludes chat rooms and messages
  ***************************************************************************************/
 
-import { getGun, nodes, put, generateId, type GunAck } from "./gunService";
+import { getGun, nodes } from "./gunService";
+import type { IGunInstance, IGunChain } from "gun";
 
-// Helper function to wait between Gun operations
+/**
+ * Helper to create an edge (relationship) via Gun.js’s .set()
+ * Resolves true on success or after a 500 ms fallback.
+ */
+export async function createEdge(
+  fromPath: string,
+  fromKey: string,
+  toPath: string,
+  toKey: string,
+): Promise<boolean> {
+  const gun = getGun() as IGunInstance | undefined;
+  if (!gun) {
+    console.error(
+      `[sampleData] Gun not initialized, cannot create edge ${fromPath}/${fromKey} → ${toPath}/${toKey}`,
+    );
+    return false;
+  }
+
+  const fromNode = gun.get(fromPath).get(fromKey);
+  const toNode = gun.get(toPath).get(toKey);
+  let done = false;
+
+  return new Promise<boolean>((resolve) => {
+    // 1) issue the .set()
+    fromNode.set(toNode, (ack: any) => {
+      if (done) return;
+      done = true;
+      if (ack?.err) {
+        console.error(
+          `[sampleData] Error creating edge ${fromPath}/${fromKey} → ${toPath}/${toKey}:`,
+          ack.err,
+        );
+        resolve(false);
+      } else {
+        console.log(
+          `[sampleData] Created edge ${fromPath}/${fromKey} → ${toPath}/${toKey}`,
+        );
+        resolve(true);
+      }
+    });
+
+    // 2) fallback in case no ack ever arrives
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        console.warn(
+          `[sampleData] Fallback timeout for edge ${fromPath}/${fromKey} → ${toPath}/${toKey}, assuming success`,
+        );
+        resolve(true);
+      }
+    }, 500);
+  });
+}
+
+/**
+ * Helper to wait between Gun operations
+ */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Optimized put operation for sample data with reduced timeouts and minimal logging
+ * Simplified write: fires a put() and resolves on the ack or a short timeout
  */
-async function robustPut(
+export async function write(
   path: string,
   key: string,
   data: any,
 ): Promise<boolean> {
-  const gun = getGun();
+  const gun = getGun() as IGunInstance | undefined;
   if (!gun) {
     console.error(
-      `[sampleData] Cannot save to ${path}/${key} - Gun not initialized`,
+      `[sampleData] Gun not initialized, cannot write ${path}/${key}`,
     );
     return false;
   }
 
+  // deepClean: remove undefined, "_" metadata, and any "#"/":" pointers
   function deepClean(obj: any): any {
     if (obj === null || typeof obj !== "object") return obj;
-    if (Array.isArray(obj)) {
-      const result: Record<string, any> = {};
-      obj.forEach((val, idx) => {
-        if (val !== undefined) result[String(idx)] = deepClean(val);
-      });
-      return result;
-    }
-    const cleanObj: Record<string, any> = {};
+    const out: Record<string, any> = {};
     for (const k in obj) {
       if (
-        Object.prototype.hasOwnProperty.call(obj, k) &&
-        obj[k] !== undefined
+        Object.hasOwnProperty.call(obj, k) &&
+        obj[k] !== undefined &&
+        k !== "_" &&
+        !k.startsWith("#") &&
+        !k.startsWith(":")
       ) {
-        cleanObj[k] = deepClean(obj[k]);
+        out[k] = deepClean(obj[k]);
       }
     }
-    return cleanObj;
+    return out;
   }
 
   const cleanData = deepClean(data);
+  const node = gun.get(path).get(key);
+  let done = false;
 
   return new Promise<boolean>((resolve) => {
-    try {
-      gun
-        .get(path)
-        .get(key)
-        .put(cleanData, (ack: any) => {
-          if (ack && ack.err) {
-            console.warn(
-              `[sampleData] Error saving to ${path}/${key}:`,
-              ack.err,
-            );
-            resolve(false);
-          } else {
-            console.log(`[sampleData] Successfully saved to ${path}/${key}`);
-            resolve(true);
-          }
-        });
-      setTimeout(() => resolve(true), 1000);
-    } catch (error) {
-      console.error(`[sampleData] Exception for ${path}/${key}:`, error);
-      resolve(false);
-    }
+    // 1) Fire the put
+    node.put(cleanData, (ack: any) => {
+      if (done) return;
+      done = true;
+      if (ack?.err) {
+        console.error(`[sampleData] Error writing ${path}/${key}:`, ack.err);
+        resolve(false);
+      } else {
+        console.log(`[sampleData] Wrote ${path}/${key}`);
+        resolve(true);
+      }
+    });
+
+    // 2) Fallback in case ack never arrives
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        console.warn(
+          `[sampleData] Fallback timeout for ${path}/${key}, assuming success`,
+        );
+        resolve(true);
+      }
+    }, 500);
   });
 }
 
@@ -87,13 +145,16 @@ async function saveBatch<T extends { [key: string]: any }>(
   nodePath: string,
   items: T[],
   idField: keyof T,
-) {
-  console.log(`[seed] Batch saving ${items.length} items to ${nodePath}`);
+): Promise<boolean> {
   for (const item of items) {
-    await robustPut(nodePath, String(item[idField]), item);
+    const success = await write(nodePath, String(item[idField]), item);
+    if (!success) {
+      console.error(`[sampleData] Failed to save ${nodePath}/${item[idField]}`);
+      return false;
+    }
     await delay(100);
   }
-  await delay(200);
+  return true;
 }
 
 /**
@@ -110,6 +171,7 @@ export async function initializeSampleData() {
   const now = Date.now();
 
   // 1. Users
+  console.log("[seed] Saving users...");
   const users = [
     {
       user_id: "u_123",
@@ -117,6 +179,8 @@ export async function initializeSampleData() {
       email: "alice@example.com",
       role: "Admin",
       created_at: now,
+      games_ref: { g_456: true },
+      actors_ref: { actor_1: true },
     },
     {
       user_id: "u_124",
@@ -124,6 +188,8 @@ export async function initializeSampleData() {
       email: "bob@example.com",
       role: "Member",
       created_at: now,
+      games_ref: { g_456: true },
+      actors_ref: { actor_2: true },
     },
     {
       user_id: "u_125",
@@ -131,6 +197,8 @@ export async function initializeSampleData() {
       email: "charlie@example.com",
       role: "Member",
       created_at: now,
+      games_ref: { g_456: true },
+      actors_ref: { actor_3: true },
     },
     {
       user_id: "u_126",
@@ -138,10 +206,13 @@ export async function initializeSampleData() {
       email: "david@example.com",
       role: "Member",
       created_at: now,
+      games_ref: { g_456: true },
+      actors_ref: { actor_4: true },
     },
   ];
 
   // 2. Deck
+  console.log("[seed] Saving deck...");
   const deck = {
     deck_id: "d_1",
     name: "Eco-Village Funder Deck",
@@ -160,6 +231,7 @@ export async function initializeSampleData() {
   };
 
   // 3. Cards
+  console.log("[seed] Saving cards...");
   const cards = [
     {
       card_id: "card_1",
@@ -300,147 +372,209 @@ export async function initializeSampleData() {
   ];
 
   // 4. Values
+  console.log("[seed] Saving values...");
   const values = [
     {
       value_id: "value_sustainability",
       name: "Sustainability",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: {
+        card_1: true,
+        card_2: true,
+        card_3: true,
+        card_4: true,
+        card_5: true,
+      },
       created_at: now,
     },
     {
       value_id: "value_equity",
       name: "Equity",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_1: true, card_3: true, card_4: true },
       created_at: now,
     },
     {
       value_id: "value_community_resilience",
       name: "Community Resilience",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_1: true },
       created_at: now,
     },
     {
       value_id: "value_decentralization",
       name: "Decentralization",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_2: true },
       created_at: now,
     },
     {
       value_id: "value_transparency",
       name: "Transparency",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_2: true },
       created_at: now,
     },
     {
       value_id: "value_privacy",
       name: "Privacy",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_3: true },
       created_at: now,
     },
     {
       value_id: "value_community",
       name: "Community",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_4: true },
       created_at: now,
     },
     {
       value_id: "value_innovation",
       name: "Innovation",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_5: true },
       created_at: now,
     },
     {
       value_id: "value_resilience",
       name: "Resilience",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_5: true },
       created_at: now,
     },
   ];
 
   // 5. Capabilities
+  console.log("[seed] Saving capabilities...");
   const capabilities = [
     {
       capability_id: "cap_grant_writing",
       name: "Grant-writing expertise",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_1: true },
       created_at: now,
     },
     {
       capability_id: "cap_impact_assessment",
       name: "Impact assessment",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_1: true },
       created_at: now,
     },
     {
       capability_id: "cap_smart_contract_dev",
       name: "Smart contract development",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_2: true },
       created_at: now,
     },
     {
       capability_id: "cap_crowdfunding_coord",
       name: "Crowdfunding coordination",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_2: true },
       created_at: now,
     },
     {
       capability_id: "cap_land_acquisition",
       name: "Land acquisition",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_3: true },
       created_at: now,
     },
     {
       capability_id: "cap_legal_structuring",
       name: "Legal structuring",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_3: true },
       created_at: now,
     },
     {
       capability_id: "cap_crowdfunding_mgmt",
       name: "Crowdfunding management",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_4: true },
       created_at: now,
     },
     {
       capability_id: "cap_community_outreach",
       name: "Community outreach",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_4: true },
       created_at: now,
     },
     {
       capability_id: "cap_tech_scouting",
       name: "Tech scouting",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_5: true },
       created_at: now,
     },
     {
       capability_id: "cap_blockchain_integration",
       name: "Blockchain integration",
       creator_ref: "u_123",
-      cards_ref: {},
+      cards_ref: { card_5: true },
       created_at: now,
     },
   ];
 
+  // Parallelize independent saves
+  // 1. Save users, deck and cards in parallel
+  const [ usersSaved, deckSaved, cardsSaved ] = await Promise.all([
+    saveBatch(nodes.users, users,   "user_id"),
+    saveBatch(nodes.decks, [deck],  "deck_id"),
+    saveBatch(nodes.cards, cards,   "card_id")
+  ]);
+
+  if (!usersSaved || !deckSaved || !cardsSaved) {
+    console.error("[seed] Failed to save users, deck or cards – aborting");
+    return { success: false, message: "Failed to save initial entities" };
+  }
+  console.log("[seed] Saved users, deck and cards");
+
+  // 2. Write nested refs for cards
+  console.log("[seed] Writing nested refs for cards...");
+  await Promise.all(cards.map(card =>
+    Promise.all([
+      write(`${nodes.cards}/${card.card_id}`, "decks_ref",        card.decks_ref),
+      write(`${nodes.cards}/${card.card_id}`, "values_ref",       card.values_ref),
+      write(`${nodes.cards}/${card.card_id}`, "capabilities_ref", card.capabilities_ref),
+      write(`${nodes.cards}/${card.card_id}`, "agreements_ref",   card.agreements_ref)
+    ])
+  ));
+  console.log("[seed] Saved card nested refs");
+
+  // 3. Save values and capabilities in parallel
+  const [ valuesSaved, capabilitiesSaved ] = await Promise.all([
+    saveBatch(nodes.values,       values,       "value_id"),
+    saveBatch(nodes.capabilities, capabilities, "capability_id")
+  ]);
+
+  if (!valuesSaved || !capabilitiesSaved) {
+    console.error("[seed] Failed to save values or capabilities – aborting");
+    return { success: false, message: "Failed to save initial entities" };
+  }
+  console.log("[seed] Saved values and capabilities");
+
+  // 4. Write nested refs for values
+  console.log("[seed] Writing nested refs for values...");
+  await Promise.all(values.map(value =>
+    write(`${nodes.values}/${value.value_id}`, "cards_ref", value.cards_ref)
+  ));
+  console.log("[seed] Saved value nested refs");
+
+  // 5. Write nested refs for capabilities
+  console.log("[seed] Writing nested refs for capabilities...");
+  await Promise.all(capabilities.map(cap =>
+    write(`${nodes.capabilities}/${cap.capability_id}`, "cards_ref", cap.cards_ref)
+  ));
+  console.log("[seed] Saved capability nested refs");
+
+
   // 6. Game
+  console.log("[seed] Saving game...");
   const game = {
     game_id: "g_456",
     name: "Eco-Village Simulation",
@@ -453,6 +587,7 @@ export async function initializeSampleData() {
     created_at: now,
     updated_at: now,
     max_players: 5,
+    // we’ll write these nested maps separately
     players: { u_123: true, u_124: true, u_125: true, u_126: true },
     player_actor_map: {
       u_123: "actor_1",
@@ -471,7 +606,33 @@ export async function initializeSampleData() {
     chat_rooms_ref: {},
   };
 
+  // write the top-level game object (without the nested maps)
+  const { players, player_actor_map, actors_ref, agreements_ref, ...gameRoot } =
+    game;
+  const ok = await write(nodes.games, game.game_id, gameRoot);
+  if (!ok) {
+    console.error("[seed] Failed to save game, aborting");
+    return { success: false, message: "Failed to save game" };
+  }
+  console.log("[seed] Saved game");
+
+  // now write each of the nested maps explicitly:
+  await write(`${nodes.games}/${game.game_id}`, "players", players);
+  await write(
+    `${nodes.games}/${game.game_id}`,
+    "player_actor_map",
+    player_actor_map,
+  );
+  await write(`${nodes.games}/${game.game_id}`, "actors_ref", actors_ref);
+  await write(
+    `${nodes.games}/${game.game_id}`,
+    "agreements_ref",
+    agreements_ref,
+  );
+  console.log("[seed] Saved game nested maps");
+
   // 7. Actors
+  console.log("[seed] Saving actors...");
   const actors = [
     {
       actor_id: "actor_1",
@@ -483,6 +644,7 @@ export async function initializeSampleData() {
       status: "active",
       agreements_ref: { ag_1: true, ag_5: true },
       created_at: now,
+      updated_at: now,
     },
     {
       actor_id: "actor_2",
@@ -494,6 +656,7 @@ export async function initializeSampleData() {
       status: "active",
       agreements_ref: { ag_1: true, ag_2: true },
       created_at: now,
+      updated_at: now,
     },
     {
       actor_id: "actor_3",
@@ -505,6 +668,7 @@ export async function initializeSampleData() {
       status: "active",
       agreements_ref: { ag_2: true, ag_3: true },
       created_at: now,
+      updated_at: now,
     },
     {
       actor_id: "actor_4",
@@ -516,10 +680,18 @@ export async function initializeSampleData() {
       status: "active",
       agreements_ref: { ag_3: true, ag_4: true, ag_5: true },
       created_at: now,
+      updated_at: now,
     },
   ];
+  const actorsSuccess = await saveBatch(nodes.actors, actors, "actor_id");
+  if (!actorsSuccess) {
+    console.error("[seed] Failed to save actors, aborting initialization");
+    return { success: false, message: "Failed to save actors" };
+  }
+  console.log("[seed] Saved actors");
 
   // 8. Agreements
+  console.log("[seed] Saving agreements...");
   const agreements = [
     {
       agreement_id: "ag_1",
@@ -641,8 +813,19 @@ export async function initializeSampleData() {
       votes: { actor_1: "accept", actor_4: "accept" },
     },
   ];
+  const agreementsSuccess = await saveBatch(
+    nodes.agreements,
+    agreements,
+    "agreement_id",
+  );
+  if (!agreementsSuccess) {
+    console.error("[seed] Failed to save agreements, aborting initialization");
+    return { success: false, message: "Failed to save agreements" };
+  }
+  console.log("[seed] Saved agreements");
 
   // 9. Node Positions
+  console.log("[seed] Saving node positions...");
   const radius = 200;
   const centerX = 400;
   const centerY = 300;
@@ -662,17 +845,7 @@ export async function initializeSampleData() {
     y: centerY + (radius / 2) * Math.sin((i / agreements.length) * 2 * Math.PI),
     updated_at: now,
   }));
-
-  // Save entities in order
-  await saveBatch(nodes.users, users, "user_id");
-  await robustPut(nodes.decks, deck.deck_id, deck);
-  await saveBatch(nodes.cards, cards, "card_id");
-  await saveBatch(nodes.values, values, "value_id");
-  await saveBatch(nodes.capabilities, capabilities, "capability_id");
-  await robustPut(nodes.games, game.game_id, game);
-  await saveBatch(nodes.actors, actors, "actor_id");
-  await saveBatch(nodes.agreements, agreements, "agreement_id");
-  await saveBatch(
+  const nodePositionsSuccess = await saveBatch(
     nodes.node_positions,
     [...actorPositions, ...agreementPositions].map((pos) => ({
       ...pos,
@@ -680,151 +853,73 @@ export async function initializeSampleData() {
     })),
     "node_id",
   );
-
-  // ----------------------------------------------------------------------
-  // Now write all boolean-map refs and denormalized parties exactly per schema:
-
-  // Deck ↔ Card
-  for (const c of cards) {
-    await robustPut(
-      `${nodes.decks}/${deck.deck_id}/cards_ref`,
-      c.card_id,
-      true,
+  if (!nodePositionsSuccess) {
+    console.error(
+      "[seed] Failed to save node positions, aborting initialization",
     );
-    await robustPut(
-      `${nodes.cards}/${c.card_id}/decks_ref`,
-      deck.deck_id,
-      true,
-    );
+    return { success: false, message: "Failed to save node positions" };
   }
+  console.log("[seed] Saved node positions");
 
-  // Card ↔ Value
-  for (const c of cards) {
-    for (const vId of Object.keys(c.values_ref)) {
-      if (c.values_ref[vId]) {
-        await robustPut(`${nodes.cards}/${c.card_id}/values_ref`, vId, true);
-        await robustPut(`${nodes.values}/${vId}/cards_ref`, c.card_id, true);
-      }
-    }
-  }
-
-  // Card ↔ Capability
-  for (const c of cards) {
-    for (const capId of Object.keys(c.capabilities_ref)) {
-      if (c.capabilities_ref[capId]) {
-        await robustPut(
-          `${nodes.cards}/${c.card_id}/capabilities_ref`,
-          capId,
-          true,
-        );
-        await robustPut(
-          `${nodes.capabilities}/${capId}/cards_ref`,
-          c.card_id,
-          true,
-        );
-      }
-    }
-  }
-
-  // Game ↔ Actors & Agreements
+  // 10. Create edges using .set()
+  console.log("[seed] Creating edges...");
+  // Game ↔ Actors
   for (const a of actors) {
-    await robustPut(
-      `${nodes.games}/${game.game_id}/actors_ref`,
+    await createEdge(
+      `${nodes.games}/${game.game_id}`,
+      "actors_ref",
+      nodes.actors,
       a.actor_id,
-      true,
     );
-    await robustPut(
-      `${nodes.actors}/${a.actor_id}/games_ref`,
+    await createEdge(
+      `${nodes.actors}/${a.actor_id}`,
+      "games_ref",
+      nodes.games,
       game.game_id,
-      true,
     );
   }
+  // Game ↔ Agreements
   for (const ag of agreements) {
-    await robustPut(
-      `${nodes.games}/${game.game_id}/agreements_ref`,
+    await createEdge(
+      `${nodes.games}/${game.game_id}`,
+      "agreements_ref",
+      nodes.agreements,
       ag.agreement_id,
-      true,
     );
   }
-
   // User ↔ Actor
   for (const a of actors) {
-    await robustPut(
-      `${nodes.users}/${a.user_ref}/actors_ref`,
+    await createEdge(
+      `${nodes.users}/${a.user_ref}`,
+      "actors_ref",
+      nodes.actors,
       a.actor_id,
-      true,
     );
   }
-
-  // Parties (denormalized)
-  for (const ag of agreements) {
-    for (const [actorId, terms] of Object.entries(ag.parties)) {
-      await robustPut(
-        `${nodes.agreements}/${ag.agreement_id}/parties`,
-        actorId,
-        terms,
-      );
-    }
-  }
-
-  // Actor ↔ Agreements
-  for (const a of actors) {
-    for (const agId of Object.keys(a.agreements_ref)) {
-      if (a.agreements_ref[agId]) {
-        await robustPut(
-          `${nodes.actors}/${a.actor_id}/agreements_ref`,
-          agId,
-          true,
-        );
-      }
-    }
-  }
-
-  // Card ↔ Agreements
-  for (const c of cards) {
-    for (const agId of Object.keys(c.agreements_ref)) {
-      if (c.agreements_ref[agId]) {
-        await robustPut(
-          `${nodes.cards}/${c.card_id}/agreements_ref`,
-          agId,
-          true,
-        );
-        await robustPut(
-          `${nodes.agreements}/${agId}/cards_ref`,
-          c.card_id,
-          true,
-        );
-      }
-    }
-  }
-
   // User ↔ Games
   for (const u of users) {
-    await robustPut(
-      `${nodes.users}/${u.user_id}/games_ref`,
+    await createEdge(
+      `${nodes.users}/${u.user_id}`,
+      "games_ref",
+      nodes.games,
       game.game_id,
-      true,
     );
   }
-
   // Game ↔ Creator
-  await robustPut(
-    `${nodes.games}/${game.game_id}/creator_ref`,
+  await createEdge(
+    `${nodes.games}/${game.game_id}`,
+    "creator_ref",
+    nodes.users,
     game.creator_ref,
-    true,
   );
-
   // Game ↔ Deck
-  await robustPut(
-    `${nodes.games}/${game.game_id}/deck_ref`,
+  await createEdge(
+    `${nodes.games}/${game.game_id}`,
+    "deck_ref",
+    nodes.decks,
     deck.deck_id,
-    true,
   );
-
-  // Game ↔ Players
-  for (const userId of Object.keys(game.players)) {
-    await robustPut(`${nodes.games}/${game.game_id}/players`, userId, true);
-  }
+  console.log("[seed] Created edges");
 
   console.log("[seed] Sample data initialization complete!");
   return { success: true, message: "Sample data initialized" };
@@ -864,7 +959,7 @@ export async function verifySampleData() {
             count++;
           }
         });
-      setTimeout(() => resolve(count), 2000); // Increased timeout to ensure all nodes are counted
+      setTimeout(() => resolve(count), 2000);
     });
   }
 
@@ -876,6 +971,70 @@ export async function verifySampleData() {
       console.error(`[verify] Error counting ${nodeType}:`, error);
     }
     await delay(100);
+  }
+
+  // Verify nested fields
+  const nestedChecks = [
+    {
+      path: `${nodes.actors}/actor_1/cards_by_game`,
+      expected: { g_456: "card_1" },
+    },
+    {
+      path: `${nodes.actors}/actor_2/cards_by_game`,
+      expected: { g_456: "card_2" },
+    },
+    {
+      path: `${nodes.actors}/actor_3/cards_by_game`,
+      expected: { g_456: "card_3" },
+    },
+    {
+      path: `${nodes.actors}/actor_4/cards_by_game`,
+      expected: { g_456: "card_4" },
+    },
+    {
+      path: `${nodes.games}/g_456/player_actor_map`,
+      expected: {
+        u_123: "actor_1",
+        u_124: "actor_2",
+        u_125: "actor_3",
+        u_126: "actor_4",
+      },
+    },
+    { path: `${nodes.cards}/card_1/decks_ref`, expected: { d_1: true } },
+  ];
+
+  for (const check of nestedChecks) {
+    await new Promise<void>((resolve) => {
+      gun.get(check.path).once((data: any) => {
+        const cleanedData = data
+          ? (() => {
+              const cleanObj: Record<string, any> = {};
+              for (const k in data) {
+                if (
+                  Object.prototype.hasOwnProperty.call(data, k) &&
+                  data[k] !== undefined &&
+                  k !== "_" &&
+                  !k.startsWith("#") &&
+                  !k.startsWith(":")
+                ) {
+                  cleanObj[k] = data[k];
+                }
+              }
+              return cleanObj;
+            })()
+          : null;
+        if (JSON.stringify(cleanedData) === JSON.stringify(check.expected)) {
+          console.log(`[verify] ${check.path} matches expected value`);
+        } else {
+          console.error(
+            `[verify] ${check.path} does not match expected value`,
+            cleanedData,
+            check.expected,
+          );
+        }
+        resolve();
+      });
+    });
   }
 
   return { success: true, message: "Verification done", counts };
@@ -949,5 +1108,6 @@ export async function clearSampleData() {
     }
   }
 
+  console.log("[clear] Sample data cleared!");
   return { success: true, message: "Sample data cleared" };
 }
