@@ -15,6 +15,7 @@ import {
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
 import type {
+  User,
   Game,
   Actor,
   ActorWithCard,
@@ -24,13 +25,18 @@ import type {
   AgreementWithPosition,
   NodePosition,
   Deck,
+  Value,
+  Capability,  
+  ChatRoom,
+  ChatMessage,
 } from "$lib/types";
 import { GameStatus, AgreementStatus } from "$lib/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers: signed writes with retry
 // ─────────────────────────────────────────────────────────────────────────────
-async function signedPutOrRetry<T>(
+// Update the function signature to constrain T to a specific set of types
+async function signedPutOrRetry<T extends Game | User | Actor | Agreement | ChatRoom | ChatMessage | Card | Deck | Value | Capability | NodePosition | null>(
   collection: string,
   id: string,
   data: T,
@@ -41,7 +47,6 @@ async function signedPutOrRetry<T>(
       console.log(`Write to ${collection}/${id} timed out, proceeding anyway`);
       resolve();
     }, timeoutMs);
-
     putSigned(`${collection}/${id}`, data).then((ack) => {
       clearTimeout(writeTimeout);
       if (ack.err) console.error(`Write to ${collection}/${id} error: ${ack.err}`);
