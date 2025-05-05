@@ -141,52 +141,7 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
   return getGun()
     .get(nodes.games)
     .map()
-    .on((data: any, id: string) => {export async function joinWithActor(
-  gameId: string,
-  actorId: string,
-): Promise<boolean> {
-  const user = getCurrentUser();
-  if (!user) return false;
-
-  try {
-    // Fetch the complete game object
-    const game = await get<Game>(`${nodes.games}/${gameId}`);
-    if (!game) return false;
-
-    // Validate actor exists and isn't already assigned
-    const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-    if (!actor) return false;
-
-    // Update game data
-    const updates = {
-      players: { ...(game.players || {}), [user.user_id]: true },
-      player_actor_map: { ...(game.player_actor_map || {}), [user.user_id]: actorId },
-      updated_at: Date.now()
-    };
-
-    // Write updates
-    await signedPutOrRetry(nodes.games, gameId, updates);
-
-    // Create relationships
-    await Promise.all([
-      createRelationship(
-        `${nodes.games}/${gameId}`,
-        "players",
-        `${nodes.users}/${user.user_id}`,
-      ),
-      createRelationship(
-        `${nodes.users}/${user.user_id}`,
-        "games_ref",
-        `${nodes.games}/${gameId}`,
-      )
-    ]);
-
-    return true;
-  } catch (error) {
-    console.error('Error joining game:', error);
-    return false;
-  }
-}
+    .on((data: any, id: string) => {
       if (data) callback({ ...(data as Game), game_id: id });
     });
 }
@@ -295,31 +250,44 @@ export async function joinWithActor(
   const user = getCurrentUser();
   if (!user) return false;
 
-  // 1️⃣ fetch the latest players map
-  const raw = await get<{ players?: Record<string, true> }>(
-    `${nodes.games}/${gameId}`,
-  );
-  const players = { ...(raw?.players || {}), [user.user_id]: true };
+  try {
+    // Fetch the complete game object
+    const game = await get<Game>(`${nodes.games}/${gameId}`);
+    if (!game) return false;
 
-  // 2️⃣ write both maps in one shot
-  await signedPutOrRetry(nodes.games, gameId, {
-    players,
-    player_actor_map: { [user.user_id]: actorId },
-  } as any);
+    // Validate actor exists and isn't already assigned
+    const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
+    if (!actor) return false;
 
-  // 3️⃣ re-create the “players” edges
-  createRelationship(
-    `${nodes.games}/${gameId}`,
-    "players",
-    `${nodes.users}/${user.user_id}`,
-  );
-  createRelationship(
-    `${nodes.users}/${user.user_id}`,
-    "games_ref",
-    `${nodes.games}/${gameId}`,
-  );
+    // Update game data 
+    const updates = {
+      players: { ...(game.players || {}), [user.user_id]: true },
+      player_actor_map: { ...(game.player_actor_map || {}), [user.user_id]: actorId },
+      updated_at: Date.now()
+    };
 
-  return true;
+    // Write updates
+    await signedPutOrRetry(nodes.games, gameId, updates);
+
+    // Create relationships
+    await Promise.all([
+      createRelationship(
+        `${nodes.games}/${gameId}`,
+        "players",
+        `${nodes.users}/${user.user_id}`,
+      ),
+      createRelationship(
+        `${nodes.users}/${user.user_id}`,
+        "games_ref",
+        `${nodes.games}/${gameId}`,
+      )
+    ]);
+
+    return true;
+  } catch (error) {
+    console.error('Error joining game:', error);
+    return false;
+  }
 }
 
 // (Optionally keep old joinGame for backward‐compatibility)
