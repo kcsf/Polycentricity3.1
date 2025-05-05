@@ -6,130 +6,119 @@
         subscribeToGame,
         type GameContext
     } from '$lib/services/gameService';
-    import { userStore } from '$lib/stores/userStore';
     import type { Game, ActorWithCard, CardWithPosition } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
 
-    // Pull the param out of $page
+    // — pull gameId from the route
     const gameId = $page.params.gameId;
+    if (!gameId) goto('/games');
 
-    // Safety redirect
-    if (!gameId) {
-        goto('/games');
-    }
-
-    // State
-    let game = $state<Game | null>(null);
-    let deckName = $state<string>('');
-    let isLoading = $state(true);
-    let errorMessage = $state('');
-    let isFull = $state(false);
-    let totalCards = $state<number>(0);
-    let usedCards = $state<number>(0);
-    let availableCardsCount = $state<number>(0);
-    let actors = $state<ActorWithCard[]>([]);
+    // — all your signals
+    let game                    = $state<Game | null>(null);
+    let deckName                = $state<string>('');
+    let isLoading               = $state<boolean>(true);
+    let errorMessage            = $state<string>('');
+    let isFull                  = $state<boolean>(false);
+    let totalCards              = $state<number>(0);
+    let usedCards               = $state<number>(0);
+    let availableCardsCount     = $state<number>(0);
+    let actors                  = $state<ActorWithCard[]>([]);
     let availableCardsForActors = $state<CardWithPosition[]>([]);
+    // new state for your table
+    let cardActorMappings = $state<{
+      actorId: string;
+      actorName: string;
+      actorType: string;
+      userRef: string;
+      cardId: string;
+      cardTitle: string;
+    }[]>([]);
 
-    // Derived for your table
-    const cardActorMappings = $derived(
-        actors.map(actor => ({
-            actorId: actor.actor_id,
-            actorName: actor.custom_name || '',
-            actorType: actor.actor_type || '',
-            userRef: actor.user_ref || '',
-            cardId: actor.card?.card_id || '',
-            cardTitle: actor.card?.role_title || 'Unknown Card'
-        }))
-    );
-
-    // 1️⃣ Initial load of everything
-    $effect(async () => {
-        isLoading = true;
-        errorMessage = '';
-        console.log(`[GameDetailsPage] Loading context for ${gameId}`);
-        const ctx: GameContext | null = await getGameContext(gameId);
-        if (!ctx) {
-            errorMessage = 'Game not found';
-            console.error(`[GameDetailsPage] No context for ${gameId}`);
-            // Reset state on failure
-            game = null;
-            deckName = '';
-            totalCards = 0;
-            usedCards = 0;
-            availableCardsCount = 0;
-            actors = [];
-            availableCardsForActors = [];
-            isFull = false;
-        } else {
-            // Destructure and assign
-            game = ctx.game;
-            deckName = ctx.deckName;
-            totalCards = ctx.totalCards;
-            usedCards = ctx.usedCards;
-            availableCardsForActors = ctx.availableCards;
-            availableCardsCount = ctx.availableCardsCount;
-            actors = ctx.actors;
-            // Log card counts for debugging
-            console.log(`[GameDetailsPage] Card Counts - Total: ${totalCards}, Used: ${usedCards}, Available: ${availableCardsCount}`);
-            console.log(`[GameDetailsPage] Available Cards:`, availableCardsForActors);
-            console.log(`[GameDetailsPage] Actors:`, actors);
-            // Compute isFull
-            const max = typeof game.max_players === 'string'
-                ? parseInt(game.max_players, 10)
-                : game.max_players;
-            const count = Object.keys(game.players || {}).length;
-            isFull = max ? count >= max : false;
-        }
-        isLoading = false;
-    });
-
-    // 2️⃣ Live-update subscription for this one game
+    // — re-compute the table any time `actors` changes
     $effect(() => {
-        const unsubscribe = subscribeToGame(gameId, (updatedGame) => {
-            if (!updatedGame) {
-                console.warn(`[GameDetailsPage] No update for game ${gameId}`);
-                return;
-            }
-            // Update only necessary state to avoid full reload
-            game = updatedGame;
-            const max = typeof game.max_players === 'string'
-                ? parseInt(game.max_players, 10)
-                : game.max_players;
-            const count = Object.keys(game.players || {}).length;
-            isFull = max ? count >= max : false;
-            console.log(`[GameDetailsPage] Subscription updated for ${gameId}`);
-        });
-        return () => unsubscribe();
+      cardActorMappings = actors.map(actor => ({
+        actorId:   actor.actor_id,
+        actorName: actor.custom_name  ?? 'Unnamed Actor',
+        actorType: actor.actor_type   ?? 'N/A',
+        userRef:   actor.user_ref     ?? 'No User',
+        cardId:    actor.card?.card_id  ?? '',
+        cardTitle: actor.card?.role_title ?? 'Unknown Card'
+      }));
     });
 
-    // Navigation helpers
-    function goBack() {
-        goto('/games');
-    }
-    function viewGame() {
-        goto(`/games/${gameId}`);
-    }
+    // — initial load of everything
+    $effect(async () => {
+      isLoading    = true;
+      errorMessage = '';
+      console.log(`[GameDetailsPage] Loading context for ${gameId}`);
+      const ctx: GameContext | null = await getGameContext(gameId);
 
-    // Format card title
-    function formatCardTitle(card: CardWithPosition): string {
-        return `${card.role_title || 'Card'}${card.card_category ? ` (${card.card_category})` : ''}`;
-    }
+      if (!ctx) {
+        errorMessage = 'Game not found';
+        game                    = null;
+        deckName                = '';
+        totalCards              = 0;
+        usedCards               = 0;
+        availableCardsCount     = 0;
+        actors                  = [];
+        availableCardsForActors = [];
+        isFull                  = false;
+      } else {
+        // unpack
+        game                    = ctx.game;
+        deckName                = ctx.deckName;
+        totalCards              = ctx.totalCards;
+        usedCards               = ctx.usedCards;
+        availableCardsCount     = ctx.availableCardsCount;
+        availableCardsForActors = ctx.availableCards;
+        actors                  = ctx.actors;
 
-    // Days since creation
-    function getDaysSinceCreation(createdTimestamp: number): string {
-        if (!createdTimestamp) return 'Unknown date';
-        try {
-            const now = new Date();
-            const created = new Date(createdTimestamp);
-            const diff = Math.ceil(Math.abs(now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-            return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : `${diff} days ago`;
-        } catch {
-            return 'Date error';
-        }
+        // compute “full”
+        const max = typeof game.max_players === 'string'
+          ? parseInt(game.max_players, 10)
+          : game.max_players;
+        const count = Object.keys(game.players || {}).length;
+        isFull = max ? count >= max : false;
+
+        console.log(
+          `[GameDetailsPage] Cards – total:${totalCards}, used:${usedCards}, avail:${availableCardsCount}`
+        );
+      }
+      isLoading = false;
+    });
+
+    // — live‐update subscription
+    $effect(() => {
+      const unsub = subscribeToGame(gameId, updatedGame => {
+        if (!updatedGame) return;
+        game = updatedGame;
+        // re‐compute full
+        const max = typeof game.max_players === 'string'
+          ? parseInt(game.max_players, 10)
+          : game.max_players;
+        const count = Object.keys(game.players || {}).length;
+        isFull = max ? count >= max : false;
+        console.log(`[GameDetailsPage] Subscription updated for ${gameId}`);
+      });
+      return unsub;
+    });
+
+    // — navigation & helpers
+    function goBack()  { goto('/games'); }
+    function viewGame() { goto(`/games/${gameId}`); }
+
+    function getDaysSinceCreation(ts: number): string {
+      if (!ts) return 'Unknown date';
+      const days = Math.ceil(Math.abs(Date.now() - ts) / 86400000);
+      return days === 0 ? 'Today'
+           : days === 1 ? 'Yesterday'
+           : `${days} days ago`;
     }
 </script>
+
+
 
 <div class="container mx-auto p-6 space-y-8">
     <!-- Header Section -->
@@ -270,7 +259,8 @@
                                 <!-- Use the reusable ActorSelector component -->
                                 <ActorSelector 
                                     {gameId} 
-                                    {game} 
+                                    {game}
+                                    actors={actors}
                                     availableCardsForActors={availableCardsForActors}
                                     onGameEnter={viewGame}
                                 />
