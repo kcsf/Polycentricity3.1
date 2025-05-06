@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { Modal } from '@skeletonlabs/skeleton-svelte';
+  import { Modal, getToastStore } from '@skeletonlabs/skeleton-svelte';
   import * as icons from '@lucide/svelte';
   import { createAgreement } from '$lib/services/gameService';
   import type { Actor, ActorWithCard } from '$lib/types';
-  import { toast } from '@skeletonlabs/skeleton-svelte';
+  
+  // Get toast store for notifications
+  const toastStore = getToastStore();
 
   // Props
   const { gameId, actorsList } = $props<{
@@ -111,17 +113,17 @@
   async function handleSubmit() {
     // Form validation
     if (!title.trim()) {
-      toast.error('Please enter a title for the agreement');
+      toastStore.trigger({ message: 'Please enter a title for the agreement', background: 'variant-filled-error' });
       return;
     }
 
     if (!description.trim()) {
-      toast.error('Please enter a description for the agreement');
+      toastStore.trigger({ message: 'Please enter a description for the agreement', background: 'variant-filled-error' });
       return;
     }
 
     if (selectedParties.length < 1) {
-      toast.error('Please select at least one party for the agreement');
+      toastStore.trigger({ message: 'Please select at least one party for the agreement', background: 'variant-filled-error' });
       return;
     }
 
@@ -129,7 +131,10 @@
     for (const actorId of selectedParties) {
       if (terms[actorId].obligations.length === 0 && terms[actorId].benefits.length === 0) {
         const actor = actorsList.find(a => a.actor_id === actorId);
-        toast.error(`${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`);
+        toastStore.trigger({ 
+          message: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`,
+          background: 'variant-filled-error'
+        });
         return;
       }
     }
@@ -146,15 +151,15 @@
       );
 
       if (result) {
-        toast.success('Agreement created successfully');
+        toastStore.trigger({ message: 'Agreement created successfully', background: 'variant-filled-success' });
         resetForm();
         modalOpen = false;
       } else {
-        toast.error('Failed to create agreement');
+        toastStore.trigger({ message: 'Failed to create agreement', background: 'variant-filled-error' });
       }
     } catch (error) {
       console.error('Error creating agreement:', error);
-      toast.error('An error occurred while creating the agreement');
+      toastStore.trigger({ message: 'An error occurred while creating the agreement', background: 'variant-filled-error' });
     } finally {
       isSubmitting = false;
     }
