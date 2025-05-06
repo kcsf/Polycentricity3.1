@@ -8,14 +8,19 @@
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
+    import AgreementModal from '$lib/components/AgreementModal.svelte';
 
     // Props
-    const { game, gameId, playerRole, content } = $props<{
+    const { game, gameId, playerRole, content, actors } = $props<{
         game: Game;
         gameId: string;
         playerRole: ActorWithCard;
         content?: typeof SvelteComponent<any>;
+        actors: ActorWithCard[];
     }>();
+    
+    // References
+    let agreementModal: { openModal: () => void } | undefined = $state.bound();
 
     // State
     let leftExpanded = $state(false);
@@ -278,7 +283,7 @@
         <div class="absolute top-14 {!rightExpanded ? 'right-4' : 'right-4'} z-10">
             <button 
                 class="btn variant-filled-primary"
-                onclick={() => goto(`/games/${gameId}/agreements`)}
+                onclick={() => agreementModal?.openModal()}
             >
                 <icons.Plus size={18} class="mr-2" />
                 New Agreement
