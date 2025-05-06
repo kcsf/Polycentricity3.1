@@ -65,7 +65,7 @@
 
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-800-token overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
-    <div class="h-full border-r border-surface-300-600-token bg-surface-50-900-token flex flex-col {leftExpanded ? 'w-64' : 'w-16'} transition-all duration-200">
+    <div class="h-full border-r border-surface-300-600-token bg-surface-50-900-token flex flex-col {leftExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with hamburger menu -->
         <div class="p-3 flex justify-between items-center border-b border-surface-300-600-token">
             <button class="btn btn-sm variant-soft-surface p-2" onclick={toggleLeftSidebar}>
@@ -211,6 +211,25 @@
 
     <!-- Main Content Area -->
     <div class="flex-1 relative overflow-hidden">
+        <!-- Floating sidebar toggle buttons (visible when sidebars are closed) -->
+        {#if !leftExpanded}
+            <button 
+                class="absolute left-4 top-4 z-20 btn btn-sm variant-filled p-2 rounded-full shadow-xl"
+                onclick={toggleLeftSidebar}
+            >
+                <icons.Menu class="w-5 h-5" />
+            </button>
+        {/if}
+        
+        {#if !rightExpanded}
+            <button 
+                class="absolute right-4 top-4 z-20 btn btn-sm variant-filled p-2 rounded-full shadow-xl"
+                onclick={toggleRightSidebar}
+            >
+                <icons.Users class="w-5 h-5" />
+            </button>
+        {/if}
+        
         <!-- Top Controls -->
         <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex justify-center">
             <div class="relative flex max-w-md">
@@ -231,7 +250,7 @@
         </div>
         
         <!-- Zoom Controls -->
-        <div class="absolute top-4 right-20 z-10 flex items-center space-x-1">
+        <div class="absolute top-4 {!rightExpanded ? 'right-20' : 'right-4'} z-10 flex items-center space-x-1">
             <button 
                 class="btn variant-filled-surface p-2 !rounded-md"
                 onclick={zoomOut} 
@@ -256,7 +275,7 @@
         </div>
         
         <!-- New Agreement Button -->
-        <div class="absolute top-14 right-4 z-10">
+        <div class="absolute top-14 {!rightExpanded ? 'right-4' : 'right-4'} z-10">
             <button 
                 class="btn variant-filled-primary"
                 onclick={() => goto(`/games/${gameId}/agreements`)}
@@ -273,7 +292,7 @@
     </div>
 
     <!-- Right Navigation Rail - Players & Chat -->
-    <div class="h-full border-l border-surface-300-600-token bg-surface-50-900-token flex flex-col {rightExpanded ? 'w-64' : 'w-16'} transition-all duration-200">
+    <div class="h-full border-l border-surface-300-600-token bg-surface-50-900-token flex flex-col {rightExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with players icon -->
         <div class="p-3 flex justify-between items-center border-b border-surface-300-600-token">
             {#if rightExpanded}
