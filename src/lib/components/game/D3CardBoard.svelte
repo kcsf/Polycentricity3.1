@@ -303,16 +303,16 @@
   }
   
   :global(.link.obligation) {
-    stroke: #4f46e5; /* indigo-600 */
+    stroke: var(--color-indigo-600-400);
   }
   
   :global(.link.benefit) {
-    stroke: #10b981; /* emerald-500 */
+    stroke: var(--color-emerald-500-400);
     stroke-dasharray: 4 2;
   }
   
   :global(.node.active circle) {
-    stroke: #4ade80; /* green-400 */
+    stroke: var(--color-green-400-500);
     stroke-width: 3px;
   }
 </style>

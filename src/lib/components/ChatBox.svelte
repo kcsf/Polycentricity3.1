@@ -97,7 +97,7 @@
 
 <div class="{!compact ? 'card' : ''} h-full flex flex-col">
         {#if !compact}
-        <header class="card-header p-4 flex items-center justify-between border-b border-surface-300-600-token">
+        <header class="card-header p-4 flex items-center justify-between border-b border-surface-300-600">
                 <h3 class="h3">
                         {#if chatType === 'group'}
                                 Group Chat
@@ -146,7 +146,7 @@
                 {/if}
         </section>
         
-        <footer class="p-{compact ? '2' : '4'} border-t border-surface-300-600-token">
+        <footer class="p-{compact ? '2' : '4'} border-t border-surface-300-600">
                 <form onsubmit={(e) => { e.preventDefault(); handleSendMessage(); }} class="flex space-x-1">
                         <input
                                 type="text"
