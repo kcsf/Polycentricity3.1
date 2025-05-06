@@ -1,18 +1,20 @@
 <script lang="ts">
-    import { getGun } from '$lib/services/gunService';
+    import { goto } from '$app/navigation';
     import { fade, slide } from 'svelte/transition';
     import * as icons from '@lucide/svelte';
     import { userStore } from '$lib/stores/userStore';
     import type { Game, ActorWithCard } from '$lib/types';
-    import CardBoard from '$lib/components/game/CardBoard.svelte';
     import ChatBox from '$lib/components/ChatBox.svelte';
     import PlayersList from '$lib/components/game/PlayersList.svelte';
+    import type { ComponentProps, SvelteComponent } from 'svelte';
+    import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
 
     // Props
-    const { game, gameId, playerRole } = $props<{
+    const { game, gameId, playerRole, content } = $props<{
         game: Game;
         gameId: string;
         playerRole: ActorWithCard;
+        content?: typeof SvelteComponent<any>;
     }>();
 
     // State
@@ -165,12 +167,14 @@
 
     <!-- Main Content Area with Sidebars -->
     <div class="flex-1 flex relative overflow-hidden pt-16">
-        <!-- Render the slot content (D3CardBoard) using @render instead of slot -->
+        <!-- Main content with margin adjustments for open sidebars -->
         <div class="flex-1 relative" style="transition: margin 0.3s ease-in-out;"
              class:ml-72={leftSidebarOpen}
              class:mr-72={rightSidebarOpen}>
-            {@render $$slots.default()}
+            <!-- D3CardBoard passed from parent -->
+            <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
         </div>
+        
         <!-- Left Sidebar -->
         <aside 
             bind:this={leftSidebarElement}
@@ -345,8 +349,6 @@
                 </div>
             </div>
         </aside>
-
-        <!-- Main Board Visualization handled by the slot content -->
 
         <!-- Right Sidebar -->
         <aside 

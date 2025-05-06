@@ -56,6 +56,14 @@
                 }
             }
             
+            // For demo/testing purposes - create a mock player role if none exists
+            // This ensures sidebars work correctly in development
+            if (!playerRole && gameContext.actors && gameContext.actors.length > 0) {
+                // Use the first actor as a mock player role for demonstration
+                playerRole = gameContext.actors[0];
+                console.log(`[GamePage] Using mock player role for demo: ${playerRole.actor_id}`);
+            }
+            
         } catch (err) {
             console.error('[GamePage] Error loading game:', err);
             error = err instanceof Error ? err.message : 'Failed to load game';
@@ -114,10 +122,7 @@
         </div>
     {:else if game && playerRole}
         <!-- Game Page Content with Layout -->
-        <GamePageLayout {game} {gameId} {playerRole}>
-            <!-- Pass the D3CardBoard as a slot -->
-            <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
-        </GamePageLayout>
+        <GamePageLayout {game} {gameId} {playerRole} />
     {:else if game}
         <!-- Game Page Content -->
         <div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-100-800" style="height: calc(100vh - var(--app-bar-height, 64px))">
