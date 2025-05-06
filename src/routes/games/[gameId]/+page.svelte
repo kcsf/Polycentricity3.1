@@ -4,15 +4,13 @@
     import { userStore } from '$lib/stores/userStore';
     import { 
         getGameContext, 
-        subscribeToGame,
-        getUserCard,
-        getGameActors
+        subscribeToGame
     } from '$lib/services/gameService';
     import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
     import ChatBox from '$lib/components/ChatBox.svelte';
-    import PlayersList from '$lib/components/game/PlayersList.svelte';
+    // Removed unused import for PlayersList
 
     // Get gameId from URL parameters
     const gameId = $page.params.gameId;

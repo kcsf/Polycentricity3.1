@@ -145,7 +145,7 @@ export async function get<
   if (!g) throw new Error("Gun not ready");
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 5000);
+    const timeout = setTimeout(() => resolve(null), 500);
     g.get(soul).once((data: T | undefined, key: string) => {
       clearTimeout(timeout);
       if (!data) {
@@ -241,7 +241,7 @@ export async function getField<T>(
   if (!g) throw new Error("Gun not ready");
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 5000);
+    const timeout = setTimeout(() => resolve(null), 200);
     g.get(soul)
       .get(key)
       .once((data: T | undefined, key: string) => {
@@ -292,18 +292,31 @@ export async function getCollection<
 /**
  * Read a real Gun set at `path/field` into an array of IDs.
  */
-export async function getSet(path: string, field: string): Promise<string[]> {
-  const g = getGun()!;
-  return new Promise((resolve) => {
-    const ids: string[] = [];
-    g.get(path)
+export async function getSet(
+  path: string,
+  field: string,
+  timeoutMs = 200,
+): Promise<string[]> {
+  const gun = getGun();
+  if (!gun) return [];
+  const results = new Set<string>();
+  await new Promise<void>((resolve) => {
+    gun
+      .get(path)
       .get(field)
       .map()
-      .once((_, key) => {
-        if (key !== "_") ids.push(key);
+      .once((val: any, key: string) => {
+        if (key && key !== "_" && val) {
+          results.add(key);
+        }
       });
-    setTimeout(() => resolve(ids), 1000);
+    // resolve as soon as possible
+    const t = setTimeout(() => {
+      clearTimeout(t);
+      resolve();
+    }, timeoutMs);
   });
+  return Array.from(results);
 }
 
 /**
@@ -465,17 +478,9 @@ export async function createRelationship(
 /**
  * Generate a unique ID for Gun nodes
  * @returns Unique ID string
- 
-export function generateId(): string {
-  return `_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}*/
-
-/**
- * Generate a Gun‐style random “soul” ID.
- * Uses Gun’s built-in 24-char alphanumeric generator.
  */
 export function generateId(): string {
-  return Gun.text.random();
+  return `_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**

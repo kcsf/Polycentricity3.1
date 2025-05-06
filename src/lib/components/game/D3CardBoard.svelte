@@ -6,7 +6,6 @@
   import { getGun, nodes } from '$lib/services/gunService';
   import { 
     getGameContext,
-    getUserCard,
     subscribeToGame, 
     subscribeToGameActors,
     getGame

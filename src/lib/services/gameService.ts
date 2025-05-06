@@ -156,38 +156,38 @@ export async function createGame(
     | "agreements_ref"
     | "chat_rooms_ref"
   > = {
-    game_id: gameId,
+    game_id:              gameId,
     name,
-    description: "",
-    creator_ref: user.user_id,
-    deck_ref: deckType === "eco-village" ? "d_1" : "d_2",
-    deck_type: deckType,
+    description:          "",
+    creator_ref:          user.user_id,
+    deck_ref:             deckType === "eco-village" ? "d_1" : "d_2",
+    deck_type:            deckType,
     role_assignment_type: roleAssignmentType,
-    status: GameStatus.ACTIVE,
-    created_at: now,
-    updated_at: now,
-    max_players: normalizedMax,
+    status:               GameStatus.ACTIVE,
+    created_at:           now,
+    updated_at:           now,
+    max_players:          normalizedMax,
   };
   await write(nodes.games, gameId, gameRoot);
 
   // 3️⃣ Nested maps under games/<gameId>/
   await Promise.all([
-    write(`${nodes.games}/${gameId}`, "players", { [user.user_id]: true }),
+    write(`${nodes.games}/${gameId}`, "players",          { [user.user_id]: true }),
     write(`${nodes.games}/${gameId}`, "player_actor_map", {}),
-    write(`${nodes.games}/${gameId}`, "actors_ref", {}),
-    write(`${nodes.games}/${gameId}`, "agreements_ref", {}),
-    write(`${nodes.games}/${gameId}`, "chat_rooms_ref", {}),
+    write(`${nodes.games}/${gameId}`, "actors_ref",       {}),
+    write(`${nodes.games}/${gameId}`, "agreements_ref",   {}),
+    write(`${nodes.games}/${gameId}`, "chat_rooms_ref",   {}),
   ]);
 
   // 4️⃣ Seed our store
   currentGameStore.set({
     ...gameRoot,
-    players: { [user.user_id]: true },
+    players:          { [user.user_id]: true },
     player_actor_map: {},
-    actors_ref: {},
-    agreements_ref: {},
-    chat_rooms_ref: {},
-    max_players: normalizedMax,
+    actors_ref:       {},
+    agreements_ref:   {},
+    chat_rooms_ref:   {},
+    max_players:      normalizedMax,
   });
 
   // 5️⃣ Pointer-edges
@@ -514,31 +514,31 @@ export async function createDeck(
 
   // 2️⃣ pick next
   const deckId = `d_${maxNum + 1}`;
-  const now = Date.now();
+  const now    = Date.now();
 
   // 3️⃣ write root deck
   await write(nodes.decks, deckId, {
-    deck_id: deckId,
+    deck_id:     deckId,
     name,
     description,
     creator_ref: user.user_id,
-    is_public: isPublic,
-    created_at: now,
-    updated_at: now,
+    is_public:   isPublic,
+    created_at:  now,
+    updated_at:  now,
   });
 
   // 4️⃣ init empty cards_ref map
   await write(`${nodes.decks}/${deckId}`, "cards_ref", {});
 
   return {
-    deck_id: deckId,
+    deck_id:     deckId,
     name,
     description,
     creator_ref: user.user_id,
-    is_public: isPublic,
-    cards_ref: {},
-    created_at: now,
-    updated_at: now,
+    is_public:   isPublic,
+    cards_ref:   {},
+    created_at:  now,
+    updated_at:  now,
   };
 }
 
@@ -553,8 +553,8 @@ export async function updateDeck(
   // write each field under decks/<deckId>/
   await Promise.all(
     Object.entries(updates).map(([k, v]) =>
-      write(`${nodes.decks}/${deckId}`, k, v),
-    ),
+      write(`${nodes.decks}/${deckId}`, k, v)
+    )
   );
   return true;
 }
@@ -580,7 +580,7 @@ export async function createCard(
     card_category: string;
     type: string;
     icon: string;
-  },
+  }
 ): Promise<Card | null> {
   const user = getCurrentUser();
   if (!user) return null;
@@ -598,32 +598,32 @@ export async function createCard(
 
   // 2️⃣ assign new id
   const cardId = `card_${maxNum + 1}`;
-  const now = Date.now();
+  const now    = Date.now();
 
   // 3️⃣ write root card node
   await write(nodes.cards, cardId, {
-    card_id: cardId,
-    card_number: data.card_number,
-    role_title: data.role_title,
-    backstory: data.backstory,
-    goals: data.goals,
-    obligations: data.obligations,
-    intellectual_property: data.intellectual_property,
-    resources: data.resources,
-    card_category: data.card_category,
-    type: data.type,
-    icon: data.icon,
-    creator_ref: user.user_id,
-    created_at: now,
-    updated_at: now,
+    card_id:              cardId,
+    card_number:          data.card_number,
+    role_title:           data.role_title,
+    backstory:            data.backstory,
+    goals:                data.goals,
+    obligations:          data.obligations,
+    intellectual_property:data.intellectual_property,
+    resources:            data.resources,
+    card_category:        data.card_category,
+    type:                 data.type,
+    icon:                 data.icon,
+    creator_ref:          user.user_id,
+    created_at:           now,
+    updated_at:           now,
   });
 
   // 4️⃣ nested refs under cards/<cardId>/
   await Promise.all([
-    write(`${nodes.cards}/${cardId}`, "values_ref", {}),
+    write(`${nodes.cards}/${cardId}`, "values_ref",       {}),
     write(`${nodes.cards}/${cardId}`, "capabilities_ref", {}),
-    write(`${nodes.cards}/${cardId}`, "agreements_ref", {}),
-    write(`${nodes.cards}/${cardId}`, "decks_ref", { [deckId]: true }),
+    write(`${nodes.cards}/${cardId}`, "agreements_ref",   {}),
+    write(`${nodes.cards}/${cardId}`, "decks_ref",        { [deckId]: true }),
   ]);
 
   // 5️⃣ pointer‐edges deck<→>card
@@ -642,24 +642,24 @@ export async function createCard(
 
   // 6️⃣ return full Card
   return {
-    card_id: cardId,
-    card_number: data.card_number,
-    role_title: data.role_title,
-    backstory: data.backstory,
-    goals: data.goals,
-    obligations: data.obligations,
-    intellectual_property: data.intellectual_property,
-    resources: data.resources,
-    card_category: data.card_category,
-    type: data.type,
-    icon: data.icon,
-    creator_ref: user.user_id,
-    values_ref: {},
-    capabilities_ref: {},
-    agreements_ref: {},
-    decks_ref: { [deckId]: true },
-    created_at: now,
-    updated_at: now,
+    card_id:              cardId,
+    card_number:          data.card_number,
+    role_title:           data.role_title,
+    backstory:            data.backstory,
+    goals:                data.goals,
+    obligations:          data.obligations,
+    intellectual_property:data.intellectual_property,
+    resources:            data.resources,
+    card_category:        data.card_category,
+    type:                 data.type,
+    icon:                 data.icon,
+    creator_ref:          user.user_id,
+    values_ref:           {},
+    capabilities_ref:     {},
+    agreements_ref:       {},
+    decks_ref:            { [deckId]: true },
+    created_at:           now,
+    updated_at:           now,
   };
 }
 
@@ -675,11 +675,12 @@ export async function updateCard(
   // write each field (nested or root) under cards/<cardId>/
   await Promise.all(
     Object.entries(updates).map(([k, v]) =>
-      write(`${nodes.cards}/${cardId}`, k, v),
-    ),
+      write(`${nodes.cards}/${cardId}`, k, v)
+    )
   );
   return true;
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk-fetch for Game Details page
@@ -695,94 +696,62 @@ export interface GameContext {
   deckName: string;
 }
 
-export async function getGameContext(
-  gameId: string,
-): Promise<GameContext | null> {
+export async function getGameContext(gameId: string): Promise<GameContext | null> {
   try {
     const game = await get<Game>(`${nodes.games}/${gameId}`);
     if (!game) return null;
 
-    // Deck lookup
+    // Deck lookup (parallel)
     const deckRefs = await getSet(`${nodes.games}/${gameId}`, "deck_ref");
-    const deckId = deckRefs.length ? deckRefs[0].split("/").pop()! : undefined;
-    const deck = deckId ? await get<Deck>(`${nodes.decks}/${deckId}`) : null;
-    const deckCardIds = deckId
-      ? await getSet(`${nodes.decks}/${deckId}`, "cards_ref")
-      : [];
+    const deckId = deckRefs[0]?.split("/").pop();
+    const [deck, deckCardIds] = await Promise.all([
+      deckId ? get<Deck>(`${nodes.decks}/${deckId}`) : Promise.resolve(null),
+      deckId ? getSet(`${nodes.decks}/${deckId}`, "cards_ref") : Promise.resolve([]),
+    ]);
     const totalCards = deckCardIds.length;
 
-    // Actors
+    // Actor refs
     const rawActorRefs = await getSet(`${nodes.games}/${gameId}`, "actors_ref");
-    console.log(`[GameService] rawActorRefs for ${gameId}:`, rawActorRefs);
-
-    // flatten "/" paths to just the id, then dedupe
     const actorIds = Array.from(
-      new Set(
-        rawActorRefs.map((r) => (r.includes("/") ? r.split("/").pop()! : r)),
-      ),
+      new Set(rawActorRefs.map(r => r.includes("/") ? r.split("/").pop()! : r))
     );
-    console.log(`[GameService] actorIds for ${gameId}:`, actorIds);
 
-    const actors: ActorWithCard[] = [];
     const usedSet = new Set<string>();
-
-    for (const aid of actorIds) {
-      // 1) load the actor record at all
-      const a = await get<Actor>(`${nodes.actors}/${aid}`);
-      if (!a) continue;
-
-      // 2) *separately* pull its cards_by_game map from the nested node
-      const cardsByGame =
-        (await getField<Record<string, string>>(
-          `${nodes.actors}/${aid}`,
-          "cards_by_game",
-        )) || {};
-
-      // 3) grab this game’s card assignment
-      const cardId = cardsByGame[gameId];
+    // Batch actor fetches (no NodePosition)
+    const actorPromises = actorIds.map(async aid => {
+      const [a, cardsByGame] = await Promise.all([
+        get<Actor>(`${nodes.actors}/${aid}`),
+        getField<Record<string, string>>(`${nodes.actors}/${aid}`, "cards_by_game"),
+      ]);
+      if (!a) return null;
+      const cardId = cardsByGame?.[gameId];
       let card: CardWithPosition | undefined;
-
       if (cardId) {
         usedSet.add(cardId);
-        const rawCard = await get<Card>(`${nodes.cards}/${cardId}`);
-        if (rawCard) {
-          card = { ...rawCard, position: randomPos() };
-        }
+        const raw = await get<Card>(`${nodes.cards}/${cardId}`);
+        if (raw) card = { ...raw, position: randomPos() };
       }
+      return { ...a, card, position: randomPos() } as ActorWithCard;
+    });
+    const actors = (await Promise.all(actorPromises)).filter(Boolean) as ActorWithCard[];
 
-      // 4) grab the actor’s saved position (or random)
-      const pos = await get<NodePosition>(
-        buildShardedPath(nodes.node_positions, gameId, aid),
-      );
-
-      actors.push({
-        ...a,
-        card,
-        position: pos ? { x: pos.x, y: pos.y } : randomPos(),
-      });
-    }
-
-    // Available cards
+    // Available cards (parallel)
     const availableCards = (
       await Promise.all(
         deckCardIds
-          .filter((id) => !usedSet.has(id))
-          .map(async (id) => {
+          .filter(id => !usedSet.has(id))
+          .map(async id => {
             const raw = await get<Card>(`${nodes.cards}/${id}`);
             return raw ? { ...raw, position: randomPos() } : null;
-          }),
+          })
       )
     ).filter((c): c is CardWithPosition => !!c);
-    const availableCardsCount = availableCards.length;
 
     // Agreements
     const rawAgs = await getCollection<Agreement>(nodes.agreements);
     const agreements: AgreementWithPosition[] = rawAgs
-      .filter((ag) => ag.game_ref === gameId)
-      .map((ag) => ({
-        ...ag,
-        position: randomPos(),
-      }));
+      .filter(ag => ag.game_ref === gameId)
+      .map(ag => ({ ...ag, position: randomPos() }));
 
     // Override players map
     game.players = actors.reduce<Record<string, boolean>>((acc, x) => {
@@ -796,7 +765,7 @@ export async function getGameContext(
       totalCards,
       usedCards: usedSet.size,
       availableCards,
-      availableCardsCount,
+      availableCardsCount: availableCards.length,
       agreements,
       deckName: deck?.name ?? game.deck_type,
     };
@@ -805,3 +774,4 @@ export async function getGameContext(
     return null;
   }
 }
+
