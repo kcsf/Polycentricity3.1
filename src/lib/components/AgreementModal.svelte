@@ -121,7 +121,8 @@
       console.log('Validation error: Missing title');
       toaster.error({
         title: 'Validation Error',
-        description: 'Please enter a title for the agreement'
+        description: 'Please enter a title for the agreement',
+        classes: 'bg-surface-200-800'
       });
       return;
     }
@@ -148,7 +149,8 @@
         const actor = actorsList.find(a => a.actor_id === actorId);
         toaster.error({
           title: 'Validation Error',
-          description: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`
+          description: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`,
+          classes: 'variant-filled-warning'
         });
         return;
       }

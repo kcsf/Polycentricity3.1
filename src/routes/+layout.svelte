@@ -34,5 +34,5 @@
     {@render children()}
   </main>
   <Footer />
-  <Toaster {toaster} />
+  <Toaster {toaster}></Toaster>
 </div>
