@@ -245,6 +245,11 @@
       const user = await getCurrentUser();
       console.log('Current user for createAgreement:', user);
       
+      // Throw a user-friendly error if not logged in
+      if (!user) {
+        throw new Error('You must be logged in to create an agreement. Please log in first.');
+      }
+      
       // Check if we have the correct terms structure before calling the API
       console.log('About to call createAgreement with exact params:');
       console.log('- gameId:', gameId);
@@ -289,11 +294,21 @@
       }
     } catch (error) {
       console.error('Error creating agreement:', error);
-      toaster.error({
-        title: 'Error',
-        description: `Failed to create agreement: ${error?.message || 'Unknown error'}`,
-        classes: 'bg-white dark:bg-gray-800 rounded border border-red-500 dark:border-red-700 shadow-lg'
-      });
+      
+      // Special case for authentication errors
+      if (error?.message?.includes('must be logged in')) {
+        toaster.error({
+          title: 'Authentication Required',
+          description: error.message,
+          classes: 'bg-white dark:bg-gray-800 rounded border border-yellow-500 dark:border-yellow-700 shadow-lg'
+        });
+      } else {
+        toaster.error({
+          title: 'Error',
+          description: `Failed to create agreement: ${error?.message || 'Unknown error'}`,
+          classes: 'bg-white dark:bg-gray-800 rounded border border-red-500 dark:border-red-700 shadow-lg'
+        });
+      }
     } finally {
       isSubmitting = false;
     }
