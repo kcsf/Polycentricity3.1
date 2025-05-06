@@ -123,8 +123,8 @@
                                         <div class="flex {isCurrentUser(message.user_id) ? 'justify-end' : 'justify-start'}">
                                                 <div 
                                                         class="max-w-[80%] p-{compact ? '2' : '3'} rounded-lg {isCurrentUser(message.user_id) 
-                                                                ? 'bg-primary-500 text-white' 
-                                                                : 'bg-surface-200-700-token'}"
+                                                                ? 'bg-primary-500-500 text-white' 
+                                                                : 'bg-surface-200-700'}"
                                                 >
                                                         {#if !isCurrentUser(message.user_id)}
                                                                 <div class="flex items-center space-x-1 mb-1">

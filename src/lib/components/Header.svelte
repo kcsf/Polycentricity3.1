@@ -48,7 +48,7 @@
   <div class="container mx-auto flex justify-between items-center h-16 px-4">
     <!-- Logo and Brand -->
     <a href="/" class="flex items-center space-x-2 h-full">
-      <div class="grid place-items-center w-10 h-10 rounded-full bg-primary-500/20 text-primary-600 dark:text-primary-400">
+      <div class="grid place-items-center w-10 h-10 rounded-full bg-primary-500/20 text-primary-600-400">
         <Sprout size={24} strokeWidth={2} />
       </div>
       <span class="text-xl font-bold bg-gradient-to-br from-primary-500 to-tertiary-500 bg-clip-text text-transparent">
@@ -98,7 +98,7 @@
       <div class="hidden lg:flex items-center space-x-2">
         {#if $userStore.isAuthenticated}
           <button 
-            class="flex items-center space-x-1 px-3 py-2 text-error-500 hover:bg-error-500/10 rounded-full transition-all"
+            class="flex items-center space-x-1 px-3 py-2 text-error-500-400 hover:bg-error-500/10 rounded-full transition-all"
             onclick={handleLogout}
           >
             <LogOut size={18} />
@@ -142,7 +142,7 @@
            onkeydown={(e) => e.key === 'Escape' && toggleMenu()}
            aria-label="Close menu overlay">
     </button>
-    <div class="lg:hidden fixed inset-y-0 right-0 z-50 w-64 bg-surface-100-800-token shadow-xl transform transition-transform duration-300 ease-in-out {isMenuOpen ? 'translate-x-0' : 'translate-x-full'}">
+    <div class="lg:hidden fixed inset-y-0 right-0 z-50 w-64 bg-surface-100-800 shadow-xl transform transition-transform duration-300 ease-in-out {isMenuOpen ? 'translate-x-0' : 'translate-x-full'}">
       <div class="p-5 flex flex-col h-full">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-xl font-bold">Menu</h2>
@@ -170,10 +170,10 @@
           </a>
         </nav>
         
-        <div class="mt-auto pt-5 border-t border-surface-300-600/20">
+        <div class="mt-auto pt-5 border-t border-surface-300-600/30">
           {#if $userStore.isAuthenticated}
             <button 
-              class="flex items-center w-full space-x-2 p-3 text-error-500 hover:bg-error-500/10 rounded-lg"
+              class="flex items-center w-full space-x-2 p-3 text-error-500-400 hover:bg-error-500/10 rounded-lg"
               onclick={handleLogout}
             >
               <LogOut size={20} />
