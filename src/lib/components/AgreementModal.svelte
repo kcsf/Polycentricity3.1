@@ -109,13 +109,6 @@
 
   // Handle form submission
   async function handleSubmit() {
-    console.log('Submitting form with data:', { 
-      title, 
-      description, 
-      selectedParties, 
-      terms: JSON.stringify(terms) 
-    });
-    
     // Form validation
     if (!title.trim()) {
       console.log('Validation error: Missing title');
@@ -147,6 +140,14 @@
 
     // Validate that each party has at least one obligation or benefit
     for (const actorId of selectedParties) {
+      // Ensure terms[actorId] exists
+      if (!terms[actorId]) {
+        terms = {
+          ...terms,
+          [actorId]: { obligations: [], benefits: [] }
+        };
+      }
+      
       if (terms[actorId].obligations.length === 0 && terms[actorId].benefits.length === 0) {
         const actor = actorsList.find(a => a.actor_id === actorId);
         toaster.error({
@@ -160,13 +161,16 @@
 
     isSubmitting = true;
     try {
-      console.log('Creating agreement with:', {
+      // Prepare data for submission
+      const payload = {
         gameId,
         title,
         description,
-        parties: selectedParties,
+        selectedParties,
         terms
-      });
+      };
+      
+      console.log('Creating agreement with:', payload);
       
       // Create agreement using gameService
       const result = await createAgreement(
