@@ -98,7 +98,7 @@
             
             {#if gameInfoExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
-                    <div class="card p-3 bg-surface-200-700-token">
+                    <div class="card p-3 bg-surface-200 dark:bg-surface-700">
                         <div class="grid grid-cols-2 gap-2">
                             <div class="text-sm">Status:</div>
                             <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
@@ -131,7 +131,7 @@
             {#if yourRoleExpanded}
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
                     {#if playerRole?.card}
-                        <div class="card overflow-hidden rounded-md shadow-md bg-surface-200-700-token">
+                        <div class="card overflow-hidden rounded-md shadow-md bg-surface-200 dark:bg-surface-700">
                             <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
                                 <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
                                     <icons.User class="w-5 h-5" />
@@ -156,15 +156,15 @@
                             <div class="p-2 space-y-2">
                                 {#if playerRole.card.backstory}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Backstory</h4>
-                                        <p class="text-xs text-surface-900-50-token">{playerRole.card.backstory}</p>
+                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Backstory</h4>
+                                        <p class="text-xs text-surface-900 dark:text-surface-50">{playerRole.card.backstory}</p>
                                     </div>
                                 {/if}
 
                                 {#if playerRole.card._valueNames && playerRole.card._valueNames.length > 0}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Values</h4>
-                                        <ul class="list-disc list-inside text-xs text-surface-900-50-token">
+                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Values</h4>
+                                        <ul class="list-disc list-inside text-xs text-surface-900 dark:text-surface-50">
                                             {#each playerRole.card._valueNames as value}
                                                 <li>{value}</li>
                                             {/each}
@@ -174,14 +174,14 @@
 
                                 {#if playerRole.card.goals}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Goals</h4>
-                                        <p class="text-xs text-surface-900-50-token">{playerRole.card.goals}</p>
+                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Goals</h4>
+                                        <p class="text-xs text-surface-900 dark:text-surface-50">{playerRole.card.goals}</p>
                                     </div>
                                 {/if}
 
                                 {#if playerRole.card._capabilityNames && playerRole.card._capabilityNames.length > 0}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Capabilities</h4>
+                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Capabilities</h4>
                                         <div class="flex flex-wrap gap-1">
                                             {#each playerRole.card._capabilityNames as capability}
                                                 <span class="badge variant-soft-secondary text-xs">{capability}</span>
@@ -192,17 +192,17 @@
 
                                 {#if playerRole.card.resources}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Resources</h4>
-                                        <p class="text-xs text-surface-900-50-token">{playerRole.card.resources}</p>
+                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Resources</h4>
+                                        <p class="text-xs text-surface-900 dark:text-surface-50">{playerRole.card.resources}</p>
                                     </div>
                                 {/if}
                             </div>
                         </div>
                     {:else}
-                        <div class="card p-4 bg-surface-200-700-token text-center">
+                        <div class="card p-4 bg-surface-200 dark:bg-surface-700 text-center">
                             <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
-                            <h3 class="text-base font-bold text-surface-900-50-token mb-2">No Role Card Assigned</h3>
-                            <p class="text-xs text-surface-700-300-token mb-4">Join this game to select a role card</p>
+                            <h3 class="text-base font-bold text-surface-900 dark:text-surface-50 mb-2">No Role Card Assigned</h3>
+                            <p class="text-xs text-surface-700 dark:text-surface-300 mb-4">Join this game to select a role card</p>
                             <button class="btn btn-sm variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}/details`)}>
                                 <icons.UserPlus class="w-4 h-4 mr-2" />
                                 Join Game
@@ -325,7 +325,7 @@
             
             {#if playersExpanded}
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
-                    <div class="card p-2 bg-surface-200-700-token">
+                    <div class="card p-2 bg-surface-200 dark:bg-surface-700">
                         <PlayersList 
                             {game} 
                             highlightCurrentUser={true} 
@@ -351,7 +351,7 @@
             
             {#if chatExpanded}
                 <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
-                    <div class="card p-2 bg-surface-200-700-token flex flex-col h-64">
+                    <div class="card p-2 bg-surface-200 dark:bg-surface-700 flex flex-col h-64">
                         <ChatBox {gameId} chatType="group" compact={true} />
                     </div>
                 </div>
