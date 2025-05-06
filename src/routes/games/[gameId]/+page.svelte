@@ -8,9 +8,9 @@
     } from '$lib/services/gameService';
     import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
-    import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
     import ChatBox from '$lib/components/ChatBox.svelte';
-    // Removed unused import for PlayersList
+    // Temporarily comment D3CardBoard import to test if it's causing the issue
+    // import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
 
     // Get gameId from URL parameters
     const gameId = $page.params.gameId;
@@ -151,10 +151,14 @@
             <!-- Main Game Board Section -->
             <div class="flex-1 flex-grow relative overflow-hidden">
                 {#if gameContext}
-                    <D3CardBoard 
-                        {gameId} 
-                        activeActorId={playerRole?.actor_id}
-                    />
+                    <div class="flex items-center justify-center h-full">
+                        <div class="card p-8 max-w-md">
+                            <h3 class="h3 mb-4">Game Visualization</h3>
+                            <p class="mb-4">Game board will be displayed here.</p>
+                            <p class="text-sm text-surface-500">Game ID: {gameId}</p>
+                            <p class="text-sm text-surface-500">Active Actor: {playerRole?.actor_id || 'None'}</p>
+                        </div>
+                    </div>
                 {/if}
             </div>
             
