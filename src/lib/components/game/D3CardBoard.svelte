@@ -282,7 +282,7 @@
 </script>
 
 <div class="w-full h-full relative overflow-hidden">
-  <svg bind:this={svgElement} width="100%" height="100%" class="d3-graph"></svg>
+  <svg bind:this={svgElement} width="100%" height="100%" class="d3-graph bg-surface-50 dark:bg-surface-800"></svg>
   {#if selectedNode}
     <div class="absolute bottom-4 left-4">
       <CardDetailsPopover 
