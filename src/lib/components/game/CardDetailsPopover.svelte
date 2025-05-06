@@ -70,7 +70,7 @@
       {/if}
       {#if node.data?.benefits?.length}
         <div>
-          <h4 class="text-sm font-medium text-emerald-700">Benefits</h4>
+          <h4 class="text-sm font-medium text-emerald-700-300">Benefits</h4>
           <ul class="list-disc pl-5 text-sm">
             {#each node.data.benefits as benefit}
               <li>{benefit.text}</li>
@@ -81,7 +81,7 @@
     </div>
   {/if}
   <button
-    class="mt-4 px-3 py-1 text-sm bg-surface-200 rounded hover:bg-surface-300 transition-colors"
+    class="mt-4 px-3 py-1 text-sm bg-surface-200-800 rounded hover:bg-surface-300-700 transition-colors"
     onclick={onClose}
   >
     Close

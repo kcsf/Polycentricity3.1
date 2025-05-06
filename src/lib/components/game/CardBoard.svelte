@@ -58,7 +58,7 @@
     </div>
   {:else if error}
     <div class="error-container p-8 text-center">
-      <p class="text-error-500">{error}</p>
+      <p class="text-error-500-400">{error}</p>
       <button class="btn variant-filled-primary mt-4" onclick={() => window.location.reload()}>
         Retry
       </button>

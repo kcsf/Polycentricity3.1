@@ -29,13 +29,13 @@
     });
 </script>
 
-<div class="players-list {!compact ? 'card p-4 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700' : ''}">
+<div class="players-list {!compact ? 'card p-4 bg-surface-50-800 border border-surface-200-700' : ''}">
     {#if !compact}
-        <h3 class="h3 mb-4 text-primary-500 dark:text-primary-400">Players ({playerIds.length})</h3>
+        <h3 class="h3 mb-4 text-primary-500-400">Players ({playerIds.length})</h3>
     {/if}
     
     {#if playerIds.length === 0}
-        <p class="text-surface-600 dark:text-surface-400">No players have joined yet.</p>
+        <p class="text-surface-600-400">No players have joined yet.</p>
     {:else}
         <div class="space-y-2">
             {#each playerIds as playerId}

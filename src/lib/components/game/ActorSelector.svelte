@@ -238,7 +238,7 @@
   </button>
 
   <button
-    class="btn variant-ghost-surface w-full"
+    class="btn variant-ghost-surface-secondary w-full"
     onclick={() => goto(`/games/${gameId}`)}
   >
     <icons.Eye class="mr-2" />
