@@ -29,19 +29,37 @@
     return gs.length;
   });
 
-  // Replacement for getUserActors function
+  /**
+   * Enhanced function to fetch user's actors with optimal performance
+   * Uses Gun's reference sets to get actors connected to the user
+   */
   async function fetchUserActors(): Promise<Actor[]> {
     if (!$userStore.user) return [];
     const userId = $userStore.user.user_id;
     
     try {
-      // Get all actors from the database
-      const allActors = await getCollection<Actor>(nodes.actors);
+      // First check if user has actors_ref set
+      const actorRefs = await getSet(`${nodes.users}/${userId}`, "actors_ref");
+      console.log(`[Dashboard] Found ${actorRefs.length} actor references for user ${userId}`);
       
-      // Filter to only include actors that belong to the current user
+      // If user has actor references, fetch those specific actors
+      if (actorRefs.length > 0) {
+        const userActors = await Promise.all(
+          actorRefs.map(async (ref) => {
+            // Extract actor ID from reference path
+            const actorId = ref.includes('/') ? ref.split('/').pop()! : ref;
+            return await get<Actor>(`${nodes.actors}/${actorId}`);
+          })
+        );
+        // Filter out any nulls from failed fetches
+        return userActors.filter((actor): actor is Actor => actor !== null);
+      }
+      
+      // Fallback: query all actors and filter by user reference
+      const allActors = await getCollection<Actor>(nodes.actors);
       return allActors.filter(actor => actor.user_ref === userId);
     } catch (error) {
-      console.error('Error fetching user actors:', error);
+      console.error('[Dashboard] Error fetching user actors:', error);
       return [];
     }
   }
