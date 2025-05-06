@@ -98,7 +98,7 @@
     <!-- Left Sidebar Toggle -->
     <button 
         bind:this={leftToggleButton}
-        class="btn absolute top-4 left-4 z-20 bg-surface-200 rounded-md p-2 shadow-md border border-surface-300 hover:bg-surface-300 transition-colors" 
+        class="btn absolute top-4 left-4 z-50 bg-surface-200 rounded-md p-2 shadow-md border border-surface-300 hover:bg-surface-300 transition-colors" 
         onclick={toggleLeftSidebar}
         aria-label="Toggle left sidebar"
     >
@@ -125,7 +125,7 @@
     </div>
 
     <!-- Right Controls -->
-    <div class="absolute top-4 right-4 z-20 flex items-center space-x-2">
+    <div class="absolute top-4 right-4 z-50 flex items-center space-x-2">
         <button 
             class="btn variant-filled-surface p-2"
             onclick={zoomOut} 
@@ -178,7 +178,7 @@
         <!-- Left Sidebar -->
         <aside 
             bind:this={leftSidebarElement}
-            class="bg-surface-100-800 w-72 shadow-lg absolute inset-y-0 -left-72 transition-all duration-300 z-10 flex flex-col h-full overflow-y-auto"
+            class="bg-surface-100-800 w-72 shadow-lg absolute inset-y-0 -left-72 transition-all duration-300 z-40 flex flex-col h-full overflow-y-auto"
             class:left-0={leftSidebarOpen}
         >
             <div class="p-4 flex-1 space-y-4">
@@ -353,7 +353,7 @@
         <!-- Right Sidebar -->
         <aside 
             bind:this={rightSidebarElement}
-            class="bg-surface-100-800 w-72 shadow-lg absolute inset-y-0 -right-72 transition-all duration-300 z-10 flex flex-col h-full overflow-y-auto"
+            class="bg-surface-100-800 w-72 shadow-lg absolute inset-y-0 -right-72 transition-all duration-300 z-40 flex flex-col h-full overflow-y-auto"
             class:right-0={rightSidebarOpen}
         >
             <div class="p-4 flex-1 space-y-4">
@@ -443,20 +443,29 @@
         --sidebar-width: 18rem;
     }
 
+    /* Ensure sidebar stacking order and positioning */
     aside {
         width: var(--sidebar-width);
         max-width: 90vw;
         top: 0;
         bottom: 0;
         height: 100% !important;
-        z-index: 50 !important;
     }
 
+    /* Fixed positioning for active sidebars */
     aside.left-0 {
         left: 0 !important;
+        z-index: 40 !important;
     }
 
     aside.right-0 {
         right: 0 !important;
+        z-index: 40 !important;
+    }
+
+    /* Control buttons should always be on top */
+    .btn[aria-label="Toggle left sidebar"],
+    .btn[aria-label="Toggle players"] {
+        z-index: 50 !important;
     }
 </style>
