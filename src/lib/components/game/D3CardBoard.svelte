@@ -97,51 +97,29 @@
   // Card cache to avoid redundant fetches
   const cardCache = new Map<string, Card>();
   
+  // This function is now replaced by getGameContext which returns cards already
+  // Kept for future reference or if we need to load cards separately
+  /*
   async function loadCardData(deckId: string): Promise<CardWithPosition[]> {
     log(`[D3CardBoard] Loading cards for deck: ${deckId}`);
     
     try {
-      // Get cards using the optimized function from gameService 
-      // This is a big improvement over direct Gun.js access
-      const cards = await getAvailableCardsForGame(gameId);
-      log(`[D3CardBoard] Loaded ${cards.length} cards from gameService`);
+      // We now use getGameContext instead of this function
+      // This comment is kept for backward compatibility or future reuse
+      const gameContext = await getGameContext(gameId);
+      if (!gameContext) return [];
       
-      // First look for any existing cached positions to maintain continuity
-      const existingPositions = new Map<string, {x: number, y: number}>();
-      cardsWithPosition.forEach(card => {
-        if (card.card_id && card.position) {
-          existingPositions.set(card.card_id, card.position);
-        }
-      });
+      const cards = gameContext.availableCards || [];
+      log(`[D3CardBoard] Loaded ${cards.length} cards from gameContext`);
       
-      // Cache cards for future reference
-      cards.forEach(card => {
-        if (card.card_id) cardCache.set(card.card_id, card);
-      });
-      
-      // Add position data, preferring existing positions when available
-      return cards.map(card => {
-        let position;
-        
-        // Use existing position if we have one
-        if (card.card_id && existingPositions.has(card.card_id)) {
-          position = existingPositions.get(card.card_id);
-        } else {
-          // Or create a new random position
-          position = { x: Math.random() * width, y: Math.random() * height };
-        }
-        
-        return {
-          ...card,
-          position
-        };
-      });
+      return applyCardPositions(cards);
     } catch (error) {
       log(`[D3CardBoard] Error loading cards for deck ${deckId}:`, error);
       // Return empty array to prevent component from breaking
       return [];
     }
   }
+  */
 
   // Optimized to use gameService instead of direct Gun.js access
   async function loadAgreementData(agreementId: string): Promise<AgreementWithPosition | null> {
@@ -195,56 +173,83 @@
     agreements: AgreementWithPosition[];
     actors: Actor[];
   }> {
-    log(`[D3CardBoard] Loading game data for: ${gameId}`);
+    log(`[D3CardBoard] Loading game data using getGameContext for: ${gameId}`);
     
     try {
-      // Check gameCache first for performance
-      let game;
-      if (gameCache.has(gameId)) {
-        log('[D3CardBoard] Using cached game data');
-        game = gameCache.get(gameId);
-      } else {
-        // Load game data using optimized service function
-        game = await getGame(gameId);
-        if (game) gameCache.set(gameId, game);
+      // Use getGameContext to fetch all required data in a single optimized call
+      // This is a major efficiency improvement over multiple separate calls
+      const gameContext = await getGameContext(gameId);
+      
+      if (!gameContext) {
+        throw new Error(`Failed to load game context for: ${gameId}`);
       }
       
-      if (!game) throw new Error(`Game not found: ${gameId}`);
-      
-      // Get actors using the optimized function rather than direct Gun.js access
-      log('[D3CardBoard] Loading actors via optimized service function');
-      const actors = await getGameActors(gameId);
-      log(`[D3CardBoard] Loaded ${actors.length} actors`);
+      // Cache game data
+      gameCache.set(gameId, gameContext.game);
       
       // Cache actors for future diff checking
-      actors.forEach(actor => {
-        actorCache.set(actor.actor_id, actor);
+      if (gameContext.actors && gameContext.actors.length > 0) {
+        log(`[D3CardBoard] Loaded ${gameContext.actors.length} actors from GameContext`);
+        gameContext.actors.forEach(actor => {
+          actorCache.set(actor.actor_id, actor);
+        });
+      }
+      
+      // Process available cards - apply position data
+      const availableCards = gameContext.availableCards || [];
+      
+      // Look for any existing cached positions to maintain continuity
+      const positionedCards = applyCardPositions(availableCards);
+      log(`[D3CardBoard] Loaded ${positionedCards.length} cards from GameContext`);
+      
+      // Cache cards for future reference
+      positionedCards.forEach(card => {
+        if (card.card_id) cardCache.set(card.card_id, card);
       });
       
-      // Get deck ID from game
-      const deckId = game.deck_id;
-      if (!deckId) throw new Error(`No deck ID found for game: ${gameId}`);
+      // Get agreements data
+      const agreementData = gameContext.agreements || [];
+      log(`[D3CardBoard] Loaded ${agreementData.length} agreements from GameContext`);
       
-      // Load cards 
-      const cards = await loadCardData(deckId);
-      
-      // Load agreements if any, using our optimized function with 
-      // limit of 10 concurrent calls to prevent Gun.js overload
-      let agreementData: AgreementWithPosition[] = [];
-      if (game.agreement_ids) {
-        log('[D3CardBoard] Loading agreements');
-        agreementData = await loadGameAgreements(game);
-        log(`[D3CardBoard] Loaded ${agreementData.length} agreements`);
-      } else {
-        log('[D3CardBoard] No agreements to load');
-      }
-
-      return { cards, agreements: agreementData, actors };
+      return { 
+        cards: positionedCards, 
+        agreements: agreementData, 
+        actors: gameContext.actors || [] 
+      };
     } catch (error) {
       log(`[D3CardBoard] Error in loadGameData:`, error);
       // Return empty data to prevent component from breaking
       return { cards: [], agreements: [], actors: [] };
     }
+  }
+  
+  // Helper function to apply position data to cards
+  function applyCardPositions(cards: CardWithPosition[]): CardWithPosition[] {
+    // Look for any existing cached positions to maintain continuity
+    const existingPositions = new Map<string, {x: number, y: number}>();
+    cardsWithPosition.forEach(card => {
+      if (card.card_id && card.position) {
+        existingPositions.set(card.card_id, card.position);
+      }
+    });
+    
+    // Add position data, preferring existing positions when available
+    return cards.map(card => {
+      let position;
+      
+      // Use existing position if we have one
+      if (card.card_id && existingPositions.has(card.card_id)) {
+        position = existingPositions.get(card.card_id);
+      } else {
+        // Or create a new random position
+        position = { x: Math.random() * width, y: Math.random() * height };
+      }
+      
+      return {
+        ...card,
+        position
+      };
+    });
   }
 
   // Cache of agreement data to prevent redundant fetches
@@ -421,7 +426,7 @@
     // Subscribe to game updates using our optimized service function
     // with improved throttling to reduce Gun.js over-syncing
     unsubscribe.push(
-      subscribeToGame(gameId, (game) => {
+      subscribeToGame(gameId, async (game) => {
         if (!game) return;
         
         const currentTime = Date.now();
@@ -498,151 +503,91 @@
           gameCache.set(gameId, {...game});
         }
         
-        // Update agreements if needed, but not too frequently (10 second minimum)
-        if (shouldUpdateAgreements || currentTime - lastAgreementUpdateTime > 10000) {
-          lastAgreementUpdateTime = currentTime;
-          
-          if (game.agreement_ids) {
-            log('[D3CardBoard] Loading agreements');
-            loadGameAgreements(game).then(loadedAgreements => {
-              agreements = loadedAgreements;
-              log(`[D3CardBoard] Updated ${loadedAgreements.length} agreements`);
-            }).catch(error => {
-              console.error('[D3CardBoard] Error updating agreements:', error);
-            });
-          }
-        }
+        // We'll use getGameContext when significant changes are detected or on a timer
+        const needsFullDataReload = shouldUpdateCards || shouldUpdateActors || shouldUpdateAgreements || 
+                                   (currentTime - lastAgreementUpdateTime > 20000) || 
+                                   (cardsWithPosition.length === 0);
         
-        // Update actors if needed, but not too frequently (8 second minimum)
-        if (shouldUpdateActors || currentTime - lastActorUpdateTime > 8000) {
-          lastActorUpdateTime = currentTime;
+        if (needsFullDataReload) {
+          log('[D3CardBoard] Significant changes detected - using getGameContext for full data reload');
           
-          log('[D3CardBoard] Loading actors with intelligent diff checking');
-          
-          getGameActors(gameId).then(loadedActors => {
-            // First, check if anything actually changed compared to our cached actors
-            let hasChanges = false;
+          try {
+            // Use getGameContext to fetch all required data in a single efficient call
+            const gameContext = await getGameContext(gameId);
             
-            // Quick check - different number of actors means changes
-            if (actors.length !== loadedActors.length) {
-              log('[D3CardBoard] Actor count changed:', actors.length, '->', loadedActors.length);
-              hasChanges = true;
-            } else {
-              // Check each actor for changes with enhanced attributes checking
-              for (const newActor of loadedActors) {
-                const existingActor = actorCache.get(newActor.actor_id);
-                
-                // If actor doesn't exist in cache or card_id changed, it's a change
-                if (!existingActor || existingActor.card_id !== newActor.card_id) {
-                  hasChanges = true;
-                  log('[D3CardBoard] Actor changed:', newActor.actor_id);
-                  break;
-                }
+            if (!gameContext) {
+              log('[D3CardBoard] No game context returned, skipping update');
+              return;
+            }
+            
+            // Update timestamps to prevent frequent reloads
+            lastAgreementUpdateTime = currentTime;
+            lastActorUpdateTime = currentTime;
+            
+            // Process available cards - apply position data and enhance
+            const availableCards = gameContext.availableCards || [];
+            
+            // Enhanced cards with position data - preserving existing positions where possible
+            const positionedCards = availableCards.map(card => {
+              // Try to find existing position for this card
+              const existingCard = cardsWithPosition.find(c => c.card_id === card.card_id);
+              if (existingCard && existingCard.position) {
+                return {
+                  ...card,
+                  position: existingCard.position,
+                  _valueNames: existingCard._valueNames || [],
+                  _capabilityNames: existingCard._capabilityNames || []
+                };
               }
-            }
-            
-            // Only update if we detected actual changes
-            if (hasChanges) {
-              log('[D3CardBoard] Applying actor updates');
-              actors = loadedActors;
               
-              // Update cache and mappings
-              loadedActors.forEach(actor => {
-                actorCache.set(actor.actor_id, actor);
-                if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
-              });
-            } else {
-              log('[D3CardBoard] No actor changes detected - skipping update');
+              // For new cards, assign random position
+              return {
+                ...card,
+                position: { x: Math.random() * width, y: Math.random() * height }
+              };
+            });
+            
+            // Enhance cards only if we need to (major changes or not yet enhanced)
+            let enhancedCards = positionedCards;
+            const needsEnhancement = shouldUpdateCards || 
+                                    positionedCards.some(card => !card._valueNames || !card._capabilityNames);
+                                    
+            if (needsEnhancement) {
+              log('[D3CardBoard] Enhancing cards with values and capabilities');
+              enhancedCards = await enhanceCardData(positionedCards);
             }
-          }).catch(error => {
-            console.error('[D3CardBoard] Error updating actors:', error);
-          });
-        }
-        
-        // Update cards only if deck changed or not yet loaded (10 second minimum)
-        if (shouldUpdateCards || (cardsWithPosition.length === 0 && currentTime - lastGameUpdateTime > 10000)) {
-          const deckId = game.deck_id;
-          if (deckId) {
-            log('[D3CardBoard] Loading cards with intelligent diff checking');
             
-            // Get the lastCardUpdateTime as a reference point for optimizations
-            const lastCardUpdateTime = localStorage.getItem(`game_${gameId}_lastCardUpdate`) || '0';
-            const lastUpdate = parseInt(lastCardUpdateTime, 10);
-            const hasBeenLongTime = (currentTime - lastUpdate) > 60000; // 1 minute
+            // Update state
+            cardsWithPosition = enhancedCards;
+            agreements = gameContext.agreements || [];
+            actors = gameContext.actors || [];
             
-            loadCardData(deckId)
-              .then(cards => {
-                // Check if we need to perform a full enhancement (expensive operation)
-                // or if we can use the cards as-is
-                
-                // If we have no cards yet, or it's been a long time, do full enhancement
-                if (cardsWithPosition.length === 0 || hasBeenLongTime) {
-                  log('[D3CardBoard] Performing full card enhancement');
-                  return enhanceCardData(cards);
-                }
-                
-                // Check for any changes before doing expensive enhancement
-                if (cards.length !== cardsWithPosition.length) {
-                  log('[D3CardBoard] Card count changed, performing enhancement');
-                  return enhanceCardData(cards);
-                }
-                
-                // Quick diff check for changes before enhancement
-                const existingCardIds = new Set(cardsWithPosition.map(c => c.card_id));
-                const hasNewCards = cards.some(card => !existingCardIds.has(card.card_id));
-                
-                if (hasNewCards) {
-                  log('[D3CardBoard] New cards detected, performing enhancement');
-                  return enhanceCardData(cards); 
-                }
-                
-                log('[D3CardBoard] No significant card changes detected, using cached data');
-                return cards.map(card => {
-                  // Try to find existing enhanced card
-                  const existingCard = cardsWithPosition.find(c => c.card_id === card.card_id);
-                  if (existingCard) {
-                    // Preserve position and enhancements but update raw data
-                    return {
-                      ...card,
-                      position: existingCard.position,
-                      _valueNames: existingCard._valueNames || [],
-                      _capabilityNames: existingCard._capabilityNames || []
-                    };
-                  }
-                  // For new cards, assign random position
-                  return {
-                    ...card,
-                    position: { x: Math.random() * width, y: Math.random() * height },
-                    _valueNames: [],
-                    _capabilityNames: []
-                  };
-                });
-              })
-              .then(enhancedCards => {
-                // Update state with new card data
-                cardsWithPosition = enhancedCards;
-                
-                // Update card cache and actor-card mappings
-                enhancedCards.forEach(card => {
-                  if (card.card_id) {
-                    // Update the card cache
-                    cardCache.set(card.card_id, card);
-                    
-                    // Update actor-card mapping if available
-                    if (card.actor_id) {
-                      actorCardMap.set(card.actor_id, card.card_id);
-                    }
-                  }
-                });
-                
-                // Save last update time for future reference
-                localStorage.setItem(`game_${gameId}_lastCardUpdate`, currentTime.toString());
-                log(`[D3CardBoard] Updated ${enhancedCards.length} cards with values and capabilities`);
-              })
-              .catch(error => {
-                console.error('[D3CardBoard] Error updating cards:', error);
-              });
+            log(`[D3CardBoard] Context update complete: ${actors.length} actors, ${agreements.length} agreements, ${cardsWithPosition.length} cards`);
+            
+            // Update card cache
+            enhancedCards.forEach(card => {
+              if (card.card_id) {
+                cardCache.set(card.card_id, card);
+              }
+            });
+            
+            // Update actor cache and mapping
+            actorCardMap.clear();
+            actors.forEach(actor => {
+              actorCache.set(actor.actor_id, actor);
+              if (actor.card_id) {
+                actorCardMap.set(actor.actor_id, actor.card_id);
+              }
+            });
+            
+            // Save last update time for future reference
+            localStorage.setItem(`game_${gameId}_lastUpdate`, currentTime.toString());
+            
+          } catch (error) {
+            console.error('[D3CardBoard] Error during getGameContext update:', error);
           }
+        } else {
+          log('[D3CardBoard] No significant changes detected - skipping full data reload');
         }
       })
     );
@@ -695,20 +640,26 @@
   }
 
   async function initializeVisualization() {
-    log('[D3CardBoard] Starting initialization');
+    log('[D3CardBoard] Starting initialization with GameContext');
     if (!svgElement) {
       console.error('[D3CardBoard] SVG element not available');
       return;
     }
 
     try {
-      // Fetch the game data first, which is the most critical for initialization
-      log('[D3CardBoard] Loading game data for: ' + gameId);
-      const gameDataPromise = loadGameData();
+      // Use getGameContext to fetch all required data in a single efficient call
+      // This is a significant improvement over multiple separate API calls
+      log(`[D3CardBoard] Loading game context for: ${gameId}`);
+      const gameContext = await getGameContext(gameId);
       
-      // In parallel, if we have an active actor, start loading their card
-      let cardDataPromise: Promise<Card | null> | null = null;
+      if (!gameContext) {
+        throw new Error(`Failed to load game context for: ${gameId}`);
+      }
       
+      // Cache game data
+      gameCache.set(gameId, gameContext.game);
+      
+      // In parallel, if we have an active actor, identify their card
       if (activeActorId) {
         // First check localStorage for cached card ID which can be faster than fetching
         const cachedCardId = localStorage.getItem(`actor_${activeActorId}_card`);
@@ -717,47 +668,38 @@
           activeCardId = cachedCardId;
         }
         
-        // Prioritize fetching from existing local cache if available
-        if (cardCache.has(cachedCardId)) {
-          log(`[D3CardBoard] Using cached card data for ${cachedCardId}`);
-          const cachedCard = cardCache.get(cachedCardId);
-          if (cachedCard) {
-            activeCardId = cachedCardId;
+        // Look for this actor in the loaded actors and find their card
+        if (gameContext.actors) {
+          const actor = gameContext.actors.find(a => a.actor_id === activeActorId);
+          if (actor && actor.card) {
+            log(`[D3CardBoard] Found card for actor ${activeActorId}: ${actor.card.card_id}`);
+            activeCardId = actor.card.card_id;
+            // Cache the card ID for quicker loading next time
+            localStorage.setItem(`actor_${activeActorId}_card`, actor.card.card_id);
           }
-        } else {
-          // Start fetching card data in parallel with game data
-          log(`[D3CardBoard] Fetching card for actor ${activeActorId}`);
-          cardDataPromise = getUserCard(gameId, activeActorId);
         }
       }
-
-      // Wait for both the game data and any card data promises
-      const [{ cards, agreements: loadedAgreements, actors: loadedActors }, userCard] = await Promise.all([
-        gameDataPromise,
-        cardDataPromise || Promise.resolve(null)
-      ]);
       
-      // Process any card data we received
-      if (userCard) {
-        log(`[D3CardBoard] Successfully loaded card ${userCard.card_id}`);
-        activeCardId = userCard.card_id;
-        // Cache the card ID for quicker loading next time
-        if (activeActorId) {
-          localStorage.setItem(`actor_${activeActorId}_card`, userCard.card_id);
-        }
-        // Also add to our in-memory cache
-        cardCache.set(userCard.card_id, userCard);
-      }
+      // Process available cards - apply position data and enhance with values/capabilities
+      const availableCards = gameContext.availableCards || [];
+      const positionedCards = applyCardPositions(availableCards);
       
-      cardsWithPosition = await enhanceCardData(cards);
-      agreements = loadedAgreements;
-      actors = loadedActors;
-
-      cardsWithPosition.forEach((card) => {
-        if (card.actor_id) actorCardMap.set(card.actor_id, card.card_id);
-      });
+      // Enhance cards with values and capabilities
+      cardsWithPosition = await enhanceCardData(positionedCards);
+      log(`[D3CardBoard] Processed ${cardsWithPosition.length} cards with positions and enhancements`);
+      
+      // Set agreements and actors from context
+      agreements = gameContext.agreements || [];
+      actors = gameContext.actors || [];
+      
+      log(`[D3CardBoard] Loaded: ${actors.length} actors, ${agreements.length} agreements`);
+      
+      // Build actor-card mapping for visualization
       actors.forEach((actor) => {
-        if (actor.card_id) actorCardMap.set(actor.actor_id, actor.card_id);
+        if (actor.card_id) {
+          actorCardMap.set(actor.actor_id, actor.card_id);
+          log(`[D3CardBoard] Mapped actor ${actor.actor_id} to card ${actor.card_id}`);
+        }
       });
 
       try {
