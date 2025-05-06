@@ -8,8 +8,7 @@
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
-    import NavRail from '@skeletonlabs/skeleton-svelte/components/Navigation/NavRail.svelte';
-    import NavTile from '@skeletonlabs/skeleton-svelte/components/Navigation/NavTile.svelte';
+    import { Navigation } from '@skeletonlabs/skeleton-svelte';
 
     // Props
     const { game, gameId, playerRole, content } = $props<{
@@ -68,23 +67,19 @@
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-800-token overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
     <div class="nav-rail-left">
-        <NavRail expanded={leftExpanded}>
+        <Navigation.Rail expanded={leftExpanded}>
             <!-- Menu Header -->
             <svelte:fragment slot="header">
-                <NavTile labelExpanded="Game Menu" title="Toggle Menu Width" onclick={toggleLeftSidebar}>
-                    <svelte:fragment slot="default">
-                        <icons.Menu />
-                    </svelte:fragment>
-                </NavTile>
+                <Navigation.Tile labelExpanded="Game Menu" title="Toggle Menu Width" onclick={toggleLeftSidebar}>
+                    <icons.Menu />
+                </Navigation.Tile>
             </svelte:fragment>
             
             <!-- Game Info Section -->
-            <NavTile labelExpanded="Game Info" active={gameInfoExpanded} 
+            <Navigation.Tile labelExpanded="Game Info" active={gameInfoExpanded} 
                     onclick={() => gameInfoExpanded = !gameInfoExpanded}>
-                <svelte:fragment slot="default">
-                    <icons.Info />
-                </svelte:fragment>
-            </NavTile>
+                <icons.Info />
+            </Navigation.Tile>
             
             {#if gameInfoExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
@@ -106,12 +101,10 @@
             {/if}
             
             <!-- Role Card Section -->
-            <NavTile labelExpanded="Your Role Card" active={yourRoleExpanded} 
+            <Navigation.Tile labelExpanded="Your Role Card" active={yourRoleExpanded} 
                     onclick={() => yourRoleExpanded = !yourRoleExpanded}>
-                <svelte:fragment slot="default">
-                    <icons.User />
-                </svelte:fragment>
-            </NavTile>
+                <icons.User />
+            </Navigation.Tile>
         
         {#if yourRoleExpanded}
             <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
@@ -196,7 +189,7 @@
                 {/if}
             </div>
         {/if}
-        </NavRail>
+        </Navigation.Rail>
     </div>
 
     <!-- Main Content Area -->
@@ -264,23 +257,19 @@
 
     <!-- Right Navigation Rail - Players & Chat -->
     <div class="nav-rail-right">
-        <NavRail expanded={rightExpanded} position="right">
+        <Navigation.Rail expanded={rightExpanded} position="right">
             <!-- Menu Header -->
             <svelte:fragment slot="header">
-                <NavTile labelExpanded="Players" title="Toggle Players Menu" onclick={toggleRightSidebar}>
-                    <svelte:fragment slot="default">
-                        <icons.Users />
-                    </svelte:fragment>
-                </NavTile>
+                <Navigation.Tile labelExpanded="Players" title="Toggle Players Menu" onclick={toggleRightSidebar}>
+                    <icons.Users />
+                </Navigation.Tile>
             </svelte:fragment>
             
             <!-- Players List Section -->
-            <NavTile labelExpanded="Player List" active={playersExpanded} 
+            <Navigation.Tile labelExpanded="Player List" active={playersExpanded} 
                     onclick={() => playersExpanded = !playersExpanded}>
-                <svelte:fragment slot="default">
-                    <icons.UsersRound />
-                </svelte:fragment>
-            </NavTile>
+                <icons.UsersRound />
+            </Navigation.Tile>
             
             {#if playersExpanded}
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
@@ -296,12 +285,10 @@
             {/if}
             
             <!-- Chat Section -->
-            <NavTile labelExpanded="Group Chat" active={chatExpanded} 
+            <Navigation.Tile labelExpanded="Group Chat" active={chatExpanded} 
                     onclick={() => chatExpanded = !chatExpanded}>
-                <svelte:fragment slot="default">
-                    <icons.MessageSquare />
-                </svelte:fragment>
-            </NavTile>
+                <icons.MessageSquare />
+            </Navigation.Tile>
             
             {#if chatExpanded}
                 <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
@@ -310,7 +297,7 @@
                     </div>
                 </div>
             {/if}
-        </NavRail>
+        </Navigation.Rail>
     </div>
 </div>
 
