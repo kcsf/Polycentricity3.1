@@ -122,7 +122,7 @@
       toaster.error({
         title: 'Validation Error',
         description: 'Please enter a title for the agreement',
-        classes: 'bg-surface-200-800'
+        classes: 'bg-error-500 !bg-opacity-100 border border-error-600 shadow-lg'
       });
       return;
     }
@@ -130,7 +130,8 @@
     if (!description.trim()) {
       toaster.error({
         title: 'Validation Error',
-        description: 'Please enter a description for the agreement'
+        description: 'Please enter a description for the agreement',
+        classes: 'bg-error-500 !bg-opacity-100 border border-error-600 shadow-lg'
       });
       return;
     }
@@ -138,7 +139,8 @@
     if (selectedParties.length < 1) {
       toaster.error({
         title: 'Validation Error',
-        description: 'Please select at least one party for the agreement'
+        description: 'Please select at least one party for the agreement',
+        classes: 'bg-error-500 !bg-opacity-100 border border-error-600 shadow-lg'
       });
       return;
     }
@@ -150,7 +152,7 @@
         toaster.error({
           title: 'Validation Error',
           description: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`,
-          classes: 'variant-filled-warning'
+          classes: 'bg-error-500 !bg-opacity-100 border border-error-600 shadow-lg'
         });
         return;
       }
@@ -180,21 +182,24 @@
       if (result) {
         toaster.success({
           title: 'Success',
-          description: 'Agreement created successfully'
+          description: 'Agreement created successfully',
+          classes: 'bg-success-500 !bg-opacity-100 border border-success-600 shadow-lg'
         });
         resetForm();
         modalOpen = false;
       } else {
         toaster.error({
           title: 'Error',
-          description: 'Failed to create agreement'
+          description: 'Failed to create agreement',
+          classes: 'bg-error-500 !bg-opacity-100 border border-error-600 shadow-lg'
         });
       }
     } catch (error) {
       console.error('Error creating agreement:', error);
       toaster.error({
         title: 'Error',
-        description: 'An error occurred while creating the agreement'
+        description: 'An error occurred while creating the agreement',
+        classes: 'bg-error-500 !bg-opacity-100 border border-error-600 shadow-lg'
       });
     } finally {
       isSubmitting = false;
