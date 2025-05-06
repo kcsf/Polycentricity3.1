@@ -70,9 +70,9 @@
 
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100 dark:bg-surface-800 overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
-    <div class="h-full border-r border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-900 flex flex-col {leftExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
+    <div class="h-full border-r border-surface-300-700 bg-surface-50-950 flex flex-col {leftExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with hamburger menu -->
-        <div class="p-3 flex justify-between items-center border-b border-surface-300 dark:border-surface-600">
+        <div class="p-3 flex justify-between items-center border-b border-surface-300-700">
             <button class="btn btn-sm variant-soft-surface p-2" onclick={toggleLeftSidebar}>
                 <icons.Menu class="w-5 h-5" />
             </button>
@@ -98,7 +98,7 @@
             
             {#if gameInfoExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
-                    <div class="card p-3 bg-surface-200 dark:bg-surface-700">
+                    <div class="card p-3 bg-surface-200-800">
                         <div class="grid grid-cols-2 gap-2">
                             <div class="text-sm">Status:</div>
                             <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
@@ -131,7 +131,7 @@
             {#if yourRoleExpanded}
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
                     {#if playerRole?.card}
-                        <div class="card overflow-hidden rounded-md shadow-md bg-surface-200 dark:bg-surface-700">
+                        <div class="card overflow-hidden rounded-md shadow-md bg-surface-200-800">
                             <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
                                 <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
                                     <icons.User class="w-5 h-5" />
@@ -199,7 +199,7 @@
                             </div>
                         </div>
                     {:else}
-                        <div class="card p-4 bg-surface-200 dark:bg-surface-700 text-center">
+                        <div class="card p-4 bg-surface-200-800 text-center">
                             <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
                             <h3 class="text-base font-bold text-surface-900 dark:text-surface-50 mb-2">No Role Card Assigned</h3>
                             <p class="text-xs text-surface-700 dark:text-surface-300 mb-4">Join this game to select a role card</p>
@@ -297,9 +297,9 @@
     </div>
 
     <!-- Right Navigation Rail - Players & Chat -->
-    <div class="h-full border-l border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-900 flex flex-col {rightExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
+    <div class="h-full border-l border-surface-300-700 bg-surface-50-950 flex flex-col {rightExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with players icon -->
-        <div class="p-3 flex justify-between items-center border-b border-surface-300 dark:border-surface-600">
+        <div class="p-3 flex justify-between items-center border-b border-surface-300-700">
             {#if rightExpanded}
                 <span class="font-semibold">Players</span>
             {/if}
@@ -325,7 +325,7 @@
             
             {#if playersExpanded}
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
-                    <div class="card p-2 bg-surface-200 dark:bg-surface-700">
+                    <div class="card p-2 bg-surface-200-800">
                         <PlayersList 
                             {game} 
                             highlightCurrentUser={true} 
@@ -351,7 +351,7 @@
             
             {#if chatExpanded}
                 <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
-                    <div class="card p-2 bg-surface-200 dark:bg-surface-700 flex flex-col h-64">
+                    <div class="card p-2 bg-surface-200-800 flex flex-col h-64">
                         <ChatBox {gameId} chatType="group" compact={true} />
                     </div>
                 </div>
