@@ -137,38 +137,16 @@ export interface D3NodeWithRelationships extends D3Node {
  * 
  * @param nodeElements - D3 Selection of node elements
  * @param activeCardId - ID of the active card (if any) for highlighting
- * @param valueCache - Map of value IDs to Value objects
- * @param capabilityCache - Map of capability IDs to Capability objects
  */
 export function addDonutRings(
   nodeElements: d3.Selection<SVGGElement, D3Node, null, undefined>,
-  activeCardId?: string | null,
-  valueCache?: Map<string, any>,
-  capabilityCache?: Map<string, any>
+  activeCardId?: string | null
 ): void {
   // Get all card nodes that are actors (not agreements)
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
   
   // Process each card node to add complete donut rings with interactive segments
   cardNodes.each(function(nodeData) {
-    // Debug log to check values and capabilities with much more detail
-    console.log(`[addDonutRings] Raw data for node ${nodeData.id}:`, {
-      nodeId: nodeData.id,
-      // Node specific data
-      nodeValueNames: nodeData._valueNames,
-      nodeCapabilityNames: nodeData._capabilityNames,
-      // Card specific data
-      cardData: nodeData.data,
-      hasValuesRef: !!(nodeData.data as CardWithPosition).values_ref,
-      valuesRefKeys: (nodeData.data as CardWithPosition).values_ref 
-        ? Object.keys((nodeData.data as CardWithPosition).values_ref).filter(k => k !== '#' && k !== '_') 
-        : [],
-      hasCapabilitiesRef: !!(nodeData.data as CardWithPosition).capabilities_ref,
-      capabilitiesRefKeys: (nodeData.data as CardWithPosition).capabilities_ref 
-        ? Object.keys((nodeData.data as CardWithPosition).capabilities_ref).filter(k => k !== '#' && k !== '_') 
-        : []
-    });
-    
     // Basic setup for this node
     const node = d3.select(this);
     const isActive = nodeData.id === activeCardId;
@@ -194,9 +172,16 @@ export function addDonutRings(
     // to hide the icon properly when hovering on wedges
     const foreignObjects = centerIcon.selectAll("foreignObject");
     
+    // Get the card data
+    const cardData = nodeData.data as CardWithPosition;
+    
+    // Use the value and capability names from the card data (_valueNames and _capabilityNames)
+    // These are already populated by getGameContext
+    const valueNames = cardData._valueNames || [];
+    const capabilityNames = cardData._capabilityNames || [];
+    
     // Early exit if we have neither values nor capabilities
-    if ((!nodeData._valueNames || nodeData._valueNames.length === 0) && 
-        (!nodeData._capabilityNames || nodeData._capabilityNames.length === 0)) {
+    if (valueNames.length === 0 && capabilityNames.length === 0) {
       return;
     }
     
@@ -209,38 +194,6 @@ export function addDonutRings(
       .attr("stroke-width", 1);
       
     // 2. CATEGORIES SETUP 
-    // First, manually extract from values_ref and capabilities_ref if _valueNames and _capabilityNames are not populated
-    let valueNames = nodeData._valueNames && nodeData._valueNames.length > 0 
-      ? nodeData._valueNames 
-      : [];
-      
-    // If valueNames is still empty, check the card data values_ref
-    if (valueNames.length === 0 && (nodeData.data as CardWithPosition).values_ref) {
-      const cardData = nodeData.data as CardWithPosition;
-      valueNames = Object.keys(cardData.values_ref)
-        .filter(key => key !== '#' && key !== '_')
-        .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key);
-      console.log(`[addDonutRings] Extracted ${valueNames.length} values directly from values_ref:`, valueNames);
-    }
-    
-    let capabilityNames = nodeData._capabilityNames && nodeData._capabilityNames.length > 0
-      ? nodeData._capabilityNames
-      : [];
-      
-    // If capabilityNames is still empty, check the card data capabilities_ref
-    if (capabilityNames.length === 0 && (nodeData.data as CardWithPosition).capabilities_ref) {
-      const cardData = nodeData.data as CardWithPosition;
-      capabilityNames = Object.keys(cardData.capabilities_ref)
-        .filter(key => key !== '#' && key !== '_')
-        .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key);
-      console.log(`[addDonutRings] Extracted ${capabilityNames.length} capabilities directly from capabilities_ref:`, capabilityNames);
-    }
-    
-    console.log(`[addDonutRings] Final categories data for node ${nodeData.id}:`, {
-      valueNames,
-      capabilityNames
-    });
-    
     const categories = [
       { 
         name: "values", 
@@ -250,8 +203,8 @@ export function addDonutRings(
       { 
         name: "goals", 
         color: "#9BC23D", 
-        items: (nodeData.type === 'actor' && (nodeData.data as Card).goals) 
-          ? ((nodeData.data as Card).goals as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
+        items: (nodeData.type === 'actor' && cardData.goals) 
+          ? (cardData.goals as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
           : []
       },
       { 

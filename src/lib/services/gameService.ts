@@ -747,7 +747,7 @@ export async function getGameContext(
       ),
     );
 
-    // 4️⃣ Batch-fetch each actor + their assigned card + resolve names
+    // 4️⃣ Batch-fetch each actor + their assigned card + resolve value/cap names
     const usedSet = new Set<string>();
     const actorResults = await Promise.all(
       actorIds.map(async (aid) => {
@@ -767,16 +767,27 @@ export async function getGameContext(
           usedSet.add(cardId);
           const raw = await get<Card>(`${nodes.cards}/${cardId}`);
           if (raw) {
-            const valueIds = Object.keys(raw.values_ref || {}).filter(
-              (k) => !k.startsWith("#") && !k.startsWith("_"),
+            // 🔥 Fetch the nested maps explicitly
+            const valueRefs = await getSet(
+              `${nodes.cards}/${cardId}`,
+              "values_ref",
             );
-            const capIds = Object.keys(raw.capabilities_ref || {}).filter(
-              (k) => !k.startsWith("#") && !k.startsWith("_"),
+            const capRefs = await getSet(
+              `${nodes.cards}/${cardId}`,
+              "capabilities_ref",
             );
+            const valueIds = valueRefs
+              .map((p) => p.split("/").pop()!)
+              .filter((id) => !id.startsWith("#") && !id.startsWith("_"));
+            const capIds = capRefs
+              .map((p) => p.split("/").pop()!)
+              .filter((id) => !id.startsWith("#") && !id.startsWith("_"));
+
             const [valueNames, capabilityNames] = await Promise.all([
               resolveNames(valueIds, nodes.values),
               resolveNames(capIds, nodes.capabilities),
             ]);
+
             card = {
               ...raw,
               position: randomPos(),
@@ -798,16 +809,25 @@ export async function getGameContext(
         .map(async (id) => {
           const raw = await get<Card>(`${nodes.cards}/${id}`);
           if (!raw) return null;
-          const valueIds = Object.keys(raw.values_ref || {}).filter(
-            (k) => !k.startsWith("#") && !k.startsWith("_"),
+
+          // 🔥 Same nested-map fetch here
+          const valueRefs = await getSet(`${nodes.cards}/${id}`, "values_ref");
+          const capRefs = await getSet(
+            `${nodes.cards}/${id}`,
+            "capabilities_ref",
           );
-          const capIds = Object.keys(raw.capabilities_ref || {}).filter(
-            (k) => !k.startsWith("#") && !k.startsWith("_"),
-          );
+          const valueIds = valueRefs
+            .map((p) => p.split("/").pop()!)
+            .filter((i) => !i.startsWith("#") && !i.startsWith("_"));
+          const capIds = capRefs
+            .map((p) => p.split("/").pop()!)
+            .filter((i) => !i.startsWith("#") && !i.startsWith("_"));
+
           const [valueNames, capabilityNames] = await Promise.all([
             resolveNames(valueIds, nodes.values),
             resolveNames(capIds, nodes.capabilities),
           ]);
+
           return {
             ...raw,
             position: randomPos(),
