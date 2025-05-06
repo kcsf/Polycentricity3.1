@@ -110,20 +110,55 @@
     // Extract all assigned cards (with their actor_id & position baked in)
     const assigned: CardWithPosition[] = ctx.actors
       .filter(a => !!a.card)
-      .map(a => ({
-        ...a.card!,
-        actor_id: a.actor_id,
-        position: a.position || { x: Math.random() * width, y: Math.random() * height },
-        // Preserve any precomputed names if they exist
-        _valueNames: a.card!._valueNames || [],
-        _capabilityNames: a.card!._capabilityNames || []
-      }));
+      .map(a => {
+        // Extract values from values_ref if it exists
+        const valueNames: string[] = a.card!.values_ref ? 
+          Object.keys(a.card!.values_ref)
+            .filter(key => key !== '#' && key !== '_')
+            .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key) 
+          : [];
+          
+        // Extract capabilities from capabilities_ref if it exists
+        const capabilityNames: string[] = a.card!.capabilities_ref ? 
+          Object.keys(a.card!.capabilities_ref)
+            .filter(key => key !== '#' && key !== '_')
+            .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+          : [];
+          
+        return {
+          ...a.card!,
+          actor_id: a.actor_id,
+          position: a.position || { x: Math.random() * width, y: Math.random() * height },
+          // Use the extracted values and capabilities
+          _valueNames: valueNames,
+          _capabilityNames: capabilityNames
+        };
+      });
 
     // Append the "available" cards with position data
-    const availableWithPos = (ctx.availableCards || []).map(card => ({
-      ...card,
-      position: { x: Math.random() * width, y: Math.random() * height }
-    }));
+    const availableWithPos = (ctx.availableCards || []).map(card => {
+      // Extract values from values_ref if it exists
+      const valueNames: string[] = card.values_ref ? 
+        Object.keys(card.values_ref)
+          .filter(key => key !== '#' && key !== '_')
+          .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key) 
+        : [];
+        
+      // Extract capabilities from capabilities_ref if it exists
+      const capabilityNames: string[] = card.capabilities_ref ? 
+        Object.keys(card.capabilities_ref)
+          .filter(key => key !== '#' && key !== '_')
+          .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+        : [];
+      
+      return {
+        ...card,
+        position: { x: Math.random() * width, y: Math.random() * height },
+        // Use the extracted values and capabilities
+        _valueNames: valueNames,
+        _capabilityNames: capabilityNames
+      };
+    });
 
     const allCards = [ ...assigned, ...availableWithPos ];
 
