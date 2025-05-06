@@ -11,7 +11,7 @@
   import GameCard from '$lib/components/GameCard.svelte';
   import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
   import ActorEditModal from '$lib/components/ActorEditModal.svelte';
-  import { derived, readable } from 'svelte/store'; // Import derived and readable from svelte/store
+  import { derived } from 'svelte/store';
 
   // local component state
   let isLoading = $state(true);
@@ -19,6 +19,7 @@
   let profileModalOpen = $state(false);
   let actorEditModalOpen = $state(false);
   let selectedActor = $state<Actor | null>(null);
+  let cardsOwnedCount = $state(0);
 
   // derive stores for metrics display
   const gamesCreated = derived(userGamesStore, (gs) => {
@@ -64,27 +65,100 @@
     }
   }
 
-  // load everything in parallel
+  /**
+   * Enhanced function to fetch user's games with proper player references
+   * Uses both creator_ref and players map for accurate game listing
+   */
+  async function fetchUserGames(): Promise<Game[]> {
+    if (!$userStore.user) return [];
+    const userId = $userStore.user.user_id;
+    
+    try {
+      // Get all games for evaluation
+      const allGames = await getAllGames();
+      console.log(`[Dashboard] Found ${allGames.length} total games`);
+      
+      // First check user's games_ref set if available
+      const gameRefs = await getSet(`${nodes.users}/${userId}`, "games_ref");
+      console.log(`[Dashboard] Found ${gameRefs.length} game references for user ${userId}`);
+      
+      // Return games where:
+      // 1. User is the creator, OR
+      // 2. User is in the players map, OR
+      // 3. Game is in the user's games_ref set, OR
+      // 4. User has an actor in this game
+      const userGames = allGames.filter(game => 
+        game.creator_ref === userId || 
+        (game.players && game.players[userId]) ||
+        gameRefs.some(ref => {
+          const gameId = ref.includes('/') ? ref.split('/').pop()! : ref;
+          return gameId === game.game_id;
+        }) ||
+        actors.some(a => a.game_ref === game.game_id)
+      );
+      
+      console.log(`[Dashboard] Filtered to ${userGames.length} user games`);
+      return userGames;
+    } catch (error) {
+      console.error('[Dashboard] Error fetching user games:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Enhanced function to calculate accurate card ownership count
+   * Checks both direct card_ref and cards_by_game map
+   */
+  async function calculateCardsOwned(userActors: Actor[]): Promise<number> {
+    try {
+      // Count cards owned directly through card_ref
+      const directCardRefs = userActors.filter(a => !!a.card_ref).length;
+      
+      // Get cards from cards_by_game maps
+      const cardsFromMap = await Promise.all(
+        userActors.map(async (actor) => {
+          if (!actor.cards_by_game) return 0;
+          // Count valid card references
+          const cardIds = Object.values(actor.cards_by_game).filter(id => !!id);
+          return cardIds.length;
+        })
+      );
+      
+      const totalCardsFromMap = cardsFromMap.reduce((sum, count) => sum + count, 0);
+      const total = Math.max(directCardRefs, totalCardsFromMap);
+      
+      console.log(`[Dashboard] Found ${total} cards owned by user's actors`);
+      return total;
+    } catch (error) {
+      console.error('[Dashboard] Error calculating cards owned:', error);
+      return 0;
+    }
+  }
+
+  // load everything in parallel with enhanced relationship detection
   async function loadDashboard() {
     if (!$userStore.user) return;
     isLoading = true;
 
-    const [userActors, allGames] = await Promise.all([
-      fetchUserActors(),
-      getAllGames()
-    ]);
-
-    actors = userActors;
-
-    // build list of this user’s games
-    const userGames: Game[] = allGames.filter(
-      g =>
-        g.creator_ref === $userStore.user!.user_id ||
-        userActors.some(a => a.game_ref === g.game_id)
-    );
-
-    setUserGames(userGames);
-    isLoading = false;
+    try {
+      // First load actors to establish relationships
+      actors = await fetchUserActors();
+      console.log(`[Dashboard] Loaded ${actors.length} actors for user ${$userStore.user.user_id}`);
+      
+      // Then load games using enhanced detection with actor relationships
+      const userGames = await fetchUserGames();
+      console.log(`[Dashboard] Loaded ${userGames.length} games for user ${$userStore.user.user_id}`);
+      
+      // Calculate cards owned for metrics display
+      cardsOwnedCount = await calculateCardsOwned(actors);
+      
+      // Update game store
+      setUserGames(userGames);
+    } catch (error) {
+      console.error('[Dashboard] Error loading dashboard:', error);
+    } finally {
+      isLoading = false;
+    }
   }
 
   // react to auth state
@@ -142,7 +216,7 @@
     </div>
     <div class="card p-4 text-center">
       <icons.CreditCard size={24} class="mx-auto mb-2" />
-      <div class="text-xl font-bold">{actors.filter(a => !!a.card_ref).length}</div>
+      <div class="text-xl font-bold">{cardsOwnedCount}</div>
       <div class="text-sm opacity-70">Cards Owned</div>
     </div>
   </div>
@@ -198,7 +272,7 @@
         {#if $userGamesStore.length === 0}
           <div class="text-center p-10 border rounded">
             <icons.Gamepad2 size={64} class="mx-auto mb-4 opacity-50" />
-            <p>You haven’t joined or created any games yet.</p>
+            <p>You haven't joined or created any games yet.</p>
             <div class="mt-4 flex justify-center gap-2">
               <a href="/games" class="btn variant-filled-primary">
                 <icons.Search size={16} class="mr-1" /> Find Games
