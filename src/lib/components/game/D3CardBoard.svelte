@@ -8,8 +8,6 @@
     getGameContext,
     subscribeToGame
   } from '$lib/services/gameService';
-  import { getValue } from '$lib/services/valueService';
-  import { getCapability } from '$lib/services/capabilityService';
   import type { Card, Value, Capability, Actor, Agreement, GameContext, ActorWithCard } from '$lib/types';
   import { GameStatus } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
@@ -107,58 +105,22 @@
       return { cards: [], agreements: [], actors: [] };
     }
 
-    // Extract all assigned cards (with their actor_id & position baked in)
+    // Extract all assigned cards - cards already have _valueNames and _capabilityNames
     const assigned: CardWithPosition[] = ctx.actors
       .filter(a => !!a.card)
-      .map(a => {
-        // Extract values from values_ref if it exists
-        const valueNames: string[] = a.card!.values_ref ? 
-          Object.keys(a.card!.values_ref)
-            .filter(key => key !== '#' && key !== '_')
-            .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key) 
-          : [];
-          
-        // Extract capabilities from capabilities_ref if it exists
-        const capabilityNames: string[] = a.card!.capabilities_ref ? 
-          Object.keys(a.card!.capabilities_ref)
-            .filter(key => key !== '#' && key !== '_')
-            .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
-          : [];
-          
-        return {
-          ...a.card!,
-          actor_id: a.actor_id,
-          position: a.position || { x: Math.random() * width, y: Math.random() * height },
-          // Use the extracted values and capabilities
-          _valueNames: valueNames,
-          _capabilityNames: capabilityNames
-        };
-      });
+      .map(a => ({ 
+        ...a.card!, 
+        actor_id: a.actor_id, 
+        position: a.position || { x: Math.random() * width, y: Math.random() * height }
+        // _valueNames/_capabilityNames already present from gameContext
+      }));
 
     // Append the "available" cards with position data
-    const availableWithPos = (ctx.availableCards || []).map(card => {
-      // Extract values from values_ref if it exists
-      const valueNames: string[] = card.values_ref ? 
-        Object.keys(card.values_ref)
-          .filter(key => key !== '#' && key !== '_')
-          .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key) 
-        : [];
-        
-      // Extract capabilities from capabilities_ref if it exists
-      const capabilityNames: string[] = card.capabilities_ref ? 
-        Object.keys(card.capabilities_ref)
-          .filter(key => key !== '#' && key !== '_')
-          .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
-        : [];
-      
-      return {
-        ...card,
-        position: { x: Math.random() * width, y: Math.random() * height },
-        // Use the extracted values and capabilities
-        _valueNames: valueNames,
-        _capabilityNames: capabilityNames
-      };
-    });
+    const availableWithPos = (ctx.availableCards || []).map(c => ({
+      ...c,
+      position: { x: Math.random() * width, y: Math.random() * height }
+      // _valueNames/_capabilityNames already present from gameContext
+    }));
 
     const allCards = [ ...assigned, ...availableWithPos ];
 

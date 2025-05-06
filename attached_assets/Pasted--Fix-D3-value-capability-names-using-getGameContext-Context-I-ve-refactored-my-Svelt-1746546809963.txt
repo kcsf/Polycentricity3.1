@@ -1,0 +1,60 @@
+# Fix D3 value & capability names using `getGameContext`
+
+**Context:**  
+I’ve refactored my Svelte app to load _all_ game data (cards, actors, agreements) via one `getGameContext(gameId)` call in `gameService.ts`. Each `CardWithPosition` coming back now carries both its raw `values_ref`/`capabilities_ref` _and_ pre-fetched `_valueNames` / `_capabilityNames` arrays. However, my D3 visualization is still falling back to hard-coded “Social Justice”, “Preservation”, etc., because the old `augmentCardValues` / `augmentCardCapabilities` functions are still used in `d3GraphUtils.ts`, and my board component is manually re-extracting keys instead of using the new names.
+
+---
+
+## Steps to fix
+
+1. **Remove old imports from `D3CardBoard.svelte`**  
+   - Delete `import { getValue } from '$lib/services/valueService'`  
+   - Delete `import { getCapability } from '$lib/services/capabilityService'`  
+
+2. **Simplify `loadGameData()` in `D3CardBoard.svelte`**  
+   - Stop manually extracting `.values_ref` and `.capabilities_ref` keys.  
+   - Rely on `ctx.actors` and `ctx.availableCards` already having `_valueNames` & `_capabilityNames`.  
+   - Drop your inline `valueNames`/`capabilityNames` mapping—just spread each card:  
+     ```ts
+     // BEFORE: manual .map(a => ({ ...a.card!, _valueNames, _capabilityNames }))
+     // AFTER:
+     const assigned = ctx.actors
+       .filter(a => a.card)
+       .map(a => ({ 
+         ...a.card!, 
+         actor_id: a.actor_id, 
+         position: a.position, 
+         // no manual name extraction
+       }));
+     const availableWithPos = ctx.availableCards.map(c => ({
+       ...c,
+       position: c.position,
+       // _valueNames/_capabilityNames already there
+     }));
+     ```
+
+3. **Remove `augmentCardValues` & `augmentCardCapabilities` from `d3GraphUtils.ts`**  
+   - Delete those two helper functions entirely.  
+   - Remove `getCardValueNames` and `getCardCapabilityNames` imports.  
+
+4. **Update `createNodes()` in `d3GraphUtils.ts`**  
+   - Instead of invoking `augmentCardValues(card)` and `augmentCardCapabilities(card)`, use the already‐attached name arrays on `card`:  
+     ```ts
+     // BEFORE
+     _valueNames: augmentCardValues(card),
+     _capabilityNames: augmentCardCapabilities(card)
+     // AFTER
+     _valueNames: card._valueNames || [],
+     _capabilityNames: card._capabilityNames || []
+     ```
+
+5. **Ensure `addDonutRings()` uses the real names**  
+   - In `addDonutRings`, drop any fallback logic around `nodeData._valueNames` / `_capabilityNames`. They will already be correct.  
+
+6. **Test & verify**  
+   - Spin up the app and inspect `console.log("Node data values and capabilities:", nodeData)` inside `addDonutRings`. You should see real names from the DB.  
+   - Hover over cards—donut wedges and labels should now show proper values & capabilities instead of the “Social Justice” fallback.
+
+---
+
+**In summary**, we’re stripping out the legacy augmentation logic and letting our single `getGameContext` call fully populate each `CardWithPosition` with `_valueNames` and `_capabilityNames`. The D3 code then simply reads those arrays to render the donut segments and labels correctly.
