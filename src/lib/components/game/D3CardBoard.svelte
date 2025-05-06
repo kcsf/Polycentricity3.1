@@ -6,8 +6,7 @@
   import { getGun, nodes } from '$lib/services/gunService';
   import { 
     getGameContext,
-    subscribeToGame,
-    subscribeToGameActors
+    subscribeToGame
   } from '$lib/services/gameService';
   import { getValue } from '$lib/services/valueService';
   import { getCapability } from '$lib/services/capabilityService';
@@ -281,20 +280,11 @@
     
     log(`[D3CardBoard] Setting up game data subscriptions for ${gameId}`);
 
-    // Subscribe to game updates
+    // Subscribe to game updates - this will capture all changes including actors
     unsubscribe.push(
       subscribeToGame(gameId, () => {
         // Simplest approach: reload everything when game changes
         log('[D3CardBoard] Game update detected, refreshing visualization');
-        initializeVisualization();
-      })
-    );
-
-    // Subscribe to actor updates
-    unsubscribe.push(
-      subscribeToGameActors(gameId, () => {
-        // Actors updated (cards assigned, etc.) - refresh visualization
-        log('[D3CardBoard] Actor update detected, refreshing visualization');
         initializeVisualization();
       })
     );
