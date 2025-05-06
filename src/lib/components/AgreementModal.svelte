@@ -2,6 +2,7 @@
   import { Modal } from '@skeletonlabs/skeleton-svelte';
   import * as icons from '@lucide/svelte';
   import { createAgreement } from '$lib/services/gameService';
+  import { getCurrentUser } from '$lib/services/authService';
   import type { Actor, ActorWithCard } from '$lib/types';
   import { toaster } from '$lib/utils/toaster-svelte';
 
@@ -240,7 +241,26 @@
         }
       }
       
-      // Create agreement using gameService
+      // First, ensure the user is logged in by checking if getCurrentUser() returns something
+      const user = await getCurrentUser();
+      console.log('Current user for createAgreement:', user);
+      
+      // Check if we have the correct terms structure before calling the API
+      console.log('About to call createAgreement with exact params:');
+      console.log('- gameId:', gameId);
+      console.log('- title:', title);
+      console.log('- description:', description);
+      console.log('- parties (selectedParties):', selectedParties);
+      console.log('- terms (stringified):', JSON.stringify(terms));
+      
+      // Validate the terms format - ensuring each party has obligations and benefits arrays
+      for (const actorId of selectedParties) {
+        if (!terms[actorId] || !Array.isArray(terms[actorId].obligations) || !Array.isArray(terms[actorId].benefits)) {
+          throw new Error(`Terms for actor ${actorId} are invalid. Each actor must have obligations and benefits arrays.`);
+        }
+      }
+      
+      // Create agreement using gameService - matching the exact parameter order and types
       const result = await createAgreement(
         gameId,
         title,
