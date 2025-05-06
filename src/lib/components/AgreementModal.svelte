@@ -233,12 +233,22 @@
         }
       }
       
-      // Check if any actors are missing card references
+      // Check if any actors are missing card references or have invalid game-specific card references
       for (const actorId of selectedParties) {
         const actor = actorsList.find(a => a.actor_id === actorId);
+        
+        // Basic card association check
         if (!actor?.card) {
           throw new Error(`Actor ${actorId} (${actor?.custom_name || 'Unknown'}) is missing card reference`);
         }
+        
+        // Game-specific card reference check (critical for saving in database)
+        if (!actor.cards_by_game || !actor.cards_by_game[gameId]) {
+          throw new Error(`Actor ${actor?.custom_name || actor?.card?.role_title || actorId} is missing the required card reference for this game. This is needed for database storage.`);
+        }
+        
+        // Log the found card reference for debugging
+        console.log(`Actor ${actor.actor_id} has valid game card reference: ${actor.cards_by_game[gameId]}`);
       }
       
       // First, ensure the user is logged in by checking if getCurrentUser() returns something
@@ -248,6 +258,36 @@
       // Throw a user-friendly error if not logged in
       if (!user) {
         throw new Error('You must be logged in to create an agreement. Please log in first.');
+      }
+      
+      // Filter out any actors that don't have valid card references before submitting
+      const validParties = selectedParties.filter(actorId => {
+        const actor = actorsList.find(a => a.actor_id === actorId);
+        return actor && actor.card?.card_id && actor.cards_by_game && actor.cards_by_game[gameId];
+      });
+      
+      // If no valid parties remain, show an error
+      if (validParties.length === 0) {
+        throw new Error('No valid actors selected. All selected actors must have a valid card reference for this game.');
+      }
+      
+      // If some parties were filtered out, update the selectedParties list and terms
+      if (validParties.length !== selectedParties.length) {
+        console.warn(`Filtered out ${selectedParties.length - validParties.length} invalid actors from selected parties.`);
+        const removedActors = selectedParties.filter(actorId => !validParties.includes(actorId));
+        console.warn('Removed actor IDs:', removedActors);
+        
+        // Update the selected parties list
+        selectedParties = validParties;
+        
+        // Remove terms for invalid actors
+        const newTerms = {};
+        for (const actorId of validParties) {
+          if (terms[actorId]) {
+            newTerms[actorId] = terms[actorId];
+          }
+        }
+        terms = newTerms;
       }
       
       // Check if we have the correct terms structure before calling the API
@@ -264,32 +304,16 @@
           throw new Error(`Terms for actor ${actorId} are invalid. Each actor must have obligations and benefits arrays.`);
         }
         
-        // Verify actor has card reference - this is critical for the database schema
+        // Get basic actor info for better error messages
         const actor = actorsList.find(a => a.actor_id === actorId);
-        if (!actor) {
-          throw new Error(`Actor with ID ${actorId} not found in actors list`);
-        }
-        
-        if (!actor.card) {
-          throw new Error(`Actor ${actor?.custom_name || actorId} does not have a card association`);
-        }
-        
-        if (!actor.card.card_id) {
-          throw new Error(`Actor ${actor?.custom_name || actorId} has invalid card reference (missing card_id)`);
-        }
-        
-        // Check if the actor has the correct cards_by_game structure for this specific game
-        if (!actor.cards_by_game || !actor.cards_by_game[gameId]) {
-          throw new Error(`Actor ${actor?.custom_name || actorId} is missing the required card reference for this game`);
-        }
+        const actorName = actor?.custom_name || actor?.card?.role_title || actorId;
         
         // Add a more helpful error to log internal actor structure for debugging
         console.log('Actor structure for debugging:', {
           actorId,
-          actor: JSON.stringify(actor),
-          card: actor.card ? JSON.stringify(actor.card) : 'null',
-          gameId,
-          cards_by_game: actor.cards_by_game ? JSON.stringify(actor.cards_by_game) : 'null'
+          actorName,
+          cardId: actor?.card?.card_id,
+          gameCardRef: actor?.cards_by_game?.[gameId]
         });
       }
       
@@ -433,30 +457,34 @@
           <h3 class="h3 text-primary-700-300">Select Parties</h3>
           <div class="max-h-40 overflow-y-auto space-y-2">
             {#each actorsList as actor}
-              <div class="flex items-center space-x-2">
-                <!-- 
-                  Disable party selection if actor:
-                  1. Doesn't have a valid card reference, or
-                  2. Doesn't have cards_by_game data structure with an entry for this game
-                -->
-                {@const hasValidCardRef = actor.card?.card_id && actor.cards_by_game && actor.cards_by_game[gameId]}
-                <button 
-                  class="btn {selectedParties.includes(actor.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''}"
-                  onclick={() => hasValidCardRef ? toggleParty(actor.actor_id) : null}
-                  title={!hasValidCardRef ? 'This actor cannot be added (invalid or missing card reference for this game)' : ''}
-                >
-                  {selectedParties.includes(actor.actor_id) ? '✓' : '+'}
-                </button>
-                <span class="{!hasValidCardRef ? 'opacity-50' : ''}">{actor.custom_name || actor.card?.role_title || 'Unnamed Actor'}</span>
-                {#if actor.card?.card_category}
-                  <span class="badge variant-soft">{actor.card.card_category}</span>
+              {#each [actor] as a}
+                {#if true}
+                  {@const hasValidCardRef = a.card?.card_id && a.cards_by_game && a.cards_by_game[gameId]}
+                  <div class="flex items-center space-x-2">
+                    <!-- 
+                      Disable party selection if actor:
+                      1. Doesn't have a valid card reference, or
+                      2. Doesn't have cards_by_game data structure with an entry for this game
+                    -->
+                    <button 
+                      class="btn {selectedParties.includes(a.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''}"
+                      onclick={() => hasValidCardRef ? toggleParty(a.actor_id) : null}
+                      title={!hasValidCardRef ? 'This actor cannot be added (invalid or missing card reference for this game)' : ''}
+                    >
+                      {selectedParties.includes(a.actor_id) ? '✓' : '+'}
+                    </button>
+                    <span class="{!hasValidCardRef ? 'opacity-50' : ''}">{a.custom_name || a.card?.role_title || 'Unnamed Actor'}</span>
+                    {#if a.card?.card_category}
+                      <span class="badge variant-soft">{a.card.card_category}</span>
+                    {/if}
+                    {#if !a.card?.card_id}
+                      <span class="badge variant-soft-error text-xs">Invalid card reference</span>
+                    {:else if !a.cards_by_game || !a.cards_by_game[gameId]}
+                      <span class="badge variant-soft-warning text-xs">Missing game reference</span>
+                    {/if}
+                  </div>
                 {/if}
-                {#if !actor.card?.card_id}
-                  <span class="badge variant-soft-error text-xs">Invalid card reference</span>
-                {:else if !actor.cards_by_game || !actor.cards_by_game[gameId]}
-                  <span class="badge variant-soft-warning text-xs">Missing game reference</span>
-                {/if}
-              </div>
+              {/each}
             {/each}
           </div>
         </div>
