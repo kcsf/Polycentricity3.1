@@ -8,6 +8,10 @@
     getGameContext,
     subscribeToGame
   } from '$lib/services/gameService';
+  
+  // Import directly for debugging access to values & capabilities
+  import { getValue } from '$lib/services/valueService';
+  import { getCapability } from '$lib/services/capabilityService';
   import type { Card, Value, Capability, Actor, Agreement, GameContext, ActorWithCard } from '$lib/types';
   import { GameStatus } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
@@ -155,24 +159,214 @@
       }
     }
     
-    // Extract all assigned cards - cards already have _valueNames and _capabilityNames from getGameContext
-    const assigned: CardWithPosition[] = ctx.actors
-      .filter(a => !!a.card)
-      .map(a => {
-        // Extract manually if not populated by gameContext 
-        const valueNames = a.card!._valueNames || 
-          (a.card!.values_ref ? 
-            Object.keys(a.card!.values_ref)
-              .filter(key => key !== '#' && key !== '_')
-              .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key)
-            : []);
+    // Helper function to directly access the Gun.js data
+    async function getCardMetadata(card: Card) {
+      // Get Gun instance
+      const gun = getGun();
+      console.log('[DEBUGGING] Accessing direct Gun data for card:', card.card_id);
+      
+      // Access values directly from Gun
+      let valueNamesPromise = Promise.resolve([] as string[]);
+      if (card.values_ref && typeof card.values_ref === 'object') {
+        console.log('[DEBUGGING] Card has values_ref:', card.values_ref);
+        
+        // Read the gun reference directly to get the full values data
+        const valuesRef = card.values_ref;
+        
+        // Check if we have a valid Gun.js reference with a hash
+        if (valuesRef['#']) {
+          console.log('[DEBUGGING] Got valid values_ref hash:', valuesRef['#']);
+          
+          // Use direct Gun access to read the reference
+          valueNamesPromise = new Promise((resolve) => {
+            const path = valuesRef['#'] as string;
+            const gun = getGun();
             
-        const capabilityNames = a.card!._capabilityNames || 
-          (a.card!.capabilities_ref ? 
-            Object.keys(a.card!.capabilities_ref)
-              .filter(key => key !== '#' && key !== '_')
-              .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
-            : []);
+            console.log(`[DEBUGGING] Accessing Gun path: ${path}`);
+            gun.get(path).once((data: any) => {
+              console.log(`[DEBUGGING] Direct Gun read of values_ref returned:`, data);
+              
+              if (!data) {
+                console.log('[DEBUGGING] No data found at values_ref path');
+                resolve([]);
+                return;
+              }
+              
+              // Filter out gun metadata
+              const valueKeys = Object.keys(data).filter(k => k !== '#' && k !== '_' && k !== '');
+              console.log('[DEBUGGING] Extracted value keys:', valueKeys);
+              
+              // If we have values in the direct reference
+              if (valueKeys.length > 0) {
+                // Convert keys to readable names
+                const valueNames = valueKeys.map(key => 
+                  key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key
+                );
+                console.log('[DEBUGGING] Extracted value names:', valueNames);
+                resolve(valueNames);
+              } else {
+                console.log('[DEBUGGING] No value keys found in direct Gun access');
+                resolve([]);
+              }
+            });
+          });
+        } else {
+          // Fallback to the old approach if no hash reference is available
+          valueNamesPromise = new Promise((resolve) => {
+            const valueNames: string[] = [];
+            let valueKeysProcessed = 0;
+            const valueKeys = Object.keys(card.values_ref || {}).filter(k => k !== '#' && k !== '_');
+            console.log('[DEBUGGING] Processing value keys with old method:', valueKeys);
+            
+            // No values found, resolve empty array
+            if (valueKeys.length === 0) {
+              console.log('[DEBUGGING] No value keys found in values_ref');
+              resolve([]);
+              return;
+            }
+            
+            // Process each value reference
+            valueKeys.forEach(valueId => {
+              console.log('[DEBUGGING] Looking up value:', valueId);
+              getValue(valueId).then(value => {
+                if (value && value.name) {
+                  console.log(`[DEBUGGING] Found value name for ${valueId}:`, value.name);
+                  valueNames.push(value.name);
+                } else {
+                  console.log(`[DEBUGGING] No value data found for ${valueId}`);
+                  // If no name, use the ID with formatting
+                  valueNames.push(valueId.startsWith('value_') 
+                    ? valueId.substring(6).replace(/-/g, ' ') 
+                    : valueId);
+                }
+                
+                valueKeysProcessed++;
+                if (valueKeysProcessed === valueKeys.length) {
+                  console.log('[DEBUGGING] All value keys processed, returning:', valueNames);
+                  resolve(valueNames);
+                }
+              });
+            });
+          });
+        }
+      } else {
+        console.log('[DEBUGGING] Card has no values_ref or it is not an object');
+      }
+      
+      // Access capabilities directly from Gun
+      let capabilityNamesPromise = Promise.resolve([] as string[]);
+      if (card.capabilities_ref && typeof card.capabilities_ref === 'object') {
+        console.log('[DEBUGGING] Card has capabilities_ref:', card.capabilities_ref);
+        
+        // Read the gun reference directly to get the full capabilities data
+        const capabilitiesRef = card.capabilities_ref;
+        
+        // Check if we have a valid Gun.js reference with a hash
+        if (capabilitiesRef['#']) {
+          console.log('[DEBUGGING] Got valid capabilities_ref hash:', capabilitiesRef['#']);
+          
+          // Use direct Gun access to read the reference
+          capabilityNamesPromise = new Promise((resolve) => {
+            const path = capabilitiesRef['#'] as string;
+            const gun = getGun();
+            
+            console.log(`[DEBUGGING] Accessing Gun path: ${path}`);
+            gun.get(path).once((data: any) => {
+              console.log(`[DEBUGGING] Direct Gun read of capabilities_ref returned:`, data);
+              
+              if (!data) {
+                console.log('[DEBUGGING] No data found at capabilities_ref path');
+                resolve([]);
+                return;
+              }
+              
+              // Filter out gun metadata
+              const capKeys = Object.keys(data).filter(k => k !== '#' && k !== '_' && k !== '');
+              console.log('[DEBUGGING] Extracted capability keys:', capKeys);
+              
+              // If we have capabilities in the direct reference
+              if (capKeys.length > 0) {
+                // Convert keys to readable names
+                const capabilityNames = capKeys.map(key => 
+                  key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key
+                );
+                console.log('[DEBUGGING] Extracted capability names:', capabilityNames);
+                resolve(capabilityNames);
+              } else {
+                console.log('[DEBUGGING] No capability keys found in direct Gun access');
+                resolve([]);
+              }
+            });
+          });
+        } else {
+          // Fallback to the old approach if no hash reference is available
+          capabilityNamesPromise = new Promise((resolve) => {
+            const capabilityNames: string[] = [];
+            let capKeysProcessed = 0;
+            const capKeys = Object.keys(card.capabilities_ref || {}).filter(k => k !== '#' && k !== '_');
+            console.log('[DEBUGGING] Processing capability keys with old method:', capKeys);
+            
+            // No capabilities found, resolve empty array
+            if (capKeys.length === 0) {
+              console.log('[DEBUGGING] No capability keys found in capabilities_ref');
+              resolve([]);
+              return;
+            }
+            
+            // Process each capability reference
+            capKeys.forEach(capId => {
+              console.log('[DEBUGGING] Looking up capability:', capId);
+              getCapability(capId).then(capability => {
+                if (capability && capability.name) {
+                  console.log(`[DEBUGGING] Found capability name for ${capId}:`, capability.name);
+                  capabilityNames.push(capability.name);
+                } else {
+                  console.log(`[DEBUGGING] No capability data found for ${capId}`);
+                  // If no name, use the ID with formatting
+                  capabilityNames.push(capId.startsWith('capability_') 
+                    ? capId.substring(11).replace(/-/g, ' ') 
+                    : capId);
+                }
+                
+                capKeysProcessed++;
+                if (capKeysProcessed === capKeys.length) {
+                  console.log('[DEBUGGING] All capability keys processed, returning:', capabilityNames);
+                  resolve(capabilityNames);
+                }
+              });
+            });
+          });
+        }
+      } else {
+        console.log('[DEBUGGING] Card has no capabilities_ref or it is not an object');
+      }
+      
+      // Wait for both promises to resolve
+      const [valueNames, capabilityNames] = await Promise.all([valueNamesPromise, capabilityNamesPromise]);
+      return { valueNames, capabilityNames };
+    }
+    
+    // Extract all assigned cards - cards already have _valueNames and _capabilityNames from getGameContext
+    const assigned: CardWithPosition[] = [];
+    
+    // Process actors sequentially to avoid overloading the Gun.js instance
+    for (const a of ctx.actors.filter(a => !!a.card)) {
+      try {
+        console.log(`[DEBUGGING] Processing actor ${a.actor_id} with card ${a.card?.card_id}`);
+        
+        // Get direct metadata from Gun if needed
+        let valueNames = a.card!._valueNames || [];
+        let capabilityNames = a.card!._capabilityNames || [];
+        
+        // If we don't have values or capabilities, try to get them directly from Gun
+        if ((valueNames.length === 0 || capabilityNames.length === 0) && 
+            (a.card!.values_ref || a.card!.capabilities_ref)) {
+          console.log(`[DEBUGGING] Card ${a.card!.card_id} missing metadata, fetching directly`);
+          const metadata = await getCardMetadata(a.card!);
+          valueNames = metadata.valueNames;
+          capabilityNames = metadata.capabilityNames;
+          console.log(`[DEBUGGING] Retrieved metadata for card ${a.card!.card_id}:`, metadata);
+        }
         
         const cardWithPosition = {
           ...a.card!,
@@ -187,36 +381,56 @@
           capabilityNames: cardWithPosition._capabilityNames
         });
         
-        return cardWithPosition;
-      });
+        assigned.push(cardWithPosition);
+      } catch (error) {
+        console.error(`[DEBUGGING] Error processing card for actor ${a.actor_id}:`, error);
+      }
+    }
     
     // Log the processed assigned cards
     console.log(`[DEBUGGING] Processed ${assigned.length} assigned cards`);
 
     // Append the "available" cards with position data
-    const availableWithPos = (ctx.availableCards || []).map(c => {
-      // Extract manually if not populated by gameContext
-      const valueNames = c._valueNames || 
-        (c.values_ref ? 
-          Object.keys(c.values_ref)
-            .filter(key => key !== '#' && key !== '_')
-            .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key)
-          : []);
-          
-      const capabilityNames = c._capabilityNames || 
-        (c.capabilities_ref ? 
-          Object.keys(c.capabilities_ref)
-            .filter(key => key !== '#' && key !== '_')
-            .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
-          : []);
-      
-      return {
-        ...c,
-        position: { x: Math.random() * width, y: Math.random() * height },
-        _valueNames: valueNames,
-        _capabilityNames: capabilityNames
-      };
-    });
+    const availableWithPos: CardWithPosition[] = [];
+    
+    // Process available cards sequentially the same way as assigned cards
+    for (const c of (ctx.availableCards || [])) {
+      try {
+        console.log(`[DEBUGGING] Processing available card ${c.card_id}`);
+        
+        // Get direct metadata from Gun if needed
+        let valueNames = c._valueNames || [];
+        let capabilityNames = c._capabilityNames || [];
+        
+        // If we don't have values or capabilities, try to get them directly from Gun
+        if ((valueNames.length === 0 || capabilityNames.length === 0) && 
+            (c.values_ref || c.capabilities_ref)) {
+          console.log(`[DEBUGGING] Available card ${c.card_id} missing metadata, fetching directly`);
+          const metadata = await getCardMetadata(c);
+          valueNames = metadata.valueNames;
+          capabilityNames = metadata.capabilityNames;
+          console.log(`[DEBUGGING] Retrieved metadata for available card ${c.card_id}:`, metadata);
+        }
+        
+        const cardWithPosition = {
+          ...c,
+          position: { x: Math.random() * width, y: Math.random() * height },
+          _valueNames: valueNames,
+          _capabilityNames: capabilityNames
+        };
+        
+        console.log(`[DEBUGGING] Available card ${cardWithPosition.card_id} processed with:`, {
+          valueNames: cardWithPosition._valueNames,
+          capabilityNames: cardWithPosition._capabilityNames
+        });
+        
+        availableWithPos.push(cardWithPosition);
+      } catch (error) {
+        console.error(`[DEBUGGING] Error processing available card ${c.card_id}:`, error);
+      }
+    }
+    
+    console.log(`[DEBUGGING] Processed ${availableWithPos.length} available cards`);
 
     const allCards = [ ...assigned, ...availableWithPos ];
 
