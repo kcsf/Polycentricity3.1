@@ -151,11 +151,22 @@ export function addDonutRings(
   
   // Process each card node to add complete donut rings with interactive segments
   cardNodes.each(function(nodeData) {
-    // Debug log to check values and capabilities
-    console.log("Node data values and capabilities:", {
+    // Debug log to check values and capabilities with much more detail
+    console.log(`[addDonutRings] Raw data for node ${nodeData.id}:`, {
       nodeId: nodeData.id,
-      valueNames: nodeData._valueNames,
-      capabilityNames: nodeData._capabilityNames
+      // Node specific data
+      nodeValueNames: nodeData._valueNames,
+      nodeCapabilityNames: nodeData._capabilityNames,
+      // Card specific data
+      cardData: nodeData.data,
+      hasValuesRef: !!(nodeData.data as CardWithPosition).values_ref,
+      valuesRefKeys: (nodeData.data as CardWithPosition).values_ref 
+        ? Object.keys((nodeData.data as CardWithPosition).values_ref).filter(k => k !== '#' && k !== '_') 
+        : [],
+      hasCapabilitiesRef: !!(nodeData.data as CardWithPosition).capabilities_ref,
+      capabilitiesRefKeys: (nodeData.data as CardWithPosition).capabilities_ref 
+        ? Object.keys((nodeData.data as CardWithPosition).capabilities_ref).filter(k => k !== '#' && k !== '_') 
+        : []
     });
     
     // Basic setup for this node
@@ -198,11 +209,43 @@ export function addDonutRings(
       .attr("stroke-width", 1);
       
     // 2. CATEGORIES SETUP 
+    // First, manually extract from values_ref and capabilities_ref if _valueNames and _capabilityNames are not populated
+    let valueNames = nodeData._valueNames && nodeData._valueNames.length > 0 
+      ? nodeData._valueNames 
+      : [];
+      
+    // If valueNames is still empty, check the card data values_ref
+    if (valueNames.length === 0 && (nodeData.data as CardWithPosition).values_ref) {
+      const cardData = nodeData.data as CardWithPosition;
+      valueNames = Object.keys(cardData.values_ref)
+        .filter(key => key !== '#' && key !== '_')
+        .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key);
+      console.log(`[addDonutRings] Extracted ${valueNames.length} values directly from values_ref:`, valueNames);
+    }
+    
+    let capabilityNames = nodeData._capabilityNames && nodeData._capabilityNames.length > 0
+      ? nodeData._capabilityNames
+      : [];
+      
+    // If capabilityNames is still empty, check the card data capabilities_ref
+    if (capabilityNames.length === 0 && (nodeData.data as CardWithPosition).capabilities_ref) {
+      const cardData = nodeData.data as CardWithPosition;
+      capabilityNames = Object.keys(cardData.capabilities_ref)
+        .filter(key => key !== '#' && key !== '_')
+        .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key);
+      console.log(`[addDonutRings] Extracted ${capabilityNames.length} capabilities directly from capabilities_ref:`, capabilityNames);
+    }
+    
+    console.log(`[addDonutRings] Final categories data for node ${nodeData.id}:`, {
+      valueNames,
+      capabilityNames
+    });
+    
     const categories = [
       { 
         name: "values", 
         color: "#A7C731",
-        items: (nodeData._valueNames || []).filter(v => v !== '#')
+        items: valueNames.filter(v => v !== '#')
       },
       { 
         name: "goals", 
@@ -214,7 +257,7 @@ export function addDonutRings(
       { 
         name: "capabilities", 
         color: "#8FBC49", 
-        items: (nodeData._capabilityNames || []).filter(c => c !== '#')
+        items: capabilityNames.filter(c => c !== '#')
       },
       { 
         name: "intellectualProperty", 
@@ -798,19 +841,60 @@ export function createNodes(
     agreementsCount: agreements.length
   });
   
+  // Look at some sample cards to see what's going on
+  if (cards.length > 0) {
+    const sampleCard = cards[0];
+    console.log("d3GraphUtils: SAMPLE CARD DATA:", {
+      card_id: sampleCard.card_id,
+      values_ref: sampleCard.values_ref ? Object.keys(sampleCard.values_ref).filter(k => k !== '#' && k !== '_') : [],
+      capabilities_ref: sampleCard.capabilities_ref ? Object.keys(sampleCard.capabilities_ref).filter(k => k !== '#' && k !== '_') : [],
+      _valueNames: sampleCard._valueNames,
+      _capabilityNames: sampleCard._capabilityNames
+    });
+  }
+  
   const nodes: D3Node[] = [
-    ...cards.map((card) => ({
-      id: card.card_id,
-      name: card.role_title || "Unknown Card",
-      type: "actor" as const,
-      data: card,
-      x: card.position?.x || Math.random() * width,
-      y: card.position?.y || Math.random() * height,
-      fx: card.position?.x || null,
-      fy: card.position?.y || null,
-      _valueNames: card._valueNames ?? [],
-      _capabilityNames: card._capabilityNames ?? []
-    })),
+    ...cards.map((card) => {
+      // Extract values from card.values_ref if _valueNames isn't populated
+      const valueNames = card._valueNames && card._valueNames.length > 0 
+        ? card._valueNames 
+        : (card.values_ref 
+            ? Object.keys(card.values_ref)
+                .filter(key => key !== '#' && key !== '_')
+                .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key)
+            : []);
+            
+      // Extract capabilities from card.capabilities_ref if _capabilityNames isn't populated
+      const capabilityNames = card._capabilityNames && card._capabilityNames.length > 0
+        ? card._capabilityNames
+        : (card.capabilities_ref
+            ? Object.keys(card.capabilities_ref)
+                .filter(key => key !== '#' && key !== '_')
+                .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+            : []);
+            
+      // Log values and capabilities being extracted
+      console.log(`d3GraphUtils: Processing card ${card.card_id}:`, {
+        final_valueNames: valueNames,
+        final_capabilityNames: capabilityNames,
+        original_valueNames: card._valueNames,
+        original_capabilityNames: card._capabilityNames,
+        from_values_ref: card.values_ref ? Object.keys(card.values_ref).filter(k => k !== '#' && k !== '_') : []
+      });
+      
+      return {
+        id: card.card_id,
+        name: card.role_title || "Unknown Card",
+        type: "actor" as const,
+        data: card,
+        x: card.position?.x || Math.random() * width,
+        y: card.position?.y || Math.random() * height,
+        fx: card.position?.x || null,
+        fy: card.position?.y || null,
+        _valueNames: valueNames,
+        _capabilityNames: capabilityNames
+      };
+    }),
     ...agreements.map((agreement) => ({
       id: agreement.agreement_id,
       name: agreement.title || "Unknown Agreement",

@@ -100,27 +100,123 @@
     agreements: AgreementWithPosition[];
     actors: ActorWithCard[];
   }> {
+    console.log('[DEBUGGING] Starting loadGameData for game:', gameId);
     const ctx = await getGameContext(gameId);
+    
+    // Log the raw context to debug what's returned from gameService
+    console.log('[DEBUGGING] Raw game context received:', JSON.stringify(ctx, (key, value) => {
+      // Filter out circular references
+      if (key === '_' || key === '#') return undefined;
+      return value;
+    }, 2).substring(0, 1000) + '...');  // Limit size for readability
+    
     if (!ctx) {
+      console.error('[DEBUGGING] No context returned from getGameContext!');
       return { cards: [], agreements: [], actors: [] };
     }
-
-      // Extract all assigned cards - cards already have _valueNames and _capabilityNames from getGameContext
+    
+    // Debug log to see what we're getting from the context
+    console.log('[DEBUGGING] Game context has:', {
+      actorsCount: ctx.actors?.length || 0,
+      agreementsCount: ctx.agreements?.length || 0,
+      availableCardsCount: ctx.availableCards?.length || 0,
+      valuesCount: ctx.values?.length || 0,
+      capabilitiesCount: ctx.capabilities?.length || 0
+    });
+    
+    // Check if we have sample data for values & capabilities
+    if (ctx.actors && ctx.actors.length > 0) {
+      const sampleCard = ctx.actors.find(a => a.card)?.card;
+      if (sampleCard) {
+        console.log('[DEBUGGING] Sample card data:', {
+          card_id: sampleCard.card_id,
+          role_title: sampleCard.role_title,
+          hasValueNames: !!sampleCard._valueNames,
+          valueNamesLength: sampleCard._valueNames?.length,
+          hasCapabilityNames: !!sampleCard._capabilityNames,
+          capabilityNamesLength: sampleCard._capabilityNames?.length,
+          hasValuesRef: !!sampleCard.values_ref,
+          valuesRefSize: Object.keys(sampleCard.values_ref || {}).filter(k => k !== '#' && k !== '_').length,
+          hasCapabilitiesRef: !!sampleCard.capabilities_ref,
+          capabilitiesRefSize: Object.keys(sampleCard.capabilities_ref || {}).filter(k => k !== '#' && k !== '_').length
+        });
+        
+        // Log any values_ref and capabilities_ref keys
+        if (sampleCard.values_ref) {
+          console.log('[DEBUGGING] Values reference keys:', 
+            Object.keys(sampleCard.values_ref).filter(k => k !== '#' && k !== '_'));
+        }
+        if (sampleCard.capabilities_ref) {
+          console.log('[DEBUGGING] Capabilities reference keys:', 
+            Object.keys(sampleCard.capabilities_ref).filter(k => k !== '#' && k !== '_'));
+        }
+      } else {
+        console.warn('[DEBUGGING] No cards found in actors array!');
+      }
+    }
+    
+    // Extract all assigned cards - cards already have _valueNames and _capabilityNames from getGameContext
     const assigned: CardWithPosition[] = ctx.actors
       .filter(a => !!a.card)
-      .map(a => ({
-        ...a.card!,
-        actor_id: a.actor_id,
-        position: a.position || { x: Math.random() * width, y: Math.random() * height }
-        // _valueNames and _capabilityNames are already populated by getGameContext
-      }));
+      .map(a => {
+        // Extract manually if not populated by gameContext 
+        const valueNames = a.card!._valueNames || 
+          (a.card!.values_ref ? 
+            Object.keys(a.card!.values_ref)
+              .filter(key => key !== '#' && key !== '_')
+              .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key)
+            : []);
+            
+        const capabilityNames = a.card!._capabilityNames || 
+          (a.card!.capabilities_ref ? 
+            Object.keys(a.card!.capabilities_ref)
+              .filter(key => key !== '#' && key !== '_')
+              .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+            : []);
+        
+        const cardWithPosition = {
+          ...a.card!,
+          actor_id: a.actor_id,
+          position: a.position || { x: Math.random() * width, y: Math.random() * height },
+          _valueNames: valueNames,
+          _capabilityNames: capabilityNames
+        };
+        
+        console.log(`[DEBUGGING] Card ${cardWithPosition.card_id} processed with:`, {
+          valueNames: cardWithPosition._valueNames,
+          capabilityNames: cardWithPosition._capabilityNames
+        });
+        
+        return cardWithPosition;
+      });
+    
+    // Log the processed assigned cards
+    console.log(`[DEBUGGING] Processed ${assigned.length} assigned cards`);
 
     // Append the "available" cards with position data
-    const availableWithPos = (ctx.availableCards || []).map(c => ({
-      ...c,
-      position: { x: Math.random() * width, y: Math.random() * height }
-      // _valueNames and _capabilityNames are already populated by getGameContext
-    }));
+    const availableWithPos = (ctx.availableCards || []).map(c => {
+      // Extract manually if not populated by gameContext
+      const valueNames = c._valueNames || 
+        (c.values_ref ? 
+          Object.keys(c.values_ref)
+            .filter(key => key !== '#' && key !== '_')
+            .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key)
+          : []);
+          
+      const capabilityNames = c._capabilityNames || 
+        (c.capabilities_ref ? 
+          Object.keys(c.capabilities_ref)
+            .filter(key => key !== '#' && key !== '_')
+            .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+          : []);
+      
+      return {
+        ...c,
+        position: { x: Math.random() * width, y: Math.random() * height },
+        _valueNames: valueNames,
+        _capabilityNames: capabilityNames
+      };
+    });
 
     const allCards = [ ...assigned, ...availableWithPos ];
 
