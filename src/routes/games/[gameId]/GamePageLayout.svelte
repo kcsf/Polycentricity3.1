@@ -68,7 +68,7 @@
     }
 </script>
 
-<div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100 dark:bg-surface-800 overflow-hidden">
+<div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-900 overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
     <div class="h-full border-r border-surface-300-700 bg-surface-50-950 flex flex-col {leftExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with hamburger menu -->
@@ -156,15 +156,15 @@
                             <div class="p-2 space-y-2">
                                 {#if playerRole.card.backstory}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Backstory</h4>
-                                        <p class="text-xs text-surface-900 dark:text-surface-50">{playerRole.card.backstory}</p>
+                                        <h4 class="text-xs font-semibold text-surface-700-300">Backstory</h4>
+                                        <p class="text-xs text-surface-900-50">{playerRole.card.backstory}</p>
                                     </div>
                                 {/if}
 
                                 {#if playerRole.card._valueNames && playerRole.card._valueNames.length > 0}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Values</h4>
-                                        <ul class="list-disc list-inside text-xs text-surface-900 dark:text-surface-50">
+                                        <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
+                                        <ul class="list-disc list-inside text-xs text-surface-900-50">
                                             {#each playerRole.card._valueNames as value}
                                                 <li>{value}</li>
                                             {/each}
@@ -174,14 +174,14 @@
 
                                 {#if playerRole.card.goals}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Goals</h4>
-                                        <p class="text-xs text-surface-900 dark:text-surface-50">{playerRole.card.goals}</p>
+                                        <h4 class="text-xs font-semibold text-surface-700-300">Goals</h4>
+                                        <p class="text-xs text-surface-900-50">{playerRole.card.goals}</p>
                                     </div>
                                 {/if}
 
                                 {#if playerRole.card._capabilityNames && playerRole.card._capabilityNames.length > 0}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Capabilities</h4>
+                                        <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
                                         <div class="flex flex-wrap gap-1">
                                             {#each playerRole.card._capabilityNames as capability}
                                                 <span class="badge variant-soft-secondary text-xs">{capability}</span>
@@ -192,8 +192,8 @@
 
                                 {#if playerRole.card.resources}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300">Resources</h4>
-                                        <p class="text-xs text-surface-900 dark:text-surface-50">{playerRole.card.resources}</p>
+                                        <h4 class="text-xs font-semibold text-surface-700-300">Resources</h4>
+                                        <p class="text-xs text-surface-900-50">{playerRole.card.resources}</p>
                                     </div>
                                 {/if}
                             </div>
@@ -201,8 +201,8 @@
                     {:else}
                         <div class="card p-4 bg-surface-200-800 text-center">
                             <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
-                            <h3 class="text-base font-bold text-surface-900 dark:text-surface-50 mb-2">No Role Card Assigned</h3>
-                            <p class="text-xs text-surface-700 dark:text-surface-300 mb-4">Join this game to select a role card</p>
+                            <h3 class="text-base font-bold text-surface-900-50 mb-2">No Role Card Assigned</h3>
+                            <p class="text-xs text-surface-700-300 mb-4">Join this game to select a role card</p>
                             <button class="btn btn-sm variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}/details`)}>
                                 <icons.UserPlus class="w-4 h-4 mr-2" />
                                 Join Game
@@ -242,7 +242,7 @@
                     type="text" 
                     bind:value={searchQuery}
                     placeholder="Search nodes..." 
-                    class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300"
+                    class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300-700"
                 />
                 <button 
                     class="btn variant-filled-primary rounded-l-none px-3"

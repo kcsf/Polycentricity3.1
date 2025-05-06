@@ -221,7 +221,7 @@
 <Modal
   open={modalOpen}
   onOpenChange={(e) => (modalOpen = e.open)}
-  backdropClasses="backdrop-blur-md bg-surface-200 dark:bg-surface-700/90"
+  backdropClasses="backdrop-blur-md bg-surface-200-800/90"
 >
   {#snippet trigger()}{/snippet}
   
