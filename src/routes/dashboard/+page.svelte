@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
   import { userGamesStore, setUserGames } from '$lib/stores/gameStore';
-  import { getUserActors, getAllGames } from '$lib/services/gameService';
+  import { getAllGames, getCollection, get, nodes } from '$lib/services/gameService';
   import type { Actor, Game } from '$lib/types';
   import * as icons from '@lucide/svelte';
   import UserCard from '$lib/components/UserCard.svelte';
@@ -28,13 +28,30 @@
     return gs.length;
   });
 
+  // Replacement for getUserActors function
+  async function fetchUserActors(): Promise<Actor[]> {
+    if (!$userStore.user) return [];
+    const userId = $userStore.user.user_id;
+    
+    try {
+      // Get all actors from the database
+      const allActors = await getCollection<Actor>(nodes.actors);
+      
+      // Filter to only include actors that belong to the current user
+      return allActors.filter(actor => actor.user_ref === userId);
+    } catch (error) {
+      console.error('Error fetching user actors:', error);
+      return [];
+    }
+  }
+
   // load everything in parallel
   async function loadDashboard() {
     if (!$userStore.user) return;
     isLoading = true;
 
     const [userActors, allGames] = await Promise.all([
-      getUserActors(),
+      fetchUserActors(),
       getAllGames()
     ]);
 
