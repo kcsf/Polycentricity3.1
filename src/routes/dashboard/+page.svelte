@@ -3,15 +3,15 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
   import { userGamesStore, setUserGames } from '$lib/stores/gameStore';
-  import { getAllGames } from '$lib/services/gameService';
-  import { getCollection, get, nodes } from '$lib/services/gunService';
-  import type { Actor, Game } from '$lib/types';
+  import { getAllGames, getGame } from '$lib/services/gameService';
+  import { getCollection, get, getSet, nodes } from '$lib/services/gunService';
+  import type { Actor, Game, Card } from '$lib/types';
   import * as icons from '@lucide/svelte';
   import UserCard from '$lib/components/UserCard.svelte';
   import GameCard from '$lib/components/GameCard.svelte';
   import ProfileUpdateModal from '$lib/components/ProfileUpdateModal.svelte';
   import ActorEditModal from '$lib/components/ActorEditModal.svelte';
-  import { derived } from 'svelte/store'; // Import derived from svelte/store
+  import { derived, readable } from 'svelte/store'; // Import derived and readable from svelte/store
 
   // local component state
   let isLoading = $state(true);
@@ -20,7 +20,7 @@
   let actorEditModalOpen = $state(false);
   let selectedActor = $state<Actor | null>(null);
 
-  // derive stores
+  // derive stores for metrics display
   const gamesCreated = derived(userGamesStore, (gs) => {
     return gs.filter(g => g.creator_ref === $userStore.user?.user_id).length;
   });
