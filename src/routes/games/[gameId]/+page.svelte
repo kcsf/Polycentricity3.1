@@ -8,8 +8,8 @@
     } from '$lib/services/gameService';
     import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
-    import ChatBox from '$lib/components/ChatBox.svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
+    import GamePageLayout from './GamePageLayout.svelte';
 
     // Get gameId from URL parameters
     const gameId = $page.params.gameId;
@@ -112,6 +112,12 @@
                 </a>
             </div>
         </div>
+    {:else if game && playerRole}
+        <!-- Game Page Content with Layout -->
+        <GamePageLayout {game} {gameId} {playerRole}>
+            <!-- Pass the D3CardBoard as a slot -->
+            <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
+        </GamePageLayout>
     {:else if game}
         <!-- Game Page Content -->
         <div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-100-800" style="height: calc(100vh - var(--app-bar-height, 64px))">
@@ -147,21 +153,11 @@
                 </div>
             </div>
             
-            <!-- Main Game Board Section -->
+            <!-- Main Game Board Section without Layout -->
             <div class="flex-1 flex-grow relative overflow-hidden">
                 {#if gameContext}
-                    <D3CardBoard 
-                        {gameId} 
-                        activeActorId={playerRole?.actor_id}
-                    />
+                    <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
                 {/if}
-            </div>
-            
-            <!-- Bottom Chat Panel -->
-            <div class="bg-surface-100-800 border-t border-surface-300 h-48 shadow-sm">
-                <div class="h-full">
-                    <ChatBox {gameId} chatType="group" compact={true} />
-                </div>
             </div>
         </div>
     {:else}

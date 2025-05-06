@@ -165,6 +165,12 @@
 
     <!-- Main Content Area with Sidebars -->
     <div class="flex-1 flex relative overflow-hidden pt-16">
+        <!-- Render the slot content (D3CardBoard) using @render instead of slot -->
+        <div class="flex-1 relative" style="transition: margin 0.3s ease-in-out;"
+             class:ml-72={leftSidebarOpen}
+             class:mr-72={rightSidebarOpen}>
+            {@render $$slots.default()}
+        </div>
         <!-- Left Sidebar -->
         <aside 
             bind:this={leftSidebarElement}
@@ -340,10 +346,7 @@
             </div>
         </aside>
 
-        <!-- Main Board Visualization -->
-        <main class="flex-1 overflow-hidden" style="transform: scale({currentZoom}); transform-origin: center center;">
-            <CardBoard {gameId} activeActorId={playerRole.actor_id} />
-        </main>
+        <!-- Main Board Visualization handled by the slot content -->
 
         <!-- Right Sidebar -->
         <aside 
