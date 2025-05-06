@@ -5,16 +5,15 @@
   import { iconStore, loadIcons } from '$lib/stores/iconStore';
   import { getGun, nodes } from '$lib/services/gunService';
   import { 
-    getGameActors, 
-    getUserCard, 
+    getGameContext,
+    getUserCard,
     subscribeToGame, 
     subscribeToGameActors,
-    getGame, 
-    getAvailableCardsForGame 
+    getGame
   } from '$lib/services/gameService';
   import { getValue } from '$lib/services/valueService';
   import { getCapability } from '$lib/services/capabilityService';
-  import type { Card, Value, Capability, Actor, Agreement } from '$lib/types';
+  import type { Card, Value, Capability, Actor, Agreement, GameContext } from '$lib/types';
   import { GameStatus } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
   import {
