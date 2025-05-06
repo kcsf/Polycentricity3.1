@@ -25,18 +25,18 @@
 </script>
 
 <div 
-  class="p-4 bg-surface-100/95 backdrop-blur-sm rounded-xl shadow-lg max-w-lg border border-surface-300/50 transition-all duration-200"
+  class="p-4 bg-surface-100-900/95 backdrop-blur-sm rounded-xl shadow-lg max-w-lg border border-surface-300-700/50 transition-all duration-200"
   class:opacity-0={!isVisible} 
   class:opacity-100={isVisible}
   class:translate-y-4={!isVisible}
   class:translate-y-0={isVisible}
 >
   {#if node.type === 'actor'}
-    <h3 class="text-lg font-semibold mb-2 text-primary-700">{node.name}</h3>
+    <h3 class="text-lg font-semibold mb-2 text-primary-700-300">{node.name}</h3>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       {#if node._valueNames?.length}
         <div>
-          <h4 class="text-sm font-medium text-primary-700">Values</h4>
+          <h4 class="text-sm font-medium text-primary-700-300">Values</h4>
           <ul class="list-disc pl-5 text-sm">
             {#each node._valueNames as value}
               <li>{value}</li>
@@ -46,7 +46,7 @@
       {/if}
       {#if node._capabilityNames?.length}
         <div>
-          <h4 class="text-sm font-medium text-primary-700">Capabilities</h4>
+          <h4 class="text-sm font-medium text-primary-700-300">Capabilities</h4>
           <ul class="list-disc pl-5 text-sm">
             {#each node._capabilityNames as capability}
               <li>{capability}</li>
@@ -56,11 +56,11 @@
       {/if}
     </div>
   {:else if node.type === 'agreement'}
-    <h3 class="text-lg font-semibold mb-2 text-primary-700">{node.name}</h3>
+    <h3 class="text-lg font-semibold mb-2 text-primary-700-300">{node.name}</h3>
     <div class="grid grid-cols-1 gap-4">
       {#if node.data?.obligations?.length}
         <div>
-          <h4 class="text-sm font-medium text-indigo-700">Obligations</h4>
+          <h4 class="text-sm font-medium text-indigo-700-300">Obligations</h4>
           <ul class="list-disc pl-5 text-sm">
             {#each node.data.obligations as obligation}
               <li>{obligation.text}</li>
