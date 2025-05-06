@@ -263,9 +263,38 @@
         if (!terms[actorId] || !Array.isArray(terms[actorId].obligations) || !Array.isArray(terms[actorId].benefits)) {
           throw new Error(`Terms for actor ${actorId} are invalid. Each actor must have obligations and benefits arrays.`);
         }
+        
+        // Verify actor has card reference - this is critical for the database schema
+        const actor = actorsList.find(a => a.actor_id === actorId);
+        if (!actor) {
+          throw new Error(`Actor with ID ${actorId} not found in actors list`);
+        }
+        
+        if (!actor.card) {
+          throw new Error(`Actor ${actor?.custom_name || actorId} does not have a card association`);
+        }
+        
+        if (!actor.card.card_id) {
+          throw new Error(`Actor ${actor?.custom_name || actorId} has invalid card reference (missing card_id)`);
+        }
+        
+        // Check if the actor has the correct cards_by_game structure for this specific game
+        if (!actor.cards_by_game || !actor.cards_by_game[gameId]) {
+          throw new Error(`Actor ${actor?.custom_name || actorId} is missing the required card reference for this game`);
+        }
+        
+        // Add a more helpful error to log internal actor structure for debugging
+        console.log('Actor structure for debugging:', {
+          actorId,
+          actor: JSON.stringify(actor),
+          card: actor.card ? JSON.stringify(actor.card) : 'null',
+          gameId,
+          cards_by_game: actor.cards_by_game ? JSON.stringify(actor.cards_by_game) : 'null'
+        });
       }
       
       // Create agreement using gameService - matching the exact parameter order and types
+      // Note: gameService expects the correct terms format, the conversion to strings happens in the service
       const result = await createAgreement(
         gameId,
         title,
@@ -405,15 +434,27 @@
           <div class="max-h-40 overflow-y-auto space-y-2">
             {#each actorsList as actor}
               <div class="flex items-center space-x-2">
+                <!-- 
+                  Disable party selection if actor:
+                  1. Doesn't have a valid card reference, or
+                  2. Doesn't have cards_by_game data structure with an entry for this game
+                -->
+                {@const hasValidCardRef = actor.card?.card_id && actor.cards_by_game && actor.cards_by_game[gameId]}
                 <button 
-                  class="btn {selectedParties.includes(actor.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm"
-                  onclick={() => toggleParty(actor.actor_id)}
+                  class="btn {selectedParties.includes(actor.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''}"
+                  onclick={() => hasValidCardRef ? toggleParty(actor.actor_id) : null}
+                  title={!hasValidCardRef ? 'This actor cannot be added (invalid or missing card reference for this game)' : ''}
                 >
                   {selectedParties.includes(actor.actor_id) ? '✓' : '+'}
                 </button>
-                <span>{actor.custom_name || actor.card?.role_title || 'Unnamed Actor'}</span>
+                <span class="{!hasValidCardRef ? 'opacity-50' : ''}">{actor.custom_name || actor.card?.role_title || 'Unnamed Actor'}</span>
                 {#if actor.card?.card_category}
                   <span class="badge variant-soft">{actor.card.card_category}</span>
+                {/if}
+                {#if !actor.card?.card_id}
+                  <span class="badge variant-soft-error text-xs">Invalid card reference</span>
+                {:else if !actor.cards_by_game || !actor.cards_by_game[gameId]}
+                  <span class="badge variant-soft-warning text-xs">Missing game reference</span>
                 {/if}
               </div>
             {/each}

@@ -1,0 +1,142 @@
+[GamePage] Received game update for g_456
+Console.js:61 Added actor actor_A4AmKJr1XhdujcRAxT33I266 to terms: {"actor_A4AmKJr1XhdujcRAxT33I266":{"obligations":[],"benefits":[]}}
+Console.js:61 Added actor actor_1 to terms: {"actor_A4AmKJr1XhdujcRAxT33I266":{"obligations":["test","test"],"benefits":["test"]},"actor_1":{"obligations":[],"benefits":[]}}
+Console.js:61 Creating agreement with: {gameId: 'g_456', title: 'test3', description: 'test', selectedParties: Proxy(Array), terms: Proxy(Object)}description: "test"gameId: "g_456"selectedParties: Proxy(Array) {0: 'actor_A4AmKJr1XhdujcRAxT33I266', 1: 'actor_1'}terms: Proxy(Object) {actor_A4AmKJr1XhdujcRAxT33I266: Proxy(Object), actor_1: {…}}title: "test3"[[Prototype]]: Object
+Console.js:61 Current user for createAgreement: {_: {…}, created_at: 1746535561419, email: 'bjorn@endogon.com', name: 'Bjorn', pub: 'oPotDomFsDPsgLq1gJWdoB3xtCEnjLNWy_S6CRJNBpk.BIrzSUcLqULlJ1l7wNvB4ZxiIAsljO2mFO2MWshgx4s', …}created_at: 1746535561419email: "bjorn@endogon.com"name: "Bjorn"pub: "oPotDomFsDPsgLq1gJWdoB3xtCEnjLNWy_S6CRJNBpk.BIrzSUcLqULlJ1l7wNvB4ZxiIAsljO2mFO2MWshgx4s"role: "Admin"user_id: "oPotDomFsDPsgLq1gJWdoB3xtCEnjLNWy_S6CRJNBpk.BIrzSUcLqULlJ1l7wNvB4ZxiIAsljO2mFO2MWshgx4s"_: {>: {…}, #: '~oPotDomFsDPsgLq1gJWdoB3xtCEnjLNWy_S6CRJNBpk.BIrzSUcLqULlJ1l7wNvB4ZxiIAsljO2mFO2MWshgx4s/profile'}[[Prototype]]: Object
+Console.js:61 About to call createAgreement with exact params:
+Console.js:61 - gameId: g_456
+Console.js:61 - title: test3
+Console.js:61 - description: test
+Console.js:61 [svelte] console_log_stateYour `console.log` contained `$state` proxies. Consider using `$inspect(...)` or `$state.snapshot(...)` insteadhttps://svelte.dev/e/console_log_state
+Mt.forEach.n.<computed> @ Console.js:61
+warn @ client.js?v=114e5ac4:2949
+console_log_state @ chunk-DM772GTT.js?v=114e5ac4:27
+(anonymous) @ chunk-ISYRZG4Z.js?v=114e5ac4:3907
+untrack @ chunk-DUGRXASN.js?v=114e5ac4:2039
+log_if_contains_state @ chunk-ISYRZG4Z.js?v=114e5ac4:3894
+handleSubmit @ AgreementModal.svelte:258
+await in handleSubmit
+handle_event_propagation @ chunk-DUGRXASN.js?v=114e5ac4:2768
+Console.js:61 [snapshot] - parties (selectedParties): (2) ['actor_A4AmKJr1XhdujcRAxT33I266', 'actor_1']
+Console.js:61 - parties (selectedParties): Proxy(Array) {0: 'actor_A4AmKJr1XhdujcRAxT33I266', 1: 'actor_1'}
+Console.js:61 - terms (stringified): {"actor_A4AmKJr1XhdujcRAxT33I266":{"obligations":["test","test"],"benefits":["test"]},"actor_1":{"obligations":["test"],"benefits":["test"]}}
+Console.js:61 Invalid data: undefined at agreements._mad1bwr1_gaybvwoz.agreement_id.cards_ref.undefined.created_at.creator_ref.game_ref.parties.actor_1.benefit.card_ref
+Console.js:61 [gameService] Error writing agreements/_mad1bwr1_gaybvwoz: Invalid data: undefined at agreements._mad1bwr1_gaybvwoz.agreement_id.cards_ref.undefined.created_at.creator_ref.game_ref.parties.actor_1.benefit.card_ref
+Mt.forEach.n.<computed> @ Console.js:61
+(anonymous) @ gameService.ts:68
+ran.err @ chunk-56VOJGOC.js?v=114e5ac4:1459
+walk @ chunk-56VOJGOC.js?v=114e5ac4:1308
+T @ chunk-56VOJGOC.js?v=114e5ac4:136
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+c @ chunk-56VOJGOC.js?v=114e5ac4:126
+port1.onmessage @ chunk-56VOJGOC.js?v=114e5ac4:109
+Console.js:61 [GamePage] Received game update for g_456
+Console.js:61 [D3CardBoard] Game update detected, refreshing
+Console.js:61 [D3CardBoard] Starting visualization
+8Console.js:61 [GamePage] Received game update for g_456
+Console.js:61 Agreement creation result: {agreement_id: '_mad1bwr1_gaybvwoz', game_ref: 'g_456', creator_ref: 'oPotDomFsDPsgLq1gJWdoB3xtCEnjLNWy_S6CRJNBpk.BIrzSUcLqULlJ1l7wNvB4ZxiIAsljO2mFO2MWshgx4s', title: 'test3', summary: 'test', …}agreement_id: "_mad1bwr1_gaybvwoz"cards_ref: {undefined: true}created_at: 1746567729037creator_ref: "oPotDomFsDPsgLq1gJWdoB3xtCEnjLNWy_S6CRJNBpk.BIrzSUcLqULlJ1l7wNvB4ZxiIAsljO2mFO2MWshgx4s"game_ref: "g_456"parties: {actor_A4AmKJr1XhdujcRAxT33I266: {…}, actor_1: {…}}position: {x: 639.3209722293475, y: 162.88921546533302}status: "proposed"summary: "test"title: "test3"type: "asymmetric"updated_at: 1746567729037[[Prototype]]: Object
+Console.js:61 [D3CardBoard] Loaded 5 cards, 5 agreements, 5 actors
+Console.js:61 Agreement ag_4 has fewer than 2 cards, skipping link creation
+Mt.forEach.n.<computed> @ Console.js:61
+warn @ client.js?v=114e5ac4:2949
+(anonymous) @ d3GraphUtils.ts:867
+createLinks @ d3GraphUtils.ts:836
+initializeD3Graph @ d3GraphUtils.ts:1063
+initializeVisualization @ D3CardBoard.svelte:136
+await in initializeVisualization
+(anonymous) @ D3CardBoard.svelte:249
+setTimeout
+(anonymous) @ D3CardBoard.svelte:245
+(anonymous) @ gameService.ts:132
+(anonymous) @ gunService.ts:186
+any2 @ chunk-56VOJGOC.js?v=114e5ac4:1151
+(anonymous) @ chunk-56VOJGOC.js?v=114e5ac4:1137
+(anonymous) @ chunk-56VOJGOC.js?v=114e5ac4:576
+t @ chunk-56VOJGOC.js?v=114e5ac4:155
+sT.each @ chunk-56VOJGOC.js?v=114e5ac4:165
+fire @ chunk-56VOJGOC.js?v=114e5ac4:575
+pop @ chunk-56VOJGOC.js?v=114e5ac4:451
+pop @ chunk-56VOJGOC.js?v=114e5ac4:494
+pop @ chunk-56VOJGOC.js?v=114e5ac4:494
+put @ chunk-56VOJGOC.js?v=114e5ac4:495
+universe @ chunk-56VOJGOC.js?v=114e5ac4:404
+onto @ chunk-56VOJGOC.js?v=114e5ac4:207
+output @ chunk-56VOJGOC.js?v=114e5ac4:873
+onto @ chunk-56VOJGOC.js?v=114e5ac4:207
+ran @ chunk-56VOJGOC.js?v=114e5ac4:1448
+walk @ chunk-56VOJGOC.js?v=114e5ac4:1376
+T @ chunk-56VOJGOC.js?v=114e5ac4:136
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+T @ chunk-56VOJGOC.js?v=114e5ac4:143
+sT.poll @ chunk-56VOJGOC.js?v=114e5ac4:121
+sT.turn @ chunk-56VOJGOC.js?v=114e5ac4:133
+walk @ chunk-56VOJGOC.js?v=114e5ac4:1378
+Gun2.chain.put @ chunk-56VOJGOC.js?v=114e5ac4:1379
+get @ chunk-56VOJGOC.js?v=114e5ac4:1474
+Gun2.chain.put @ chunk-56VOJGOC.js?v=114e5ac4:1289
+(anonymous) @ chunk-56VOJGOC.js?v=114e5ac4:1284
+(anonymous) @ chunk-56VOJGOC.js?v=114e5ac4:1733
+soul @ chunk-56VOJGOC.js?v=114e5ac4:1227
+Gun2.chain.get @ chunk-56VOJGOC.js?v=114e5ac4:1167
+(anonymous) @ chunk-56VOJGOC.js?v=114e5ac4:1728
+Gun2.chain.put @ chunk-56VOJGOC.js?v=114e5ac4:1282
+Gun2.chain.set @ chunk-56VOJGOC.js?v=114e5ac4:1727
+(anonymous) @ gunService.ts:466
+createRelationship @ gunService.ts:454
+createAgreement @ gameService.ts:467
+await in createAgreement
+handleSubmit @ AgreementModal.svelte:269
+await in handleSubmit
+handle_event_propagation @ chunk-DUGRXASN.js?v=114e5ac4:2768
+Console.js:61 Using default user icon for: lock
+Console.js:61 Using default user icon for: users
+Console.js:61 Using default user icon for: rocket
+Console.js:61 [D3CardBoard] Visualization complete
+Console.js:61 [CardDetailsPopover] Popover visible for Land Trust Collaboration
