@@ -221,12 +221,12 @@
 <Modal
   open={modalOpen}
   onOpenChange={(e) => (modalOpen = e.open)}
-  backdropClasses="backdrop-blur-md bg-surface-200-800/90"
+  backdropClasses="backdrop-blur-lg bg-surface-100-900/50"
 >
   {#snippet trigger()}{/snippet}
   
   {#snippet content()}
-    <div class="card bg-surface-50-900 p-4 space-y-4 shadow-xl max-w-screen-lg w-full max-h-[90vh] overflow-y-auto">
+    <div class="card bg-surface-50-950 p-4 space-y-4 shadow-xl backdrop-blur-sm border border-surface-200-700/30 max-w-screen-lg w-full max-h-[90vh] overflow-y-auto rounded-lg">
       <header class="flex justify-between items-center">
         <h2 class="h2 text-primary-700-300">Create New Agreement</h2>
         <button class="btn-icon variant-soft" onclick={closeModal}>
@@ -257,7 +257,7 @@
             ></textarea>
           </label>
           
-          <div class="card bg-surface-100-800 p-4 space-y-2">
+          <div class="card bg-surface-100-800 p-4 space-y-2 border border-surface-200-700/30">
             <h3 class="h3 text-primary-700-300">Agreement Type</h3>
             <div class="flex flex-col gap-2">
               <label class="flex items-center space-x-2">
@@ -285,7 +285,7 @@
         </div>
         
         <!-- Party Selection -->
-        <div class="card bg-surface-100-800 p-4 space-y-4">
+        <div class="card bg-surface-100-800 p-4 space-y-4 border border-surface-200-700/30">
           <h3 class="h3 text-primary-700-300">Select Parties</h3>
           <div class="max-h-40 overflow-y-auto space-y-2">
             {#each actorsList as actor}
@@ -308,11 +308,11 @@
       
       <!-- Terms Section - Only show if parties are selected -->
       {#if selectedParties.length > 0}
-        <div class="card bg-surface-100-800 p-4 space-y-4">
+        <div class="card bg-surface-100-800 p-4 space-y-4 border border-surface-200-700/30">
           <h3 class="h3 text-primary-700-300">Agreement Terms</h3>
           <div class="space-y-6">
             {#each selectedParties as actorId}
-              <div class="card bg-surface-200-700 p-4">
+              <div class="card bg-surface-200-700 p-4 border border-surface-300-600/30 shadow-sm">
                 <h4 class="h4 mb-2 text-secondary-700-300">{getActorName(actorId)}</h4>
                 
                 <!-- Obligations -->
