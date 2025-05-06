@@ -26,6 +26,9 @@
     let availableCardsCount     = $state<number>(0);
     let actors                  = $state<ActorWithCard[]>([]);
     let availableCardsForActors = $state<CardWithPosition[]>([]);
+    // Track if component is mounted to prevent unnecessary data fetches
+    let isMounted               = $state(false);
+    
     // new state for your table
     let cardActorMappings = $state<{
       actorId: string;
@@ -48,45 +51,65 @@
       }));
     });
 
-    // — initial load of everything
+    // — initial load with performance optimization
     $effect(async () => {
-      isLoading    = true;
+      // Set loading state first
+      isLoading = true;
       errorMessage = '';
+      
+      // Log start time for performance debugging
+      const startTime = performance.now();
       console.log(`[GameDetailsPage] Loading context for ${gameId}`);
-      const ctx: GameContext | null = await getGameContext(gameId);
-
-      if (!ctx) {
-        errorMessage = 'Game not found';
-        game                    = null;
-        deckName                = '';
-        totalCards              = 0;
-        usedCards               = 0;
-        availableCardsCount     = 0;
-        actors                  = [];
-        availableCardsForActors = [];
-        isFull                  = false;
-      } else {
-        // unpack
-        game                    = ctx.game;
-        deckName                = ctx.deckName;
-        totalCards              = ctx.totalCards;
-        usedCards               = ctx.usedCards;
-        availableCardsCount     = ctx.availableCardsCount;
-        availableCardsForActors = ctx.availableCards;
-        actors                  = ctx.actors;
-
-        // compute “full”
-        const max = typeof game.max_players === 'string'
-          ? parseInt(game.max_players, 10)
-          : game.max_players;
-        const count = Object.keys(game.players || {}).length;
-        isFull = max ? count >= max : false;
-
-        console.log(
-          `[GameDetailsPage] Cards – total:${totalCards}, used:${usedCards}, avail:${availableCardsCount}`
-        );
+      
+      try {
+        const ctx: GameContext | null = await getGameContext(gameId);
+  
+        if (!ctx) {
+          errorMessage = 'Game not found';
+          game = null;
+          deckName = '';
+          totalCards = 0;
+          usedCards = 0;
+          availableCardsCount = 0;
+          actors = [];
+          availableCardsForActors = [];
+          isFull = false;
+        } else {
+          // Unpack critical data first for faster initial render
+          game = ctx.game;
+          deckName = ctx.deckName;
+          totalCards = ctx.totalCards;
+          usedCards = ctx.usedCards;
+          availableCardsCount = ctx.availableCardsCount;
+          
+          // Calculate "full" status
+          const max = typeof game.max_players === 'string'
+            ? parseInt(game.max_players, 10)
+            : game.max_players;
+          const count = Object.keys(game.players || {}).length;
+          isFull = max ? count >= max : false;
+          
+          // Delay loading actors data using microtask queue to improve perceived performance
+          setTimeout(() => {
+            availableCardsForActors = ctx.availableCards;
+            actors = ctx.actors;
+          }, 0);
+          
+          console.log(
+            `[GameDetailsPage] Cards – total:${totalCards}, used:${usedCards}, avail:${availableCardsCount}`
+          );
+        }
+        
+        // Log performance
+        const endTime = performance.now();
+        console.log(`[GameDetailsPage] Context loaded in ${(endTime - startTime).toFixed(2)}ms`);
+      } catch (error) {
+        console.error('[GameDetailsPage] Error loading game context:', error);
+        errorMessage = 'Error loading game data. Please try again.';
+      } finally {
+        isLoading = false;
+        isMounted = true;
       }
-      isLoading = false;
     });
 
     // — live‐update subscription
