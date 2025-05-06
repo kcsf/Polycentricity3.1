@@ -225,7 +225,7 @@
 
   <button
     class="btn variant-filled-primary w-full flex justify-center items-center"
-    on:click={handleJoin}
+    onclick={handleJoin}
     disabled={isJoining}
   >
     {#if isJoining}
@@ -239,7 +239,7 @@
 
   <button
     class="btn variant-ghost-surface w-full"
-    on:click={() => goto(`/games/${gameId}`)}
+    onclick={() => goto(`/games/${gameId}`)}
   >
     <icons.Eye class="mr-2" />
     View Game Without Joining

@@ -2,172 +2,181 @@
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import { userStore } from '$lib/stores/userStore';
-    import { getAllGames, subscribeToGame } from '$lib/services/gameService';
-    import type { Game } from '$lib/types';
-    import GameCard from '$lib/components/GameCard.svelte';
+    import { 
+        getGameContext, 
+        subscribeToGame,
+        getUserCard,
+        getGameActors
+    } from '$lib/services/gameService';
+    import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
+    import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
+    import ChatBox from '$lib/components/ChatBox.svelte';
+    import PlayersList from '$lib/components/game/PlayersList.svelte';
 
+    // Get gameId from URL parameters
     const gameId = $page.params.gameId;
     
-    // State variables using $state
-    let allGames = $state<Game[]>([]);
+    // State variables using Svelte 5 $state
     let isLoading = $state(true);
     let error = $state('');
-    let lastRefreshed = $state(new Date());
-    let backgroundMessage = $state('');
+    let game = $state<Game | null>(null);
+    let playerRole = $state<ActorWithCard | null>(null);
+    let gameContext = $state<GameContext | null>(null);
 
-    // Load games and subscribe to updates using $effect
+    // Load game data using gameContext
     $effect(() => {
-        // Temporarily disabled authentication check for development
-        // if (!$userStore.user) {
-        //     goto('/login');
-        //     return;
-        // }
-
-        // Initial load
-        const loadGames = async () => {
-            try {
-                isLoading = true;
-                error = '';
-                lastRefreshed = new Date();
-                const games = await getAllGames();
-                console.log(`[GamesPage] Retrieved games:`, games);
-                allGames = games;
-                console.log(`[GamesPage] Retrieved ${games.length} games`);
-            } catch (err) {
-                console.error('Error fetching games:', err);
-                error = `Failed to load games: ${err.message || 'Unknown error'}. Please try again.`;
-            } finally {
-                isLoading = false;
-            }
-        };
-
-        loadGames();
-
-        // Subscribe to real-time game updates
-        const unsubscribe = subscribeToGame('games', (gameData: Game) => {
-            if (gameData) {
-                const existingIndex = allGames.findIndex(g => g.game_id === gameData.game_id);
-                if (existingIndex >= 0) {
-                    allGames[existingIndex] = gameData;
-                    allGames = [...allGames]; // Trigger reactivity
-                } else {
-                    allGames = [...allGames, gameData];
-                }
-            }
-        });
-
-        // Check for background game creation
-        const backgroundCreating = localStorage.getItem('game_creating_background');
-        if (backgroundCreating === 'true') {
-            localStorage.removeItem('game_creating_background');
-            backgroundMessage = 'Your game is being created in the background and should appear soon. If you don\'t see it, click the Refresh Games button.';
-        }
-
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
+        loadGameData();
     });
 
-    function refreshGames() {
-        // Trigger a manual refresh by resetting lastRefreshed
-        lastRefreshed = new Date();
-        isLoading = true;
-        error = '';
-        getAllGames()
-            .then(games => {
-                console.log(`[GamesPage] Refreshed games:`, games);
-                allGames = games;
-                console.log(`[GamesPage] Refreshed ${games.length} games`);
-            })
-            .catch(err => {
-                console.error('Error refreshing games:', err);
-                error = `Failed to refresh games: ${err.message || 'Unknown error'}. Please try again.`;
-            })
-            .finally(() => {
-                isLoading = false;
+    async function loadGameData() {
+        console.log(`[GamePage] Loading game data for ${gameId}`);
+        try {
+            isLoading = true;
+            error = '';
+            
+            // Use getGameContext to efficiently load all game data
+            gameContext = await getGameContext(gameId);
+            
+            if (!gameContext) {
+                throw new Error(`Failed to load game context for game ${gameId}`);
+            }
+            
+            game = gameContext.game;
+            console.log(`[GamePage] Loaded game: ${game.name}`);
+            
+            // Find player role if user is logged in
+            if ($userStore.user) {
+                const userId = $userStore.user.user_id;
+                
+                // Try to find an actor for this user
+                if (gameContext.actors) {
+                    const userActor = gameContext.actors.find(actor => actor.user_ref === userId);
+                    if (userActor) {
+                        playerRole = userActor;
+                        console.log(`[GamePage] Found player role: ${playerRole.actor_id}`);
+                    }
+                }
+            }
+            
+        } catch (err) {
+            console.error('[GamePage] Error loading game:', err);
+            error = err instanceof Error ? err.message : 'Failed to load game';
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    // Subscribe to game updates
+    let unsubscribe = $state<(() => void) | null>(null);
+    
+    $effect(() => {
+        if (gameId) {
+            // Subscribe to real-time game updates
+            unsubscribe = subscribeToGame(gameId, (updatedGame) => {
+                if (updatedGame) {
+                    console.log(`[GamePage] Received game update for ${gameId}`);
+                    game = updatedGame;
+                }
             });
+        }
+        
+        // Cleanup subscription on unmount
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    });
+
+    function goToDetails() {
+        goto(`/games/${gameId}/details`);
     }
 </script>
 
-<div class="container mx-auto p-6 space-y-6">
-    <!-- Header Section -->
-    <div class="card bg-gradient-to-r from-primary-900/30 to-tertiary-900/30 p-6 rounded-lg shadow-xl">
-        <div class="flex justify-between items-center">
-            <div>
-                <h1 class="h1 text-primary-400 mb-2">Available Games</h1>
-                <p class="text-surface-300">Choose an existing game to join or create a new one</p>
-            </div>
-            <a href="/games/create" class="btn variant-filled-primary">
-                <span class="text-lg mr-2">+</span> Create Game
-            </a>
-        </div>
-    </div>
-
-    <!-- Refresh Controls -->
-    <div class="flex justify-between items-center">
-        <div class="text-sm text-surface-500">
-            {#if !isLoading}
-                Last refreshed: {lastRefreshed.toLocaleTimeString()}
-            {/if}
-        </div>
-        <button 
-            class="btn variant-soft-primary" 
-            onclick={refreshGames} 
-            disabled={isLoading}
-        >
-            <icons.RefreshCcw size={18} class={isLoading ? 'animate-spin' : ''} />
-            <span class="ml-2">{isLoading ? 'Refreshing...' : 'Refresh Games'}</span>
-        </button>
-    </div>
-
-    {#if backgroundMessage}
-        <div class="alert variant-filled-secondary p-4">
-            <div class="flex items-center">
-                <span class="mr-2">ℹ️</span>
-                <p>{backgroundMessage}</p>
-            </div>
-        </div>
-    {/if}
-
+<div class="w-full h-full flex flex-col">
     {#if isLoading}
-        <div class="card p-8 text-center bg-surface-100-800">
-            <div class="flex justify-center items-center h-32">
-                <span class="loading loading-spinner loading-lg text-primary-500 mr-4"></span>
-                <p class="text-lg">Loading games...</p>
-            </div>
+        <div class="flex flex-col items-center justify-center h-full">
+            <div class="loading loading-spinner loading-lg text-primary-500"></div>
+            <p class="mt-4">Loading game...</p>
         </div>
     {:else if error}
-        <div class="alert variant-filled-error p-4">
-            <div class="flex items-center">
-                <icons.AlertCircle size={20} class="mr-2" />
+        <div class="flex flex-col items-center justify-center h-full">
+            <div class="alert variant-filled-error w-1/2 p-4 mb-4">
+                <icons.AlertCircle size={24} class="mr-2" />
                 <p>{error}</p>
             </div>
-            <div class="mt-2">
-                <button class="btn btn-sm variant-filled" onclick={refreshGames}>Try Again</button>
+            <div class="flex gap-4 mt-4">
+                <button class="btn variant-filled-primary" onclick={() => loadGameData()}>
+                    <icons.RefreshCcw size={18} class="mr-2" />
+                    Try Again
+                </button>
+                <a href="/games" class="btn variant-ghost">
+                    <icons.ArrowLeft size={18} class="mr-2" />
+                    Back to Games
+                </a>
             </div>
         </div>
-    {:else if allGames.length === 0}
-        <div class="card p-10 text-center bg-surface-100-800 border border-surface-200 dark:border-surface-700">
-            <div class="flex flex-col items-center justify-center py-12">
-                <div class="text-5xl text-primary-400 mb-4">🎮</div>
-                <h2 class="h2 mb-2">No Games Available</h2>
-                <p class="mb-6 text-surface-600 dark:text-surface-400">Be the first one to create a game and invite others to play!</p>
-                <div class="flex space-x-4">
-                    <a href="/games/create" class="btn variant-filled-primary">
-                        <span class="mr-2">+</span> Create the First Game
+    {:else if game}
+        <!-- Game Page Content -->
+        <div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-100-800" style="height: calc(100vh - var(--app-bar-height, 64px))">
+            <!-- Top Navigation Bar -->
+            <div class="bg-surface-100-800 border-b border-surface-300 p-3 shadow-sm flex justify-between">
+                <div class="flex items-center">
+                    <a href="/games" class="btn btn-sm variant-ghost-surface">
+                        <icons.ArrowLeft size={16} class="mr-2" />
+                        Back to Games
                     </a>
-                    <button class="btn variant-soft" onclick={refreshGames}>
-                        <icons.RefreshCcw size={16} />
-                        <span class="ml-2">Refresh</span>
+                    <h1 class="ml-4 text-xl font-bold truncate">{game.name}</h1>
+                    {#if game.status}
+                        <span class="badge ml-2 variant-filled-primary">{game.status}</span>
+                    {/if}
+                </div>
+                <div class="flex gap-2">
+                    {#if !playerRole}
+                        <button 
+                            class="btn btn-sm variant-filled-primary" 
+                            onclick={goToDetails}
+                        >
+                            <icons.UserPlus size={16} class="mr-2" />
+                            Join Game
+                        </button>
+                    {/if}
+                    <button 
+                        class="btn btn-sm variant-ghost-surface"
+                        onclick={goToDetails}
+                    >
+                        <icons.Info size={16} class="mr-2" />
+                        Game Details
                     </button>
+                </div>
+            </div>
+            
+            <!-- Main Game Board Section -->
+            <div class="flex-1 flex-grow relative overflow-hidden">
+                {#if gameContext}
+                    <D3CardBoard 
+                        {gameId} 
+                        activeActorId={playerRole?.actor_id}
+                    />
+                {/if}
+            </div>
+            
+            <!-- Bottom Chat Panel -->
+            <div class="bg-surface-100-800 border-t border-surface-300 h-48 shadow-sm">
+                <div class="h-full">
+                    <ChatBox {gameId} chatType="group" compact={true} />
                 </div>
             </div>
         </div>
     {:else}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {#each allGames as game (game.game_id)}
-                <GameCard {game} />
-            {/each}
+        <div class="flex flex-col items-center justify-center h-full">
+            <div class="alert variant-filled-warning w-1/2 p-4 mb-4">
+                <icons.AlertTriangle size={24} class="mr-2" />
+                <p>Game not found. The game may have been deleted or you may not have permission to view it.</p>
+            </div>
+            <a href="/games" class="btn variant-filled-primary mt-4">
+                <icons.ArrowLeft size={18} class="mr-2" />
+                Back to Games
+            </a>
         </div>
     {/if}
 </div>
