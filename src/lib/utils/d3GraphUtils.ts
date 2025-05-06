@@ -789,82 +789,32 @@ export function createNodes(
   width: number,
   height: number
 ): D3Node[] {
-  console.log("d3GraphUtils: Creating nodes from", {
-    cardsCount: cards.length,
-    agreementsCount: agreements.length
-  });
+  // Create nodes from cards - use pre-populated value and capability names
+  const cardNodes: D3Node[] = cards.map((card) => ({
+    id: card.card_id,
+    name: card.role_title || "Unknown Card",
+    type: "actor" as const,
+    data: card,
+    x: card.position?.x || Math.random() * width,
+    y: card.position?.y || Math.random() * height,
+    fx: card.position?.x || null,
+    fy: card.position?.y || null
+  }));
   
-  // Look at some sample cards to see what's going on
-  if (cards.length > 0) {
-    const sampleCard = cards[0];
-    console.log("d3GraphUtils: SAMPLE CARD DATA:", {
-      card_id: sampleCard.card_id,
-      values_ref: sampleCard.values_ref ? Object.keys(sampleCard.values_ref).filter(k => k !== '#' && k !== '_') : [],
-      capabilities_ref: sampleCard.capabilities_ref ? Object.keys(sampleCard.capabilities_ref).filter(k => k !== '#' && k !== '_') : [],
-      _valueNames: sampleCard._valueNames,
-      _capabilityNames: sampleCard._capabilityNames
-    });
-  }
+  // Create nodes from agreements
+  const agreementNodes: D3Node[] = agreements.map((agreement) => ({
+    id: agreement.agreement_id,
+    name: agreement.title || "Unknown Agreement",
+    type: "agreement" as const,
+    data: agreement,
+    x: agreement.position?.x || Math.random() * width,
+    y: agreement.position?.y || Math.random() * height,
+    fx: agreement.position?.x || null,
+    fy: agreement.position?.y || null
+  }));
   
-  const nodes: D3Node[] = [
-    ...cards.map((card) => {
-      // Extract values from card.values_ref if _valueNames isn't populated
-      const valueNames = card._valueNames && card._valueNames.length > 0 
-        ? card._valueNames 
-        : (card.values_ref 
-            ? Object.keys(card.values_ref)
-                .filter(key => key !== '#' && key !== '_')
-                .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key)
-            : []);
-            
-      // Extract capabilities from card.capabilities_ref if _capabilityNames isn't populated
-      const capabilityNames = card._capabilityNames && card._capabilityNames.length > 0
-        ? card._capabilityNames
-        : (card.capabilities_ref
-            ? Object.keys(card.capabilities_ref)
-                .filter(key => key !== '#' && key !== '_')
-                .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
-            : []);
-            
-      // Log values and capabilities being extracted
-      console.log(`d3GraphUtils: Processing card ${card.card_id}:`, {
-        final_valueNames: valueNames,
-        final_capabilityNames: capabilityNames,
-        original_valueNames: card._valueNames,
-        original_capabilityNames: card._capabilityNames,
-        from_values_ref: card.values_ref ? Object.keys(card.values_ref).filter(k => k !== '#' && k !== '_') : []
-      });
-      
-      return {
-        id: card.card_id,
-        name: card.role_title || "Unknown Card",
-        type: "actor" as const,
-        data: card,
-        x: card.position?.x || Math.random() * width,
-        y: card.position?.y || Math.random() * height,
-        fx: card.position?.x || null,
-        fy: card.position?.y || null,
-        _valueNames: valueNames,
-        _capabilityNames: capabilityNames
-      };
-    }),
-    ...agreements.map((agreement) => ({
-      id: agreement.agreement_id,
-      name: agreement.title || "Unknown Agreement",
-      type: "agreement" as const,
-      data: agreement,
-      x: agreement.position?.x || Math.random() * width,
-      y: agreement.position?.y || Math.random() * height,
-      fx: agreement.position?.x || null,
-      fy: agreement.position?.y || null
-    }))
-  ];
-  
-  console.log("d3GraphUtils: Created nodes successfully", {
-    nodeCount: nodes.length
-  });
-  
-  return nodes;
+  // Combine all nodes
+  return [...cardNodes, ...agreementNodes];
 }
 
 /**
@@ -880,12 +830,6 @@ export function createLinks(
   agreements: AgreementWithPosition[],
   actorCardMap: Map<string, string>
 ): D3Link[] {
-  console.log("d3GraphUtils: Creating links from", {
-    nodesCount: nodes.length,
-    agreementsCount: agreements.length,
-    actorCardMapSize: actorCardMap.size
-  });
-  
   const links: D3Link[] = [];
   
   // For each agreement, create links to connect all participating cards
@@ -893,13 +837,6 @@ export function createLinks(
     if (!agreement.parties) return;
     
     const agreementId = agreement.agreement_id;
-    
-    // Debug current agreement
-    console.log(`Creating links for agreement: ${agreementId}`, {
-      obligations: agreement.obligations,
-      benefits: agreement.benefits,
-      parties: agreement.parties
-    });
     
     // Get all party actor IDs
     const partyActorIds = Object.keys(agreement.parties);
@@ -923,8 +860,6 @@ export function createLinks(
         participatingCardIds.push(cardId);
       }
     });
-    
-    console.log(`Found ${participatingCardIds.length} participating cards for agreement ${agreementId}:`, participatingCardIds);
     
     // Ensure we have at least 2 cards to create meaningful connections
     if (participatingCardIds.length < 2) {
@@ -968,7 +903,6 @@ export function createLinks(
     }
     
     // 1. Create obligation link: creator card → agreement node
-    console.log(`Creating PRIMARY obligation link: ${creatorCardId} → ${agreementId}`);
     links.push({
       source: creatorCardId,
       target: agreementId,
@@ -980,7 +914,6 @@ export function createLinks(
     const otherCardIds = participatingCardIds.filter(cardId => cardId !== creatorCardId);
     
     otherCardIds.forEach(cardId => {
-      console.log(`Creating benefit link: ${agreementId} → ${cardId}`);
       links.push({
         source: agreementId,
         target: cardId,
@@ -988,10 +921,6 @@ export function createLinks(
         id: `${agreementId}_to_${cardId}_benefit`
       });
     });
-  });
-  
-  console.log("d3GraphUtils: Created links successfully", {
-    linkCount: links.length
   });
   
   return links;
@@ -1107,14 +1036,6 @@ export function initializeD3Graph(
   handleNodeClick: (node: D3Node) => void,
   externalActorCardMap?: Map<string, string>
 ) {
-  console.log("d3GraphUtils: initializeD3Graph called with:", {
-    svgElementExists: !!svgElement,
-    cardsCount: cards.length,
-    agreementsCount: agreements.length,
-    width,
-    height
-  });
-  
   try {
     // Clear the SVG
     const svg = d3.select(svgElement);
@@ -1125,8 +1046,6 @@ export function initializeD3Graph(
     
     if (externalActorCardMap && externalActorCardMap.size > 0) {
       // Use the provided map
-      console.log("d3GraphUtils: Using external actor-card map:", 
-        { size: externalActorCardMap.size, entries: Array.from(externalActorCardMap.entries()) });
       actorCardMap = new Map(externalActorCardMap);
     } else {
       // Build the map from the card data
@@ -1134,17 +1053,9 @@ export function initializeD3Graph(
       cards.forEach(card => {
         if (card.actor_id) {
           actorCardMap.set(card.actor_id, card.card_id);
-          console.log(`d3GraphUtils: Mapping actor ${card.actor_id} to card ${card.card_id}`);
         }
       });
-      
-      // We no longer create synthetic mappings - only use real data from gameContext
-      if (actorCardMap.size === 0 && agreements.length > 0 && cards.length > 0) {
-        console.log("d3GraphUtils: No actor-card mappings available from gameContext");
-      }
     }
-    
-    console.log("d3GraphUtils: Final actor-card map size:", actorCardMap.size);
     
     // Create nodes and links
     const nodes = createNodes(cards, agreements, width, height);
@@ -1383,8 +1294,6 @@ export function initializeD3Graph(
     // Add interactions
     setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height);
     
-    console.log("d3GraphUtils: Successfully initialized D3 graph");
-    
     // Return simulation and selections for further use
     return {
       simulation,
@@ -1392,7 +1301,7 @@ export function initializeD3Graph(
       linkElements
     };
   } catch (error) {
-    console.error("d3GraphUtils: Error initializing D3 graph:", error);
+    console.error("Error initializing D3 graph:", error);
     throw error;
   }
 }
