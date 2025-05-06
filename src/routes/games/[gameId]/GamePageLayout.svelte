@@ -85,7 +85,7 @@
         <div class="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             <!-- Game Info Section -->
             <button 
-                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {gameInfoExpanded ? 'bg-primary-hover-token' : ''}" 
+                class="flex items-center gap-3 p-3 hover:bg-primary-500/20 transition-colors {gameInfoExpanded ? 'bg-primary-500/20' : ''}" 
                 onclick={() => gameInfoExpanded = !gameInfoExpanded}
             >
                 <div class="flex-shrink-0">
@@ -117,7 +117,7 @@
             
             <!-- Role Card Section -->
             <button 
-                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {yourRoleExpanded ? 'bg-primary-hover-token' : ''}" 
+                class="flex items-center gap-3 p-3 hover:bg-primary-500/20 transition-colors {yourRoleExpanded ? 'bg-primary-500/20' : ''}" 
                 onclick={() => yourRoleExpanded = !yourRoleExpanded}
             >
                 <div class="flex-shrink-0">
@@ -312,7 +312,7 @@
         <div class="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             <!-- Players List Section -->
             <button 
-                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {playersExpanded ? 'bg-primary-hover-token' : ''}" 
+                class="flex items-center gap-3 p-3 hover:bg-primary-500/20 transition-colors {playersExpanded ? 'bg-primary-500/20' : ''}" 
                 onclick={() => playersExpanded = !playersExpanded}
             >
                 <div class="flex-shrink-0">
@@ -338,7 +338,7 @@
             
             <!-- Chat Section -->
             <button 
-                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {chatExpanded ? 'bg-primary-hover-token' : ''}" 
+                class="flex items-center gap-3 p-3 hover:bg-primary-500/20 transition-colors {chatExpanded ? 'bg-primary-500/20' : ''}" 
                 onclick={() => chatExpanded = !chatExpanded}
             >
                 <div class="flex-shrink-0">

@@ -228,7 +228,7 @@
   {#snippet content()}
     <div class="card bg-surface-50 dark:bg-surface-900 p-4 space-y-4 shadow-xl max-w-screen-lg w-full max-h-[90vh] overflow-y-auto">
       <header class="flex justify-between items-center">
-        <h2 class="h2 text-primary-700-300">Create New Agreement</h2>
+        <h2 class="h2 text-primary-700 dark:text-primary-300">Create New Agreement</h2>
         <button class="btn-icon variant-soft" onclick={closeModal}>
           <icons.X />
         </button>
