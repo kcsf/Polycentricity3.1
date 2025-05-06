@@ -808,8 +808,8 @@ export function createNodes(
       y: card.position?.y || Math.random() * height,
       fx: card.position?.x || null,
       fy: card.position?.y || null,
-      _valueNames: card._valueNames || [],
-      _capabilityNames: card._capabilityNames || []
+      _valueNames: card._valueNames ?? [],
+      _capabilityNames: card._capabilityNames ?? []
     })),
     ...agreements.map((agreement) => ({
       id: agreement.agreement_id,
