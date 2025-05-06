@@ -943,8 +943,9 @@ export function createNodes(
       y: card.position?.y || Math.random() * height,
       fx: card.position?.x || null,
       fy: card.position?.y || null,
-      _valueNames: augmentCardValues(card),
-      _capabilityNames: augmentCardCapabilities(card)
+      // Use pre-computed names from gameContext if available, otherwise fall back to augmentation
+      _valueNames: card._valueNames || augmentCardValues(card),
+      _capabilityNames: card._capabilityNames || augmentCardCapabilities(card)
     })),
     ...agreements.map((agreement) => ({
       id: agreement.agreement_id,
