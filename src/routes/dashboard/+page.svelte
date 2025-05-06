@@ -3,7 +3,8 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
   import { userGamesStore, setUserGames } from '$lib/stores/gameStore';
-  import { getAllGames, getCollection, get, nodes } from '$lib/services/gameService';
+  import { getAllGames } from '$lib/services/gameService';
+  import { getCollection, get, nodes } from '$lib/services/gunService';
   import type { Actor, Game } from '$lib/types';
   import * as icons from '@lucide/svelte';
   import UserCard from '$lib/components/UserCard.svelte';
