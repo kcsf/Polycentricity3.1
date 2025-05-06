@@ -68,11 +68,11 @@
     }
 </script>
 
-<div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-800-token overflow-hidden">
+<div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100 dark:bg-surface-800 overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
-    <div class="h-full border-r border-surface-300-600-token bg-surface-50-900-token flex flex-col {leftExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
+    <div class="h-full border-r border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-900 flex flex-col {leftExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with hamburger menu -->
-        <div class="p-3 flex justify-between items-center border-b border-surface-300-600-token">
+        <div class="p-3 flex justify-between items-center border-b border-surface-300 dark:border-surface-600">
             <button class="btn btn-sm variant-soft-surface p-2" onclick={toggleLeftSidebar}>
                 <icons.Menu class="w-5 h-5" />
             </button>
@@ -297,9 +297,9 @@
     </div>
 
     <!-- Right Navigation Rail - Players & Chat -->
-    <div class="h-full border-l border-surface-300-600-token bg-surface-50-900-token flex flex-col {rightExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
+    <div class="h-full border-l border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-900 flex flex-col {rightExpanded ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden">
         <!-- Header with players icon -->
-        <div class="p-3 flex justify-between items-center border-b border-surface-300-600-token">
+        <div class="p-3 flex justify-between items-center border-b border-surface-300 dark:border-surface-600">
             {#if rightExpanded}
                 <span class="font-semibold">Players</span>
             {/if}
