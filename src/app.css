@@ -5,6 +5,8 @@
 @import '@skeletonlabs/skeleton/optional/presets';
 /* Use the polyc theme which supports both light and dark modes */
 @import './polyc';
+/* Import custom toast styles */
+@import './lib/styles/toast-override.css';
 
 /* Custom styles */
 :root {

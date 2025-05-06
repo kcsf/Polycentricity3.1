@@ -1,0 +1,94 @@
+/* Toast override styles - MAXIMUM SPECIFICITY VERSION */
+
+/* Target toast notifications with solid background - using every possible selector */
+[data-part="toast"],
+[data-toast-id],
+[data-scope="toast"] > div,
+div[role="status"],
+div[aria-live="polite"],
+.toast {
+  background-color: #F5F5E8 !important; /* Light mode background - hardcoded for reliability */
+  color: #4F5B53 !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Dark mode */
+html[class~="dark"] [data-part="toast"],
+html[class~="dark"] [data-toast-id],
+html[class~="dark"] [data-scope="toast"] > div,
+html[class~="dark"] div[role="status"],
+html[class~="dark"] div[aria-live="polite"],
+html[class~="dark"] .toast {
+  background-color: #222220 !important; /* Dark mode background */
+  color: #DDE5D6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Error toast - all selectors */
+[data-part="toast"][data-variant="error"],
+[data-toast-id][data-variant="error"],
+[data-scope="toast"] > div[data-variant="error"],
+div[role="status"][data-variant="error"],
+div[aria-live="polite"][data-variant="error"],
+.toast[data-variant="error"] {
+  background-color: #FEE2E2 !important; /* Light red */
+  color: #991B1B !important;
+}
+
+html[class~="dark"] [data-part="toast"][data-variant="error"],
+html[class~="dark"] [data-toast-id][data-variant="error"],
+html[class~="dark"] [data-scope="toast"] > div[data-variant="error"],
+html[class~="dark"] div[role="status"][data-variant="error"],
+html[class~="dark"] div[aria-live="polite"][data-variant="error"],
+html[class~="dark"] .toast[data-variant="error"] {
+  background-color: #7F1D1D !important; /* Dark red */
+  color: #FEE2E2 !important;
+}
+
+/* Removed invalid :contains selector */
+
+/* Success toast - all selectors */
+[data-part="toast"][data-variant="success"],
+[data-toast-id][data-variant="success"],
+[data-scope="toast"] > div[data-variant="success"],
+div[role="status"][data-variant="success"],
+div[aria-live="polite"][data-variant="success"],
+.toast[data-variant="success"] {
+  background-color: #D1FAE5 !important; /* Light green */
+  color: #065F46 !important;
+}
+
+html[class~="dark"] [data-part="toast"][data-variant="success"],
+html[class~="dark"] [data-toast-id][data-variant="success"],
+html[class~="dark"] [data-scope="toast"] > div[data-variant="success"],
+html[class~="dark"] div[role="status"][data-variant="success"],
+html[class~="dark"] div[aria-live="polite"][data-variant="success"],
+html[class~="dark"] .toast[data-variant="success"] {
+  background-color: #065F46 !important; /* Dark green */
+  color: #D1FAE5 !important;
+}
+
+/* Warning toast - all selectors */
+[data-part="toast"][data-variant="warning"],
+[data-toast-id][data-variant="warning"],
+[data-scope="toast"] > div[data-variant="warning"],
+div[role="status"][data-variant="warning"],
+div[aria-live="polite"][data-variant="warning"],
+.toast[data-variant="warning"] {
+  background-color: #FEF3C7 !important; /* Light yellow */
+  color: #92400E !important;
+}
+
+html[class~="dark"] [data-part="toast"][data-variant="warning"],
+html[class~="dark"] [data-toast-id][data-variant="warning"],
+html[class~="dark"] [data-scope="toast"] > div[data-variant="warning"],
+html[class~="dark"] div[role="status"][data-variant="warning"],
+html[class~="dark"] div[aria-live="polite"][data-variant="warning"],
+html[class~="dark"] .toast[data-variant="warning"] {
+  background-color: #92400E !important; /* Dark yellow */
+  color: #FEF3C7 !important;
+}

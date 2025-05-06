@@ -7,6 +7,40 @@
                         name="viewport"
                         content="width=device-width, initial-scale=1"
                 />
+                <!-- Direct toast styling in head -->
+                <style>
+                        /* Apply solid background to all toasts */
+                        [data-part="toast"] {
+                                background-color: #F5F5E8 !important;
+                                color: #4F5B53 !important;
+                                border: 1px solid rgba(0, 0, 0, 0.1) !important;
+                                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+                                opacity: 1 !important;
+                                backdrop-filter: none !important;
+                                -webkit-backdrop-filter: none !important;
+                                --toast-background: #F5F5E8 !important;
+                        }
+                        
+                        html.dark [data-part="toast"] {
+                                background-color: #222220 !important;
+                                color: #DDE5D6 !important;
+                                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                                --toast-background: #222220 !important;
+                        }
+                        
+                        /* Error toasts */
+                        [data-part="toast"][data-variant="error"] {
+                                background-color: #FEE2E2 !important;
+                                color: #991B1B !important;
+                                --toast-background: #FEE2E2 !important;
+                        }
+                        
+                        html.dark [data-part="toast"][data-variant="error"] {
+                                background-color: #7F1D1D !important;
+                                color: #FEE2E2 !important;
+                                --toast-background: #7F1D1D !important;
+                        }
+                </style>
                 %sveltekit.head%
         </head>
         <body data-sveltekit-preload-data="hover" class="bg-surface-50-950">
