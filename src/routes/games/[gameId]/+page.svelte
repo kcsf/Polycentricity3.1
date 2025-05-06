@@ -120,9 +120,9 @@
                 </a>
             </div>
         </div>
-    {:else if game && playerRole}
+    {:else if game && playerRole && gameContext}
         <!-- Game Page Content with Layout -->
-        <GamePageLayout {game} {gameId} {playerRole} />
+        <GamePageLayout {game} {gameId} {playerRole} actors={gameContext.actors} />
     {:else if game}
         <!-- Game Page Content -->
         <div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-100-800" style="height: calc(100vh - var(--app-bar-height, 64px))">

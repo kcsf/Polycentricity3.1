@@ -184,9 +184,7 @@
   onOpenChange={(e) => (modalOpen = e.open)}
   backdropClasses="backdrop-blur-sm"
 >
-  {#snippet trigger()}
-    <slot />
-  {/snippet}
+  {#snippet trigger()}{/snippet}
   
   {#snippet content()}
     <div class="card bg-surface-100-800-token p-4 space-y-4 shadow-xl max-w-screen-lg w-full max-h-[90vh] overflow-y-auto">

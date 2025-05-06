@@ -20,7 +20,7 @@
     }>();
     
     // References
-    let agreementModal: { openModal: () => void } | undefined = $state.bound();
+    let agreementModal: { openModal: () => void } | undefined;
 
     // State
     let leftExpanded = $state(false);
@@ -359,4 +359,11 @@
         </div>
     </div>
 </div>
+
+<!-- Agreement Modal -->
+<AgreementModal 
+    {gameId} 
+    actorsList={actors} 
+    bind:this={agreementModal}
+/>
 
