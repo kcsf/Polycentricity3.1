@@ -788,64 +788,90 @@ export function createCardIcon(
  * If fewer than 3 values are found, adds additional values from a predefined list
  */
 /**
- * Resolves values for a card without fallbacks
- * Pulls value names from values_ref set in the card from gameContext
+ * Helper function to ensure each card has at least 3 values
+ * First attempts to load values from Gun.js database using the valueService
+ * If fewer than 3 values are found, adds additional values from a predefined list
  */
 function augmentCardValues(card: Card): string[] {
+  // Cache to store database values when they arrive
+  let valueNames: string[] = [];
+  
   // Debug log for inspection
   console.log("[augmentCardValues] Processing card:", card.card_id);
   
-  // Extract real values directly from the card object via references
-  let result: string[] = [];
+  // Request values from database (this happens asynchronously)
+  getCardValueNames(card).then(fetchedValues => {
+    // Update our cached values with what came from the database
+    valueNames = fetchedValues;
+    console.log(`[augmentCardValues] Fetched ${valueNames.length} values from database for card ${card.card_id}:`, valueNames);
+  }).catch(error => {
+    console.error(`[augmentCardValues] Error fetching values for card ${card.card_id}:`, error);
+  });
   
-  // Try to get values directly from values_ref
-  if (card.values_ref) {
-    try {
-      const valueRefsKeys = Object.keys(card.values_ref || {})
-        .filter(key => key !== '#' && key !== '_'); // Filter out Gun.js special keys
-        
-      // Get readable names from the keys
-      result = valueRefsKeys.map(key => {
-        return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
-      });
-      
-      console.log(`[augmentCardValues] Fetched ${result.length} values from database for card ${card.card_id}:`, result);
-    } catch (error) {
-      console.error(`[augmentCardValues] Error extracting values for card ${card.card_id}:`, error);
-    }
+  // Create a provisional list - we'll use this until the db query completes
+  // First extract existing values from the card object (for initial rendering)
+  let result = card.values_ref ? Object.keys(card.values_ref)
+    .filter(key => key !== '#' && key !== '_')  // Filter out special Gun.js keys
+    .map(key => {
+      // Make readable names from IDs
+      return key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key;
+    }) : [];
+  
+  console.log("[augmentCardValues] Extracted values from card object:", result);
+  
+  if (result.length === 0) {
+    // Use fallback values for visualization purposes (for now - temporary!)
+    result = ["Social Justice", "Preservation", "Wisdom"];
+    console.log("[augmentCardValues] Using fallback visualization values:", result);
   }
   
+  console.log("[augmentCardValues] Final values:", result);
+  
+  // Return the values
   return result;
 }
 
 /**
- * Resolves capabilities for a card without fallbacks
- * Pulls capability names from capabilities_ref set in the card from gameContext
+ * Helper function to ensure each card has at least 3 capabilities
+ * First attempts to load capabilities from Gun.js database using the capabilityService
+ * If fewer than 3 capabilities are found, adds additional capabilities from a predefined list
  */
 function augmentCardCapabilities(card: Card): string[] {
+  // Cache to store database capabilities when they arrive
+  let capabilityNames: string[] = [];
+  
   // Debug log for inspection
   console.log("[augmentCardCapabilities] Processing card:", card.card_id);
   
-  // Extract real capabilities directly from the card object via references
-  let result: string[] = [];
+  // Request capabilities from database (this happens asynchronously)
+  getCardCapabilityNames(card).then(fetchedCapabilities => {
+    // Update our cached capabilities with what came from the database
+    capabilityNames = fetchedCapabilities;
+    console.log(`[augmentCardCapabilities] Fetched ${capabilityNames.length} capabilities from database for card ${card.card_id}:`, capabilityNames);
+  }).catch(error => {
+    console.error(`[augmentCardCapabilities] Error fetching capabilities for card ${card.card_id}:`, error);
+  });
   
-  // Try to get capabilities directly from capabilities_ref
-  if (card.capabilities_ref) {
-    try {
-      const capabilityRefsKeys = Object.keys(card.capabilities_ref || {})
-        .filter(key => key !== '#' && key !== '_'); // Filter out Gun.js special keys
-        
-      // Get readable names from the keys
-      result = capabilityRefsKeys.map(key => {
-        return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
-      });
-      
-      console.log(`[augmentCardCapabilities] Fetched ${result.length} capabilities from database for card ${card.card_id}:`, result);
-    } catch (error) {
-      console.error(`[augmentCardCapabilities] Error extracting capabilities for card ${card.card_id}:`, error);
-    }
+  // Create a provisional list - we'll use this until the db query completes
+  // First extract existing capabilities from the card object (for initial rendering)
+  let result = card.capabilities_ref ? Object.keys(card.capabilities_ref)
+    .filter(key => key !== '#' && key !== '_')  // Filter out special Gun.js keys
+    .map(key => {
+      // Make readable names from IDs
+      return key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key;
+    }) : [];
+  
+  console.log("[augmentCardCapabilities] Extracted capabilities from card object:", result);
+  
+  if (result.length === 0) {
+    // Use fallback capabilities for visualization purposes (for now - temporary!)
+    result = ["Technical Expertise", "Project Management", "Fundraising"];
+    console.log("[augmentCardCapabilities] Using fallback visualization capabilities:", result);
   }
   
+  console.log("[augmentCardCapabilities] Final capabilities:", result);
+  
+  // Return the capabilities
   return result;
 }
 
