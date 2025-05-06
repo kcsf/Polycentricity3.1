@@ -44,7 +44,7 @@ export interface Capability {
 
 export interface Card {
     card_id: string; // e.g., 'card_1'
-    card_category: "Funders" | "Providers" | "Supporters";
+    card_category: "Funders" | "Providers" | "Supporters" | string;
     card_number: number; // e.g., 1
     role_title: string; // e.g., 'Luminos Funder'
     type: "DAO" | "Practice" | "Individual" | string;
@@ -60,6 +60,7 @@ export interface Card {
     agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }
     decks_ref: Record<string, boolean>; // e.g., { d1: true }
     created_at: number;
+    updated_at?: number;
 }
 
 export interface CardWithPosition extends Card {

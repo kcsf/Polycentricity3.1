@@ -465,9 +465,17 @@ export async function createRelationship(
 /**
  * Generate a unique ID for Gun nodes
  * @returns Unique ID string
- */
+ 
 export function generateId(): string {
   return `_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}*/
+
+/**
+ * Generate a Gun‐style random “soul” ID.
+ * Uses Gun’s built-in 24-char alphanumeric generator.
+ */
+export function generateId(): string {
+  return Gun.text.random();
 }
 
 /**
