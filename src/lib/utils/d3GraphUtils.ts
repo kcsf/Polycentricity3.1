@@ -77,6 +77,8 @@ export interface CardWithPosition extends Card {
     y: number;
   };
   actor_id?: string; // Add actor_id field which is needed for card-actor mapping
+  _valueNames?: string[]; // Pre-populated array of value names from gameContext
+  _capabilityNames?: string[]; // Pre-populated array of capability names from gameContext
 }
 
 /**
@@ -222,10 +224,10 @@ export function addDonutRings(
           : []
       },
       {
-        name: "rivalrousResources",
+        name: "resources",
         color: "#77B061",
-        items: (nodeData.type === 'actor' && (nodeData.data as Card).rivalrous_resources)
-          ? ((nodeData.data as Card).rivalrous_resources as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
+        items: (nodeData.type === 'actor' && (nodeData.data as Card).resources)
+          ? ((nodeData.data as Card).resources as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean)
           : []
       },
       {
@@ -806,8 +808,8 @@ export function createNodes(
       y: card.position?.y || Math.random() * height,
       fx: card.position?.x || null,
       fy: card.position?.y || null,
-      _valueNames: augmentCardValues(card),
-      _capabilityNames: augmentCardCapabilities(card)
+      _valueNames: card._valueNames || [],
+      _capabilityNames: card._capabilityNames || []
     })),
     ...agreements.map((agreement) => ({
       id: agreement.agreement_id,

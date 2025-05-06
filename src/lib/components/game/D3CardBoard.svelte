@@ -105,22 +105,56 @@
       return { cards: [], agreements: [], actors: [] };
     }
 
-    // Extract all assigned cards - cards already have _valueNames and _capabilityNames
+    // Extract all assigned cards and ensure visualization data is present
     const assigned: CardWithPosition[] = ctx.actors
       .filter(a => !!a.card)
-      .map(a => ({ 
-        ...a.card!, 
-        actor_id: a.actor_id, 
-        position: a.position || { x: Math.random() * width, y: Math.random() * height }
-        // _valueNames/_capabilityNames already present from gameContext
-      }));
+      .map(a => {
+        // Extract values from values_ref if it exists
+        const valueNames = a.card!.values_ref ? 
+          Object.keys(a.card!.values_ref)
+            .filter(key => key !== '#' && key !== '_')
+            .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key) 
+          : ["Social Justice", "Preservation", "Wisdom"]; // Fallbacks for visualization
+          
+        // Extract capabilities from capabilities_ref if it exists
+        const capabilityNames = a.card!.capabilities_ref ? 
+          Object.keys(a.card!.capabilities_ref)
+            .filter(key => key !== '#' && key !== '_')
+            .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+          : ["Technical Expertise", "Project Management", "Fundraising"]; // Fallbacks for visualization
+          
+        return {
+          ...a.card!, 
+          actor_id: a.actor_id, 
+          position: a.position || { x: Math.random() * width, y: Math.random() * height },
+          _valueNames: valueNames,
+          _capabilityNames: capabilityNames
+        };
+      });
 
     // Append the "available" cards with position data
-    const availableWithPos = (ctx.availableCards || []).map(c => ({
-      ...c,
-      position: { x: Math.random() * width, y: Math.random() * height }
-      // _valueNames/_capabilityNames already present from gameContext
-    }));
+    const availableWithPos = (ctx.availableCards || []).map(c => {
+      // Extract values from values_ref if it exists
+      const valueNames = c.values_ref ? 
+        Object.keys(c.values_ref)
+          .filter(key => key !== '#' && key !== '_')
+          .map(key => key.startsWith('value_') ? key.substring(6).replace(/-/g, ' ') : key) 
+        : ["Social Justice", "Preservation", "Wisdom"]; // Fallbacks for visualization
+        
+      // Extract capabilities from capabilities_ref if it exists
+      const capabilityNames = c.capabilities_ref ? 
+        Object.keys(c.capabilities_ref)
+          .filter(key => key !== '#' && key !== '_')
+          .map(key => key.startsWith('capability_') ? key.substring(11).replace(/-/g, ' ') : key)
+        : ["Technical Expertise", "Project Management", "Fundraising"]; // Fallbacks for visualization
+      
+      return {
+        ...c,
+        position: { x: Math.random() * width, y: Math.random() * height },
+        _valueNames: valueNames,
+        _capabilityNames: capabilityNames
+      };
+    });
 
     const allCards = [ ...assigned, ...availableWithPos ];
 
