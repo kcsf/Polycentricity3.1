@@ -8,6 +8,7 @@
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
+    import { Navigation } from '@skeletonlabs/skeleton-svelte';
 
     // Props
     const { game, gameId, playerRole, content } = $props<{
@@ -18,45 +19,14 @@
     }>();
 
     // State
-    let leftSidebarOpen = $state(false);
-    let rightSidebarOpen = $state(false);
+    let leftExpanded = $state(false);
+    let rightExpanded = $state(false);
     let currentZoom = $state(1);
     let searchQuery = $state('');
-    let gameInfoExpanded = $state(false);
-    let yourRoleExpanded = $state(false);
-    let playersExpanded = $state(false);
+    let gameInfoExpanded = $state(true);
+    let yourRoleExpanded = $state(true);
+    let playersExpanded = $state(true);
     let chatExpanded = $state(true);
-
-    // DOM references
-    let leftSidebarElement = $state<HTMLElement | null>(null);
-    let rightSidebarElement = $state<HTMLElement | null>(null);
-    let leftToggleButton = $state<HTMLElement | null>(null);
-    let rightToggleButton = $state<HTMLElement | null>(null);
-
-    // Handle click outside to close sidebars
-    function handleClickOutside(event: MouseEvent) {
-        if (leftSidebarOpen && 
-            leftSidebarElement && 
-            !leftSidebarElement.contains(event.target as Node) &&
-            leftToggleButton && 
-            !leftToggleButton.contains(event.target as Node)) {
-            leftSidebarOpen = false;
-        }
-
-        if (rightSidebarOpen && 
-            rightSidebarElement && 
-            !rightSidebarElement.contains(event.target as Node) &&
-            rightToggleButton && 
-            !rightToggleButton.contains(event.target as Node)) {
-            rightSidebarOpen = false;
-        }
-    }
-
-    // Setup document event listeners
-    $effect(() => {
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    });
 
     // Zoom controls
     function zoomIn() {
@@ -76,11 +46,11 @@
     }
 
     function toggleLeftSidebar() {
-        leftSidebarOpen = !leftSidebarOpen;
+        leftExpanded = !leftExpanded;
     }
 
     function toggleRightSidebar() {
-        rightSidebarOpen = !rightSidebarOpen;
+        rightExpanded = !rightExpanded;
     }
 
     function formatDate(timestamp: number): string {
@@ -94,362 +64,234 @@
     }
 </script>
 
-<div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-100-800" style="height: calc(100vh - var(--app-bar-height, 64px))">
-    <!-- Left Sidebar Toggle -->
-    <button 
-        bind:this={leftToggleButton}
-        class="btn absolute top-4 left-4 z-50 bg-surface-200 rounded-md p-2 shadow-md border border-surface-300 hover:bg-surface-300 transition-colors" 
-        onclick={toggleLeftSidebar}
-        aria-label="Toggle left sidebar"
-    >
-        <icons.Menu size={20} />
-    </button>
+<div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-800-token overflow-hidden">
+    <!-- Left Navigation Rail - Game Info & Player Role -->
+    <Navigation.Rail expanded={leftExpanded} 
+                     header={
+                         <Navigation.Tile labelExpanded="Game Menu" title="Toggle Menu Width" onclick={toggleLeftSidebar}>
+                             <icons.Menu />
+                         </Navigation.Tile>
+                     }>
+        
+        <!-- Game Info Section -->
+        <Navigation.Tile labelExpanded="Game Info" active={gameInfoExpanded} 
+                        onclick={() => gameInfoExpanded = !gameInfoExpanded}>
+            <icons.Info />
+        </Navigation.Tile>
+        
+        {#if gameInfoExpanded}
+            <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
+                <div class="card p-3 bg-surface-200">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="text-sm">Status:</div>
+                        <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
+                        <div class="text-sm">Game Age:</div>
+                        <div class="text-sm font-bold">{getFormattedGameAge(game.created_at)}</div>
+                        <div class="text-sm">Created:</div>
+                        <div class="text-sm font-bold">{formatDate(game.created_at)}</div>
+                        <div class="text-sm">Players:</div>
+                        <div class="text-sm font-bold">{Object.keys(game.players || {}).length}/{game.max_players || 10}</div>
+                        <div class="text-sm">Deck Type:</div>
+                        <div class="text-sm font-bold">{game.deck_type || 'Standard'}</div>
+                    </div>
+                </div>
+            </div>
+        {/if}
+        
+        <!-- Role Card Section -->
+        <Navigation.Tile labelExpanded="Your Role Card" active={yourRoleExpanded} 
+                        onclick={() => yourRoleExpanded = !yourRoleExpanded}>
+            <icons.User />
+        </Navigation.Tile>
+        
+        {#if yourRoleExpanded}
+            <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
+                {#if playerRole?.card}
+                    <div class="card overflow-hidden rounded-md shadow-md bg-surface-200">
+                        <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
+                            <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
+                                <icons.User class="w-5 h-5" />
+                            </div>
+                            <div class="flex items-center justify-between pl-10">
+                                <h3 class="text-base font-bold truncate">
+                                    {playerRole.card.role_title || 'Unnamed Card'}
+                                    {#if playerRole.custom_name && playerRole.custom_name !== playerRole.card.role_title}
+                                        <span class="text-xs opacity-75">({playerRole.custom_name})</span>
+                                    {/if}
+                                </h3>
+                                {#if playerRole.card.card_number}
+                                    <span class="badge bg-surface-100 text-surface-900 text-xs px-2 py-0.5 rounded-full">{playerRole.card.card_number}</span>
+                                {/if}
+                            </div>
+                            <div class="flex items-center gap-2 text-xs mt-1 pl-10">
+                                <span>{playerRole.card.card_category || 'Card'}</span>
+                                <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{playerRole.actor_type || 'Custom'}</span>
+                            </div>
+                        </header>
 
-    <!-- Search Bar -->
-    <div class="absolute top-4 left-16 right-16 z-10 flex justify-center">
-        <div class="relative flex max-w-md">
-            <input 
-                type="text" 
-                bind:value={searchQuery}
-                placeholder="Search nodes..." 
-                class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300"
-            />
+                        <div class="p-2 space-y-2">
+                            {#if playerRole.card.backstory}
+                                <div>
+                                    <h4 class="text-xs font-semibold text-surface-700">Backstory</h4>
+                                    <p class="text-xs text-surface-900">{playerRole.card.backstory}</p>
+                                </div>
+                            {/if}
+
+                            {#if playerRole.card._valueNames && playerRole.card._valueNames.length > 0}
+                                <div>
+                                    <h4 class="text-xs font-semibold text-surface-700">Values</h4>
+                                    <ul class="list-disc list-inside text-xs text-surface-900">
+                                        {#each playerRole.card._valueNames as value}
+                                            <li>{value}</li>
+                                        {/each}
+                                    </ul>
+                                </div>
+                            {/if}
+
+                            {#if playerRole.card.goals}
+                                <div>
+                                    <h4 class="text-xs font-semibold text-surface-700">Goals</h4>
+                                    <p class="text-xs text-surface-900">{playerRole.card.goals}</p>
+                                </div>
+                            {/if}
+
+                            {#if playerRole.card._capabilityNames && playerRole.card._capabilityNames.length > 0}
+                                <div>
+                                    <h4 class="text-xs font-semibold text-surface-700">Capabilities</h4>
+                                    <div class="flex flex-wrap gap-1">
+                                        {#each playerRole.card._capabilityNames as capability}
+                                            <span class="badge variant-soft-secondary text-xs">{capability}</span>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/if}
+
+                            {#if playerRole.card.resources}
+                                <div>
+                                    <h4 class="text-xs font-semibold text-surface-700">Resources</h4>
+                                    <p class="text-xs text-surface-900">{playerRole.card.resources}</p>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                {:else}
+                    <div class="card p-4 bg-surface-200 text-center">
+                        <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
+                        <h3 class="text-base font-bold text-surface-900 mb-2">No Role Card Assigned</h3>
+                        <p class="text-xs text-surface-700 mb-4">Join this game to select a role card</p>
+                        <button class="btn btn-sm variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}/details`)}>
+                            <icons.UserPlus class="w-4 h-4 mr-2" />
+                            Join Game
+                        </button>
+                    </div>
+                {/if}
+            </div>
+        {/if}
+    </Navigation.Rail>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 relative overflow-hidden">
+        <!-- Top Controls -->
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex justify-center">
+            <div class="relative flex max-w-md">
+                <input 
+                    type="text" 
+                    bind:value={searchQuery}
+                    placeholder="Search nodes..." 
+                    class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300"
+                />
+                <button 
+                    class="btn variant-filled-primary rounded-l-none px-3"
+                    onclick={handleSearch}
+                    aria-label="Search"
+                >
+                    <icons.Search size={20} />
+                </button>
+            </div>
+        </div>
+        
+        <!-- Zoom Controls -->
+        <div class="absolute top-4 right-20 z-10 flex items-center space-x-1">
             <button 
-                class="btn variant-filled-primary rounded-l-none px-3"
-                onclick={handleSearch}
-                aria-label="Search"
+                class="btn variant-filled-surface p-2 !rounded-md"
+                onclick={zoomOut} 
+                aria-label="Zoom out"
             >
-                <icons.Search size={20} />
+                <icons.ZoomOut size={18} />
+            </button>
+            <button 
+                class="btn variant-filled-surface p-2 !rounded-md"
+                onclick={resetZoom} 
+                aria-label="Reset zoom"
+            >
+                <icons.Maximize size={18} />
+            </button>
+            <button 
+                class="btn variant-filled-surface p-2 !rounded-md"
+                onclick={zoomIn} 
+                aria-label="Zoom in"
+            >
+                <icons.ZoomIn size={18} />
             </button>
         </div>
-    </div>
-
-    <!-- Right Controls -->
-    <div class="absolute top-4 right-4 z-50 flex items-center space-x-2">
-        <button 
-            class="btn variant-filled-surface p-2"
-            onclick={zoomOut} 
-            aria-label="Zoom out"
-        >
-            <icons.ZoomOut size={20} />
-        </button>
-        <button 
-            class="btn variant-filled-surface p-2"
-            onclick={resetZoom} 
-            aria-label="Reset zoom"
-        >
-            <icons.Maximize size={20} />
-        </button>
-        <button 
-            class="btn variant-filled-surface p-2"
-            onclick={zoomIn} 
-            aria-label="Zoom in"
-        >
-            <icons.ZoomIn size={20} />
-        </button>
-        <button 
-            class="btn variant-filled-primary flex items-center"
-            onclick={() => goto(`/games/${gameId}/agreements`)}
-            aria-label="New agreement"
-        >
-            <icons.Plus size={20} class="mr-2" />
-            <span class="hidden md:inline">New Agreement</span>
-        </button>
-        <button 
-            bind:this={rightToggleButton}
-            class="btn variant-filled-surface p-2"
-            onclick={toggleRightSidebar}
-            aria-label="Toggle players"
-        >
-            <icons.Users size={20} />
-        </button>
-    </div>
-
-    <!-- Main Content Area with Sidebars -->
-    <div class="flex-1 flex relative overflow-hidden pt-16">
-        <!-- Main D3 Visualization Area -->
-        <div class="flex-1 relative" style="transition: margin 0.3s ease-in-out;"
-             class:ml-72={leftSidebarOpen}
-             class:mr-72={rightSidebarOpen}>
+        
+        <!-- New Agreement Button -->
+        <div class="absolute top-14 right-4 z-10">
+            <button 
+                class="btn variant-filled-primary"
+                onclick={() => goto(`/games/${gameId}/agreements`)}
+            >
+                <icons.Plus size={18} class="mr-2" />
+                New Agreement
+            </button>
+        </div>
+        
+        <!-- D3 Visualization -->
+        <div class="w-full h-full pt-20">
             <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
         </div>
     </div>
-    
-    <!-- Overlays (placed outside of the main content to ensure they appear on top) -->
-    
-    <!-- Left Sidebar Overlay -->
-    <div class="fixed inset-0 bg-black/30 z-30" 
-         class:hidden={!leftSidebarOpen}
-         onclick={toggleLeftSidebar}></div>
-         
-    <!-- Right Sidebar Overlay -->
-    <div class="fixed inset-0 bg-black/30 z-30" 
-         class:hidden={!rightSidebarOpen}
-         onclick={toggleRightSidebar}></div>
-    
-    <!-- Left Sidebar -->
-    <aside 
-        bind:this={leftSidebarElement}
-        class="fixed top-0 bottom-0 -left-72 w-72 max-w-[90vw] bg-surface-100-800 shadow-xl z-40 
-               transition-all duration-300 overflow-y-auto"
-        class:left-0={leftSidebarOpen}
-        style="margin-top: var(--app-bar-height, 64px); height: calc(100vh - var(--app-bar-height, 64px));"
-    >
-        <div class="p-4 flex-1 space-y-4">
-            <!-- Game Info Section -->
-            <div class="card p-3">
-                <div 
-                    class="flex justify-between items-center cursor-pointer" 
-                    onclick={() => gameInfoExpanded = !gameInfoExpanded}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault(); 
-                            gameInfoExpanded = !gameInfoExpanded;
-                        }
-                    }} 
-                    role="button"
-                    tabindex="0"
-                    aria-expanded={gameInfoExpanded}
-                >
-                    <h3 class="h4 flex items-center">
-                        <icons.Info size={16} class="mr-2" />
-                        Game Info
-                    </h3>
-                    <div>
-                        {#if gameInfoExpanded}
-                            <icons.ChevronUp size={20} />
-                        {:else}
-                            <icons.ChevronDown size={20} />
-                        {/if}
-                    </div>
+
+    <!-- Right Navigation Rail - Players & Chat -->
+    <Navigation.Rail expanded={rightExpanded} position="right"
+                     header={
+                         <Navigation.Tile labelExpanded="Players" title="Toggle Players Menu" onclick={toggleRightSidebar}>
+                             <icons.Users />
+                         </Navigation.Tile>
+                     }>
+        
+        <!-- Players List Section -->
+        <Navigation.Tile labelExpanded="Player List" active={playersExpanded} 
+                        onclick={() => playersExpanded = !playersExpanded}>
+            <icons.UsersRound />
+        </Navigation.Tile>
+        
+        {#if playersExpanded}
+            <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
+                <div class="card p-2 bg-surface-200">
+                    <PlayersList 
+                        {game} 
+                        highlightCurrentUser={true} 
+                        currentUserId={$userStore.user?.user_id || null} 
+                        compact={true}
+                    />
                 </div>
-
-                {#if gameInfoExpanded}
-                    <div class="mt-3 space-y-2" transition:slide={{ duration: 200 }}>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="text-sm">Status:</div>
-                            <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
-                            <div class="text-sm">Game Age:</div>
-                            <div class="text-sm font-bold">{getFormattedGameAge(game.created_at)}</div>
-                            <div class="text-sm">Created:</div>
-                            <div class="text-sm font-bold">{formatDate(game.created_at)}</div>
-                            <div class="text-sm">Players:</div>
-                            <div class="text-sm font-bold">{Object.keys(game.players || {}).length}/{game.max_players || 10}</div>
-                            <div class="text-sm">Deck Type:</div>
-                            <div class="text-sm font-bold">{game.deck_type || 'Standard'}</div>
-                        </div>
-                    </div>
-                {/if}
             </div>
-
-            <!-- Your Role Card Section -->
-            <div class="card p-3">
-                <div 
-                    class="flex justify-between items-center cursor-pointer" 
-                    onclick={() => yourRoleExpanded = !yourRoleExpanded}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault(); 
-                            yourRoleExpanded = !yourRoleExpanded;
-                        }
-                    }} 
-                    role="button"
-                    tabindex="0"
-                    aria-expanded={yourRoleExpanded}
-                >
-                    <h3 class="h4 flex items-center">
-                        <icons.User size={16} class="mr-2" />
-                        Your Role Card
-                    </h3>
-                    <div>
-                        {#if yourRoleExpanded}
-                            <icons.ChevronUp size={20} />
-                        {:else}
-                            <icons.ChevronDown size={20} />
-                        {/if}
-                    </div>
+        {/if}
+        
+        <!-- Chat Section -->
+        <Navigation.Tile labelExpanded="Group Chat" active={chatExpanded} 
+                        onclick={() => chatExpanded = !chatExpanded}>
+            <icons.MessageSquare />
+        </Navigation.Tile>
+        
+        {#if chatExpanded}
+            <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
+                <div class="card p-2 bg-surface-200 flex flex-col h-64">
+                    <ChatBox {gameId} chatType="group" compact={true} />
                 </div>
-
-                {#if yourRoleExpanded}
-                    <div class="mt-3" transition:slide={{ duration: 200 }}>
-                        {#if playerRole.card}
-                            <div class="card overflow-hidden rounded-md shadow-md bg-surface-200 border border-surface-300">
-                                <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
-                                    <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
-                                        <icons.User class="w-5 h-5" />
-                                    </div>
-                                    <div class="flex items-center justify-between pl-10">
-                                        <h3 class="text-base font-bold truncate">
-                                            {playerRole.card.role_title || 'Unnamed Card'}
-                                            {#if playerRole.custom_name && playerRole.custom_name !== playerRole.card.role_title}
-                                                <span class="text-xs opacity-75">({playerRole.custom_name})</span>
-                                            {/if}
-                                        </h3>
-                                        {#if playerRole.card.card_number}
-                                            <span class="badge bg-surface-100 text-surface-900 text-xs px-2 py-0.5 rounded-full">{playerRole.card.card_number}</span>
-                                        {/if}
-                                    </div>
-                                    <div class="flex items-center gap-2 text-xs mt-1 pl-10">
-                                        <span>{playerRole.card.card_category || 'Card'}</span>
-                                        <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{playerRole.actor_type || 'Custom'}</span>
-                                    </div>
-                                </header>
-
-                                <div class="p-2 space-y-2">
-                                    {#if playerRole.card.backstory}
-                                        <div>
-                                            <h4 class="text-xs font-semibold text-surface-700">Backstory</h4>
-                                            <p class="text-xs text-surface-900">{playerRole.card.backstory}</p>
-                                        </div>
-                                    {/if}
-
-                                    {#if playerRole.card._valueNames && playerRole.card._valueNames.length > 0}
-                                        <div>
-                                            <h4 class="text-xs font-semibold text-surface-700">Values</h4>
-                                            <ul class="list-disc list-inside text-xs text-surface-900">
-                                                {#each playerRole.card._valueNames as value}
-                                                    <li>{value}</li>
-                                                {/each}
-                                            </ul>
-                                        </div>
-                                    {/if}
-
-                                    {#if playerRole.card.goals}
-                                        <div>
-                                            <h4 class="text-xs font-semibold text-surface-700">Goals</h4>
-                                            <p class="text-xs text-surface-900">{playerRole.card.goals}</p>
-                                        </div>
-                                    {/if}
-
-                                    {#if playerRole.card._capabilityNames && playerRole.card._capabilityNames.length > 0}
-                                        <div>
-                                            <h4 class="text-xs font-semibold text-surface-700">Capabilities</h4>
-                                            <div class="flex flex-wrap gap-1">
-                                                {#each playerRole.card._capabilityNames as capability}
-                                                    <span class="badge variant-soft-secondary text-xs">{capability}</span>
-                                                {/each}
-                                            </div>
-                                        </div>
-                                    {/if}
-
-                                    {#if playerRole.card.resources}
-                                        <div>
-                                            <h4 class="text-xs font-semibold text-surface-700">Resources</h4>
-                                            <p class="text-xs text-surface-900">{playerRole.card.resources}</p>
-                                        </div>
-                                    {/if}
-
-                                    {#if playerRole.card.intellectual_property}
-                                        <div>
-                                            <h4 class="text-xs font-semibold text-surface-700">IP</h4>
-                                            <p class="text-xs text-surface-900">{playerRole.card.intellectual_property}</p>
-                                        </div>
-                                    {/if}
-                                </div>
-                            </div>
-                        {:else}
-                            <div class="card p-4 bg-surface-200 border border-surface-300 text-center">
-                                <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
-                                <h3 class="text-base font-bold text-surface-900 mb-2">No Role Card Assigned</h3>
-                                <p class="text-xs text-surface-700 mb-4">Join this game to select a role card and start playing</p>
-                                <button class="btn btn-sm variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}/details`)}>
-                                    <icons.UserPlus class="w-4 h-4 mr-2" />
-                                    Join Game
-                                </button>
-                            </div>
-                        {/if}
-                    </div>
-                {/if}
             </div>
-        </div>
-    </aside>
-
-    <!-- Right Sidebar -->
-    <aside 
-        bind:this={rightSidebarElement}
-        class="fixed top-0 bottom-0 -right-72 w-72 max-w-[90vw] bg-surface-100-800 shadow-xl z-40 
-               transition-all duration-300 overflow-y-auto"
-        class:right-0={rightSidebarOpen}
-        style="margin-top: var(--app-bar-height, 64px); height: calc(100vh - var(--app-bar-height, 64px));"
-    >
-        <div class="p-4 flex-1 space-y-4">
-            <!-- Players List Section -->
-            <div class="card p-3">
-                <div 
-                    class="flex justify-between items-center cursor-pointer" 
-                    onclick={() => playersExpanded = !playersExpanded}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault(); 
-                            playersExpanded = !playersExpanded;
-                        }
-                    }} 
-                    role="button"
-                    tabindex="0"
-                    aria-expanded={playersExpanded}
-                >
-                    <h3 class="h4 flex items-center">
-                        <icons.Users size={16} class="mr-2" />
-                        Players
-                    </h3>
-                    <div>
-                        {#if playersExpanded}
-                            <icons.ChevronUp size={20} />
-                        {:else}
-                            <icons.ChevronDown size={20} />
-                        {/if}
-                    </div>
-                </div>
-
-                {#if playersExpanded}
-                    <div class="mt-3" transition:slide={{ duration: 200 }}>
-                        <PlayersList 
-                            {game} 
-                            highlightCurrentUser={true} 
-                            currentUserId={$userStore.user?.user_id || null} 
-                            compact={true}
-                        />
-                    </div>
-                {/if}
-            </div>
-
-            <!-- Chat Section -->
-            <div class="card p-3 flex-1 flex flex-col">
-                <div 
-                    class="flex justify-between items-center cursor-pointer" 
-                    onclick={() => chatExpanded = !chatExpanded}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault(); 
-                            chatExpanded = !chatExpanded;
-                        }
-                    }} 
-                    role="button"
-                    tabindex="0"
-                    aria-expanded={chatExpanded}
-                >
-                    <h3 class="h4 flex items-center">
-                        <icons.MessageSquare size={16} class="mr-2" />
-                        Group Chat
-                    </h3>
-                    <div>
-                        {#if chatExpanded}
-                            <icons.ChevronUp size={20} />
-                        {:else}
-                            <icons.ChevronDown size={20} />
-                        {/if}
-                    </div>
-                </div>
-
-                {#if chatExpanded}
-                    <div class="mt-3 flex-1 flex flex-col" transition:slide={{ duration: 200 }}>
-                        <div class="chat-container h-64 flex-1">
-                            <ChatBox {gameId} chatType="group" compact={true} />
-                        </div>
-                    </div>
-                {/if}
-            </div>
-        </div>
-    </aside>
+        {/if}
+    </Navigation.Rail>
 </div>
 
