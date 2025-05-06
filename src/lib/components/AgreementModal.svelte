@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Modal, toastStore } from '@skeletonlabs/skeleton-svelte';
-  import { type ToastSettings } from '@skeletonlabs/skeleton-svelte';
+  import { Modal } from '@skeletonlabs/skeleton-svelte';
   import * as icons from '@lucide/svelte';
   import { createAgreement } from '$lib/services/gameService';
   import type { Actor, ActorWithCard } from '$lib/types';
+  import { toaster } from '$lib/utils/toaster-svelte';
 
   // Props
   const { gameId, actorsList } = $props<{
@@ -111,29 +111,26 @@
   async function handleSubmit() {
     // Form validation
     if (!title.trim()) {
-      const t: ToastSettings = {
-        message: 'Please enter a title for the agreement',
-        background: 'variant-filled-error'
-      };
-      toastStore.trigger(t);
+      toaster.error({
+        title: 'Validation Error',
+        description: 'Please enter a title for the agreement'
+      });
       return;
     }
 
     if (!description.trim()) {
-      const t: ToastSettings = {
-        message: 'Please enter a description for the agreement',
-        background: 'variant-filled-error'
-      };
-      toastStore.trigger(t);
+      toaster.error({
+        title: 'Validation Error',
+        description: 'Please enter a description for the agreement'
+      });
       return;
     }
 
     if (selectedParties.length < 1) {
-      const t: ToastSettings = {
-        message: 'Please select at least one party for the agreement',
-        background: 'variant-filled-error'
-      };
-      toastStore.trigger(t);
+      toaster.error({
+        title: 'Validation Error',
+        description: 'Please select at least one party for the agreement'
+      });
       return;
     }
 
@@ -141,11 +138,10 @@
     for (const actorId of selectedParties) {
       if (terms[actorId].obligations.length === 0 && terms[actorId].benefits.length === 0) {
         const actor = actorsList.find(a => a.actor_id === actorId);
-        const t: ToastSettings = {
-          message: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`,
-          background: 'variant-filled-error'
-        };
-        toastStore.trigger(t);
+        toaster.error({
+          title: 'Validation Error',
+          description: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`
+        });
         return;
       }
     }
@@ -162,27 +158,24 @@
       );
 
       if (result) {
-        const t: ToastSettings = {
-          message: 'Agreement created successfully',
-          background: 'variant-filled-success'
-        };
-        toastStore.trigger(t);
+        toaster.success({
+          title: 'Success',
+          description: 'Agreement created successfully'
+        });
         resetForm();
         modalOpen = false;
       } else {
-        const t: ToastSettings = {
-          message: 'Failed to create agreement',
-          background: 'variant-filled-error'
-        };
-        toastStore.trigger(t);
+        toaster.error({
+          title: 'Error',
+          description: 'Failed to create agreement'
+        });
       }
     } catch (error) {
       console.error('Error creating agreement:', error);
-      const t: ToastSettings = {
-        message: 'An error occurred while creating the agreement',
-        background: 'variant-filled-error'
-      };
-      toastStore.trigger(t);
+      toaster.error({
+        title: 'Error',
+        description: 'An error occurred while creating the agreement'
+      });
     } finally {
       isSubmitting = false;
     }

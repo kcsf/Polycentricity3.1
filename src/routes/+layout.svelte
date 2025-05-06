@@ -6,6 +6,8 @@
   import { userStore } from '$lib/stores/userStore';
   import { toggleTheme } from '$lib/stores/themeStore';
   import { get } from 'svelte/store';
+  import { Toaster } from '@skeletonlabs/skeleton-svelte';
+  import { toaster } from '$lib/utils/toaster-svelte';
 
   let { children } = $props();
   let isAuthenticated = $state(get(userStore).isAuthenticated);
@@ -32,4 +34,5 @@
     {@render children()}
   </main>
   <Footer />
+  <Toaster {toaster} />
 </div>
