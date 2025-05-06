@@ -1,8 +1,8 @@
 <script lang="ts">
   import D3CardBoard from './D3CardBoard.svelte';
-  import { getAvailableCardsForGame } from '$lib/services/gameService';
+  import { getGameContext } from '$lib/services/gameService';
   import { currentGameStore } from '$lib/stores/gameStore';
-  import type { Card } from '$lib/types';
+  import type { Card, GameContext } from '$lib/types';
   
   // Use Svelte 5 Runes for props
   const { gameId, activeActorId = undefined } = $props<{ 
@@ -23,8 +23,9 @@
       isLoading = true;
       console.log(`CardBoard: Loading cards for game ${gameId}`);
       
-      // Pre-load cards (also happens in D3CardBoard, but this gives better error handling)
-      const availableCards = await getAvailableCardsForGame(gameId);
+      // Get available cards from gameContext
+      const gameContext = await getGameContext(gameId);
+      const availableCards = gameContext?.availableCards || [];
       console.log(`CardBoard: Loaded ${availableCards.length} cards`);
       
       if (availableCards.length === 0) {

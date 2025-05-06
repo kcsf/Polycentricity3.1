@@ -67,9 +67,10 @@
     }
   };
   
-  const { gameId, activeActorId = undefined } = $props<{
+  const { gameId, activeActorId = undefined, cards = undefined } = $props<{
     gameId: string;
     activeActorId?: string;
+    cards?: Card[];
   }>();
 
   let svgElement = $state<SVGSVGElement | null>(null);
@@ -93,8 +94,10 @@
     }
   });
 
-  // Card cache to avoid redundant fetches
+  // Caches to avoid redundant fetches
   const cardCache = new Map<string, Card>();
+  const gameCache = new Map<string, any>();
+  const actorCache = new Map<string, Actor>();
   
   // This function is now replaced by getGameContext which returns cards already
   // Kept for future reference or if we need to load cards separately
@@ -646,9 +649,124 @@
     }
 
     try {
-      // Use getGameContext to fetch all required data in a single efficient call
-      // This is a significant improvement over multiple separate API calls
-      log(`[D3CardBoard] Loading game context for: ${gameId}`);
+      // Check if cards were passed as props and use those if available
+      if (cards && cards.length > 0) {
+        log(`[D3CardBoard] Using ${cards.length} cards passed as props`);
+        // Apply position data to the cards
+        cardsWithPosition = applyCardPositions(cards as CardWithPosition[]);
+        
+        // Still need to get game data for agreements and actors
+        const gameContext = await getGameContext(gameId);
+        if (gameContext) {
+          // Set agreements and actors from context
+          agreements = gameContext.agreements || [];
+          actors = gameContext.actors || [];
+          
+          // Cache game data
+          gameCache.set(gameId, gameContext.game);
+          
+          // Build actor-card mapping for visualization
+          actors.forEach((actor) => {
+            if (actor.card_id) {
+              actorCardMap.set(actor.actor_id, actor.card_id);
+              log(`[D3CardBoard] Mapped actor ${actor.actor_id} to card ${actor.card_id}`);
+            }
+          });
+          
+          // Enhance cards with values and capabilities
+          cardsWithPosition = await enhanceCardData(cardsWithPosition);
+          
+          log(`[D3CardBoard] Loaded: ${actors.length} actors, ${agreements.length} agreements from context`);
+          
+          // Initialize the graph with these cards
+          try {
+            // Initialize the D3 graph visualization
+            log('[D3CardBoard] Initializing D3 graph with cards:', cardsWithPosition.length);
+            
+            const graphState = initializeD3Graph(
+              svgElement,
+              cardsWithPosition,
+              agreements,
+              width,
+              height,
+              activeCardId,
+              (node) => (selectedNode = node),
+              actorCardMap
+            );
+            
+            // Check if we got valid results back
+            if (!graphState || !graphState.simulation || !graphState.nodeElements) {
+              throw new Error('D3 graph initialization returned invalid state');
+            }
+            
+            simulation = graphState.simulation;
+            nodeElements = graphState.nodeElements;
+            log('[D3CardBoard] D3 graph initialized successfully');
+            
+            // Add donut rings for values and capabilities (with null safety)
+            if (nodeElements) {
+              try {
+                addDonutRings(nodeElements, activeCardId);
+                log('[D3CardBoard] Added donut rings to nodes');
+              } catch (donutError) {
+                console.error('[D3CardBoard] Error adding donut rings:', donutError);
+              }
+            }
+            
+            // Add icons to nodes
+            if (nodeElements) {
+              try {
+                const iconNames = cardsWithPosition
+                  .map((card) => card.icon || 'user')
+                  .filter((value, index, self) => self.indexOf(value) === index);
+                
+                // Preload icons
+                await loadIcons(iconNames);
+                
+                nodeElements.each(function (node: D3Node) {
+                  if (node.type === 'actor') {
+                    const centerGroup = d3.select(this).append('g').attr('class', 'center-group center-icon-container');
+                    const iconContainer = document.createElement('div');
+                    iconContainer.className = 'icon-container';
+                    const card = node.data as Card;
+                    if (!card) return;
+                    
+                    const iconName = card.icon || 'user';
+                    const isActive = node.id === activeCardId;
+                    const iconSize = isActive ? 36 : 24;
+                    
+                    createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
+                    const foreignObject = centerGroup
+                      .append('foreignObject')
+                      .attr('width', iconSize)
+                      .attr('height', iconSize)
+                      .attr('x', -iconSize/2)
+                      .attr('y', -iconSize/2)
+                      .attr('class', 'card-icon-container')
+                      .style('pointer-events', 'none')
+                      .style('overflow', 'visible');
+                    foreignObject.node()?.appendChild(iconContainer);
+                  }
+                });
+              } catch (iconError) {
+                log(`[D3CardBoard] Error loading icons: ${iconError}`);
+              }
+            }
+            
+            // Subscribe to game data updates
+            subscribeToGameData();
+            
+            return; // Exit early as we've done all the initialization
+          } catch (graphError) {
+            console.error('[D3CardBoard] Failed to initialize D3 graph:', graphError);
+          }
+        } else {
+          log(`[D3CardBoard] Warning: Failed to load game context, using card data only`);
+        }
+      } else {
+        // Otherwise, use getGameContext to fetch all required data in a single efficient call
+        // This is a significant improvement over multiple separate API calls
+        log(`[D3CardBoard] Loading game context for: ${gameId}`);
       const gameContext = await getGameContext(gameId);
       
       if (!gameContext) {
