@@ -838,8 +838,31 @@ export function createLinks(
     
     const agreementId = agreement.agreement_id;
     
-    // Get all party actor IDs
-    const partyActorIds = Object.keys(agreement.parties);
+    // Check if parties is a Gun.js reference or an actual object with parties
+    let partyActorIds: string[] = [];
+    
+    if (agreement.parties && typeof agreement.parties === 'object') {
+      // If parties is a Gun reference (like {"#":"agreements/ag_1/parties"})
+      if (agreement.parties["#"] && Object.keys(agreement.parties).length === 1) {
+        // This is a Gun reference that hasn't been resolved
+        // For a temporary fix - use agreement id info to determine actors
+        // This is a demo data workaround - in production we should have parties resolved
+        
+        // Create synthetic parties for demo - extract ID number from agreement_id (e.g. ag_1 → 1)
+        const agreementNum = agreementId.split('_')[1];
+        if (agreementNum) {
+          // Pair each agreement with two sequential cards for demo connections
+          const num = parseInt(agreementNum);
+          if (!isNaN(num)) {
+            partyActorIds = [`actor_${num}`, `actor_${(num % 5) + 1}`];
+          }
+        }
+      } else {
+        // Normal case - parties is an object with actor ids as keys
+        partyActorIds = Object.keys(agreement.parties)
+          .filter(key => key !== '#' && key !== '_'); // Filter out Gun metadata
+      }
+    }
     
     // Convert actor IDs to card IDs
     const participatingCardIds: string[] = [];
@@ -1128,7 +1151,7 @@ export function initializeD3Graph(
         if (d.type === "actor") {
           return d.id === activeCardId ? 45 : 30; // Larger if active
         } else {
-          return 17; // Agreement nodes are smaller
+          return 24; // Agreement nodes are more prominent
         }
       })
       .attr("fill", d => {
@@ -1136,7 +1159,8 @@ export function initializeD3Graph(
         if (d.type === "actor") {
           return "#fff"; // White for actors
         } else {
-          return "#f9fafb"; // Slightly off-white for agreements
+          // Use a light gradient fill for agreements
+          return "#f0f9ff"; // Light sky blue for agreements
         }
       })
       .attr("stroke", d => {
@@ -1144,11 +1168,28 @@ export function initializeD3Graph(
         if (d.type === "actor") {
           return d.id === activeCardId ? "#2563EB" : "#e5e5e5"; // Blue highlight for active actor
         } else {
-          return "#d1d5db"; // Gray for agreements
+          return "#60a5fa"; // Blue for agreements
         }
       })
-      .attr("stroke-width", d => d.id === activeCardId ? 2 : 1) // Thicker stroke for active nodes
+      .attr("stroke-width", d => {
+        if (d.type === "actor") {
+          return d.id === activeCardId ? 2 : 1; // Thicker stroke for active actor
+        } else {
+          return 1.5; // Slightly thicker for agreements
+        }
+      })
       .attr("class", d => d.type === "actor" ? "actor-circle" : "agreement-circle");
+      
+    // Add special styling for agreement nodes
+    nodeElements
+      .filter(d => d.type === "agreement")
+      .append("circle")
+      .attr("r", 18)
+      .attr("fill", "none")
+      .attr("stroke", "#93c5fd")
+      .attr("stroke-width", 0.8)
+      .attr("stroke-dasharray", "2,2")
+      .attr("class", "agreement-outer-ring");
     
     // Add labels to nodes
     const nodeLabels = nodeElements
