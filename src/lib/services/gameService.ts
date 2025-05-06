@@ -840,17 +840,40 @@ export async function getGameContext(
       (c) => c != null,
     ) as CardWithPosition[];
 
-    // 6️⃣ Fetch all agreements for this game
+    // 6️⃣ Fetch and fully resolve all agreements for this game
     const rawAgs = await getCollection<Agreement>(nodes.agreements);
-    const agreements: AgreementWithPosition[] = rawAgs
-      .filter((ag) => ag.game_ref === gameId)
-      .map((ag) => ({ ...ag, position: randomPos() }));
+    const agreements: AgreementWithPosition[] = await Promise.all(
+      rawAgs
+        .filter((ag) => ag.game_ref === gameId)
+        .map(async (ag) => {
+          // resolve the parties map (actor_id → {card_ref, obligation, benefit})
+          const parties =
+            (await getField<
+              Record<
+                string,
+                {
+                  card_ref: string;
+                  obligation: string;
+                  benefit: string;
+                }
+              >
+            >(`${nodes.agreements}/${ag.agreement_id}`, "parties")) || {};
 
-    // 7️⃣ Rebuild the players map from our actors array
-    game.players = actors.reduce<Record<string, boolean>>((acc, a) => {
-      if (a.user_ref) acc[a.user_ref] = true;
-      return acc;
-    }, {});
+          // resolve the cards_ref map (card_id → true)
+          const cards_ref =
+            (await getField<Record<string, boolean>>(
+              `${nodes.agreements}/${ag.agreement_id}`,
+              "cards_ref",
+            )) || {};
+
+          return {
+            ...ag,
+            parties,
+            cards_ref,
+            position: randomPos(),
+          };
+        }),
+    );
 
     // 8️⃣ Return the fully-hydrated context
     return {

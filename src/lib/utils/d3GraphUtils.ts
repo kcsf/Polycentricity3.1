@@ -838,31 +838,9 @@ export function createLinks(
     
     const agreementId = agreement.agreement_id;
     
-    // Check if parties is a Gun.js reference or an actual object with parties
-    let partyActorIds: string[] = [];
-    
-    if (agreement.parties && typeof agreement.parties === 'object') {
-      // If parties is a Gun reference (like {"#":"agreements/ag_1/parties"})
-      if (agreement.parties["#"] && Object.keys(agreement.parties).length === 1) {
-        // This is a Gun reference that hasn't been resolved
-        // For a temporary fix - use agreement id info to determine actors
-        // This is a demo data workaround - in production we should have parties resolved
-        
-        // Create synthetic parties for demo - extract ID number from agreement_id (e.g. ag_1 → 1)
-        const agreementNum = agreementId.split('_')[1];
-        if (agreementNum) {
-          // Pair each agreement with two sequential cards for demo connections
-          const num = parseInt(agreementNum);
-          if (!isNaN(num)) {
-            partyActorIds = [`actor_${num}`, `actor_${(num % 5) + 1}`];
-          }
-        }
-      } else {
-        // Normal case - parties is an object with actor ids as keys
-        partyActorIds = Object.keys(agreement.parties)
-          .filter(key => key !== '#' && key !== '_'); // Filter out Gun metadata
-      }
-    }
+    // Get all party actor IDs - now properly resolved by getGameContext
+    const partyActorIds = Object.keys(agreement.parties)
+      .filter(key => key !== '#' && key !== '_'); // Filter out any remaining Gun metadata
     
     // Convert actor IDs to card IDs
     const participatingCardIds: string[] = [];
