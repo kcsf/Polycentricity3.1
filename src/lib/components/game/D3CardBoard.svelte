@@ -418,9 +418,8 @@
   let lastAgreementUpdateTime = 0;
   let lastActorUpdateTime = 0;
   
-  // Game cache for tracking changes
-  const gameCache = new Map<string, any>();
-  const actorCache = new Map<string, Actor>();
+  // Game cache for tracking changes already defined above
+  // Using existing gameCache and actorCache
   
   function subscribeToGameData() {
     log(`[D3CardBoard] Subscribing to game data: ${gameId}`);
@@ -767,168 +766,168 @@
         // Otherwise, use getGameContext to fetch all required data in a single efficient call
         // This is a significant improvement over multiple separate API calls
         log(`[D3CardBoard] Loading game context for: ${gameId}`);
-      const gameContext = await getGameContext(gameId);
-      
-      if (!gameContext) {
-        throw new Error(`Failed to load game context for: ${gameId}`);
-      }
-      
-      // Cache game data
-      gameCache.set(gameId, gameContext.game);
-      
-      // In parallel, if we have an active actor, identify their card
-      if (activeActorId) {
-        // First check localStorage for cached card ID which can be faster than fetching
-        const cachedCardId = localStorage.getItem(`actor_${activeActorId}_card`);
-        if (cachedCardId) {
-          log(`[D3CardBoard] Found cached card ID for actor ${activeActorId}: ${cachedCardId}`);
-          activeCardId = cachedCardId;
+        const gameContext = await getGameContext(gameId);
+        
+        if (!gameContext) {
+          throw new Error(`Failed to load game context for: ${gameId}`);
         }
         
-        // Look for this actor in the loaded actors and find their card
-        if (gameContext.actors) {
-          const actor = gameContext.actors.find(a => a.actor_id === activeActorId);
-          if (actor && actor.card) {
-            log(`[D3CardBoard] Found card for actor ${activeActorId}: ${actor.card.card_id}`);
-            activeCardId = actor.card.card_id;
-            // Cache the card ID for quicker loading next time
-            localStorage.setItem(`actor_${activeActorId}_card`, actor.card.card_id);
+        // Cache game data
+        gameCache.set(gameId, gameContext.game);
+        
+        // In parallel, if we have an active actor, identify their card
+        if (activeActorId) {
+          // First check localStorage for cached card ID which can be faster than fetching
+          const cachedCardId = localStorage.getItem(`actor_${activeActorId}_card`);
+          if (cachedCardId) {
+            log(`[D3CardBoard] Found cached card ID for actor ${activeActorId}: ${cachedCardId}`);
+            activeCardId = cachedCardId;
+          }
+          
+          // Look for this actor in the loaded actors and find their card
+          if (gameContext.actors) {
+            const actor = gameContext.actors.find(a => a.actor_id === activeActorId);
+            if (actor && actor.card) {
+              log(`[D3CardBoard] Found card for actor ${activeActorId}: ${actor.card.card_id}`);
+              activeCardId = actor.card.card_id;
+              // Cache the card ID for quicker loading next time
+              localStorage.setItem(`actor_${activeActorId}_card`, actor.card.card_id);
+            }
           }
         }
-      }
-      
-      // Process available cards - apply position data and enhance with values/capabilities
-      const availableCards = gameContext.availableCards || [];
-      const positionedCards = applyCardPositions(availableCards);
-      
-      // Enhance cards with values and capabilities
-      cardsWithPosition = await enhanceCardData(positionedCards);
-      log(`[D3CardBoard] Processed ${cardsWithPosition.length} cards with positions and enhancements`);
-      
-      // Set agreements and actors from context
-      agreements = gameContext.agreements || [];
-      actors = gameContext.actors || [];
-      
-      log(`[D3CardBoard] Loaded: ${actors.length} actors, ${agreements.length} agreements`);
-      
-      // Build actor-card mapping for visualization
-      actors.forEach((actor) => {
-        if (actor.card_id) {
-          actorCardMap.set(actor.actor_id, actor.card_id);
-          log(`[D3CardBoard] Mapped actor ${actor.actor_id} to card ${actor.card_id}`);
-        }
-      });
+        
+        // Process available cards - apply position data and enhance with values/capabilities
+        const availableCards = gameContext.availableCards || [];
+        const positionedCards = applyCardPositions(availableCards);
+        
+        // Enhance cards with values and capabilities
+        cardsWithPosition = await enhanceCardData(positionedCards);
+        log(`[D3CardBoard] Processed ${cardsWithPosition.length} cards with positions and enhancements`);
+        
+        // Set agreements and actors from context
+        agreements = gameContext.agreements || [];
+        actors = gameContext.actors || [];
+        
+        log(`[D3CardBoard] Loaded: ${actors.length} actors, ${agreements.length} agreements`);
+        
+        // Build actor-card mapping for visualization
+        actors.forEach((actor) => {
+          if (actor.card_id) {
+            actorCardMap.set(actor.actor_id, actor.card_id);
+            log(`[D3CardBoard] Mapped actor ${actor.actor_id} to card ${actor.card_id}`);
+          }
+        });
 
-      try {
-        // Initialize the D3 graph visualization
-        log('[D3CardBoard] Initializing D3 graph with cards:', cardsWithPosition.length);
-        if (cardsWithPosition.length === 0) {
-          log('[D3CardBoard] Warning: No cards to render, graph may appear empty');
-        }
-        
-        const graphState = initializeD3Graph(
-          svgElement,
-          cardsWithPosition,
-          agreements,
-          width,
-          height,
-          activeCardId,
-          (node) => (selectedNode = node),
-          actorCardMap
-        );
-        
-        // Check if we got valid results back
-        if (!graphState || !graphState.simulation || !graphState.nodeElements) {
-          throw new Error('D3 graph initialization returned invalid state');
-        }
-        
-        simulation = graphState.simulation;
-        nodeElements = graphState.nodeElements;
-        log('[D3CardBoard] D3 graph initialized successfully');
-      } catch (graphError) {
-        console.error('[D3CardBoard] Failed to initialize D3 graph:', graphError);
-        return; // Exit to avoid further errors
-      }
-
-      // Add donut rings for values and capabilities (with null safety)
-      if (nodeElements) {
         try {
-          addDonutRings(nodeElements, activeCardId);
-          log('[D3CardBoard] Added donut rings to nodes');
-        } catch (donutError) {
-          console.error('[D3CardBoard] Error adding donut rings:', donutError);
-          // Continue anyway, donut rings are visual enhancements only
+          // Initialize the D3 graph visualization
+          log('[D3CardBoard] Initializing D3 graph with cards:', cardsWithPosition.length);
+          if (cardsWithPosition.length === 0) {
+            log('[D3CardBoard] Warning: No cards to render, graph may appear empty');
+          }
+          
+          const graphState = initializeD3Graph(
+            svgElement,
+            cardsWithPosition,
+            agreements,
+            width,
+            height,
+            activeCardId,
+            (node) => (selectedNode = node),
+            actorCardMap
+          );
+          
+          // Check if we got valid results back
+          if (!graphState || !graphState.simulation || !graphState.nodeElements) {
+            throw new Error('D3 graph initialization returned invalid state');
+          }
+          
+          simulation = graphState.simulation;
+          nodeElements = graphState.nodeElements;
+          log('[D3CardBoard] D3 graph initialized successfully');
+        } catch (graphError) {
+          console.error('[D3CardBoard] Failed to initialize D3 graph:', graphError);
+          return; // Exit to avoid further errors
         }
-      } else {
-        log('[D3CardBoard] No node elements available, skipping donut rings');
-      }
 
-      // Skip if no cards to render
-      if (cardsWithPosition.length === 0) {
-        log('[D3CardBoard] No cards available to render, skipping icon loading');
-        return; // Exit early to avoid errors
-      }
-      
-      // Get unique icon names from cards
-      const iconNames = cardsWithPosition
-        .map((card) => card.icon || 'user')
-        .filter((value, index, self) => self.indexOf(value) === index);
-      
-      // Preload icons
-      try {
-        await loadIcons(iconNames);
-        log(`[D3CardBoard] Successfully loaded ${iconNames.length} icons`);
-      } catch (iconError) {
-        log(`[D3CardBoard] Error loading icons: ${iconError}`);
-        // Continue anyway - our createCardIcon function has fallbacks
-      }
-
-      // Add icons to nodes (with null safety)
-      if (!nodeElements) {
-        log('[D3CardBoard] No node elements available, skipping icon rendering');
-        return;
-      }
-      
-      try {
-        nodeElements.each(function (node: D3Node) {
-          if (node.type === 'actor') {
-            const centerGroup = d3.select(this).append('g').attr('class', 'center-group center-icon-container');
-            const iconContainer = document.createElement('div');
-            iconContainer.className = 'icon-container';
-            const card = node.data as Card;
-            if (!card) return;
-
-          // Simply use the icon name directly from the card data in the database
-          // This is already the Lucide icon name (e.g., "sun", "link", etc.)
-          const iconName = card.icon || 'user';
-          
-          log(`[D3CardBoard] Using icon '${iconName}' for card ${card.card_id}`);
-          
-          const isActive = node.id === activeCardId;
-          const iconSize = isActive ? 36 : 24;
-          
-          // Center the icon using transform instead of x/y attributes
-          createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
-          const foreignObject = centerGroup
-            .append('foreignObject')
-            .attr('width', iconSize)
-            .attr('height', iconSize)
-            .attr('x', -iconSize/2)  // Use half iconSize to center
-            .attr('y', -iconSize/2)  // Use half iconSize to center
-            .attr('class', 'card-icon-container')
-            .style('pointer-events', 'none')
-            .style('overflow', 'visible');
-          foreignObject.node()?.appendChild(iconContainer);
+        // Add donut rings for values and capabilities (with null safety)
+        if (nodeElements) {
+          try {
+            addDonutRings(nodeElements, activeCardId);
+            log('[D3CardBoard] Added donut rings to nodes');
+          } catch (donutError) {
+            console.error('[D3CardBoard] Error adding donut rings:', donutError);
+            // Continue anyway, donut rings are visual enhancements only
+          }
+        } else {
+          log('[D3CardBoard] No node elements available, skipping donut rings');
         }
-      });
-      } catch (nodeError) {
-        console.error('[D3CardBoard] Error rendering node icons:', nodeError);
-      }
 
-      subscribeToGameData();
-    } catch (error) {
-      console.error('[D3CardBoard] Error initializing visualization:', error);
-    }
+        // Skip if no cards to render
+        if (cardsWithPosition.length === 0) {
+          log('[D3CardBoard] No cards available to render, skipping icon loading');
+          return; // Exit early to avoid errors
+        }
+        
+        // Get unique icon names from cards
+        const iconNames = cardsWithPosition
+          .map((card) => card.icon || 'user')
+          .filter((value, index, self) => self.indexOf(value) === index);
+        
+        // Preload icons
+        try {
+          await loadIcons(iconNames);
+          log(`[D3CardBoard] Successfully loaded ${iconNames.length} icons`);
+        } catch (iconError) {
+          log(`[D3CardBoard] Error loading icons: ${iconError}`);
+          // Continue anyway - our createCardIcon function has fallbacks
+        }
+
+        // Add icons to nodes (with null safety)
+        if (!nodeElements) {
+          log('[D3CardBoard] No node elements available, skipping icon rendering');
+          return;
+        }
+        
+        try {
+          nodeElements.each(function (node: D3Node) {
+            if (node.type === 'actor') {
+              const centerGroup = d3.select(this).append('g').attr('class', 'center-group center-icon-container');
+              const iconContainer = document.createElement('div');
+              iconContainer.className = 'icon-container';
+              const card = node.data as Card;
+              if (!card) return;
+
+              // Simply use the icon name directly from the card data in the database
+              // This is already the Lucide icon name (e.g., "sun", "link", etc.)
+              const iconName = card.icon || 'user';
+              
+              log(`[D3CardBoard] Using icon '${iconName}' for card ${card.card_id}`);
+              
+              const isActive = node.id === activeCardId;
+              const iconSize = isActive ? 36 : 24;
+              
+              // Center the icon using transform instead of x/y attributes
+              createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
+              const foreignObject = centerGroup
+                .append('foreignObject')
+                .attr('width', iconSize)
+                .attr('height', iconSize)
+                .attr('x', -iconSize/2)  // Use half iconSize to center
+                .attr('y', -iconSize/2)  // Use half iconSize to center
+                .attr('class', 'card-icon-container')
+                .style('pointer-events', 'none')
+                .style('overflow', 'visible');
+              foreignObject.node()?.appendChild(iconContainer);
+            }
+          });
+        } catch (nodeError) {
+          console.error('[D3CardBoard] Error rendering node icons:', nodeError);
+        }
+
+        subscribeToGameData();
+      } catch (error) {
+        console.error('[D3CardBoard] Error initializing visualization:', error);
+      }
   }
 
   // Use $effect instead of onMount for component initialization and cleanup
