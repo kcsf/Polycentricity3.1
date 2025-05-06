@@ -1,23 +1,32 @@
 import { createToaster } from '@skeletonlabs/skeleton-svelte';
 
-// Create a custom CSS class for our toast
-// We'll add this to our app.css file or include it inline here
-const style = document.createElement('style');
-style.textContent = `
-  .solid-toast {
+// Inject custom styles that specifically target the toast message elements
+const styleElement = document.createElement('style');
+styleElement.textContent = `
+  /* Target all toast messages */
+  [data-testid="toaster-message"],
+  [data-part="toast"],
+  div[role="status"],
+  div[aria-live="polite"],
+  .toast {
+    background-color: rgb(var(--color-surface-100)) !important;
     --tw-bg-opacity: 1 !important;
-    background-color: rgb(var(--color-surface-100) / var(--tw-bg-opacity)) !important;
-    border: 1px solid rgb(var(--color-surface-200) / 0.3);
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    border: 1px solid rgb(var(--color-surface-200) / 0.3) !important;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
   }
-  .dark .solid-toast {
-    background-color: rgb(var(--color-surface-900) / var(--tw-bg-opacity)) !important;
+  
+  /* Dark mode specific styling */
+  .dark [data-testid="toaster-message"],
+  .dark [data-part="toast"],
+  .dark div[role="status"],
+  .dark div[aria-live="polite"],
+  .dark .toast {
+    background-color: rgb(var(--color-surface-900)) !important;
   }
 `;
-document.head.appendChild(style);
+document.head.appendChild(styleElement);
 
-// Create the toaster with our custom class
+// Create a simple toaster with base configuration
 export const toaster = createToaster({
-  duration: 6000,
-  classes: 'solid-toast text-surface-900-50 font-medium',
+  duration: 5000
 });
