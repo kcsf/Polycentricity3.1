@@ -39,12 +39,32 @@
     if (selectedParties.includes(actorId)) {
       // Remove actor and its terms
       selectedParties = selectedParties.filter(id => id !== actorId);
-      const { [actorId]: _, ...restTerms } = terms;
-      terms = restTerms;
-      const { [actorId]: __, ...restObligations } = newObligations;
-      newObligations = restObligations;
-      const { [actorId]: ___, ...restBenefits } = newBenefits;
-      newBenefits = restBenefits;
+      
+      // Create a new terms object without the removed actor
+      const newTerms = {};
+      for (const id in terms) {
+        if (id !== actorId) {
+          newTerms[id] = terms[id];
+        }
+      }
+      terms = newTerms;
+      
+      // Create new input objects without the removed actor
+      const newObligationsObj = {};
+      for (const id in newObligations) {
+        if (id !== actorId) {
+          newObligationsObj[id] = newObligations[id];
+        }
+      }
+      newObligations = newObligationsObj;
+      
+      const newBenefitsObj = {};
+      for (const id in newBenefits) {
+        if (id !== actorId) {
+          newBenefitsObj[id] = newBenefits[id];
+        }
+      }
+      newBenefits = newBenefitsObj;
     } else {
       // Add actor with empty terms
       selectedParties = [...selectedParties, actorId];
@@ -54,12 +74,22 @@
       };
       newObligations = { ...newObligations, [actorId]: '' };
       newBenefits = { ...newBenefits, [actorId]: '' };
+      
+      console.log(`Added actor ${actorId} to terms:`, JSON.stringify(terms));
     }
   }
 
   // Add a new obligation
   function addObligation(actorId: string) {
     if (!newObligations[actorId]?.trim()) return;
+    
+    // Initialize terms[actorId] if it doesn't exist
+    if (!terms[actorId]) {
+      terms = {
+        ...terms,
+        [actorId]: { obligations: [], benefits: [] }
+      };
+    }
     
     terms = {
       ...terms,
@@ -75,6 +105,14 @@
   function addBenefit(actorId: string) {
     if (!newBenefits[actorId]?.trim()) return;
     
+    // Initialize terms[actorId] if it doesn't exist
+    if (!terms[actorId]) {
+      terms = {
+        ...terms,
+        [actorId]: { obligations: [], benefits: [] }
+      };
+    }
+    
     terms = {
       ...terms,
       [actorId]: {
@@ -87,6 +125,11 @@
 
   // Remove an obligation
   function removeObligation(actorId: string, index: number) {
+    if (!terms[actorId]) {
+      console.error(`Cannot remove obligation - terms[${actorId}] does not exist`);
+      return;
+    }
+    
     terms = {
       ...terms,
       [actorId]: {
@@ -98,6 +141,11 @@
 
   // Remove a benefit
   function removeBenefit(actorId: string, index: number) {
+    if (!terms[actorId]) {
+      console.error(`Cannot remove benefit - terms[${actorId}] does not exist`);
+      return;
+    }
+    
     terms = {
       ...terms,
       [actorId]: {
@@ -172,6 +220,26 @@
       
       console.log('Creating agreement with:', payload);
       
+      // Ensure we have a valid gameId
+      if (!gameId) {
+        throw new Error('Missing gameId');
+      }
+      
+      // Ensure each actor in selectedParties actually exists in the system
+      for (const actorId of selectedParties) {
+        if (!actorsList.find(a => a.actor_id === actorId)) {
+          throw new Error(`Actor ${actorId} not found in actorsList`);
+        }
+      }
+      
+      // Check if any actors are missing card references
+      for (const actorId of selectedParties) {
+        const actor = actorsList.find(a => a.actor_id === actorId);
+        if (!actor?.card) {
+          throw new Error(`Actor ${actorId} (${actor?.custom_name || 'Unknown'}) is missing card reference`);
+        }
+      }
+      
       // Create agreement using gameService
       const result = await createAgreement(
         gameId,
@@ -192,6 +260,7 @@
         resetForm();
         modalOpen = false;
       } else {
+        console.error('Failed to create agreement - returned null');
         toaster.error({
           title: 'Error',
           description: 'Failed to create agreement',
@@ -202,7 +271,7 @@
       console.error('Error creating agreement:', error);
       toaster.error({
         title: 'Error',
-        description: 'An error occurred while creating the agreement',
+        description: `Failed to create agreement: ${error?.message || 'Unknown error'}`,
         classes: 'bg-white dark:bg-gray-800 rounded border border-red-500 dark:border-red-700 shadow-lg'
       });
     } finally {
@@ -336,6 +405,7 @@
                       class="input" 
                       placeholder="What must this actor provide or do?"
                       bind:value={newObligations[actorId]}
+                      onblur={() => newObligations[actorId]?.trim() && addObligation(actorId)}
                       onkeydown={(e) => e.key === 'Enter' && addObligation(actorId)}
                     />
                     <button 
@@ -372,6 +442,7 @@
                       class="input" 
                       placeholder="What does this actor receive?"
                       bind:value={newBenefits[actorId]}
+                      onblur={() => newBenefits[actorId]?.trim() && addBenefit(actorId)}
                       onkeydown={(e) => e.key === 'Enter' && addBenefit(actorId)}
                     />
                     <button 
