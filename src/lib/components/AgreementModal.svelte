@@ -353,7 +353,7 @@
                 
                 <!-- Benefits -->
                 <div>
-                  <h5 class="h5 text-secondary-600-400">Benefits</h5>
+                  <h5 class="h5 text-secondary-600 dark:text-secondary-400">Benefits</h5>
                   <!-- Add new benefit -->
                   <div class="flex items-center space-x-2 mb-2">
                     <input 
