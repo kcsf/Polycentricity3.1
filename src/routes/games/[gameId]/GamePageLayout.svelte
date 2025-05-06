@@ -8,7 +8,6 @@
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
-    import { Navigation } from '@skeletonlabs/skeleton-svelte';
 
     // Props
     const { game, gameId, playerRole, content } = $props<{
@@ -66,24 +65,35 @@
 
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-800-token overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
-    <div class="nav-rail-left">
-        <Navigation.Rail expanded={leftExpanded}>
-            <!-- Menu Header -->
-            <svelte:fragment slot="header">
-                <Navigation.Tile labelExpanded="Game Menu" title="Toggle Menu Width" onclick={toggleLeftSidebar}>
-                    <icons.Menu />
-                </Navigation.Tile>
-            </svelte:fragment>
-            
+    <div class="h-full border-r border-surface-300-600-token bg-surface-50-900-token flex flex-col {leftExpanded ? 'w-64' : 'w-16'} transition-all duration-200">
+        <!-- Header with hamburger menu -->
+        <div class="p-3 flex justify-between items-center border-b border-surface-300-600-token">
+            <button class="btn btn-sm variant-soft-surface p-2" onclick={toggleLeftSidebar}>
+                <icons.Menu class="w-5 h-5" />
+            </button>
+            {#if leftExpanded}
+                <span class="font-semibold">Game Menu</span>
+            {/if}
+        </div>
+        
+        <!-- Main navigation items -->
+        <div class="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             <!-- Game Info Section -->
-            <Navigation.Tile labelExpanded="Game Info" active={gameInfoExpanded} 
-                    onclick={() => gameInfoExpanded = !gameInfoExpanded}>
-                <icons.Info />
-            </Navigation.Tile>
+            <button 
+                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {gameInfoExpanded ? 'bg-primary-hover-token' : ''}" 
+                onclick={() => gameInfoExpanded = !gameInfoExpanded}
+            >
+                <div class="flex-shrink-0">
+                    <icons.Info class="w-5 h-5" />
+                </div>
+                {#if leftExpanded}
+                    <span class="text-sm font-medium">Game Info</span>
+                {/if}
+            </button>
             
             {#if gameInfoExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
-                    <div class="card p-3 bg-surface-200">
+                    <div class="card p-3 bg-surface-200-700-token">
                         <div class="grid grid-cols-2 gap-2">
                             <div class="text-sm">Status:</div>
                             <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
@@ -101,95 +111,102 @@
             {/if}
             
             <!-- Role Card Section -->
-            <Navigation.Tile labelExpanded="Your Role Card" active={yourRoleExpanded} 
-                    onclick={() => yourRoleExpanded = !yourRoleExpanded}>
-                <icons.User />
-            </Navigation.Tile>
-        
-        {#if yourRoleExpanded}
-            <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
-                {#if playerRole?.card}
-                    <div class="card overflow-hidden rounded-md shadow-md bg-surface-200">
-                        <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
-                            <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
-                                <icons.User class="w-5 h-5" />
-                            </div>
-                            <div class="flex items-center justify-between pl-10">
-                                <h3 class="text-base font-bold truncate">
-                                    {playerRole.card.role_title || 'Unnamed Card'}
-                                    {#if playerRole.custom_name && playerRole.custom_name !== playerRole.card.role_title}
-                                        <span class="text-xs opacity-75">({playerRole.custom_name})</span>
+            <button 
+                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {yourRoleExpanded ? 'bg-primary-hover-token' : ''}" 
+                onclick={() => yourRoleExpanded = !yourRoleExpanded}
+            >
+                <div class="flex-shrink-0">
+                    <icons.User class="w-5 h-5" />
+                </div>
+                {#if leftExpanded}
+                    <span class="text-sm font-medium">Your Role Card</span>
+                {/if}
+            </button>
+                
+            {#if yourRoleExpanded}
+                <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
+                    {#if playerRole?.card}
+                        <div class="card overflow-hidden rounded-md shadow-md bg-surface-200-700-token">
+                            <header class="relative p-2 text-white bg-gradient-to-r from-primary-500 to-primary-700 rounded-t-md">
+                                <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
+                                    <icons.User class="w-5 h-5" />
+                                </div>
+                                <div class="flex items-center justify-between pl-10">
+                                    <h3 class="text-base font-bold truncate">
+                                        {playerRole.card.role_title || 'Unnamed Card'}
+                                        {#if playerRole.custom_name && playerRole.custom_name !== playerRole.card.role_title}
+                                            <span class="text-xs opacity-75">({playerRole.custom_name})</span>
+                                        {/if}
+                                    </h3>
+                                    {#if playerRole.card.card_number}
+                                        <span class="badge bg-surface-100 text-surface-900 text-xs px-2 py-0.5 rounded-full">{playerRole.card.card_number}</span>
                                     {/if}
-                                </h3>
-                                {#if playerRole.card.card_number}
-                                    <span class="badge bg-surface-100 text-surface-900 text-xs px-2 py-0.5 rounded-full">{playerRole.card.card_number}</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs mt-1 pl-10">
+                                    <span>{playerRole.card.card_category || 'Card'}</span>
+                                    <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{playerRole.actor_type || 'Custom'}</span>
+                                </div>
+                            </header>
+
+                            <div class="p-2 space-y-2">
+                                {#if playerRole.card.backstory}
+                                    <div>
+                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Backstory</h4>
+                                        <p class="text-xs text-surface-900-50-token">{playerRole.card.backstory}</p>
+                                    </div>
+                                {/if}
+
+                                {#if playerRole.card._valueNames && playerRole.card._valueNames.length > 0}
+                                    <div>
+                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Values</h4>
+                                        <ul class="list-disc list-inside text-xs text-surface-900-50-token">
+                                            {#each playerRole.card._valueNames as value}
+                                                <li>{value}</li>
+                                            {/each}
+                                        </ul>
+                                    </div>
+                                {/if}
+
+                                {#if playerRole.card.goals}
+                                    <div>
+                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Goals</h4>
+                                        <p class="text-xs text-surface-900-50-token">{playerRole.card.goals}</p>
+                                    </div>
+                                {/if}
+
+                                {#if playerRole.card._capabilityNames && playerRole.card._capabilityNames.length > 0}
+                                    <div>
+                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Capabilities</h4>
+                                        <div class="flex flex-wrap gap-1">
+                                            {#each playerRole.card._capabilityNames as capability}
+                                                <span class="badge variant-soft-secondary text-xs">{capability}</span>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                {/if}
+
+                                {#if playerRole.card.resources}
+                                    <div>
+                                        <h4 class="text-xs font-semibold text-surface-700-300-token">Resources</h4>
+                                        <p class="text-xs text-surface-900-50-token">{playerRole.card.resources}</p>
+                                    </div>
                                 {/if}
                             </div>
-                            <div class="flex items-center gap-2 text-xs mt-1 pl-10">
-                                <span>{playerRole.card.card_category || 'Card'}</span>
-                                <span class="badge bg-white/20 text-white ml-auto px-2 py-0.5 rounded-full">{playerRole.actor_type || 'Custom'}</span>
-                            </div>
-                        </header>
-
-                        <div class="p-2 space-y-2">
-                            {#if playerRole.card.backstory}
-                                <div>
-                                    <h4 class="text-xs font-semibold text-surface-700">Backstory</h4>
-                                    <p class="text-xs text-surface-900">{playerRole.card.backstory}</p>
-                                </div>
-                            {/if}
-
-                            {#if playerRole.card._valueNames && playerRole.card._valueNames.length > 0}
-                                <div>
-                                    <h4 class="text-xs font-semibold text-surface-700">Values</h4>
-                                    <ul class="list-disc list-inside text-xs text-surface-900">
-                                        {#each playerRole.card._valueNames as value}
-                                            <li>{value}</li>
-                                        {/each}
-                                    </ul>
-                                </div>
-                            {/if}
-
-                            {#if playerRole.card.goals}
-                                <div>
-                                    <h4 class="text-xs font-semibold text-surface-700">Goals</h4>
-                                    <p class="text-xs text-surface-900">{playerRole.card.goals}</p>
-                                </div>
-                            {/if}
-
-                            {#if playerRole.card._capabilityNames && playerRole.card._capabilityNames.length > 0}
-                                <div>
-                                    <h4 class="text-xs font-semibold text-surface-700">Capabilities</h4>
-                                    <div class="flex flex-wrap gap-1">
-                                        {#each playerRole.card._capabilityNames as capability}
-                                            <span class="badge variant-soft-secondary text-xs">{capability}</span>
-                                        {/each}
-                                    </div>
-                                </div>
-                            {/if}
-
-                            {#if playerRole.card.resources}
-                                <div>
-                                    <h4 class="text-xs font-semibold text-surface-700">Resources</h4>
-                                    <p class="text-xs text-surface-900">{playerRole.card.resources}</p>
-                                </div>
-                            {/if}
                         </div>
-                    </div>
-                {:else}
-                    <div class="card p-4 bg-surface-200 text-center">
-                        <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
-                        <h3 class="text-base font-bold text-surface-900 mb-2">No Role Card Assigned</h3>
-                        <p class="text-xs text-surface-700 mb-4">Join this game to select a role card</p>
-                        <button class="btn btn-sm variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}/details`)}>
-                            <icons.UserPlus class="w-4 h-4 mr-2" />
-                            Join Game
-                        </button>
-                    </div>
-                {/if}
-            </div>
-        {/if}
-        </Navigation.Rail>
+                    {:else}
+                        <div class="card p-4 bg-surface-200-700-token text-center">
+                            <icons.User class="w-12 h-12 mx-auto mb-3 text-surface-500" />
+                            <h3 class="text-base font-bold text-surface-900-50-token mb-2">No Role Card Assigned</h3>
+                            <p class="text-xs text-surface-700-300-token mb-4">Join this game to select a role card</p>
+                            <button class="btn btn-sm variant-filled-primary w-full" onclick={() => goto(`/games/${gameId}/details`)}>
+                                <icons.UserPlus class="w-4 h-4 mr-2" />
+                                Join Game
+                            </button>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+        </div>
     </div>
 
     <!-- Main Content Area -->
@@ -256,24 +273,35 @@
     </div>
 
     <!-- Right Navigation Rail - Players & Chat -->
-    <div class="nav-rail-right">
-        <Navigation.Rail expanded={rightExpanded} position="right">
-            <!-- Menu Header -->
-            <svelte:fragment slot="header">
-                <Navigation.Tile labelExpanded="Players" title="Toggle Players Menu" onclick={toggleRightSidebar}>
-                    <icons.Users />
-                </Navigation.Tile>
-            </svelte:fragment>
-            
+    <div class="h-full border-l border-surface-300-600-token bg-surface-50-900-token flex flex-col {rightExpanded ? 'w-64' : 'w-16'} transition-all duration-200">
+        <!-- Header with players icon -->
+        <div class="p-3 flex justify-between items-center border-b border-surface-300-600-token">
+            {#if rightExpanded}
+                <span class="font-semibold">Players</span>
+            {/if}
+            <button class="btn btn-sm variant-soft-surface p-2 ml-auto" onclick={toggleRightSidebar}>
+                <icons.Users class="w-5 h-5" />
+            </button>
+        </div>
+        
+        <!-- Main navigation items -->
+        <div class="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             <!-- Players List Section -->
-            <Navigation.Tile labelExpanded="Player List" active={playersExpanded} 
-                    onclick={() => playersExpanded = !playersExpanded}>
-                <icons.UsersRound />
-            </Navigation.Tile>
+            <button 
+                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {playersExpanded ? 'bg-primary-hover-token' : ''}" 
+                onclick={() => playersExpanded = !playersExpanded}
+            >
+                <div class="flex-shrink-0">
+                    <icons.UsersRound class="w-5 h-5" />
+                </div>
+                {#if rightExpanded}
+                    <span class="text-sm font-medium">Player List</span>
+                {/if}
+            </button>
             
             {#if playersExpanded}
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
-                    <div class="card p-2 bg-surface-200">
+                    <div class="card p-2 bg-surface-200-700-token">
                         <PlayersList 
                             {game} 
                             highlightCurrentUser={true} 
@@ -285,19 +313,26 @@
             {/if}
             
             <!-- Chat Section -->
-            <Navigation.Tile labelExpanded="Group Chat" active={chatExpanded} 
-                    onclick={() => chatExpanded = !chatExpanded}>
-                <icons.MessageSquare />
-            </Navigation.Tile>
+            <button 
+                class="flex items-center gap-3 p-3 hover:bg-primary-hover-token transition-colors {chatExpanded ? 'bg-primary-hover-token' : ''}" 
+                onclick={() => chatExpanded = !chatExpanded}
+            >
+                <div class="flex-shrink-0">
+                    <icons.MessageSquare class="w-5 h-5" />
+                </div>
+                {#if rightExpanded}
+                    <span class="text-sm font-medium">Group Chat</span>
+                {/if}
+            </button>
             
             {#if chatExpanded}
                 <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
-                    <div class="card p-2 bg-surface-200 flex flex-col h-64">
+                    <div class="card p-2 bg-surface-200-700-token flex flex-col h-64">
                         <ChatBox {gameId} chatType="group" compact={true} />
                     </div>
                 </div>
             {/if}
-        </Navigation.Rail>
+        </div>
     </div>
 </div>
 
