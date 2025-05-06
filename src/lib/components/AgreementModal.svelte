@@ -109,8 +109,16 @@
 
   // Handle form submission
   async function handleSubmit() {
+    console.log('Submitting form with data:', { 
+      title, 
+      description, 
+      selectedParties, 
+      terms: JSON.stringify(terms) 
+    });
+    
     // Form validation
     if (!title.trim()) {
+      console.log('Validation error: Missing title');
       toaster.error({
         title: 'Validation Error',
         description: 'Please enter a title for the agreement'
@@ -148,6 +156,14 @@
 
     isSubmitting = true;
     try {
+      console.log('Creating agreement with:', {
+        gameId,
+        title,
+        description,
+        parties: selectedParties,
+        terms
+      });
+      
       // Create agreement using gameService
       const result = await createAgreement(
         gameId,
@@ -156,6 +172,8 @@
         selectedParties,
         terms
       );
+      
+      console.log('Agreement creation result:', result);
 
       if (result) {
         toaster.success({
@@ -203,12 +221,12 @@
 <Modal
   open={modalOpen}
   onOpenChange={(e) => (modalOpen = e.open)}
-  backdropClasses="backdrop-blur-md bg-surface-200-700-token/90"
+  backdropClasses="backdrop-blur-md bg-surface-200 dark:bg-surface-700/90"
 >
   {#snippet trigger()}{/snippet}
   
   {#snippet content()}
-    <div class="card bg-surface-50-900-token p-4 space-y-4 shadow-xl max-w-screen-lg w-full max-h-[90vh] overflow-y-auto">
+    <div class="card bg-surface-50 dark:bg-surface-900 p-4 space-y-4 shadow-xl max-w-screen-lg w-full max-h-[90vh] overflow-y-auto">
       <header class="flex justify-between items-center">
         <h2 class="h2 text-primary-700-300">Create New Agreement</h2>
         <button class="btn-icon variant-soft" onclick={closeModal}>
@@ -239,8 +257,8 @@
             ></textarea>
           </label>
           
-          <div class="card bg-surface-100-800-token p-4 space-y-2">
-            <h3 class="h3 text-primary-700-300">Agreement Type</h3>
+          <div class="card bg-surface-100 dark:bg-surface-800 p-4 space-y-2">
+            <h3 class="h3 text-primary-700 dark:text-primary-300">Agreement Type</h3>
             <div class="flex flex-col gap-2">
               <label class="flex items-center space-x-2">
                 <input 
@@ -267,8 +285,8 @@
         </div>
         
         <!-- Party Selection -->
-        <div class="card bg-surface-100-800-token p-4 space-y-4">
-          <h3 class="h3 text-primary-700-300">Select Parties</h3>
+        <div class="card bg-surface-100 dark:bg-surface-800 p-4 space-y-4">
+          <h3 class="h3 text-primary-700 dark:text-primary-300">Select Parties</h3>
           <div class="max-h-40 overflow-y-auto space-y-2">
             {#each actorsList as actor}
               <div class="flex items-center space-x-2">
@@ -290,16 +308,16 @@
       
       <!-- Terms Section - Only show if parties are selected -->
       {#if selectedParties.length > 0}
-        <div class="card bg-surface-100-800-token p-4 space-y-4">
-          <h3 class="h3 text-primary-700-300">Agreement Terms</h3>
+        <div class="card bg-surface-100 dark:bg-surface-800 p-4 space-y-4">
+          <h3 class="h3 text-primary-700 dark:text-primary-300">Agreement Terms</h3>
           <div class="space-y-6">
             {#each selectedParties as actorId}
-              <div class="card bg-surface-200-700-token p-4">
-                <h4 class="h4 mb-2 text-secondary-700-300">{getActorName(actorId)}</h4>
+              <div class="card bg-surface-200 dark:bg-surface-700 p-4">
+                <h4 class="h4 mb-2 text-secondary-700 dark:text-secondary-300">{getActorName(actorId)}</h4>
                 
                 <!-- Obligations -->
                 <div class="mb-4">
-                  <h5 class="h5 text-primary-600-400">Obligations</h5>
+                  <h5 class="h5 text-primary-600 dark:text-primary-400">Obligations</h5>
                   <!-- Add new obligation -->
                   <div class="flex items-center space-x-2 mb-2">
                     <input 
