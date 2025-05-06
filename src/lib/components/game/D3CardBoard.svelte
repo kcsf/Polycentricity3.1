@@ -280,12 +280,33 @@
     
     log(`[D3CardBoard] Setting up game data subscriptions for ${gameId}`);
 
+    // Track last update time to prevent update storms
+    let lastUpdateTime = Date.now();
+    let updateTimer: number | null = null;
+    
     // Subscribe to game updates - this will capture all changes including actors
     unsubscribe.push(
       subscribeToGame(gameId, () => {
-        // Simplest approach: reload everything when game changes
-        log('[D3CardBoard] Game update detected, refreshing visualization');
-        initializeVisualization();
+        const now = Date.now();
+        
+        // Debounce updates with a 5-second buffer to prevent infinite loops
+        if (now - lastUpdateTime < 5000) {
+          log('[D3CardBoard] Skipping rapid update (debounced)');
+          return;
+        }
+        
+        // Clear any pending update timer
+        if (updateTimer !== null) {
+          clearTimeout(updateTimer);
+        }
+        
+        // Set a new timer to prevent clustering of updates
+        updateTimer = setTimeout(() => {
+          lastUpdateTime = Date.now();
+          log('[D3CardBoard] Game update detected, refreshing visualization');
+          updateTimer = null;
+          initializeVisualization();
+        }, 500) as unknown as number;
       })
     );
   }
@@ -293,13 +314,28 @@
   // Component initialization and cleanup with $effect
   $effect(() => {
     log('[D3CardBoard] Component mounted');
-    initializeVisualization();
+    
+    // Initialize with a slight delay to avoid immediate re-renders
+    setTimeout(() => {
+      initializeVisualization();
+    }, 300);
     
     // Return cleanup function to run when component is destroyed
     return () => {
       log('[D3CardBoard] Component cleanup');
       if (simulation) simulation.stop();
-      unsubscribe.forEach(unsub => unsub());
+      
+      // Clean up all subscriptions
+      unsubscribe.forEach((unsub) => {
+        try {
+          if (typeof unsub === 'function') unsub();
+        } catch (e) {
+          console.error('[D3CardBoard] Error during unsubscribe:', e);
+        }
+      });
+      
+      // Clear the subscriptions array
+      unsubscribe = [];
     };
   });
 </script>
