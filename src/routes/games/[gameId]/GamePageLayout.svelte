@@ -8,7 +8,8 @@
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
-    import { Navigation } from '@skeletonlabs/skeleton-svelte';
+    import NavRail from '@skeletonlabs/skeleton-svelte/components/Navigation/NavRail.svelte';
+    import NavTile from '@skeletonlabs/skeleton-svelte/components/Navigation/NavTile.svelte';
 
     // Props
     const { game, gameId, playerRole, content } = $props<{
@@ -66,43 +67,51 @@
 
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-800-token overflow-hidden">
     <!-- Left Navigation Rail - Game Info & Player Role -->
-    <Navigation.Rail expanded={leftExpanded} 
-                     header={
-                         <Navigation.Tile labelExpanded="Game Menu" title="Toggle Menu Width" onclick={toggleLeftSidebar}>
-                             <icons.Menu />
-                         </Navigation.Tile>
-                     }>
-        
-        <!-- Game Info Section -->
-        <Navigation.Tile labelExpanded="Game Info" active={gameInfoExpanded} 
-                        onclick={() => gameInfoExpanded = !gameInfoExpanded}>
-            <icons.Info />
-        </Navigation.Tile>
-        
-        {#if gameInfoExpanded}
-            <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
-                <div class="card p-3 bg-surface-200">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="text-sm">Status:</div>
-                        <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
-                        <div class="text-sm">Game Age:</div>
-                        <div class="text-sm font-bold">{getFormattedGameAge(game.created_at)}</div>
-                        <div class="text-sm">Created:</div>
-                        <div class="text-sm font-bold">{formatDate(game.created_at)}</div>
-                        <div class="text-sm">Players:</div>
-                        <div class="text-sm font-bold">{Object.keys(game.players || {}).length}/{game.max_players || 10}</div>
-                        <div class="text-sm">Deck Type:</div>
-                        <div class="text-sm font-bold">{game.deck_type || 'Standard'}</div>
+    <div class="nav-rail-left">
+        <NavRail expanded={leftExpanded}>
+            <!-- Menu Header -->
+            <svelte:fragment slot="header">
+                <NavTile labelExpanded="Game Menu" title="Toggle Menu Width" onclick={toggleLeftSidebar}>
+                    <svelte:fragment slot="default">
+                        <icons.Menu />
+                    </svelte:fragment>
+                </NavTile>
+            </svelte:fragment>
+            
+            <!-- Game Info Section -->
+            <NavTile labelExpanded="Game Info" active={gameInfoExpanded} 
+                    onclick={() => gameInfoExpanded = !gameInfoExpanded}>
+                <svelte:fragment slot="default">
+                    <icons.Info />
+                </svelte:fragment>
+            </NavTile>
+            
+            {#if gameInfoExpanded}
+                <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
+                    <div class="card p-3 bg-surface-200">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="text-sm">Status:</div>
+                            <div class="text-sm font-bold">{game.status || 'Unknown'}</div>
+                            <div class="text-sm">Game Age:</div>
+                            <div class="text-sm font-bold">{getFormattedGameAge(game.created_at)}</div>
+                            <div class="text-sm">Created:</div>
+                            <div class="text-sm font-bold">{formatDate(game.created_at)}</div>
+                            <div class="text-sm">Players:</div>
+                            <div class="text-sm font-bold">{Object.keys(game.players || {}).length}/{game.max_players || 10}</div>
+                            <div class="text-sm">Deck Type:</div>
+                            <div class="text-sm font-bold">{game.deck_type || 'Standard'}</div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        {/if}
-        
-        <!-- Role Card Section -->
-        <Navigation.Tile labelExpanded="Your Role Card" active={yourRoleExpanded} 
-                        onclick={() => yourRoleExpanded = !yourRoleExpanded}>
-            <icons.User />
-        </Navigation.Tile>
+            {/if}
+            
+            <!-- Role Card Section -->
+            <NavTile labelExpanded="Your Role Card" active={yourRoleExpanded} 
+                    onclick={() => yourRoleExpanded = !yourRoleExpanded}>
+                <svelte:fragment slot="default">
+                    <icons.User />
+                </svelte:fragment>
+            </NavTile>
         
         {#if yourRoleExpanded}
             <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
@@ -187,7 +196,8 @@
                 {/if}
             </div>
         {/if}
-    </Navigation.Rail>
+        </NavRail>
+    </div>
 
     <!-- Main Content Area -->
     <div class="flex-1 relative overflow-hidden">
@@ -253,45 +263,54 @@
     </div>
 
     <!-- Right Navigation Rail - Players & Chat -->
-    <Navigation.Rail expanded={rightExpanded} position="right"
-                     header={
-                         <Navigation.Tile labelExpanded="Players" title="Toggle Players Menu" onclick={toggleRightSidebar}>
-                             <icons.Users />
-                         </Navigation.Tile>
-                     }>
-        
-        <!-- Players List Section -->
-        <Navigation.Tile labelExpanded="Player List" active={playersExpanded} 
-                        onclick={() => playersExpanded = !playersExpanded}>
-            <icons.UsersRound />
-        </Navigation.Tile>
-        
-        {#if playersExpanded}
-            <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
-                <div class="card p-2 bg-surface-200">
-                    <PlayersList 
-                        {game} 
-                        highlightCurrentUser={true} 
-                        currentUserId={$userStore.user?.user_id || null} 
-                        compact={true}
-                    />
+    <div class="nav-rail-right">
+        <NavRail expanded={rightExpanded} position="right">
+            <!-- Menu Header -->
+            <svelte:fragment slot="header">
+                <NavTile labelExpanded="Players" title="Toggle Players Menu" onclick={toggleRightSidebar}>
+                    <svelte:fragment slot="default">
+                        <icons.Users />
+                    </svelte:fragment>
+                </NavTile>
+            </svelte:fragment>
+            
+            <!-- Players List Section -->
+            <NavTile labelExpanded="Player List" active={playersExpanded} 
+                    onclick={() => playersExpanded = !playersExpanded}>
+                <svelte:fragment slot="default">
+                    <icons.UsersRound />
+                </svelte:fragment>
+            </NavTile>
+            
+            {#if playersExpanded}
+                <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
+                    <div class="card p-2 bg-surface-200">
+                        <PlayersList 
+                            {game} 
+                            highlightCurrentUser={true} 
+                            currentUserId={$userStore.user?.user_id || null} 
+                            compact={true}
+                        />
+                    </div>
                 </div>
-            </div>
-        {/if}
-        
-        <!-- Chat Section -->
-        <Navigation.Tile labelExpanded="Group Chat" active={chatExpanded} 
-                        onclick={() => chatExpanded = !chatExpanded}>
-            <icons.MessageSquare />
-        </Navigation.Tile>
-        
-        {#if chatExpanded}
-            <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
-                <div class="card p-2 bg-surface-200 flex flex-col h-64">
-                    <ChatBox {gameId} chatType="group" compact={true} />
+            {/if}
+            
+            <!-- Chat Section -->
+            <NavTile labelExpanded="Group Chat" active={chatExpanded} 
+                    onclick={() => chatExpanded = !chatExpanded}>
+                <svelte:fragment slot="default">
+                    <icons.MessageSquare />
+                </svelte:fragment>
+            </NavTile>
+            
+            {#if chatExpanded}
+                <div class="px-4 py-2 flex-1" transition:slide={{ duration: 200 }}>
+                    <div class="card p-2 bg-surface-200 flex flex-col h-64">
+                        <ChatBox {gameId} chatType="group" compact={true} />
+                    </div>
                 </div>
-            </div>
-        {/if}
-    </Navigation.Rail>
+            {/if}
+        </NavRail>
+    </div>
 </div>
 
