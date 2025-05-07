@@ -4,8 +4,8 @@
         import type { User, UserSession } from '$lib/types';
         import { X } from '@lucide/svelte';
 
-        // Define props with two-way binding
-        const open = $props.boolean('open', false);
+        // Define props using proper Svelte 5 Runes mode syntax
+        const { open = false } = $props<{ open: boolean }>();
         
         // Get current user from store
         const currentUser = $derived(userStore?.user || null);
@@ -17,6 +17,9 @@
         let isSubmitting = $state(false);
         let errorMessage = $state('');
         let successMessage = $state('');
+
+        // Dispatch function for updating the open state
+        const dispatch = $props.dispatch();
 
         // Reset form when opened
         $effect(() => {
@@ -82,7 +85,7 @@
                         
                         // Close after 1.5 seconds
                         setTimeout(() => {
-                                open.set(false); // Use set() to update bindable prop 
+                                dispatch('update:open', false);
                         }, 1500);
                 } catch (error) {
                         console.error('Failed to update profile:', error);
@@ -94,11 +97,11 @@
 
         // Handle cancel
         function handleCancel() {
-                open.set(false); // Use set() to update bindable prop
+                dispatch('update:open', false);
         }
 </script>
 
-{#if open.get()}
+{#if open}
 <div class="fixed inset-0 bg-surface-900-50/90 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
         <div class="card p-6 shadow-xl max-w-lg w-full m-4">
                 <header class="flex justify-between items-start mb-4">
