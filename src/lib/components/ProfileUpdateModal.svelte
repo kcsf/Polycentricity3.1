@@ -3,26 +3,25 @@
         import { userStore } from '$lib/stores/userStore';
         import type { User, UserSession } from '$lib/types';
         import { X } from '@lucide/svelte';
+        import { createEventDispatcher } from 'svelte';
 
         // Define props using proper Svelte 5 Runes mode syntax
         const { open = false } = $props<{ open: boolean }>();
         
-        // Get current user from store
-        const currentUser = $derived(userStore?.user || null);
-
+        // Create event dispatcher
+        const dispatch = createEventDispatcher();
+        
         // Local form state
-        let name = $state(currentUser?.name || '');
-        let email = $state(currentUser?.email || '');
-        let role = $state(currentUser?.role || 'Member');
+        let name = $state('');
+        let email = $state('');
+        let role = $state('Member');
         let isSubmitting = $state(false);
         let errorMessage = $state('');
         let successMessage = $state('');
 
-        // Dispatch function for updating the open state
-        const dispatch = $props.dispatch();
-
         // Reset form when opened
         $effect(() => {
+                const currentUser = userStore?.user;
                 if (open && currentUser) {
                         name = currentUser.name || '';
                         email = currentUser.email || '';
@@ -36,6 +35,7 @@
         async function handleSubmit(e: Event) {
                 e.preventDefault();
                 
+                const currentUser = userStore?.user;
                 if (!currentUser) {
                         errorMessage = 'No user is currently logged in';
                         return;
