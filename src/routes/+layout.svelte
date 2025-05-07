@@ -2,12 +2,11 @@
   import '../app.css';
   import Header from '$lib/components/Header.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import Toast from '$lib/components/Toast.svelte';
   import { initializeAuth } from '$lib/services/authService';
   import { userStore } from '$lib/stores/userStore';
   import { toggleTheme } from '$lib/stores/themeStore';
   import { get } from 'svelte/store';
-  import { Toaster } from '@skeletonlabs/skeleton-svelte';
-  import { toaster } from '$lib/utils/toaster-svelte';
   import { page } from '$app/stores';
   let { children } = $props();
   let isAuthenticated = $state(get(userStore).isAuthenticated);
@@ -39,7 +38,7 @@
     </div>
   </main>
   <Footer />
-  <Toaster {toaster}></Toaster>
+  <Toast />
 </div>
 
 <style>

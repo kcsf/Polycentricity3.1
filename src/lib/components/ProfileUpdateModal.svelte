@@ -4,7 +4,7 @@
         import { getGun, getUser, put } from '$lib/services/gunService';
         import { nodes } from '$lib/services/gunService';
         import type { User } from '$lib/types';
-        import { toastStore, type ToastSettings } from '@skeletonlabs/skeleton';
+        import { toastStore } from '$lib/utils/toast';
         import { X } from '@lucide/svelte';
 
         // Define props using $props()
@@ -74,7 +74,7 @@
                         setUser(formUser);
                         
                         // Show success message
-                        showToast('Profile updated successfully!', 'success');
+                        toastStore.success('Profile updated successfully!');
                         
                         // Close the modal
                         handleClose();
@@ -90,21 +90,8 @@
         function setError(message: string, showToastMessage = true) {
                 errorMessage = message;
                 if (showToastMessage) {
-                        showToast(message, 'error');
+                        toastStore.error(message);
                 }
-        }
-
-        // Show toast notification
-        function showToast(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') {
-                const toast: ToastSettings = {
-                        message,
-                        background: type === 'success' ? 'bg-green-500' :
-                                  type === 'error' ? 'bg-red-500' :
-                                  type === 'warning' ? 'bg-yellow-500' :
-                                  'bg-blue-500',
-                        timeout: 3000,
-                };
-                toastStore.trigger(toast);
         }
 
         // Handle modal close

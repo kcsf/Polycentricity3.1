@@ -1,11 +1,6 @@
 /* src/app.css */
 @import 'tailwindcss';
 
-@import '@skeletonlabs/skeleton';
-@import '@skeletonlabs/skeleton/optional/presets';
-/* Use the polyc theme which supports both light and dark modes */
-@import './polyc';
-
 /* Custom styles */
 :root {
 
