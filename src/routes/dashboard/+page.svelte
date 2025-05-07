@@ -185,39 +185,51 @@
 </script>
 
 <div class="container mx-auto px-4 py-6">
-  <!-- Profile header -->
+  <!-- Profile header with stats -->
   {#if $userStore.user}
-    <div class="mb-6">
-      <UserCard user={$userStore.user} />
-      <div class="mt-4 flex gap-4">
-        <button class="btn variant-soft-primary" onclick={openProfileUpdateModal}>
-          <icons.UserCog size={16} class="mr-2" /> Update Profile
-        </button>
-      </div>
+    <div class="mb-8">
+      <UserCard 
+        user={$userStore.user} 
+        showDetails={true}
+        onUpdateProfile={openProfileUpdateModal}
+      />
     </div>
   {/if}
 
   <!-- Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="card p-4 text-center">
-      <icons.Gamepad2 size={24} class="mx-auto mb-2" />
-      <div class="text-xl font-bold">{$gamesJoined}</div>
-      <div class="text-sm opacity-70">Games Joined</div>
-    </div>
-    <div class="card p-4 text-center">
-      <icons.FileCode size={24} class="mx-auto mb-2" />
-      <div class="text-xl font-bold">{$gamesCreated}</div>
-      <div class="text-sm opacity-70">Games Created</div>
-    </div>
-    <div class="card p-4 text-center">
-      <icons.User size={24} class="mx-auto mb-2" />
-      <div class="text-xl font-bold">{actors.length}</div>
-      <div class="text-sm opacity-70">Actors</div>
-    </div>
-    <div class="card p-4 text-center">
-      <icons.CreditCard size={24} class="mx-auto mb-2" />
-      <div class="text-xl font-bold">{cardsOwnedCount}</div>
-      <div class="text-sm opacity-70">Cards Owned</div>
+  <div class="card overflow-hidden shadow-sm mb-8">
+    <div class="grid grid-cols-1 divide-y border-t sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+      <div class="px-6 py-5 text-center">
+        <div class="flex flex-col items-center">
+          <icons.Gamepad2 size={20} class="mb-2 text-primary-500" />
+          <span class="text-xl font-medium text-surface-900-50">{$gamesJoined}</span>
+          <span class="text-sm text-surface-600-300">Games Joined</span>
+        </div>
+      </div>
+      
+      <div class="px-6 py-5 text-center">
+        <div class="flex flex-col items-center">
+          <icons.FileCode size={20} class="mb-2 text-secondary-500" />
+          <span class="text-xl font-medium text-surface-900-50">{$gamesCreated}</span>
+          <span class="text-sm text-surface-600-300">Games Created</span>
+        </div>
+      </div>
+      
+      <div class="px-6 py-5 text-center">
+        <div class="flex flex-col items-center">
+          <icons.User size={20} class="mb-2 text-tertiary-500" />
+          <span class="text-xl font-medium text-surface-900-50">{actors.length}</span>
+          <span class="text-sm text-surface-600-300">Actors</span>
+        </div>
+      </div>
+      
+      <div class="px-6 py-5 text-center">
+        <div class="flex flex-col items-center">
+          <icons.CreditCard size={20} class="mb-2 text-success-500" />
+          <span class="text-xl font-medium text-surface-900-50">{cardsOwnedCount}</span>
+          <span class="text-sm text-surface-600-300">Cards Owned</span>
+        </div>
+      </div>
     </div>
   </div>
 
