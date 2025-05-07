@@ -69,7 +69,7 @@
     <div class="card p-8 variant-glass-surface backdrop-blur-lg border border-surface-300-600/20 shadow-xl max-w-4xl mx-4">
       <div class="text-center">
         <div class="flex justify-center mb-6">
-          <div class="w-20 h-20 bg-primary-500/20 rounded-full flex items-center justify-center">
+          <div class="w-20 h-20 flex items-center justify-center">
             <Leaf class="w-10 h-10 text-primary-500" />
           </div>
         </div>
@@ -93,7 +93,7 @@
       <!-- Feature 1 -->
       <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
-          <div class="w-12 h-12 rounded-full bg-primary-500/20 flex items-center justify-center mr-4">
+          <div class="w-12 h-12 flex items-center justify-center mr-4">
             <Globe class="w-6 h-6 text-primary-500" />
           </div>
           <div>
@@ -106,7 +106,7 @@
       <!-- Feature 2 -->
       <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
-          <div class="w-12 h-12 rounded-full bg-secondary-500/20 flex items-center justify-center mr-4">
+          <div class="w-12 h-12 flex items-center justify-center mr-4">
             <Users class="w-6 h-6 text-secondary-500" />
           </div>
           <div>
@@ -119,7 +119,7 @@
       <!-- Feature 3 -->
       <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
-          <div class="w-12 h-12 rounded-full bg-tertiary-500/20 flex items-center justify-center mr-4">
+          <div class="w-12 h-12 flex items-center justify-center mr-4">
             <Sparkles class="w-6 h-6 text-tertiary-500" />
           </div>
           <div>
@@ -173,21 +173,7 @@
         <!-- FAQ 3 -->
         <div class="card p-4 variant-soft">
           <div class="font-bold flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-5 h-5 text-primary-500 mr-2"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <path d="m9 11 3 3L22 4"></path>
-            </svg>
+            <Check class="w-5 h-5 text-primary-500 mr-2" />
             Is this a competitive game?
           </div>
           <p class="p-2">
