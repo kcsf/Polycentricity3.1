@@ -228,7 +228,7 @@
         <h3 class="h3 pr-16">{game.name}</h3>
   
         <!-- Date & Players Info -->
-        <div class="flex flex-wrap justify-between items-center mt-3 text-xs text-gray-600 dark:text-gray-400">
+        <div class="flex flex-wrap justify-between items-center mt-3 text-xs opacity-75">
             <div class="flex items-center">
                 <Calendar size={14} class="mr-1" />
                 <span class="mr-1">{createdDate}</span>
@@ -240,7 +240,7 @@
                     {playerCount} {game.max_players ? `/ ${game.max_players}` : 'players'}
                 </span>
                 {#if isFull}
-                    <span class="ml-2 inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-500/20 text-red-500">Full</span>
+                    <span class="ml-2 badge variant-filled-error text-xs">Full</span>
                 {/if}
             </div>
         </div>
@@ -251,17 +251,17 @@
         <!-- Game Properties -->
         <div class="grid grid-cols-2 gap-4 mb-4">
             <div class="flex flex-col">
-                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Deck Type</p>
+                <p class="text-xs font-semibold opacity-75 mb-1">Deck Type</p>
                 <div class="flex items-center">
-                    <LayoutGrid size={16} class="mr-2 text-gray-500" />
-                    <p class="text-sm text-gray-900 dark:text-gray-100 capitalize">{deckTypeDisplay}</p>
+                    <LayoutGrid size={16} class="mr-2 opacity-75" />
+                    <p class="text-sm capitalize">{deckTypeDisplay}</p>
                 </div>
             </div>
             <div class="flex flex-col">
-                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Role Assignment</p>
+                <p class="text-xs font-semibold opacity-75 mb-1">Role Assignment</p>
                 <div class="flex items-center">
-                    <SwitchCamera size={16} class="mr-2 text-gray-500" />
-                    <p class="text-sm text-gray-900 dark:text-gray-100">{roleAssignmentDisplay}</p>
+                    <SwitchCamera size={16} class="mr-2 opacity-75" />
+                    <p class="text-sm">{roleAssignmentDisplay}</p>
                 </div>
             </div>
         </div>
@@ -269,8 +269,8 @@
         <!-- Game Description -->
         {#if game.description}
             <div class="mb-4">
-                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Description</p>
-                <p class="text-sm text-gray-700 dark:text-gray-300">{game.description}</p>
+                <p class="text-xs font-semibold opacity-75 mb-1">Description</p>
+                <p class="text-sm opacity-90">{game.description}</p>
             </div>
         {/if}
   
@@ -282,7 +282,7 @@
             <div class="flex flex-col sm:flex-row gap-2 mt-3">
                 {#if isUserInGame}
                     <button
-                        class="flex-1 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                        class="btn flex-1 preset-filled-primary"
                         onclick={enterGame}
                     >
                         <LogIn size={18} class="inline mr-2" />
@@ -290,7 +290,7 @@
                     </button>
                     {#if !isCreator}
                         <button
-                            class="flex-1 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                            class="btn flex-1 preset-filled-error"
                             onclick={handleLeaveGame}
                             disabled={isLeaving}
                         >
@@ -308,7 +308,7 @@
                     {/if}
                 {:else if game.status === GameStatus.ACTIVE}
                     <button
-                        class="flex-1 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                        class="btn flex-1 preset-filled-success"
                         onclick={handleJoinGame}
                         disabled={isJoining || isFull}
                     >
@@ -324,7 +324,7 @@
                         {/if}
                     </button>
                     <button
-                        class="flex-1 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 font-bold py-2 px-4 rounded"
+                        class="btn flex-1 preset-tonal-surface"
                         onclick={handleViewDetails}
                     >
                         <Info size={18} class="inline mr-2" />
@@ -332,7 +332,7 @@
                     </button>
                 {:else}
                     <button
-                        class="flex-1 border border-blue-500 hover:bg-blue-500/10 text-blue-500 font-bold py-2 px-4 rounded"
+                        class="btn flex-1 preset-tonal-primary"
                         onclick={handleViewDetails}
                     >
                         <Info size={18} class="inline mr-2" />
