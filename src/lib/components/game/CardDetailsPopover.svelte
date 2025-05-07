@@ -1,30 +1,58 @@
 <script lang="ts">
   import type { D3Node } from '$lib/utils/d3GraphUtils';
-  
-  // Convert to Svelte 5 Runes syntax using $props()
+  import type { CardWithPosition } from '$lib/utils/d3GraphUtils';
+  import { onMount } from 'svelte';
+
+  // Props
   const {
     node,
+    cards,
     onClose
   } = $props<{
     node: D3Node;
+    cards: CardWithPosition[];
     onClose: () => void;
   }>();
-  
-  // Create a typed logging function
+
+  interface PartyItem {
+    index: number;
+    cardTitle: string;
+    obligation: string;
+    benefit: string;
+  }
+
+  // Derive partyItems whenever node.data.parties or cards changes
+  const partyItems = $derived(() => {
+    return Object.entries(node.data.parties || {}).map(
+      ([_, details], i): PartyItem => {
+        const card = cards.find((c) => c.card_id === details.card_ref);
+        return {
+          index: i + 1,
+          cardTitle: card?.role_title ?? details.card_ref,
+          obligation: details.obligation,
+          benefit: details.benefit
+        };
+      }
+    );
+  });
+
+  // Visibility state
+  let isVisible = $state(false);
+
+  // Dev‐only logger
   const isDev = process.env.NODE_ENV !== 'production';
   const log = (...args: any[]) => isDev && console.log('[CardDetailsPopover]', ...args);
-  
-  // Reactive variable using Svelte 5 Runes $state
-  let isVisible = $state(false);
-  
-  // Run as soon as the script executes
-  setTimeout(() => {
-    isVisible = true;
-    log('Popover visible for', node.name);
-    log('Node data:', JSON.stringify(node.data, null, 2));
-    log('Node type:', node.type);
-  }, 10);
+
+  onMount(() => {
+    setTimeout(() => {
+      isVisible = true;
+      log('Popover visible for', node.name);
+      log('Node data:', JSON.stringify(node.data, null, 2));
+      log('Node type:', node.type);
+    }, 10);
+  });
 </script>
+
 
 <div 
   class="p-3 bg-surface-100-900/95 backdrop-blur-sm rounded-xl shadow-lg max-w-sm border border-surface-300-700/50 transition-all duration-200 overflow-hidden"
@@ -193,7 +221,7 @@
       <h3 class="text-sm font-semibold text-primary-700-300 truncate">{node.name}</h3>
       <span class="text-xs rounded bg-indigo-500/20 text-indigo-500 px-1.5 py-0.5 ml-1">Agreement</span>
     </div>
-    
+
     <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
       {#if node.data.summary}
         <div class="col-span-2">
@@ -201,42 +229,29 @@
           <p class="mt-0.5 opacity-90 text-xs whitespace-pre-line">{node.data.summary}</p>
         </div>
       {/if}
-      
+
       <div class="col-span-1">
         <span class="font-medium text-primary-500-400">Type:</span> {node.data.type}
       </div>
-      
       <div class="col-span-1">
         <span class="font-medium text-primary-500-400">Status:</span> {node.data.status}
       </div>
-      
-      {#if node.data.parties && Object.keys(node.data.parties).length}
-        <div class="col-span-2 mt-1">
+
+      {#if partyItems.length}
+        <div class="col-span-2 mt-1 space-y-3">
           <span class="font-medium text-primary-500-400">Parties:</span>
-          {#each Object.entries(node.data.parties || {}) as [actorId, details], i}
-            <div class="border-l-2 border-indigo-500/30 pl-2 mt-1">
-              {#if actorId === 'actor_2' && details.card_ref === 'card_2'}
-                <div class="font-medium text-xs text-tertiary-700">
-                  Party {i+1}: DAO of the Green Veil
-                </div>
-              {:else if actorId === 'actor_3' && details.card_ref === 'card_3'}
-                <div class="font-medium text-xs text-tertiary-700">
-                  Party {i+1}: PMA Seedkeeper
-                </div>
-              {:else}
-                <div class="font-medium text-xs text-tertiary-700">
-                  Party {i+1}: {actorId}
-                </div>
-              {/if}
-              
-              <div class="mt-0.5">
-                <span class="text-indigo-500">Obligation:</span>
-                <p class="opacity-90 text-xs whitespace-pre-line">{details.obligation || 'None specified'}</p>
+          {#each partyItems as p}
+            <div class="border-l-2 border-indigo-500/30 pl-2">
+              <div class="font-medium text-xs text-tertiary-700">
+                Party {p.index}: {p.cardTitle}
               </div>
-              
               <div class="mt-0.5">
-                <span class="text-emerald-500">Benefit:</span>
-                <p class="opacity-90 text-xs whitespace-pre-line">{details.benefit || 'None specified'}</p>
+                <span class="text-indigo-500 font-medium">Obligation:</span>
+                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{p.obligation || 'None specified'}</span>
+              </div>
+              <div class="mt-0.5">
+                <span class="text-emerald-500 font-medium">Benefit:</span>
+                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{p.benefit || 'None specified'}</span>
               </div>
             </div>
           {/each}
@@ -252,5 +267,3 @@
     Close
   </button>
 </div>
-
-<!-- No additional styles needed since we're using Tailwind classes -->

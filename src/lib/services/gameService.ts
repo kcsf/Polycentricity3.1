@@ -866,24 +866,42 @@ export async function getGameContext(
     ) as CardWithPosition[];
 
     // 6️⃣ Fetch and fully resolve all agreements for this game
+    // ─── 6️⃣ Fetch and fully resolve all agreements for this game ───────────────
     const rawAgs = await getCollection<Agreement>(nodes.agreements);
     const agreements: AgreementWithPosition[] = await Promise.all(
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-          const parties =
-            (await getField<
-              Record<
-                string,
-                { card_ref: string; obligation: string; benefit: string }
-              >
-            >(`${nodes.agreements}/${ag.agreement_id}`, "parties")) || {};
+          const agPath = `${nodes.agreements}/${ag.agreement_id}`;
 
+          // 1) read the set of party‐node pointers
+          const partyPtrs = await getSet(agPath, "parties");
+          const parties: Record<
+            string,
+            { card_ref: string; obligation: string; benefit: string }
+          > = {};
+
+          // 2) for each pointer, load the full details
+          await Promise.all(
+            partyPtrs.map(async (ptr) => {
+              // ptr === "agreements/ag_1/parties/actor_1"
+              const actorId = ptr.split("/").pop();
+              if (!actorId) return;
+              const details = await get<{
+                card_ref: string;
+                obligation: string;
+                benefit: string;
+              }>(ptr);
+              if (details) {
+                parties[actorId] = details;
+              }
+            }),
+          );
+
+          // 3) still pull the cards_ref map
           const cards_ref =
-            (await getField<Record<string, boolean>>(
-              `${nodes.agreements}/${ag.agreement_id}`,
-              "cards_ref",
-            )) || {};
+            (await getField<Record<string, boolean>>(agPath, "cards_ref")) ||
+            {};
 
           return {
             ...ag,
@@ -894,7 +912,6 @@ export async function getGameContext(
         }),
     );
 
-    // 8️⃣ Return the fully-hydrated context
     return {
       game,
       actors,

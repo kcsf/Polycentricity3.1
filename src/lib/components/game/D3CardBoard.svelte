@@ -286,7 +286,8 @@
   {#if selectedNode}
     <div class="absolute bottom-4 right-4">
       <CardDetailsPopover 
-        node={selectedNode} 
+        node={selectedNode}
+        cards={cardsWithPosition}
         onClose={() => selectedNode = null} 
       />
     </div>
