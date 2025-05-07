@@ -297,7 +297,9 @@
         {:else}
           <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {#each $userGamesStore as game (game.game_id)}
-              <GameCard {game} />
+              <!-- Since games in userGamesStore are already filtered for user membership, 
+                   pass isUserGame=true to force "Enter Game" button -->
+              <GameCard {game} isUserGame={true} />
             {/each}
           </div>
         {/if}

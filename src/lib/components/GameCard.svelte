@@ -21,7 +21,12 @@
       Sparkles
     } from '@lucide/svelte';
   
-    const { game, showActions = true } = $props<{ game: Game; showActions?: boolean }>();
+    const { game, showActions = true, isUserGame = false } = $props<{ 
+        game: Game; 
+        showActions?: boolean;
+        // This prop can be passed from the dashboard to indicate the user is definitely in this game
+        isUserGame?: boolean;  
+    }>();
   
     let isJoining = $state(false);
     let isLeaving = $state(false);
@@ -42,8 +47,10 @@
     const isInPlayersList = $derived($userStore.user && game.players && 
         ($userStore.user.user_id in game.players));
     
-    // This matches our dashboard logic in fetchUserGames
-    const isUserInGame = $derived(isCreator || isInPlayersList);
+    // We can determine if the user is in the game in two ways:
+    // 1. From direct checks of isCreator or isInPlayersList
+    // 2. From the isUserGame prop that may be passed from the dashboard
+    const isUserInGame = $derived(isCreator || isInPlayersList || isUserGame);
     const canJoin = $derived(!isUserInGame && !isFull && game.status === GameStatus.ACTIVE);
     
     // Add debug logging after the values are calculated
