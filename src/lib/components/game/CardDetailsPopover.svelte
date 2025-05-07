@@ -153,22 +153,22 @@
         </div>
       {/if}
       
-      {#if node._valueNames?.length}
+      {#if node.data._valueNames?.length}
         <div class="col-span-2 mt-1">
           <h4 class="font-medium text-primary-500-400">Values:</h4>
           <div class="flex flex-wrap gap-1 mt-0.5">
-            {#each node._valueNames as value}
+            {#each node.data._valueNames as value}
               <span class="inline-block bg-primary-500/10 text-primary-500 rounded-full px-1.5 py-0.5">{value}</span>
             {/each}
           </div>
         </div>
       {/if}
       
-      {#if node._capabilityNames?.length}
+      {#if node.data._capabilityNames?.length}
         <div class="col-span-2 mt-1">
           <h4 class="font-medium text-primary-500-400">Capabilities:</h4>
           <div class="flex flex-wrap gap-1 mt-0.5">
-            {#each node._capabilityNames as capability}
+            {#each node.data._capabilityNames as capability}
               <span class="inline-block bg-secondary-500/10 text-secondary-500 rounded-full px-1.5 py-0.5">{capability}</span>
             {/each}
           </div>
