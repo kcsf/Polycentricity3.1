@@ -116,6 +116,7 @@ export interface Actor {
 }
 
 export interface ActorWithCard extends Actor {
+    cards_by_game: Record<string,string>;
     /** Card assigned in this game */
     card?: CardWithPosition;
     /** Optional stored layout */

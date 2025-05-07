@@ -424,77 +424,96 @@ export async function createAgreement(
   const agreementId = generateId();
   const now = Date.now();
 
-  // Build parties record
+  // 1️⃣ Build the partiesRecord by fetching each actor and its nested cards_by_game
   const partiesRecord: Record<
     string,
     { card_ref: string; obligation: string; benefit: string }
   > = {};
+
   for (const aid of parties) {
-    const actor = await get<Actor>(`${nodes.actors}/${aid}`);
-    if (!actor) continue;
+    const [actor, cardsByGame] = await Promise.all([
+      get<Actor>(`${nodes.actors}/${aid}`),
+      getField<Record<string, string>>(
+        `${nodes.actors}/${aid}`,
+        "cards_by_game",
+      ),
+    ]);
+
+    if (!actor || !cardsByGame) continue;
+    const cardRef = cardsByGame[gameId];
+    if (!cardRef) continue;
+
     partiesRecord[aid] = {
-      card_ref: actor.cards_by_game[gameId],
-      obligation: terms[aid]?.obligations.join("; ") || "",
-      benefit: terms[aid]?.benefits.join("; ") || "",
+      card_ref: cardRef,
+      obligation: terms[aid]?.obligations.join("; ") ?? "",
+      benefit: terms[aid]?.benefits.join("; ") ?? "",
     };
   }
 
-  // 1️⃣ Write root agreement
+  // 2️⃣ Build the cards_ref map for this agreement
+  const cards_ref = Object.fromEntries(
+    Object.values(partiesRecord).map((p) => [p.card_ref, true]),
+  );
+
+  // 3️⃣ Write the root agreement node
   const agreement: Agreement = {
     agreement_id: agreementId,
     game_ref: gameId,
     creator_ref: user.user_id,
     title,
     summary: description,
-    type: "asymmetric",
+    type: "asymmetric", // hard-coded for now
     status: AgreementStatus.PROPOSED,
     parties: partiesRecord,
-    cards_ref: Object.fromEntries(
-      Object.values(partiesRecord).map((p) => [p.card_ref, true]),
-    ),
+    cards_ref,
     created_at: now,
     updated_at: now,
   };
   await write(nodes.agreements, agreementId, agreement);
 
-  // 2️⃣ Pointer‐edges
-  await Promise.all([
-    createRelationship(
+  // 4️⃣ Create all pointer-edges (in sequence to avoid Promise<void> mismatches)
+  // → creator_ref → User
+  await createRelationship(
+    `${nodes.agreements}/${agreementId}`,
+    "creator_ref",
+    `${nodes.users}/${user.user_id}`,
+  );
+
+  // → game.agreements_ref → Agreement
+  await createRelationship(
+    `${nodes.games}/${gameId}`,
+    "agreements_ref",
+    `${nodes.agreements}/${agreementId}`,
+  );
+
+  // → parties ↔ actors, and actors ↔ agreements_ref
+  for (const aid of Object.keys(partiesRecord)) {
+    await createRelationship(
       `${nodes.agreements}/${agreementId}`,
-      "creator_ref",
-      `${nodes.users}/${user.user_id}`,
-    ),
-    createRelationship(
-      `${nodes.games}/${gameId}`,
+      "parties",
+      `${nodes.actors}/${aid}`,
+    );
+    await createRelationship(
+      `${nodes.actors}/${aid}`,
       "agreements_ref",
       `${nodes.agreements}/${agreementId}`,
-    ),
-    // parties ↔ actors
-    ...parties.map((aid) =>
-      Promise.all([
-        createRelationship(
-          `${nodes.agreements}/${agreementId}`,
-          "parties",
-          `${nodes.actors}/${aid}`,
-        ),
-        createRelationship(
-          `${nodes.actors}/${aid}`,
-          "agreements_ref",
-          `${nodes.agreements}/${agreementId}`,
-        ),
-      ]),
-    ),
-    // cards_ref ↔ cards
-    ...Object.keys(agreement.cards_ref).map((cardId) =>
-      createRelationship(
-        `${nodes.agreements}/${agreementId}`,
-        "cards_ref",
-        `${nodes.cards}/${cardId}`,
-      ),
-    ),
-  ]);
+    );
+  }
 
-  return { ...agreement, position: randomPos() };
+  // → cards_ref ↔ cards
+  for (const cardId of Object.keys(cards_ref)) {
+    await createRelationship(
+      `${nodes.agreements}/${agreementId}`,
+      "cards_ref",
+      `${nodes.cards}/${cardId}`,
+    );
+  }
+
+  // 5️⃣ Return it with a random position for the UI
+  return {
+    ...agreement,
+    position: randomPos(),
+  };
 }
 
 export async function updateAgreement(
@@ -747,7 +766,7 @@ export async function getGameContext(
       ),
     );
 
-    // 4️⃣ Batch-fetch each actor + their assigned card + resolve value/cap names
+    // 4️⃣ Batch-fetch each actor + their assigned card + resolve names
     const usedSet = new Set<string>();
     const actorResults = await Promise.all(
       actorIds.map(async (aid) => {
@@ -760,14 +779,16 @@ export async function getGameContext(
         ]);
         if (!a) return null;
 
-        const cardId = cardsByGame?.[gameId];
+        // 🔑 Attach the raw cards_by_game map so the UI can check against gameId
+        const actorMap = cardsByGame || {};
+
+        const cardId = actorMap[gameId];
         let card: CardWithPosition | undefined;
 
         if (cardId) {
           usedSet.add(cardId);
           const raw = await get<Card>(`${nodes.cards}/${cardId}`);
           if (raw) {
-            // 🔥 Fetch the nested maps explicitly
             const valueRefs = await getSet(
               `${nodes.cards}/${cardId}`,
               "values_ref",
@@ -797,7 +818,12 @@ export async function getGameContext(
           }
         }
 
-        return { ...a, card, position: randomPos() } as ActorWithCard;
+        return {
+          ...a,
+          cards_by_game: actorMap,
+          card,
+          position: randomPos(),
+        } as ActorWithCard;
       }),
     );
     const actors = actorResults.filter((a) => a != null) as ActorWithCard[];
@@ -810,7 +836,6 @@ export async function getGameContext(
           const raw = await get<Card>(`${nodes.cards}/${id}`);
           if (!raw) return null;
 
-          // 🔥 Same nested-map fetch here
           const valueRefs = await getSet(`${nodes.cards}/${id}`, "values_ref");
           const capRefs = await getSet(
             `${nodes.cards}/${id}`,
@@ -846,20 +871,14 @@ export async function getGameContext(
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-          // resolve the parties map (actor_id → {card_ref, obligation, benefit})
           const parties =
             (await getField<
               Record<
                 string,
-                {
-                  card_ref: string;
-                  obligation: string;
-                  benefit: string;
-                }
+                { card_ref: string; obligation: string; benefit: string }
               >
             >(`${nodes.agreements}/${ag.agreement_id}`, "parties")) || {};
 
-          // resolve the cards_ref map (card_id → true)
           const cards_ref =
             (await getField<Record<string, boolean>>(
               `${nodes.agreements}/${ag.agreement_id}`,
