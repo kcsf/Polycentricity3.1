@@ -4,13 +4,9 @@
         import type { User, UserSession } from '$lib/types';
         import { X } from '@lucide/svelte';
 
-        // Define props using $props()
-        const { open = false } = $props<{
-                open: boolean;
-        }>();
-
-        // Use two-way binding for open state
-        const updateOpen = $bindable();
+        // Define props with bindable properties
+        let open = $props.open ?? false;
+        let { open: bindableOpen } = $props.bindable();
 
         // Get current user from store
         const currentUser = $derived(userStore?.user || null);
@@ -87,7 +83,7 @@
                         
                         // Close after 1.5 seconds
                         setTimeout(() => {
-                                updateOpen(false);
+                                bindableOpen = false; // Use bindable prop for two-way binding
                         }, 1500);
                 } catch (error) {
                         console.error('Failed to update profile:', error);
@@ -99,7 +95,7 @@
 
         // Handle cancel
         function handleCancel() {
-                updateOpen(false);
+                bindableOpen = false; // Use bindable prop for two-way binding
         }
 </script>
 
