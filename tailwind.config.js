@@ -3,6 +3,7 @@ const { join } = require('path');
 const { skeleton } = require('@skeletonlabs/tw-plugin');
 
 module.exports = {
+  darkMode: 'class',
   content: [
     './src/**/*.{html,js,svelte,ts}',
     join(require.resolve('@skeletonlabs/skeleton'), '../**/*.{html,js,svelte,ts}')
@@ -18,8 +19,15 @@ module.exports = {
     },
   },
   plugins: [
+    require('@tailwindcss/forms'),
     skeleton({
       themes: { preset: ["skeleton"] }
     })
   ],
+  safelist: [
+    'md:hidden',
+    'md:block',
+    'md:grid',
+    'md:flex'
+  ]
 }
