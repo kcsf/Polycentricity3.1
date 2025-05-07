@@ -21,6 +21,8 @@
   setTimeout(() => {
     isVisible = true;
     log('Popover visible for', node.name);
+    log('Node data:', JSON.stringify(node.data, null, 2));
+    log('Node type:', node.type);
   }, 10);
 </script>
 
