@@ -4,10 +4,9 @@
         import type { User, UserSession } from '$lib/types';
         import { X } from '@lucide/svelte';
 
-        // Define props with bindable properties
-        let open = $props.open ?? false;
-        let { open: bindableOpen } = $props.bindable();
-
+        // Define props with two-way binding
+        const open = $props.boolean('open', false);
+        
         // Get current user from store
         const currentUser = $derived(userStore?.user || null);
 
@@ -83,7 +82,7 @@
                         
                         // Close after 1.5 seconds
                         setTimeout(() => {
-                                bindableOpen = false; // Use bindable prop for two-way binding
+                                open.set(false); // Use set() to update bindable prop 
                         }, 1500);
                 } catch (error) {
                         console.error('Failed to update profile:', error);
@@ -95,11 +94,11 @@
 
         // Handle cancel
         function handleCancel() {
-                bindableOpen = false; // Use bindable prop for two-way binding
+                open.set(false); // Use set() to update bindable prop
         }
 </script>
 
-{#if open}
+{#if open.get()}
 <div class="fixed inset-0 bg-surface-900-50/90 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
         <div class="card p-6 shadow-xl max-w-lg w-full m-4">
                 <header class="flex justify-between items-start mb-4">
