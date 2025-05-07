@@ -19,25 +19,21 @@
         let errorMessage = $state('');
         let successMessage = $state('');
         
-        // Derived values from user store for reactivity
-        const userData = $derived(() => {
+        // Always update form with current user data when userStore changes
+        $effect(() => {
                 const user = userStore?.user;
-                return {
-                        name: user?.name || '',
-                        email: user?.email || '',
-                        role: user?.role || 'Member'
-                };
+                if (user) {
+                        name = user.name || '';
+                        email = user.email || '';
+                        role = user.role || 'Member';
+                        console.log('Updated form with user data:', { name, email, role });
+                }
         });
         
-        // Update form with user data when opened and reset messages
+        // Reset error messages and log when modal opens
         $effect(() => {
                 if (open) {
-                        // Update form fields with latest user data from our derived store
-                        name = userData.name;
-                        email = userData.email;
-                        role = userData.role;
-                        
-                        // Clear messages
+                        console.log('Modal opened with current fields:', { name, email, role });
                         errorMessage = '';
                         successMessage = '';
                 }
