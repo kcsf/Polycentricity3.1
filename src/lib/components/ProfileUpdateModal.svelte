@@ -117,7 +117,7 @@
                         </div>
                         <button 
                                 type="button" 
-                                class="btn-icon variant-soft-surface"
+                                class="btn-icon preset-tonal-surface"
                                 onclick={handleCancel}
                                 aria-label="Close"
                         >
@@ -177,13 +177,13 @@
 
                         <!-- Messages -->
                         {#if errorMessage}
-                                <div class="alert variant-filled-error">
+                                <div class="alert preset-filled-error">
                                         <span>{errorMessage}</span>
                                 </div>
                         {/if}
                         
                         {#if successMessage}
-                                <div class="alert variant-filled-success">
+                                <div class="alert preset-filled-success">
                                         <span>{successMessage}</span>
                                 </div>
                         {/if}
@@ -192,7 +192,7 @@
                         <div class="flex justify-end gap-4 pt-4">
                                 <button
                                         type="button"
-                                        class="btn variant-soft-surface"
+                                        class="btn preset-tonal-surface"
                                         onclick={handleCancel}
                                         disabled={isSubmitting}
                                 >
@@ -200,7 +200,7 @@
                                 </button>
                                 <button 
                                         type="submit" 
-                                        class="btn variant-filled-primary"
+                                        class="btn preset-filled-primary"
                                         disabled={isSubmitting}
                                 >
                                         {#if isSubmitting}
