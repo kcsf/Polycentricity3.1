@@ -879,40 +879,43 @@ export async function getGameContext(
       (c) => c != null,
     ) as CardWithPosition[];
 
-// ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
-const rawAgs = await getCollection<Agreement>(nodes.agreements);
-const agreements: AgreementWithPosition[] = await Promise.all(
-  rawAgs
-    .filter((ag) => ag.game_ref === gameId)
-    .map(async (ag) => {
-      // 1) Get the raw actor‐id → Gun pointers
-      const partiesRef =
-        (await getField<Record<string, { "#": string }>>(
-          `${nodes.agreements}/${ag.agreement_id}`,
-          "parties",
-        )) ?? {};
+    // ─── 6️⃣ Fetch and fully resolve all agreements for this game ───────────────
+    const rawAgs = await getCollection<Agreement>(nodes.agreements);
+    const agreements: AgreementWithPosition[] = await Promise.all(
+      rawAgs
+        .filter((ag) => ag.game_ref === gameId)
+        .map(async (ag) => {
+          const agPath = `${nodes.agreements}/${ag.agreement_id}`;
 
-      // 2) For each actorId, load its stored strings and find its CardWithPosition
-      const partyItems: PartyItem[] = await Promise.all(
-        Object.keys(partiesRef).map(async (actorId) => {
-          // pull obligation/benefit/card_ref
-          const pd = (await getField<{
-            card_ref: string;
-            obligation: string;
-            benefit: string;
-          }>(
-            `${nodes.agreements}/${ag.agreement_id}/parties`,
-            actorId,
-          )) ?? { card_ref: "", obligation: "", benefit: "" };
+          // grab the set of pointers under "parties"
+          const partyPtrs = await getSet(agPath, "parties");
+          const parties: Record<
+            string,
+            { card_ref: string; obligation: string; benefit: string }
+          > = {};
 
-          // find the ActorWithCard loaded earlier, and grab its .card
-          const actor = actors.find((a) => a.actor_id === actorId);
-          if (!actor?.card) {
-            console.warn(
-              `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
-            );
-            return null;
-          }
+          // for each pointer, do a loose get(...) + cast
+          await Promise.all(
+            partyPtrs.map(async (ptr) => {
+              const actorId = ptr.split("/").pop();
+              if (!actorId) return;
+
+              // Loosen the type here so TS won’t complain
+              const raw = await (get(ptr as any) as Promise<any>);
+              if (raw && raw.card_ref) {
+                parties[actorId] = {
+                  card_ref: raw.card_ref,
+                  obligation: raw.obligation,
+                  benefit: raw.benefit,
+                };
+              }
+            }),
+          );
+
+          // still pull your cards_ref as before
+          const cards_ref =
+            (await getField<Record<string, boolean>>(agPath, "cards_ref")) ||
+            {};
 
           return {
             actorId,
