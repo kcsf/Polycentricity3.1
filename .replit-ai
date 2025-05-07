@@ -1,0 +1,119 @@
+# Replit AI Configuration
+- Project uses **Svelte 5.28.1** with **Runes mode** ($props, $state, $derived, onclick).
+- Use **TypeScript** with types from `src/lib/types/index.ts`.
+- Use **Tailwind CSS (@tailwindcss/vite@4.1.3)** with Skeleton Labs (@skeletonlabs/skeleton@3.1.2) classes.
+- Avoid Svelte 3/4 syntax (e.g., `$:`, `reactive:`, `<script context="module">`).
+- Reference `package.json` for exact package versions.
+
+## Project Context
+- **Project Name**: Polycentricity3
+- **Description**: A decentralized eco-village simulation game using SvelteKit, Gun.js, Tailwind CSS, D3, and Skeleton Labs.
+- **Core Technologies**:
+  - Svelte 5.28.1 (Runes mode)
+  - SvelteKit 2.20.7
+  - Gun.js 0.2020.1240
+  - Tailwind CSS (@tailwindcss/vite@4.1.3)
+  - Skeleton Labs (@skeletonlabs/skeleton@3.1.2)
+  - D3 7.9.0
+  - TypeScript 5.8.3
+  - Vite 6.2.5
+- **TypeScript Types**: All code must align with types defined in `src/lib/types/index.ts`.
+- **Database**: Gun.js with schema defined in `GunSchema.md`.
+- **Key Files**:
+  - `README.md`: Project overview and setup.
+  - `GunSchema.md`: Database schema.
+  - `src/lib/types/index.ts`: TypeScript types.
+  - `src/lib/services/gameService.ts`: Optimized Gun functions.
+  - `src/lib/services/gunService.ts`: Core Gun utilities.
+
+## Syntax and Migration Guidelines
+Replit AI must follow the latest syntax for all packages, as outlined in their respective migration guides:
+
+### Svelte 5.28.1 (Runes Mode)
+- **Migration Guide**: [Svelte 5 Migration Guide](https://svelte.dev/docs/svelte/v5-migration-guide)
+- **Key Rules**:
+  - Use Runes mode exclusively (`$props`, `$state`, `$derived`, `onclick`).
+  - Avoid Svelte 3/4 syntax (e.g., `$:`, `reactive:`, `<script context="module">`, `svelte:component`).
+  - Use `let { prop } = $props()` for component props.
+  - Use `$state` for reactive state (e.g., `let count = $state(0)`).
+  - Use `$derived` for computed values (e.g., `let double = $derived(count * 2)`).
+  - Use `onclick` instead of `on:click`.
+  - Ensure `svelte.config.js` has `compilerOptions: { runes: true }`.
+
+### Tailwind CSS (@tailwindcss/vite@4.1.3)
+- **Migration Guide**: [Tailwind CSS 4 Upgrade Guide](https://tailwindcss.com/docs/upgrade-guide)
+- **Key Rules**:
+  - Use Tailwind 4 syntax with `@tailwindcss/vite@4.1.3`.
+  - Never create a 'tailwind.config.js' file - it is deprectated and unnecessary.
+  - Never configure 'postcss' - tailwind is ALREADY configured with Vite.
+  - Avoid deprecated utilities.
+  - Ensure compatibility with Skeleton Labs classes.
+
+### Skeleton Labs (@skeletonlabs/skeleton@3.1.2)
+- **Migration Guide**: [Skeleton UI Migration from v2](https://github.com/skeletonlabs/skeleton/discussions/2921)
+- **Key Rules**:
+  - Use Skeleton 3.1.2 components and utilities.
+  - Use Tailwind-based classes for styling.
+  - Avoid v2 syntax (e.g., deprecated `variant-*` classes).
+  - Use predefined theme colors for styling `polyc.css`
+  - Use optimized Color Pairings that respect light/dark mode like:  {property}-{color}-{lightModeShade}-{darkModeShade}/{transparency}
+  (e.g., bg-surface-50-950/90)
+
+### Gun.js (0.2020.1240)
+- **Documentation**: [Gun.js API](https://gun.eco/docs/API)
+- **Key Rules**:
+  - Use Gun.js 0.2020.1240 API methods (`get`, `put`, `once`, `map`).
+  - Follow schema from `GunSchema.md` (e.g., `users/<user_id>`, `games/<game_id>`).
+  - Use object format for collections (e.g., `{ id: true }`) instead of arrays.
+  - Always use optimized functions from `src/lib/services/gameService.ts` for data operations.
+
+- **Function Suggestions**:
+  - If a required function is missing in `gameService.ts`, missing, or not working correctly, suggest a new function or fix and ask for permission to modify:
+    ```
+    Suggestion: Add a new function `updateAgreementStatus` to `gameService.ts` to handle agreement status changes. Proposed code:
+    export async function updateAgreementStatus(agreementId: string, status: AgreementStatus) {
+      await gun.get('agreements').get(agreementId).put({ status, updated_at: Date.now() });
+    }
+    Please confirm if I should add this to `gameService.ts`.
+    ```
+  - Do not assume the function exists or modify `gameService.ts` without explicit user approval.
+
+## Protected Files
+- **Do Not Modify Without Permission**:
+  - `src/lib/services/gameService.ts`
+  - `src/lib/services/gunService.ts`
+  - `src/lib/types/index.ts`
+- **Rule**:
+  - Never apply changes to these files unless explicitly requested by the user.
+  - If a change is needed, propose the change and wait for user confirmation:
+    ```
+    Suggested change to `gameService.ts`: Add `fetchActorCards` function. Please confirm before proceeding.
+    ```
+
+## General Coding Rules
+- **TypeScript**:
+  - Use strict TypeScript with types from `src/lib/types/index.ts`.
+  - Align with `GunSchema.md` for data structures (e.g., `Game`, `Actor`, `Agreement`).
+
+- **File Structure**:
+  - Place general components in `src/lib/components`.
+  - Place game components in `src/lib/components/game`.
+  - Place admin components in `src/lib/components/admin`.
+  - Place routes in `src/routes`.
+  - Use `+page.svelte` for SvelteKit routes.
+
+- **Error Handling**:
+  - Include try-catch blocks for async operations.
+  - Log errors to console and handle gracefully in UI.
+
+- **Performance**:
+  - Debounce high-frequency Gun writes (e.g., `node_positions` updates, 100ms).
+  - Use pagination for large collections (e.g., `messages_ref/day_20250421`).
+
+## Feedback Instructions
+- If Replit AI generates incorrect code (e.g., Svelte 3/4 syntax, wrong Tailwind classes), reject and provide feedback:
+  ```
+  Incorrect: Used Svelte 3/4 syntax ($:). Use Svelte 5 Runes mode ($props, $state, $derived).
+  Incorrect: Used deprecated Tailwind class (bg-gray-100). Use bg-stone-100.
+  Incorrect: Direct Gun.js call. Use gameService.ts functions.
+  ```
