@@ -197,37 +197,37 @@
   {/if}
 
   <!-- Stats -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-8">
+  <div class="card overflow-hidden shadow-sm mb-8">
     <div class="grid grid-cols-1 divide-y border-t sm:grid-cols-4 sm:divide-x sm:divide-y-0">
       <div class="px-6 py-5 text-center">
         <div class="flex flex-col items-center">
-          <icons.Gamepad2 size={20} class="mb-2 text-blue-500" />
-          <span class="text-xl font-medium text-gray-900 dark:text-white">{$gamesJoined}</span>
-          <span class="text-sm text-gray-600 dark:text-gray-400">Games Joined</span>
+          <icons.Gamepad2 size={20} class="mb-2 text-primary-500" />
+          <span class="text-xl font-medium text-surface-900-50">{$gamesJoined}</span>
+          <span class="text-sm text-surface-600-300">Games Joined</span>
         </div>
       </div>
       
       <div class="px-6 py-5 text-center">
         <div class="flex flex-col items-center">
-          <icons.FileCode size={20} class="mb-2 text-indigo-500" />
-          <span class="text-xl font-medium text-gray-900 dark:text-white">{$gamesCreated}</span>
-          <span class="text-sm text-gray-600 dark:text-gray-400">Games Created</span>
+          <icons.FileCode size={20} class="mb-2 text-secondary-500" />
+          <span class="text-xl font-medium text-surface-900-50">{$gamesCreated}</span>
+          <span class="text-sm text-surface-600-300">Games Created</span>
         </div>
       </div>
       
       <div class="px-6 py-5 text-center">
         <div class="flex flex-col items-center">
-          <icons.User size={20} class="mb-2 text-purple-500" />
-          <span class="text-xl font-medium text-gray-900 dark:text-white">{actors.length}</span>
-          <span class="text-sm text-gray-600 dark:text-gray-400">Actors</span>
+          <icons.User size={20} class="mb-2 text-tertiary-500" />
+          <span class="text-xl font-medium text-surface-900-50">{actors.length}</span>
+          <span class="text-sm text-surface-600-300">Actors</span>
         </div>
       </div>
       
       <div class="px-6 py-5 text-center">
         <div class="flex flex-col items-center">
-          <icons.CreditCard size={20} class="mb-2 text-green-500" />
-          <span class="text-xl font-medium text-gray-900 dark:text-white">{cardsOwnedCount}</span>
-          <span class="text-sm text-gray-600 dark:text-gray-400">Cards Owned</span>
+          <icons.CreditCard size={20} class="mb-2 text-success-500" />
+          <span class="text-xl font-medium text-surface-900-50">{cardsOwnedCount}</span>
+          <span class="text-sm text-surface-600-300">Cards Owned</span>
         </div>
       </div>
     </div>
@@ -235,28 +235,28 @@
 
   {#if isLoading}
     <div class="text-center py-8">
-      <icons.Loader size={32} class="animate-spin mx-auto mb-4 text-blue-500" />
-      <p class="text-gray-700 dark:text-gray-300">Loading dashboard...</p>
+      <icons.Loader size={32} class="animate-spin mx-auto mb-4" />
+      Loading dashboard...
     </div>
   {:else}
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="grid md:grid-cols-4 gap-6">
       <!-- Actors list -->
-      <div class="lg:col-span-1 space-y-4">
-        <h2 class="text-xl font-bold mb-2">Your Actors</h2>
+      <div class="md:col-span-1 space-y-4">
+        <h2 class="h3">Your Actors</h2>
         {#if actors.length === 0}
-          <div class="text-center p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-            <icons.User size={48} class="mx-auto mb-2 text-gray-400" />
-            <p class="text-gray-600 dark:text-gray-400">No actors yet. Join a game to get assigned.</p>
+          <div class="text-center p-6 border rounded">
+            <icons.User size={48} class="mx-auto mb-2 opacity-50" />
+            <p>No actors yet. Join a game to get assigned.</p>
           </div>
         {:else}
           {#each actors as actor}
-            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex justify-between items-center">
+            <div class="card p-4 flex justify-between items-center">
               <div>
-                <div class="font-bold text-gray-900 dark:text-white">{actor.custom_name || 'Unnamed'}</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">Type: {actor.actor_type}</div>
+                <div class="font-bold">{actor.custom_name || 'Unnamed'}</div>
+                <div class="text-xs opacity-70">Type: {actor.actor_type}</div>
               </div>
               <button
-                class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                class="btn-icon variant-soft-tertiary"
                 title="Edit actor"
                 onclick={() => openActorEditModal(actor)}
               >
@@ -268,34 +268,34 @@
       </div>
 
       <!-- Games list -->
-      <div class="lg:col-span-3 space-y-6">
+      <div class="md:col-span-3 space-y-6">
         <div class="flex justify-between items-center">
-          <h2 class="text-xl font-bold">Your Games</h2>
+          <h2 class="h3">Your Games</h2>
           <div class="flex gap-2">
-            <a href="/games" class="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-lg flex items-center">
+            <a href="/games" class="btn variant-filled-secondary">
               <icons.Search size={16} class="mr-1" /> Browse
             </a>
-            <a href="/games/create" class="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-lg flex items-center">
+            <a href="/games/create" class="btn variant-filled-secondary">
               <icons.Plus size={16} class="mr-1" /> Create
             </a>
           </div>
         </div>
 
         {#if $userGamesStore.length === 0}
-          <div class="text-center p-10 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-            <icons.Gamepad2 size={64} class="mx-auto mb-4 text-gray-400" />
-            <p class="text-gray-600 dark:text-gray-400">You haven't joined or created any games yet.</p>
+          <div class="text-center p-10 border rounded">
+            <icons.Gamepad2 size={64} class="mx-auto mb-4 opacity-50" />
+            <p>You haven't joined or created any games yet.</p>
             <div class="mt-4 flex justify-center gap-2">
-              <a href="/games" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center">
+              <a href="/games" class="btn variant-filled-primary">
                 <icons.Search size={16} class="mr-1" /> Find Games
               </a>
-              <a href="/games/create" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center">
+              <a href="/games/create" class="btn variant-filled-primary">
                 <icons.Plus size={16} class="mr-1" /> New Game
               </a>
             </div>
           </div>
         {:else}
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {#each $userGamesStore as game (game.game_id)}
               <GameCard {game} />
             {/each}
@@ -306,6 +306,6 @@
   {/if}
 
   <!-- Modals -->
-  <ProfileUpdateModal open={profileModalOpen} onClose={() => profileModalOpen = false} />
+  <ProfileUpdateModal bind:open={profileModalOpen} />
   <ActorEditModal bind:open={actorEditModalOpen} bind:actor={selectedActor} />
 </div>

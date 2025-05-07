@@ -1,8 +1,0 @@
-# Replit AI Configuration
-- Project uses **Svelte 5.28.1** with **Runes mode** ($props, $state, $derived, onclick).
-- Use **TypeScript** with types from `src/lib/types/index.ts`.
-- Use **Tailwind CSS (@tailwindcss/vite@4.1.3)** with Skeleton Labs (@skeletonlabs/skeleton@3.1.2) classes.
-- Avoid Svelte 3/4 syntax (e.g., `$:`, `reactive:`, `<script context="module">`).
-- Reference `package.json` for exact package versions.
-
-
