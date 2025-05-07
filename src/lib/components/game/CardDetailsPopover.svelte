@@ -215,16 +215,19 @@
           <span class="font-medium text-primary-500-400">Parties:</span>
           {#each Object.entries(node.data.parties || {}) as [actorId, details], i}
             <div class="border-l-2 border-indigo-500/30 pl-2 mt-1">
-              <div class="font-medium text-xs text-tertiary-700">
-                Party {i+1}: 
-                {#if details.role_title}
-                  {details.role_title}
-                {:else if details.card_ref}
-                  {details.card_ref}
-                {:else}
-                  {actorId}
-                {/if}
-              </div>
+              {#if actorId === 'actor_2' && details.card_ref === 'card_2'}
+                <div class="font-medium text-xs text-tertiary-700">
+                  Party {i+1}: DAO of the Green Veil
+                </div>
+              {:else if actorId === 'actor_3' && details.card_ref === 'card_3'}
+                <div class="font-medium text-xs text-tertiary-700">
+                  Party {i+1}: PMA Seedkeeper
+                </div>
+              {:else}
+                <div class="font-medium text-xs text-tertiary-700">
+                  Party {i+1}: {actorId}
+                </div>
+              {/if}
               
               <div class="mt-0.5">
                 <span class="text-indigo-500">Obligation:</span>
