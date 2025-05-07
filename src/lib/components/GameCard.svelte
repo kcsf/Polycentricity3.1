@@ -191,12 +191,16 @@
     }
 </script>
   
-<div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col h-full">
+<div class="card bg-surface-50-950/90 shadow-lg hover:shadow-xl transition-all duration-200 hover:translate-y-[-2px] flex flex-col h-full">
     <!-- Game Banner & Header -->
-    <div class="relative bg-gray-100 dark:bg-gray-700 p-5 border-b border-gray-200 dark:border-gray-600">
+    <div class="relative p-5 border-b border-surface-300-600-token bg-surface-100-800-token">
         <!-- Status Badge -->
         <div class="absolute top-3 right-3 flex items-center gap-2">
-            <span class="inline-flex items-center px-2 py-1 rounded text-sm font-medium {getStatusBadgeVariant(game.status)}">
+            <span class="badge flex items-center" class:variant-soft-primary={game.status === GameStatus.CREATED}
+                  class:variant-soft-warning={game.status === GameStatus.SETUP}
+                  class:variant-soft-success={game.status === GameStatus.ACTIVE}
+                  class:variant-soft-tertiary={game.status === GameStatus.PAUSED}
+                  class:variant-soft-surface={game.status === GameStatus.COMPLETED}>
                 {#if game.status === GameStatus.CREATED}
                     <Sparkles size={14} class="mr-1" />
                 {:else if game.status === GameStatus.SETUP}
@@ -213,7 +217,7 @@
                 {game.status}
             </span>
             {#if isCreator}
-                <span class="inline-flex items-center px-2 py-1 rounded text-sm font-medium bg-yellow-500/20 text-yellow-500">
+                <span class="badge variant-soft-warning flex items-center">
                     <Crown size={14} class="mr-1" />
                     Creator
                 </span>
@@ -221,7 +225,7 @@
         </div>
   
         <!-- Game Title -->
-        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 pr-16">{game.name}</h3>
+        <h3 class="h3 pr-16">{game.name}</h3>
   
         <!-- Date & Players Info -->
         <div class="flex flex-wrap justify-between items-center mt-3 text-xs text-gray-600 dark:text-gray-400">
@@ -278,11 +282,11 @@
             <div class="flex flex-col sm:flex-row gap-2 mt-3">
                 {#if isUserInGame}
                     <button
-                        class="flex-1 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                        class="flex-1 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
                         onclick={enterGame}
                     >
                         <LogIn size={18} class="inline mr-2" />
-                        View Game
+                        Enter Game
                     </button>
                     {#if !isCreator}
                         <button
