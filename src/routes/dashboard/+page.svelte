@@ -306,6 +306,6 @@
   {/if}
 
   <!-- Modals -->
-  <ProfileUpdateModal bind:open={profileModalOpen} />
+  <ProfileUpdateModal open={profileModalOpen} onClose={() => profileModalOpen = false} />
   <ActorEditModal bind:open={actorEditModalOpen} bind:actor={selectedActor} />
 </div>
