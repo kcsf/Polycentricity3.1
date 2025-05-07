@@ -11,27 +11,33 @@
         // Create event dispatcher
         const dispatch = createEventDispatcher();
         
-        // Local form state
+        // Form state
         let name = $state('');
         let email = $state('');
         let role = $state('Member');
         let isSubmitting = $state(false);
         let errorMessage = $state('');
         let successMessage = $state('');
-
-        // Initialize form with user data when component mounts or when userStore changes
-        $effect(() => {
-                const currentUser = userStore?.user;
-                if (currentUser) {
-                        name = currentUser.name || '';
-                        email = currentUser.email || '';
-                        role = currentUser.role || 'Member';
-                }
+        
+        // Derived values from user store for reactivity
+        const userData = $derived(() => {
+                const user = userStore?.user;
+                return {
+                        name: user?.name || '',
+                        email: user?.email || '',
+                        role: user?.role || 'Member'
+                };
         });
-
-        // Reset error/success messages when modal is opened
+        
+        // Update form with user data when opened and reset messages
         $effect(() => {
                 if (open) {
+                        // Update form fields with latest user data from our derived store
+                        name = userData.name;
+                        email = userData.email;
+                        role = userData.role;
+                        
+                        // Clear messages
                         errorMessage = '';
                         successMessage = '';
                 }
