@@ -12,7 +12,7 @@ A collaborative governance simulation game where players assume various roles in
 
 ## Project Summary
 
-Polycentricity is a digital implementation of what was originally conceived as a workshop paper prototype, offering a simulation environment where players can explore creative, collaborative governance structures. The game is built around a simple graph-based data model where each player is an **actor** with unique roles, goals, and assets who interact to form **agreements** with **obligations** and **benefits**.
+Polycentricity is a digital implementation of a collaborative governance simulation game, originally conceived as a workshop paper prototype by Michael Zargham. Inspired by Zargham's vision, as detailed in his [Game Plan](https://hackmd.io/o0XyDD6tRKawnIdpRQqrmw), we built the game on a decentralized graph database (Gun.js) with augmented visualizations (D3.js and Cytoscape.js) to serve as a proof-of-concept for future decentralized governance projects. In a Web3 world where individuals strive for sovereignty, education through gameplay is essential. Polycentricity aims to remind players of the separation between spirit and material identity, emphasizing that reality is a web of consensual agreements. The game challenges the layered statutory jurisdictions filled with predatory legal systems, positing that new realities can emerge and evolve rapidly in a trustless Web3 ecosystem without reliance on traditional legal frameworks. The core mechanic revolves around a graph-based data model where each player, as an **actor** with unique roles, goals, and assets, interacts to form **agreements** defined by **obligations** and **benefits**.
 
 ## Completed Features
 
@@ -120,6 +120,5 @@ npm run dev -- --host 0.0.0.0 --port 5000
 
 ## Development Notes
 
-- Gun.js has limitations with arrays; use object format with {id: true} pattern for collections
-- Admin login: email "bjorn@endogon.com" with password "admin123"
+- Admin login: 
 - Current development focus: Agreement system and proper database schema redesign

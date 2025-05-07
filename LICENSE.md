@@ -6,7 +6,7 @@ The Polycentricity software, including all original code and modifications to de
 
 **MIT License**
 
-Copyright (c) 2025 [Your Name or Organization]
+Copyright (c) 2025 Endogon
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -36,7 +36,7 @@ For full license texts and copyright notices of these dependencies, refer to the
 
 ## Contributors
 
-- [Your Name] (@yourgithub) - Lead Developer
+- Casey Bjørn (@kcsf) - Lead Developer
 - Michael Zargham - Conceptual Design and Ideas
 
 Additional contributors are listed in the `CONTRIBUTORS.md` file or the README.
@@ -45,4 +45,4 @@ Additional contributors are listed in the `CONTRIBUTORS.md` file or the README.
 
 - The MIT License applies to the Polycentricity software codebase and does not affect the CC BY-SA 4.0 license for the underlying concepts.
 - To comply with CC BY-SA 4.0, any adaptations of the Polycentricity game concepts (e.g., rules, mechanics, or narrative elements derived from Michael Zargham's work) must be shared under CC BY-SA 4.0 with proper attribution.
-- For questions about licensing, contact [Your Contact Information].
+- For questions about licensing, contact bjorn@endogon.com.
