@@ -108,8 +108,8 @@
 </script>
 
 {#if open}
-<div class="fixed inset-0 bg-surface-900/80 backdrop-blur-sm z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-        <div class="card variant-glass-surface p-6 shadow-xl max-w-lg w-full m-4">
+<div class="fixed inset-0 bg-surface-950-50/90 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+        <div class="card bg-surface-50-950/90 p-6 shadow-xl max-w-lg w-full m-4">
                 <header class="flex justify-between items-start mb-4">
                         <div>
                                 <h3 class="h3 text-primary-500">Update Profile</h3>
@@ -192,7 +192,7 @@
                         <div class="flex justify-end gap-4 pt-4">
                                 <button
                                         type="button"
-                                        class="btn variant-soft rounded-md px-4"
+                                        class="btn variant-soft-surface"
                                         onclick={handleCancel}
                                         disabled={isSubmitting}
                                 >
@@ -200,7 +200,7 @@
                                 </button>
                                 <button 
                                         type="submit" 
-                                        class="btn variant-filled-primary rounded-md px-6"
+                                        class="btn variant-filled-primary"
                                         disabled={isSubmitting}
                                 >
                                         {#if isSubmitting}
