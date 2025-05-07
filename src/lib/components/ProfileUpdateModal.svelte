@@ -19,13 +19,19 @@
         let errorMessage = $state('');
         let successMessage = $state('');
 
-        // Reset form when opened
+        // Initialize form with user data when component mounts or when userStore changes
         $effect(() => {
                 const currentUser = userStore?.user;
-                if (open && currentUser) {
+                if (currentUser) {
                         name = currentUser.name || '';
                         email = currentUser.email || '';
                         role = currentUser.role || 'Member';
+                }
+        });
+
+        // Reset error/success messages when modal is opened
+        $effect(() => {
+                if (open) {
                         errorMessage = '';
                         successMessage = '';
                 }
@@ -102,12 +108,12 @@
 </script>
 
 {#if open}
-<div class="fixed inset-0 bg-surface-900-50/90 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-        <div class="card p-6 shadow-xl max-w-lg w-full m-4">
+<div class="fixed inset-0 bg-surface-900/80 backdrop-blur-sm z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+        <div class="card variant-glass-surface p-6 shadow-xl max-w-lg w-full m-4">
                 <header class="flex justify-between items-start mb-4">
                         <div>
-                                <h3 class="h3 text-primary-600-300">Update Profile</h3>
-                                <p class="text-sm text-surface-600-300">Update your account details below</p>
+                                <h3 class="h3 text-primary-500">Update Profile</h3>
+                                <p class="text-sm opacity-80">Update your account details below</p>
                         </div>
                         <button 
                                 type="button" 
@@ -119,16 +125,16 @@
                         </button>
                 </header>
 
-                <form onsubmit={handleSubmit} class="space-y-4">
+                <form onsubmit={handleSubmit} class="space-y-5">
                         <!-- Name -->
-                        <div class="space-y-1">
-                                <label for="name-input" class="label">
+                        <div class="space-y-2">
+                                <label for="name-input" class="label font-medium">
                                         Name
                                 </label>
                                 <input
                                         id="name-input"
                                         type="text"
-                                        class="input"
+                                        class="input rounded-md border-primary-500/30"
                                         placeholder="Your name"
                                         value={name}
                                         oninput={(e) => (name = e.currentTarget.value)}
@@ -137,14 +143,14 @@
                         </div>
 
                         <!-- Email Address -->
-                        <div class="space-y-1">
-                                <label for="email-input" class="label">
+                        <div class="space-y-2">
+                                <label for="email-input" class="label font-medium">
                                         Email Address
                                 </label>
                                 <input
                                         id="email-input"
                                         type="email"
-                                        class="input"
+                                        class="input rounded-md border-primary-500/30"
                                         placeholder="your.email@example.com"
                                         value={email}
                                         oninput={(e) => (email = e.currentTarget.value)}
@@ -153,15 +159,15 @@
                         </div>
 
                         <!-- Role -->
-                        <div class="space-y-1">
-                                <label for="role-select" class="label">
+                        <div class="space-y-2">
+                                <label for="role-select" class="label font-medium">
                                         Role
                                 </label>
                                 <select 
                                         id="role-select"
                                         value={role}
                                         onchange={(e) => (role = e.currentTarget.value as 'Guest' | 'Member' | 'Admin')}
-                                        class="select"
+                                        class="select rounded-md border-primary-500/30"
                                 >
                                         <option value="Guest">Guest</option>
                                         <option value="Member">Member</option>
@@ -183,10 +189,10 @@
                         {/if}
 
                         <!-- Form Actions -->
-                        <div class="flex justify-end gap-4 pt-2">
+                        <div class="flex justify-end gap-4 pt-4">
                                 <button
                                         type="button"
-                                        class="btn variant-soft-surface"
+                                        class="btn variant-soft rounded-md px-4"
                                         onclick={handleCancel}
                                         disabled={isSubmitting}
                                 >
@@ -194,7 +200,7 @@
                                 </button>
                                 <button 
                                         type="submit" 
-                                        class="btn variant-filled-primary"
+                                        class="btn variant-filled-primary rounded-md px-6"
                                         disabled={isSubmitting}
                                 >
                                         {#if isSubmitting}

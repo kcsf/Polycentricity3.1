@@ -6,6 +6,8 @@
 /* Use the polyc theme which supports both light and dark modes */
 @import './polyc';
 
+@source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
+
 /* Custom styles */
 :root {
 
