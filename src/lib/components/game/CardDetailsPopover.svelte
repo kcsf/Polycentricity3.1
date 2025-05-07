@@ -107,9 +107,15 @@
     </div>
     
     <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
+      {#if node.data.type}
+        <div class="col-span-2">
+          <span class="font-medium text-primary-500-400">Type:</span> {node.data.type}
+        </div>
+      {/if}
+      
       {#if node.data.actor_type}
         <div class="col-span-2">
-          <span class="font-medium text-primary-500-400">Type:</span> {node.data.actor_type}
+          <span class="font-medium text-primary-500-400">Actor Type:</span> {node.data.actor_type}
         </div>
       {/if}
       
@@ -119,35 +125,32 @@
         </div>
       {/if}
       
-      <!-- Show card information -->
-      {#if node.data.card}
-        {#if node.data.card.backstory}
-          <div class="col-span-2 mt-1">
-            <h4 class="font-medium text-primary-500-400">Backstory:</h4>
-            <p class="mt-0.5 opacity-90 text-xs">{node.data.card.backstory}</p>
-          </div>
-        {/if}
-        
-        {#if node.data.card.goals}
-          <div class="col-span-2 mt-1">
-            <h4 class="font-medium text-primary-500-400">Goals:</h4>
-            <p class="mt-0.5 opacity-90 text-xs">{node.data.card.goals}</p>
-          </div>
-        {/if}
-        
-        {#if node.data.card.resources}
-          <div class="col-span-2 mt-1">
-            <h4 class="font-medium text-primary-500-400">Resources:</h4>
-            <p class="mt-0.5 opacity-90 text-xs whitespace-pre-line">{node.data.card.resources}</p>
-          </div>
-        {/if}
-        
-        {#if node.data.card.intellectual_property}
-          <div class="col-span-2 mt-1">
-            <h4 class="font-medium text-primary-500-400">Intellectual Property:</h4>
-            <p class="mt-0.5 opacity-90 text-xs whitespace-pre-line">{node.data.card.intellectual_property}</p>
-          </div>
-        {/if}
+      {#if node.data.backstory}
+        <div class="col-span-2 mt-1">
+          <h4 class="font-medium text-primary-500-400">Backstory:</h4>
+          <p class="mt-0.5 opacity-90 text-xs">{node.data.backstory}</p>
+        </div>
+      {/if}
+      
+      {#if node.data.goals}
+        <div class="col-span-2 mt-1">
+          <h4 class="font-medium text-primary-500-400">Goals:</h4>
+          <p class="mt-0.5 opacity-90 text-xs">{node.data.goals}</p>
+        </div>
+      {/if}
+      
+      {#if node.data.resources}
+        <div class="col-span-2 mt-1">
+          <h4 class="font-medium text-primary-500-400">Resources:</h4>
+          <p class="mt-0.5 opacity-90 text-xs whitespace-pre-line">{node.data.resources}</p>
+        </div>
+      {/if}
+      
+      {#if node.data.intellectual_property}
+        <div class="col-span-2 mt-1">
+          <h4 class="font-medium text-primary-500-400">Intellectual Property:</h4>
+          <p class="mt-0.5 opacity-90 text-xs whitespace-pre-line">{node.data.intellectual_property}</p>
+        </div>
       {/if}
       
       {#if node._valueNames?.length}
