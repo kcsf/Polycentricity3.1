@@ -8,10 +8,13 @@
   import { get } from 'svelte/store';
   import { Toaster } from '@skeletonlabs/skeleton-svelte';
   import { toaster } from '$lib/utils/toaster-svelte';
-
+  import { page } from '$app/stores';
   let { children } = $props();
   let isAuthenticated = $state(get(userStore).isAuthenticated);
 
+  // Derive whether the current route is the home page
+  let isHomePage = $derived($page.url.pathname === '/');
+  
   // Update header height and initialize auth
   $effect(() => {
     const headerEl = document.querySelector('header');
@@ -30,9 +33,19 @@
 
 <div class="flex flex-col min-h-screen">
   <Header {toggleTheme} />
-  <main class="flex-grow container mx-auto p-4">
-    {@render children()}
+  <main class="flex-grow" class:isHomePage>
+    <div class="{isHomePage ? 'w-full p-0 m-0' : 'container mx-auto p-4'}">
+      {@render children()}
+    </div>
   </main>
   <Footer />
   <Toaster {toaster}></Toaster>
 </div>
+
+<style>
+  .isHomePage {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+</style>
