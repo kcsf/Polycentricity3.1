@@ -30,9 +30,31 @@
     // Computed properties
     const playerCount = $derived(Object.keys(game.players || {}).length);
     const isFull = $derived(game.max_players && playerCount >= game.max_players);
-    const isUserInGame = $derived($userStore.user && game.players && $userStore.user.user_id in game.players);
-    const canJoin = $derived(!isUserInGame && !isFull && game.status === GameStatus.ACTIVE);
+    
+    // The dashboard considers a user to be in a game if:
+    // 1. User is the creator, OR
+    // 2. User is in the players map, OR 
+    // 3. The game is in the user's games_ref set (this is checked in the dashboard but not here)
+    // 4. The user has an actor in this game (this is checked in the dashboard but not here)
+    
+    // We'll check conditions 1 and 2 here
     const isCreator = $derived($userStore.user && game.creator_ref === $userStore.user.user_id);
+    const isInPlayersList = $derived($userStore.user && game.players && 
+        ($userStore.user.user_id in game.players));
+    
+    // This matches our dashboard logic in fetchUserGames
+    const isUserInGame = $derived(isCreator || isInPlayersList);
+    const canJoin = $derived(!isUserInGame && !isFull && game.status === GameStatus.ACTIVE);
+    
+    // Add debug logging after the values are calculated
+    $effect(() => {
+        if ($userStore.user) {
+            console.log(`[GameCard] Game ${game.game_id} - User ID: ${$userStore.user.user_id}`);
+            console.log(`[GameCard] Game ${game.game_id} - isCreator: ${isCreator}`);
+            console.log(`[GameCard] Game ${game.game_id} - isInPlayersList: ${isInPlayersList}`);
+            console.log(`[GameCard] Game ${game.game_id} - isUserInGame: ${isUserInGame}`);
+        }
+    });
     const roleAssignmentDisplay = $derived(
       game.role_assignment_type
         ? (game.role_assignment_type === 'player-choice' ? 'Player Choice' : 'Random')
