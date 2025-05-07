@@ -66,7 +66,7 @@
 <div class="min-h-screen w-screen flex flex-col bg-linear-to-br from-surface-50-950 to-surface-200-800 -mx-4 md:-mx-8">
   <!-- Hero Section -->
   <div class="flex-grow flex items-center justify-center min-h-[calc(90vh-var(--app-bar-height))] pt-[var(--app-bar-height)]">
-    <div class="card p-8 variant-glass-surface backdrop-blur-lg border border-surface-300 dark:border-surface-600 shadow-xl max-w-4xl mx-4">
+    <div class="card p-8 variant-glass-surface backdrop-blur-lg border border-surface-300-600/20 shadow-xl max-w-4xl mx-4">
       <div class="text-center">
         <div class="flex justify-center mb-6">
           <div class="w-20 h-20 bg-primary-500/20 rounded-full flex items-center justify-center">
@@ -91,7 +91,7 @@
   <div class="container mx-auto px-4 py-16">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
       <!-- Feature 1 -->
-      <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300 dark:border-surface-600 shadow-lg">
+      <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
           <div class="w-12 h-12 rounded-full bg-primary-500/20 flex items-center justify-center mr-4">
             <Globe class="w-6 h-6 text-primary-500" />
@@ -104,7 +104,7 @@
       </div>
 
       <!-- Feature 2 -->
-      <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300 dark:border-surface-600 shadow-lg">
+      <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
           <div class="w-12 h-12 rounded-full bg-secondary-500/20 flex items-center justify-center mr-4">
             <Users class="w-6 h-6 text-secondary-500" />
@@ -117,7 +117,7 @@
       </div>
 
       <!-- Feature 3 -->
-      <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300 dark:border-surface-600 shadow-lg">
+      <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
           <div class="w-12 h-12 rounded-full bg-tertiary-500/20 flex items-center justify-center mr-4">
             <Sparkles class="w-6 h-6 text-tertiary-500" />
@@ -131,7 +131,7 @@
     </div>
 
     <!-- Call to Action -->
-    <div class="card p-8 variant-glass-surface text-center backdrop-blur-lg border border-surface-300 dark:border-surface-600 shadow-lg mb-12">
+    <div class="card p-8 variant-glass-surface text-center backdrop-blur-lg border border-surface-300-600/20 shadow-lg mb-12">
       <h2 class="h2 mb-4">Ready to Build a Sustainable Future?</h2>
       <p class="text-lg mb-6">Join our growing community of sustainability enthusiasts, policy makers, and problem solvers.</p>
       <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
@@ -141,7 +141,7 @@
     </div>
 
     <!-- FAQ Section -->
-    <div class="card p-6 variant-glass-surface backdrop-blur-lg border border-surface-300 dark:border-surface-600 shadow-lg mb-12">
+    <div class="card p-6 variant-glass-surface backdrop-blur-lg border border-surface-300-600/20 shadow-lg mb-12">
       <h2 class="h2 text-center mb-6">Frequently Asked Questions</h2>
       <div class="space-y-4">
         <!-- FAQ 1 -->
@@ -173,7 +173,21 @@
         <!-- FAQ 3 -->
         <div class="card p-4 variant-soft">
           <div class="font-bold flex items-center">
-            <Check class="w-5 h-5 text-primary-500 mr-2" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-5 h-5 text-primary-500 mr-2"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <path d="m9 11 3 3L22 4"></path>
+            </svg>
             Is this a competitive game?
           </div>
           <p class="p-2">
