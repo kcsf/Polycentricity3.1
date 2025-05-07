@@ -215,16 +215,25 @@
           <span class="font-medium text-primary-500-400">Parties:</span>
           {#each Object.entries(node.data.parties || {}) as [actorId, details], i}
             <div class="border-l-2 border-indigo-500/30 pl-2 mt-1">
-              <div class="font-medium text-xs text-tertiary-700">Party {i+1}: {actorId}</div>
+              <div class="font-medium text-xs text-tertiary-700">
+                Party {i+1}: 
+                {#if details.role_title}
+                  {details.role_title}
+                {:else if details.card_ref}
+                  {details.card_ref}
+                {:else}
+                  {actorId}
+                {/if}
+              </div>
               
               <div class="mt-0.5">
                 <span class="text-indigo-500">Obligation:</span>
-                <p class="opacity-90 text-xs whitespace-pre-line">{details.obligation}</p>
+                <p class="opacity-90 text-xs whitespace-pre-line">{details.obligation || 'None specified'}</p>
               </div>
               
               <div class="mt-0.5">
                 <span class="text-emerald-500">Benefit:</span>
-                <p class="opacity-90 text-xs whitespace-pre-line">{details.benefit}</p>
+                <p class="opacity-90 text-xs whitespace-pre-line">{details.benefit || 'None specified'}</p>
               </div>
             </div>
           {/each}
