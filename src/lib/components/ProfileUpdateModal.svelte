@@ -98,10 +98,10 @@
         function showToast(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') {
                 const toast: ToastSettings = {
                         message,
-                        background: type === 'success' ? 'bg-green-500' :
-                                  type === 'error' ? 'bg-red-500' :
-                                  type === 'warning' ? 'bg-yellow-500' :
-                                  'bg-blue-500',
+                        background: type === 'success' ? 'variant-filled-success' :
+                                  type === 'error' ? 'variant-filled-error' :
+                                  type === 'warning' ? 'variant-filled-warning' :
+                                  'variant-filled-primary',
                         timeout: 3000,
                 };
                 toastStore.trigger(toast);
@@ -119,101 +119,100 @@
 
 <!-- Modal wrapper -->
 {#if open}
-<div class="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg">
-                <!-- Header -->
-                <header class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                        <div>
-                                <h3 class="text-xl font-bold">Update Profile</h3>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Update your account details below</p>
-                        </div>
-                        <button 
-                                class="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                onclick={handleClose}
-                                aria-label="Close modal"
-                        >
-                                <X class="w-5 h-5" />
-                        </button>
-                </header>
+<div class="modal-backdrop">
+        <div class="modal-container">
+                <div class="modal card p-0 w-modal shadow-xl">
+                        <!-- Header -->
+                        <header class="card-header p-4 flex justify-between items-center">
+                                <div>
+                                        <h3 class="h3">Update Profile</h3>
+                                        <p class="opacity-75">Update your account details below</p>
+                                </div>
+                                <button 
+                                        class="btn-icon btn-icon-sm variant-ghost-surface"
+                                        onclick={handleClose}
+                                        aria-label="Close modal"
+                                >
+                                        <X class="w-5 h-5" />
+                                </button>
+                        </header>
 
-                <div class="p-4">
-                        <form onsubmit={handleSubmit} class="space-y-4">
-                                <!-- Name Field -->
-                                <div>
-                                        <label for="name-input" class="block text-sm font-medium mb-1">Name</label>
-                                        <input 
-                                                id="name-input"
-                                                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
-                                                type="text" 
-                                                placeholder="Your name"
-                                                value={formUser.name}
-                                                oninput={(e) => formUser.name = e.currentTarget.value}
-                                                required
-                                        />
-                                </div>
-                                
-                                <!-- Email Field -->
-                                <div>
-                                        <label for="email-input" class="block text-sm font-medium mb-1">Email Address</label>
-                                        <input 
-                                                id="email-input"
-                                                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
-                                                type="email" 
-                                                placeholder="your.email@example.com"
-                                                value={formUser.email}
-                                                oninput={(e) => formUser.email = e.currentTarget.value}
-                                                required
-                                        />
-                                </div>
-                                
-                                <!-- Role Field (only if user is an admin) -->
-                                {#if formUser.role === 'Admin'}
-                                <div>
-                                        <label for="role-select" class="block text-sm font-medium mb-1">Role</label>
-                                        <select 
-                                                id="role-select"
-                                                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
-                                                value={formUser.role}
-                                                onchange={(e) => formUser.role = e.currentTarget.value as 'Guest' | 'Member' | 'Admin'}
-                                        >
-                                                <option value="Guest">Guest</option>
-                                                <option value="Member">Member</option>
-                                                <option value="Admin">Admin</option>
-                                        </select>
-                                </div>
-                                {/if}
-                                
-                                <!-- Error Message -->
-                                {#if errorMessage}
-                                <div class="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                                        <span>{errorMessage}</span>
-                                </div>
-                                {/if}
-                                
-                                <!-- Form Actions -->
-                                <div class="flex justify-end gap-4 pt-4">
-                                        <button 
-                                                type="button" 
-                                                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200"
-                                                onclick={handleClose}
-                                                disabled={isSubmitting}
-                                        >
-                                                Cancel
-                                        </button>
-                                        <button 
-                                                type="submit" 
-                                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
-                                                disabled={isSubmitting}
-                                        >
-                                                {#if isSubmitting}
-                                                        <span class="inline-block mr-2">⏳</span>
-                                                        Saving...
-                                                {:else}
-                                                        Save Changes
-                                                {/if}
-                                        </button>
-                                </div>
-                        </form>
+                        <div class="p-4">
+                                <form onsubmit={handleSubmit} class="space-y-4">
+                                        <!-- Name Field -->
+                                        <label class="label">
+                                                <span>Name</span>
+                                                <input 
+                                                        class="input"
+                                                        type="text" 
+                                                        placeholder="Your name"
+                                                        value={formUser.name}
+                                                        oninput={(e) => formUser.name = e.currentTarget.value}
+                                                        required
+                                                />
+                                        </label>
+                                        
+                                        <!-- Email Field -->
+                                        <label class="label">
+                                                <span>Email Address</span>
+                                                <input 
+                                                        class="input"
+                                                        type="email" 
+                                                        placeholder="your.email@example.com"
+                                                        value={formUser.email}
+                                                        oninput={(e) => formUser.email = e.currentTarget.value}
+                                                        required
+                                                />
+                                        </label>
+                                        
+                                        <!-- Role Field (only if user is an admin) -->
+                                        {#if formUser.role === 'Admin'}
+                                        <label class="label">
+                                                <span>Role</span>
+                                                <select 
+                                                        class="select"
+                                                        value={formUser.role}
+                                                        onchange={(e) => formUser.role = e.currentTarget.value as 'Guest' | 'Member' | 'Admin'}
+                                                >
+                                                        <option value="Guest">Guest</option>
+                                                        <option value="Member">Member</option>
+                                                        <option value="Admin">Admin</option>
+                                                </select>
+                                        </label>
+                                        {/if}
+                                        
+                                        <!-- Error Message -->
+                                        {#if errorMessage}
+                                        <div class="alert variant-filled-error">
+                                                <span>{errorMessage}</span>
+                                        </div>
+                                        {/if}
+                                        
+                                        <!-- Form Actions -->
+                                        <div class="flex justify-end gap-4 pt-4">
+                                                <button 
+                                                        type="button" 
+                                                        class="btn variant-ghost-surface"
+                                                        onclick={handleClose}
+                                                        disabled={isSubmitting}
+                                                >
+                                                        Cancel
+                                                </button>
+                                                <button 
+                                                        type="submit" 
+                                                        class="btn variant-filled-primary"
+                                                        disabled={isSubmitting}
+                                                >
+                                                        {#if isSubmitting}
+                                                                <span class="animate-spin mr-2">⟳</span>
+                                                                Saving...
+                                                        {:else}
+                                                                Save Changes
+                                                        {/if}
+                                                </button>
+                                        </div>
+                                </form>
+                        </div>
                 </div>
         </div>
 </div>
