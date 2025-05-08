@@ -178,13 +178,13 @@ export interface Agreement {
 export interface AgreementWithPosition extends Agreement {
     /** for layout */
     position: { x: number; y: number };
-  
-    /** for your D3 code */
-    partyItems?: PartyItem[];
-    obligations?: ObligationItem[];
-    benefits?: BenefitItem[];
-  }
-
+}
+export interface PartyItem {
+    actorId: string;
+    card: CardWithPosition;
+    obligation: string;
+    benefit: string;
+}
 export interface NodePosition {
     node_id: string; // e.g., 'card_1', 'ag_1', or 'actor_1'
     game_ref: string; // e.g., 'g_456'

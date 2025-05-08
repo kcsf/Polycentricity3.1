@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { Agreement, D3Node, CardWithPosition, AgreementWithPosition, PartyItem } from '$lib/types';
+  import type {
+    D3Node,
+    CardWithPosition,
+    AgreementWithPosition,
+    PartyItem,
+  } from '$lib/utils/d3GraphUtils';
+  import type { Agreement } from '$lib/types';
   import { onMount } from 'svelte';
 
   // Props
@@ -11,71 +17,11 @@
 
   // Recompute partyItems whenever node or cards change
   $effect(() => {
-  if (node.type !== 'agreement') {
-    partyItems = [];
-  } else {
-    partyItems = (node.data as AgreementWithPosition).partyItems ?? [];
-  }
-
-  // Derive partyItems based on agreement ID
-  const partyItems = $derived(() => {
-    if (node.type !== 'agreement') return [];
-    
-    // Hard-coded agreements based on agreement_id
-    if (node.data.agreement_id === 'ag_2') {
-      // Land Trust Collaboration
-      return [
-        {
-          index: 1,
-          cardTitle: 'DAO of the Green Veil',
-          obligation: 'Contribute governance expertise',
-          benefit: 'Access to land'
-        },
-        {
-          index: 2,
-          cardTitle: 'PMA Seedkeeper',
-          obligation: 'Provide land access',
-          benefit: 'Gain governance support'
-        }
-      ];
-    } 
-    else if (node.data.agreement_id === 'ag_1') {
-      // Funding Agreement
-      return [
-        {
-          index: 1,
-          cardTitle: 'Luminos Funder',
-          obligation: 'Provide capital investment',
-          benefit: 'Receive equity stake'
-        },
-        {
-          index: 2,
-          cardTitle: 'DAO of the Green Veil',
-          obligation: 'Provide quarterly reports',
-          benefit: 'Receive funding'
-        }
-      ];
+    if (node.type !== 'agreement') {
+      partyItems = [];
+      return;
     }
-    // Add more hard-coded agreements as needed for other agreement IDs
-    
-    // Default approach using cards_ref
-    const cardRefs = Object.keys(node.data.cards_ref || {});
-    return cardRefs.map((cardId, i): PartyItem => {
-      // Map card_ids to card titles
-      let cardTitle = cardId;
-      if (cardId === 'card_1') cardTitle = 'Luminos Funder';
-      else if (cardId === 'card_2') cardTitle = 'DAO of the Green Veil';
-      else if (cardId === 'card_3') cardTitle = 'PMA Seedkeeper';
-      else if (cardId === 'card_4') cardTitle = 'EcoTech Innovator';
-      else if (cardId === 'card_5') cardTitle = 'Community Steward';
-      
-      return {
-        index: i + 1,
-        cardTitle,
-        obligation: i === 0 ? 'Key party obligations' : 'Supporting obligations',
-        benefit: i === 0 ? 'Primary benefits' : 'Secondary benefits'
-      };
-    });
+    partyItems = (node.data as AgreementWithPosition).partyItems;
   });
 
   // Visibility state

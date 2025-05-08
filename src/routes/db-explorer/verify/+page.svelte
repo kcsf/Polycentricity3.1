@@ -1,4 +1,3 @@
-<!-- src/routes/db-explorer/verify/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import gun from '$lib/services/gun-db';
@@ -9,22 +8,40 @@
     actors: Record<string, any>;
     cards: Record<string, any>;
     decks: Record<string, any>;
+    agreements: Record<string, any>;
   } | null>(null);
   let error = $state<string | null>(null);
   let isLoading = $state(true);
 
-  // Safely stringify with circular reference handling
+  // Safely stringify with circular reference handling and inline one-level GUN references
   function safeStringify(obj: any): string {
     const seen = new WeakSet();
     return JSON.stringify(
       obj,
       (key, value) => {
+        // handle circular refs
         if (typeof value === 'object' && value !== null) {
           if (seen.has(value)) return '[Circular]';
           seen.add(value);
         }
-        if (value && typeof value === 'object' && value['#'] && Object.keys(value).length === 1) {
-          return `[GUN Reference → ${value['#']}]`;
+        // inline GUN reference one level deep only
+        if (
+          value && typeof value === 'object' &&
+          Object.keys(value).length === 1 && '#' in value
+        ) {
+          const path: string = (value as any)['#'];
+          const [rootKey, id] = path.split('/');
+          const nodeData = data?.[rootKey as keyof typeof data]?.[id];
+          if (nodeData && typeof nodeData === 'object') {
+            const inlineRecord: Record<string, any> = { '#': path };
+            for (const [k, v] of Object.entries(nodeData)) {
+              if (typeof v !== 'object' || v === null) {
+                inlineRecord[k] = v;
+              }
+            }
+            return inlineRecord;
+          }
+          return `[GUN Reference → ${path}]`;
         }
         return value;
       },
@@ -37,30 +54,32 @@
     try {
       const nodes: Record<string, any> = {};
       await new Promise<void>((resolve) => {
-        gun.get(rootKey).map().once((data, key) => {
-          if (key && key !== '_' && data) {
-            nodes[key] = { ...data, _: undefined };
+        gun.get(rootKey).map().once((node, key) => {
+          if (key && key !== '_' && node) {
+            const { _, ...clean } = node;
+            nodes[key] = clean;
           }
         });
         setTimeout(resolve, 500);
       });
       return nodes;
-    } catch (e) {
+    } catch (e: any) {
       throw new Error(`Error accessing raw data for ${rootKey}: ${e.message}`);
     }
   }
 
-  // Fetch all relevant data
+  // Fetch all relevant data, now including agreements
   async function fetchAllData() {
     try {
-      const [games, actors, cards, decks] = await Promise.all([
+      const [games, actors, cards, decks, agreements] = await Promise.all([
         fetchRawData('games'),
         fetchRawData('actors'),
         fetchRawData('cards'),
         fetchRawData('decks'),
+        fetchRawData('agreements'),
       ]);
-      data = { games, actors, cards, decks };
-    } catch (e) {
+      data = { games, actors, cards, decks, agreements };
+    } catch (e: any) {
       console.error('Error fetching verification data:', e);
       error = e.message;
     } finally {

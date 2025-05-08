@@ -28,8 +28,6 @@ import type {
   Value,
   Capability,
   PartyItem,
-  ObligationItem,
-  BenefitItem,
 } from "$lib/types";
 import { GameStatus, AgreementStatus } from "$lib/types";
 
@@ -430,17 +428,17 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // 1️⃣ Next ag_<n>
+  // ① Next sequential ag_<n>
   const existing = await getCollection<Agreement>(nodes.agreements);
-  let max = 0;
+  let maxNum = 0;
   for (const ag of existing) {
     const m = ag.agreement_id.match(/^ag_(\d+)$/);
-    if (m) max = Math.max(max, +m[1]);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
   }
-  const agreementId = `ag_${max + 1}`;
+  const agreementId = `ag_${maxNum + 1}`;
   const now = Date.now();
 
-  // 2️⃣ Build minimal partiesRecord
+  // ② Build the minimal partiesRecord (actorId → { card_ref, obligation, benefit })
   const partiesRecord: Record<
     string,
     {
@@ -450,11 +448,13 @@ export async function createAgreement(
     }
   > = {};
   for (const aid of parties) {
-    const map = await getField<Record<string, string>>(
-      `${nodes.actors}/${aid}`,
-      "cards_by_game",
-    );
-    const cardRef = map?.[gameId];
+    const [cardsByGame] = await Promise.all([
+      getField<Record<string, string>>(
+        `${nodes.actors}/${aid}`,
+        "cards_by_game",
+      ),
+    ]);
+    const cardRef = cardsByGame?.[gameId];
     if (!cardRef) continue;
     partiesRecord[aid] = {
       card_ref: cardRef,
@@ -463,7 +463,7 @@ export async function createAgreement(
     };
   }
 
-  // 3️⃣ Minimal cards_ref & votes
+  // ③ Minimal cards_ref map
   const cards_ref = Object.fromEntries(
     Object.values(partiesRecord).map((p) => [p.card_ref, true]),
   );
@@ -471,7 +471,12 @@ export async function createAgreement(
     Object.keys(partiesRecord).map((aid) => [aid, "pending"] as const),
   );
 
-  // 4️⃣ Shallow root write
+  // ④ Minimal votesRecord (all parties start “pending”)
+  const votes: Record<string, "pending"> = Object.fromEntries(
+    Object.keys(partiesRecord).map((aid) => [aid, "pending" as const]),
+  );
+
+  // ⑤ Shallow root node (no nested maps)
   const root: Omit<Agreement, "parties" | "cards_ref" | "votes"> = {
     agreement_id: agreementId,
     game_ref: gameId,
@@ -485,26 +490,28 @@ export async function createAgreement(
   };
   await write(nodes.agreements, agreementId, root);
 
-  // 5️⃣ Seed ONLY these minimal maps
+  // ⑥ Seed just the nested maps with minimal payload
   await Promise.all([
     write(`${nodes.agreements}/${agreementId}`, "cards_ref", cards_ref),
     write(`${nodes.agreements}/${agreementId}`, "parties", partiesRecord),
     write(`${nodes.agreements}/${agreementId}`, "votes", votes),
   ]);
 
-  // 6️⃣ Wire up your edges
+  // ⑦ Wire up edges (game, user, actor, card)
   await Promise.all([
+    // game → agreement
     createRelationship(
       `${nodes.games}/${gameId}`,
       "agreements_ref",
       `${nodes.agreements}/${agreementId}`,
     ),
+    // user → agreement
     createRelationship(
       `${nodes.users}/${user.user_id}`,
       "agreements_ref",
       `${nodes.agreements}/${agreementId}`,
     ),
-    // actors → agreement
+    // each actor → agreement
     ...Object.keys(partiesRecord).map((aid) =>
       createRelationship(
         `${nodes.actors}/${aid}`,
@@ -512,7 +519,7 @@ export async function createAgreement(
         `${nodes.agreements}/${agreementId}`,
       ),
     ),
-    // cards → agreement
+    // each card → agreement
     ...Object.values(partiesRecord).map((p) =>
       createRelationship(
         `${nodes.cards}/${p.card_ref}`,
@@ -522,7 +529,7 @@ export async function createAgreement(
     ),
   ]);
 
-  // 7️⃣ Return for UI
+  // ⑧ Return with a random position
   return {
     ...root,
     parties: partiesRecord,
@@ -879,50 +886,55 @@ export async function getGameContext(
       (c) => c != null,
     ) as CardWithPosition[];
 
-    // ─── 6️⃣ Fetch and fully resolve all agreements for this game ───────────────
+    // ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
     const rawAgs = await getCollection<Agreement>(nodes.agreements);
     const agreements: AgreementWithPosition[] = await Promise.all(
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-          const agPath = `${nodes.agreements}/${ag.agreement_id}`;
+          // 1) Get the raw actor‐id → Gun pointers
+          const partiesRef =
+            (await getField<Record<string, { "#": string }>>(
+              `${nodes.agreements}/${ag.agreement_id}`,
+              "parties",
+            )) ?? {};
 
-          // grab the set of pointers under "parties"
-          const partyPtrs = await getSet(agPath, "parties");
-          const parties: Record<
-            string,
-            { card_ref: string; obligation: string; benefit: string }
-          > = {};
+          // 2) For each actorId, load its stored strings and find its CardWithPosition
+          const partyItems: PartyItem[] = await Promise.all(
+            Object.keys(partiesRef).map(async (actorId) => {
+              // pull obligation/benefit/card_ref
+              const pd = (await getField<{
+                card_ref: string;
+                obligation: string;
+                benefit: string;
+              }>(
+                `${nodes.agreements}/${ag.agreement_id}/parties`,
+                actorId,
+              )) ?? { card_ref: "", obligation: "", benefit: "" };
 
-          // for each pointer, do a loose get(...) + cast
-          await Promise.all(
-            partyPtrs.map(async (ptr) => {
-              const actorId = ptr.split("/").pop();
-              if (!actorId) return;
-
-              // Loosen the type here so TS won’t complain
-              const raw = await (get(ptr as any) as Promise<any>);
-              if (raw && raw.card_ref) {
-                parties[actorId] = {
-                  card_ref: raw.card_ref,
-                  obligation: raw.obligation,
-                  benefit: raw.benefit,
-                };
+              // find the ActorWithCard loaded earlier, and grab its .card
+              const actor = actors.find((a) => a.actor_id === actorId);
+              if (!actor?.card) {
+                console.warn(
+                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
+                );
+                return null;
               }
-            }),
-          );
 
-          // still pull your cards_ref as before
-          const cards_ref =
-            (await getField<Record<string, boolean>>(agPath, "cards_ref")) ||
-            {};
+              return {
+                actorId,
+                card: actor.card,
+                obligation: pd.obligation,
+                benefit: pd.benefit,
+              } as PartyItem;
+            }),
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
 
           return {
-            actorId,
-            card: actor.card,
-            obligation: pd.obligation,
-            benefit: pd.benefit,
-          } as PartyItem;
+            ...ag,
+            partyItems,
+            position: randomPos(),
+          };
         }),
       ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
 
@@ -945,6 +957,17 @@ return {
   deckName: deck?.name ?? game.deck_type,
 };
 
+    // 7️⃣ Return the fully-hydrated context
+    return {
+      game,
+      actors,
+      totalCards,
+      usedCards: usedSet.size,
+      availableCards,
+      availableCardsCount: availableCards.length,
+      agreements,
+      deckName: deck?.name ?? game.deck_type,
+    };
   } catch (e) {
     console.error(`[gameService] getGameContext error for ${gameId}:`, e);
     return null;
