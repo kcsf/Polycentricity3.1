@@ -50,6 +50,12 @@
 
   // Toggle party selection
   function toggleParty(actorId: string) {
+    // Prevent deselecting the current user's actor
+    if (selectedParties.includes(actorId) && actorId === currentActorId) {
+      console.log(`Cannot deselect current user's actor: ${actorId}`);
+      return;
+    }
+    
     if (selectedParties.includes(actorId)) {
       // Remove actor and its terms
       selectedParties = selectedParties.filter(id => id !== actorId);
@@ -388,7 +394,7 @@
 
   // Open the modal
   export function openModal() {
-    resetForm();
+    resetForm(); // This already includes adding the current user's actor
     modalOpen = true;
   }
 
@@ -480,13 +486,14 @@
                       2. Doesn't have cards_by_game data structure with an entry for this game
                     -->
                     <button 
-                      class="btn {selectedParties.includes(a.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''}"
+                      class="btn {selectedParties.includes(a.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''} {a.actor_id === currentActorId ? 'cursor-default' : ''}"
                       onclick={() => hasValidCardRef ? toggleParty(a.actor_id) : null}
-                      title={!hasValidCardRef ? 'This actor cannot be added (invalid or missing card reference for this game)' : ''}
+                      title={!hasValidCardRef ? 'This actor cannot be added (invalid or missing card reference for this game)' : (a.actor_id === currentActorId ? 'This is your actor (always included)' : '')}
                     >
                       {selectedParties.includes(a.actor_id) ? '✓' : '+'}
+                      {a.actor_id === currentActorId ? ' (You)' : ''}
                     </button>
-                    <span class="{!hasValidCardRef ? 'opacity-50' : ''}">{a.card?.role_title || a.custom_name || 'Unnamed Actor'}</span>
+                    <span class="{!hasValidCardRef ? 'opacity-50' : ''} {a.actor_id === currentActorId ? 'font-semibold' : ''}">{a.card?.role_title || a.custom_name || 'Unnamed Actor'}</span>
                     {#if a.card?.card_category}
                       <span class="badge variant-soft">{a.card.card_category}</span>
                     {/if}
