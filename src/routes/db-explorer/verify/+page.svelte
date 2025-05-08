@@ -90,6 +90,7 @@
   // Load data on mount
   onMount(() => {
     fetchAllData();
+    (window as any).gun = gun;
   });
 </script>
 

@@ -428,17 +428,17 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // ① Next sequential ag_<n>
+  // 1️⃣ Next ag_<n>
   const existing = await getCollection<Agreement>(nodes.agreements);
-  let maxNum = 0;
+  let max = 0;
   for (const ag of existing) {
     const m = ag.agreement_id.match(/^ag_(\d+)$/);
-    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    if (m) max = Math.max(max, +m[1]);
   }
-  const agreementId = `ag_${maxNum + 1}`;
+  const agreementId = `ag_${max + 1}`;
   const now = Date.now();
 
-  // ② Build the minimal partiesRecord (actorId → { card_ref, obligation, benefit })
+  // 2️⃣ Build minimal partiesRecord
   const partiesRecord: Record<
     string,
     {
@@ -448,13 +448,11 @@ export async function createAgreement(
     }
   > = {};
   for (const aid of parties) {
-    const [cardsByGame] = await Promise.all([
-      getField<Record<string, string>>(
-        `${nodes.actors}/${aid}`,
-        "cards_by_game",
-      ),
-    ]);
-    const cardRef = cardsByGame?.[gameId];
+    const map = await getField<Record<string, string>>(
+      `${nodes.actors}/${aid}`,
+      "cards_by_game",
+    );
+    const cardRef = map?.[gameId];
     if (!cardRef) continue;
     partiesRecord[aid] = {
       card_ref: cardRef,
@@ -463,7 +461,7 @@ export async function createAgreement(
     };
   }
 
-  // ③ Minimal cards_ref map
+  // 3️⃣ Minimal cards_ref & votes
   const cards_ref = Object.fromEntries(
     Object.values(partiesRecord).map((p) => [p.card_ref, true]),
   );
@@ -471,12 +469,7 @@ export async function createAgreement(
     Object.keys(partiesRecord).map((aid) => [aid, "pending"] as const),
   );
 
-  // ④ Minimal votesRecord (all parties start “pending”)
-  const votes: Record<string, "pending"> = Object.fromEntries(
-    Object.keys(partiesRecord).map((aid) => [aid, "pending" as const]),
-  );
-
-  // ⑤ Shallow root node (no nested maps)
+  // 4️⃣ Shallow root write
   const root: Omit<Agreement, "parties" | "cards_ref" | "votes"> = {
     agreement_id: agreementId,
     game_ref: gameId,
@@ -490,28 +483,26 @@ export async function createAgreement(
   };
   await write(nodes.agreements, agreementId, root);
 
-  // ⑥ Seed just the nested maps with minimal payload
+  // 5️⃣ Seed ONLY these minimal maps
   await Promise.all([
     write(`${nodes.agreements}/${agreementId}`, "cards_ref", cards_ref),
     write(`${nodes.agreements}/${agreementId}`, "parties", partiesRecord),
     write(`${nodes.agreements}/${agreementId}`, "votes", votes),
   ]);
 
-  // ⑦ Wire up edges (game, user, actor, card)
+  // 6️⃣ Wire up your edges
   await Promise.all([
-    // game → agreement
     createRelationship(
       `${nodes.games}/${gameId}`,
       "agreements_ref",
       `${nodes.agreements}/${agreementId}`,
     ),
-    // user → agreement
     createRelationship(
       `${nodes.users}/${user.user_id}`,
       "agreements_ref",
       `${nodes.agreements}/${agreementId}`,
     ),
-    // each actor → agreement
+    // actors → agreement
     ...Object.keys(partiesRecord).map((aid) =>
       createRelationship(
         `${nodes.actors}/${aid}`,
@@ -519,7 +510,7 @@ export async function createAgreement(
         `${nodes.agreements}/${agreementId}`,
       ),
     ),
-    // each card → agreement
+    // cards → agreement
     ...Object.values(partiesRecord).map((p) =>
       createRelationship(
         `${nodes.cards}/${p.card_ref}`,
@@ -529,7 +520,7 @@ export async function createAgreement(
     ),
   ]);
 
-  // ⑧ Return with a random position
+  // 7️⃣ Return for UI
   return {
     ...root,
     parties: partiesRecord,
