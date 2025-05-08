@@ -28,6 +28,8 @@ import type {
   Value,
   Capability,
   PartyItem,
+  ObligationItem,
+  BenefitItem,
 } from "$lib/types";
 import { GameStatus, AgreementStatus } from "$lib/types";
 
@@ -927,28 +929,8 @@ export async function getGameContext(
             position: randomPos(),
           };
         }),
-      ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+    );
 
-      return {
-        ...ag,
-        partyItems,
-        position: randomPos(),
-      };
-    }),
-);
-
-return {
-  game,
-  actors,
-  totalCards,
-  usedCards: usedSet.size,
-  availableCards,
-  availableCardsCount: availableCards.length,
-  agreements,
-  deckName: deck?.name ?? game.deck_type,
-};
-
-    // 7️⃣ Return the fully-hydrated context
     return {
       game,
       actors,
