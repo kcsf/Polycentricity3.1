@@ -382,7 +382,7 @@
   // Get actor name or title
   function getActorName(actorId: string) {
     const actor = actorsList.find(a => a.actor_id === actorId);
-    return actor?.custom_name || actor?.card?.role_title || 'Unknown Actor';
+    return actor?.card?.role_title || actor?.custom_name || 'Unknown Actor';
   }
 </script>
 
@@ -473,7 +473,7 @@
                     >
                       {selectedParties.includes(a.actor_id) ? '✓' : '+'}
                     </button>
-                    <span class="{!hasValidCardRef ? 'opacity-50' : ''}">{a.custom_name || a.card?.role_title || 'Unnamed Actor'}</span>
+                    <span class="{!hasValidCardRef ? 'opacity-50' : ''}">{a.card?.role_title || a.custom_name || 'Unnamed Actor'}</span>
                     {#if a.card?.card_category}
                       <span class="badge variant-soft">{a.card.card_category}</span>
                     {/if}
