@@ -363,7 +363,8 @@
 <!-- Agreement Modal -->
 <AgreementModal 
     {gameId} 
-    actorsList={actors} 
+    actorsList={actors}
+    currentActorId={playerRole.actor_id}
     bind:this={agreementModal}
 />
 

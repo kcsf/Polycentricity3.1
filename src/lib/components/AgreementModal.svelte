@@ -7,9 +7,10 @@
   import { toaster } from '$lib/utils/toaster-svelte';
 
   // Props
-  const { gameId, actorsList } = $props<{
+  const { gameId, actorsList, currentActorId } = $props<{
     gameId: string;
     actorsList: ActorWithCard[];
+    currentActorId: string;
   }>();
 
   // State
@@ -23,6 +24,13 @@
   let agreementType = $state<'symmetric' | 'asymmetric'>('asymmetric');
   let isSubmitting = $state(false);
 
+  // Initialize current actor's selection
+  function initializeCurrentActor() {
+    if (currentActorId && !selectedParties.includes(currentActorId)) {
+      toggleParty(currentActorId);
+    }
+  }
+
   // Reset the form
   function resetForm() {
     title = '';
@@ -33,6 +41,11 @@
     newBenefits = {};
     agreementType = 'asymmetric';
     isSubmitting = false;
+    
+    // Always add the current user's actor when resetting
+    if (currentActorId) {
+      toggleParty(currentActorId);
+    }
   }
 
   // Toggle party selection
