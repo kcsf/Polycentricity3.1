@@ -1,0 +1,191 @@
+
+
+          createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
+
+          const foreignObj = centerGroup
+            .append('foreignObject')
+            .attr('width', iconSize)
+            .attr('height', iconSize)
+            .attr('x', -iconSize / 2)
+            .attr('y', -iconSize / 2)
+            .attr('class', 'card-icon-container')
+            .style('pointer-events', 'none')
+            .style('overflow', 'visible');
+
+          foreignObj.node()?.appendChild(iconContainer);
+        }
+      });
+    }
+
+    subscribeToGameData();
+    console.log('[D3CardBoard] Render complete');
+  }
+
+  // Subscribe to live updates
+  function subscribeToGameData() {
+    unsubscribe.forEach(fn => fn());
+    unsubscribe = [];
+    let last = Date.now();
+    let timer: number | null = null;
+
+    unsubscribe.push(
+      subscribeToGame(gameId, () => {
+        const now = Date.now();
+        if (now - last < 5000) return;
+        if (timer) clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          last = Date.now();
+          initializeVisualization();
+        }, 500);
+      })
+    );
+  }
+
+  // Mount & cleanup
+  $effect(() => {
+    setTimeout(initializeVisualization, 300);
+    return () => {
+      simulation?.stop();
+      unsubscribe.forEach(fn => fn());
+    };
+  });
+</script>
+
+<div class="w-full h-full relative overflow-hidden">
+  <svg
+    bind:this={svgElement}
+    width="100%"
+    height="100%"
+    class="d3-graph bg-surface-50-950"
+  ></svg>
+  {#if selectedNode}
+    <div class="absolute bottom-4 right-4">
+      <CardDetailsPopover
+        node={selectedNode}
+        cards={cardsWithPosition}
+        onClose={() => (selectedNode = null)}
+      />
+    </div>
+  {/if}
+</div>
+
+<style>
+  :global(.icon-container) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+  :global(.center-icon-container) {
+    pointer-events: none;
+  }
+  :global(.link.obligation) {
+    stroke: var(--color-indigo-600-400);
+  }
+  :global(.link.benefit) {
+    stroke: var(--color-emerald-500-400);
+    stroke-dasharray: 4 2;
+  }
+  :global(.node.active circle) {
+    stroke: var(--color-green-400-500);
+    stroke-width: 3px;
+  }
+/
+
+import {
+  get,
+  getCollection,
+  getField,
+  createRelationship,
+  buildShardedPath,
+  generateId,
+  getSet,
+  getGun,
+  subscribe,
+  nodes,
+} from "./gunService";
+import { getCurrentUser } from "./authService";
+import { currentGameStore } from "../stores/gameStore";
+import type {
+  Game,
+  Actor,
+  ActorWithCard,
+  Card,
+  CardWithPosition,
+  Agreement,
+  AgreementWithPosition,
+  NodePosition,
+  Deck,
+  User,
+  ChatRoom,
+  ChatMessage,
+  Value,
+  Capability,
+  PartyItem,
+  ObligationItem,
+  BenefitItem,
+} from "$lib/types";
+import { GameStatus, AgreementStatus } from "$lib/types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+type SchemaType =
+  | User
+  | Game
+  | Actor
+  | Agreement
+  | ChatRoom
+  | ChatMessage
+  | Card
+  | Deck
+  | Value
+  | Capability
+  | NodePosition;
+
+function randomPos(): { x: number; y: number } {
+  return { x: Math.random() * 800, y: Math.random() * 600 };
+}
+
+/**
+ * Simple write helper, mirroring SampleDataService.write()
+ */
+async function write(path: string, key: string, data: any): Promise<void> {
+  const gun = getGun();
+  if (!gun) throw new Error("[gameService] Gun not initialized");
+  await new Promise<void>((resolve) => {
+    let done = false;
+    gun
+      .get(path)
+      .get(key)
+      .put(data, (ack: any) => {
+        if (done) return;
+        done = true;
+        if (ack?.err) {
+          console.error(`[gameService] Error writing ${path}/${key}:`, ack.err);
+        }
+        resolve();
+      });
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        console.warn(`[gameService] Fallback write timeout for ${path}/${key}`);
+        resolve();
+      }
+    }, 500);
+  });
+}
+
+async function resolveNames(
+  ids: string[],
+  nodeRoot: typeof nodes.values,
+): Promise<string[]>;
+
+Just now
+14s
+ • 
+Just now
+Port :5000 opened on
+Unsupported state: you are in the middle of a rebase.
+Please finish the rebase manually.
