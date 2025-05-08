@@ -5,6 +5,17 @@
      * of cards, actors, and agreements in the Polycentricity application.
      */
     import * as d3 from 'd3';
+    import type {
+      CardWithPosition,
+      ObligationItem,
+      BenefitItem,
+      PartyItem,
+      AgreementWithPosition,
+      SubItem,
+      D3Node,
+      D3Link,
+      D3NodeWithRelationships
+    } from '$lib/types';
     import type { Card, Actor, Agreement } from '$lib/types';
     import type { SvelteComponent } from 'svelte';
 
@@ -21,121 +32,7 @@
       "#4A8B47", // Moss green
       "#417D51", // Jade green
       "#386F5B", // Deep sea green
-    ]);
-
-    // Color scheme for categories (no debug logging needed)
-
-    /**
-     * Interface for nodes in the D3 force simulation
-     */
-    export interface D3Node extends d3.SimulationNodeDatum {
-      id: string;
-      name: string;
-      type: "actor" | "agreement";
-      data: CardWithPosition | AgreementWithPosition;
-      x: number;
-      y: number;
-      fx?: number | null;
-      fy?: number | null;
-      active?: boolean;
-      _valueNames?: string[];      // Store value names for visualization
-      _capabilityNames?: string[]; // Store capability names for visualization
-    }
-
-    /**
-     * Interface for links between nodes in the D3 force simulation
-     */
-    export interface D3Link {
-      source: string | D3Node;
-      target: string | D3Node;
-      type: "obligation" | "benefit";
-      id: string;
-    }
-
-    /**
-     * Interface for subdivisions of donut chart segments
-     */
-    export interface SubItem {
-      id: string;
-      label: string;
-      angle: number;
-      radius: number;
-      nodeX: number;
-      nodeY: number;
-      category: string;
-      categoryColor: string;
-      index: number;
-      totalItems: number;
-    }
-
-    /**
-     * Card with position information for visualization
-     */
-    export interface CardWithPosition extends Card {
-      position?: {
-        x: number;
-        y: number;
-      };
-      actor_id?: string; // Add actor_id field which is needed for card-actor mapping
-      _valueNames?: string[]; // Pre-populated array of value names from gameContext
-      _capabilityNames?: string[]; // Pre-populated array of capability names from gameContext
-    }
-
-    /**
-     * Obligation items extracted from agreements
-     */
-    export interface ObligationItem {
-      id: string;
-      fromActorId: string;
-      toActorId?: string;
-      text: string;  // Changed from description to match actual property name
-    }
-
-    /**
-     * Benefit items extracted from agreements
-     */
-    export interface BenefitItem {
-      id: string;
-      fromActorId: string;
-      toActorId?: string;
-      text: string;  // Changed from description to match actual property name
-    }
-
-    /**
-     * Agreement with position information for visualization
-     */
-    export interface PartyItem {
-      actorId:    string;
-      card:       CardWithPosition;
-      obligation: string;
-      benefit:    string;
-    }
-    export interface AgreementWithPosition {
-      agreement_id: string;
-      game_ref: string;
-      title: string;
-      summary?: string;
-      type?: 'symmetric' | 'asymmetric';
-      status: string;
-      created_at: number;
-      updated_at?: number;
-      creator_ref: string;
-      partyItems: PartyItem[];
-      obligations: ObligationItem[];
-      benefits: BenefitItem[];
-      position?: {
-        x: number;
-        y: number;
-      };
-    }
-
-    /**
-     * Extended D3Node with relationship information
-     */
-    export interface D3NodeWithRelationships extends D3Node {
-      sourceCard?: D3Node;
-      targetCard?: D3Node;
-    }
+    ]); 
 
     /**
      * Add donut ring segments to card nodes based on their values, capabilities, etc.
@@ -241,7 +138,10 @@
         ];
 
         // Calculate the total number of items across all categories
-        const totalItems = categories.reduce((sum, category) => sum + category.items.length, 0);
+        const totalItems = categories.reduce(
+          (sum, category) => sum + (category.items?.length ?? 0),
+          0
+        );
 
         // Calculate start angles for each category based on item count proportion
         interface CategoryAngle {
@@ -352,13 +252,13 @@
             .style("visibility", "hidden");
 
           // Add items with their labels and sub-wedges
-          if (category.items && category.items.length > 0) {
-            const itemCount = category.items.length;
+          if ((category.items?.length ?? 0) > 0) {
+            const itemCount = category.items!.length;
             // Calculate angle per item using the size of the current category's wedge
             const anglePerItem = (endAngle - startAngle) / itemCount;
 
             // Process each item in this category
-            category.items.forEach((item: any, itemIndex: number) => {
+            category.items!.forEach((item: any, itemIndex: number) => {
               const itemStartAngle = startAngle + (itemIndex * anglePerItem);
               const itemEndAngle = itemStartAngle + anglePerItem;
               const itemMidAngle = itemStartAngle + (anglePerItem / 2);
@@ -833,18 +733,24 @@
     export function createLinks(
       nodes: D3Node[],
       agreements: AgreementWithPosition[],
-      actorCardMap: Map<string,string>
+      actorCardMap: Map<string, string>
     ): D3Link[] {
       const links: D3Link[] = [];
-
-      agreements.forEach(agreement => {
-        const items = agreement.partyItems;
+    
+      agreements.forEach((agreement) => {
+        // guard partyItems so it's always an array
+        const items = agreement.partyItems ?? [];
         if (items.length < 2) return;
-
+    
         const agreementId = agreement.agreement_id;
-        const cardIds = items.map(pi => actorCardMap.get(pi.actorId)).filter(Boolean) as string[];
+        // map to card IDs, drop any undefined
+        const cardIds = items
+          .map((pi) => actorCardMap.get(pi.actorId))
+          .filter((v): v is string => Boolean(v));
+    
         if (cardIds.length < 2) return;
-
+    
+        // primary obligation edge
         const creatorCard = cardIds[0];
         links.push({
           source: creatorCard,
@@ -852,8 +758,9 @@
           type: "obligation",
           id: `${creatorCard}_to_${agreementId}_primary`
         });
-
-        cardIds.slice(1).forEach(cardId => {
+    
+        // benefit edges
+        cardIds.slice(1).forEach((cardId) => {
           links.push({
             source: agreementId,
             target: cardId,
@@ -862,9 +769,10 @@
           });
         });
       });
-
+    
       return links;
     }
+    
 
     /**
      * Sets up interactions for nodes and links

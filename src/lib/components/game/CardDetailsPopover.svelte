@@ -1,11 +1,5 @@
 <script lang="ts">
-  import type {
-    D3Node,
-    CardWithPosition,
-    AgreementWithPosition,
-    PartyItem,
-  } from '$lib/utils/d3GraphUtils';
-  import type { Agreement } from '$lib/types';
+  import type { Agreement, D3Node, CardWithPosition, AgreementWithPosition, PartyItem } from '$lib/types';
   import { onMount } from 'svelte';
 
   // Props
@@ -17,12 +11,12 @@
 
   // Recompute partyItems whenever node or cards change
   $effect(() => {
-    if (node.type !== 'agreement') {
-      partyItems = [];
-      return;
-    }
-    partyItems = (node.data as AgreementWithPosition).partyItems;
-  });
+  if (node.type !== 'agreement') {
+    partyItems = [];
+  } else {
+    partyItems = (node.data as AgreementWithPosition).partyItems ?? [];
+  }
+});
 
   // Visibility state
   let isVisible = $state(false);

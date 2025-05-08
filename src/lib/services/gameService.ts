@@ -879,68 +879,69 @@ export async function getGameContext(
       (c) => c != null,
     ) as CardWithPosition[];
 
-    // ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
-    const rawAgs = await getCollection<Agreement>(nodes.agreements);
-    const agreements: AgreementWithPosition[] = await Promise.all(
-      rawAgs
-        .filter((ag) => ag.game_ref === gameId)
-        .map(async (ag) => {
-          // 1) Get the raw actor‐id → Gun pointers
-          const partiesRef =
-            (await getField<Record<string, { "#": string }>>(
-              `${nodes.agreements}/${ag.agreement_id}`,
-              "parties",
-            )) ?? {};
+// ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
+const rawAgs = await getCollection<Agreement>(nodes.agreements);
+const agreements: AgreementWithPosition[] = await Promise.all(
+  rawAgs
+    .filter((ag) => ag.game_ref === gameId)
+    .map(async (ag) => {
+      // 1) Get the raw actor‐id → Gun pointers
+      const partiesRef =
+        (await getField<Record<string, { "#": string }>>(
+          `${nodes.agreements}/${ag.agreement_id}`,
+          "parties",
+        )) ?? {};
 
-          // 2) For each actorId, load its stored strings and find its CardWithPosition
-          const partyItems: PartyItem[] = await Promise.all(
-            Object.keys(partiesRef).map(async (actorId) => {
-              // pull obligation/benefit/card_ref
-              const pd = (await getField<{
-                card_ref: string;
-                obligation: string;
-                benefit: string;
-              }>(
-                `${nodes.agreements}/${ag.agreement_id}/parties`,
-                actorId,
-              )) ?? { card_ref: "", obligation: "", benefit: "" };
+      // 2) For each actorId, load its stored strings and find its CardWithPosition
+      const partyItems: PartyItem[] = await Promise.all(
+        Object.keys(partiesRef).map(async (actorId) => {
+          // pull obligation/benefit/card_ref
+          const pd = (await getField<{
+            card_ref: string;
+            obligation: string;
+            benefit: string;
+          }>(
+            `${nodes.agreements}/${ag.agreement_id}/parties`,
+            actorId,
+          )) ?? { card_ref: "", obligation: "", benefit: "" };
 
-              // find the ActorWithCard loaded earlier, and grab its .card
-              const actor = actors.find((a) => a.actor_id === actorId);
-              if (!actor?.card) {
-                console.warn(
-                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
-                );
-                return null;
-              }
-
-              return {
-                actorId,
-                card: actor.card,
-                obligation: pd.obligation,
-                benefit: pd.benefit,
-              } as PartyItem;
-            }),
-          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+          // find the ActorWithCard loaded earlier, and grab its .card
+          const actor = actors.find((a) => a.actor_id === actorId);
+          if (!actor?.card) {
+            console.warn(
+              `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
+            );
+            return null;
+          }
 
           return {
-            ...ag,
-            partyItems,
-            position: randomPos(),
-          };
+            actorId,
+            card: actor.card,
+            obligation: pd.obligation,
+            benefit: pd.benefit,
+          } as PartyItem;
         }),
-    );
+      ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
 
-    return {
-      game,
-      actors,
-      totalCards,
-      usedCards: usedSet.size,
-      availableCards,
-      availableCardsCount: availableCards.length,
-      agreements,
-      deckName: deck?.name ?? game.deck_type,
-    };
+      return {
+        ...ag,
+        partyItems,
+        position: randomPos(),
+      };
+    }),
+);
+
+return {
+  game,
+  actors,
+  totalCards,
+  usedCards: usedSet.size,
+  availableCards,
+  availableCardsCount: availableCards.length,
+  agreements,
+  deckName: deck?.name ?? game.deck_type,
+};
+
   } catch (e) {
     console.error(`[gameService] getGameContext error for ${gameId}:`, e);
     return null;

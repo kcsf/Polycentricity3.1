@@ -2,17 +2,12 @@
   import * as d3 from 'd3';
   import { iconStore, loadIcons } from '$lib/stores/iconStore';
   import { getGameContext, subscribeToGame } from '$lib/services/gameService';
-  import type { Card, ActorWithCard } from '$lib/types';
+  import type { Card, ActorWithCard, D3Node, CardWithPosition, AgreementWithPosition, ObligationItem, BenefitItem} from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
   import {
     createCardIcon,
     initializeD3Graph,
     addDonutRings,
-    type D3Node,
-    type CardWithPosition,
-    type AgreementWithPosition,
-    type ObligationItem,
-    type BenefitItem
   } from '$lib/utils/d3GraphUtils';
 
   const { gameId, activeActorId = undefined } = $props<{
@@ -74,33 +69,7 @@
     const allCards = [...assigned, ...availableWithPos];
 
     // Map agreements to include obligations & benefits objects, and boolean parties
-    const d3Agreements: AgreementWithPosition[] = (ctx.agreements || []).map(ag => {
-      const partiesMap: Record<string, boolean> = {};
-      Object.keys(ag.parties).forEach(id => (partiesMap[id] = true));
-
-      const obligations: ObligationItem[] = Object.entries(ag.parties).map(
-        ([actorId, party], idx) => ({
-          id: `${ag.agreement_id}_ob_${actorId}_${idx}`,
-          fromActorId: actorId,
-          text: party.obligation
-        })
-      );
-
-      const benefits: BenefitItem[] = Object.entries(ag.parties).map(
-        ([actorId, party], idx) => ({
-          id: `${ag.agreement_id}_bf_${actorId}_${idx}`,
-          fromActorId: actorId,
-          text: party.benefit
-        })
-      );
-
-      return {
-        ...ag,
-        parties: partiesMap,
-        obligations,
-        benefits
-      };
-    });
+    const d3Agreements: AgreementWithPosition[] = ctx.agreements || [];
 
     return { cards: allCards, agreements: d3Agreements, actors: ctx.actors || [] };
   }
