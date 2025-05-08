@@ -146,7 +146,6 @@ export async function get<
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(null), 500);
-    const timeout = setTimeout(() => resolve(null), 500);
     g.get(soul).once((data: T | undefined, key: string) => {
       clearTimeout(timeout);
       if (!data) {
@@ -243,7 +242,6 @@ export async function getField<T>(
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(null), 200);
-    const timeout = setTimeout(() => resolve(null), 200);
     g.get(soul)
       .get(key)
       .once((data: T | undefined, key: string) => {
@@ -294,23 +292,30 @@ export async function getCollection<
 /**
  * Read a real Gun set at `path/field` into an array of IDs.
  */
-export async function getSet(path: string, field: string, timeoutMs = 200): Promise<string[]> {
+export async function getSet(
+  path: string,
+  field: string,
+  timeoutMs = 200,
+): Promise<string[]> {
   const gun = getGun();
   if (!gun) return [];
   const results = new Set<string>();
   await new Promise<void>((resolve) => {
-    gun.get(path).get(field).map().once((val: any, key: string) => {
-      if (key && key !== '_' && val) {
-        results.add(key);
-      }
-    });
+    gun
+      .get(path)
+      .get(field)
+      .map()
+      .once((val: any, key: string) => {
+        if (key && key !== "_" && val) {
+          results.add(key);
+        }
+      });
     // resolve as soon as possible
     const t = setTimeout(() => {
       clearTimeout(t);
       resolve();
     }, timeoutMs);
   });
-  return Array.from(results);
   return Array.from(results);
 }
 

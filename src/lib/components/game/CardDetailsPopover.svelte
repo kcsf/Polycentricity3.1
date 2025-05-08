@@ -1,40 +1,22 @@
 <script lang="ts">
-  import type { D3Node } from '$lib/utils/d3GraphUtils';
-  import type { CardWithPosition } from '$lib/utils/d3GraphUtils';
+  import type { Agreement, D3Node, CardWithPosition, AgreementWithPosition, PartyItem } from '$lib/types';
   import { onMount } from 'svelte';
 
   // Props
-  const {
-    node,
-    cards,
-    onClose
-  } = $props<{
-    node: D3Node;
-    cards: CardWithPosition[];
-    onClose: () => void;
-  }>();
+  const props = $props<{ node: D3Node; cards: CardWithPosition[]; onClose: () => void }>();
+  const { node, cards, onClose } = props;  
 
-  interface PartyItem {
-    index: number;
-    cardTitle: string;
-    obligation: string;
-    benefit: string;
+  // Shape for each party row
+  let partyItems = $state<PartyItem[]>([]);
+
+  // Recompute partyItems whenever node or cards change
+  $effect(() => {
+  if (node.type !== 'agreement') {
+    partyItems = [];
+  } else {
+    partyItems = (node.data as AgreementWithPosition).partyItems ?? [];
   }
-
-  // Derive partyItems whenever node.data.parties or cards changes
-  const partyItems = $derived(() => {
-    return Object.entries(node.data.parties || {}).map(
-      ([_, details], i): PartyItem => {
-        const card = cards.find((c) => c.card_id === details.card_ref);
-        return {
-          index: i + 1,
-          cardTitle: card?.role_title ?? details.card_ref,
-          obligation: details.obligation,
-          benefit: details.benefit
-        };
-      }
-    );
-  });
+});
 
   // Visibility state
   let isVisible = $state(false);
@@ -52,7 +34,6 @@
     }, 10);
   });
 </script>
-
 
 <div 
   class="p-3 bg-surface-100-900/95 backdrop-blur-sm rounded-xl shadow-lg max-w-sm border border-surface-300-700/50 transition-all duration-200 overflow-hidden"
@@ -237,26 +218,24 @@
         <span class="font-medium text-primary-500-400">Status:</span> {node.data.status}
       </div>
 
-      {#if partyItems.length}
         <div class="col-span-2 mt-1 space-y-3">
           <span class="font-medium text-primary-500-400">Parties:</span>
-          {#each partyItems as p}
+          {#each partyItems as { card, obligation, benefit }, i}
             <div class="border-l-2 border-indigo-500/30 pl-2">
               <div class="font-medium text-xs text-tertiary-700">
-                Party {p.index}: {p.cardTitle}
+                Party {i+1}: {card.role_title}
               </div>
               <div class="mt-0.5">
                 <span class="text-indigo-500 font-medium">Obligation:</span>
-                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{p.obligation || 'None specified'}</span>
+                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{obligation || 'None specified'}</span>
               </div>
               <div class="mt-0.5">
                 <span class="text-emerald-500 font-medium">Benefit:</span>
-                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{p.benefit || 'None specified'}</span>
+                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{benefit    || 'None specified'}</span>
               </div>
             </div>
           {/each}
         </div>
-      {/if}
     </div>
   {/if}
   

@@ -12,6 +12,12 @@
  * - Uses consistent ID prefixes (u_, g_, actor_, card_, ag_, chat_, msg_, value_, cap_)
  */
 
+import * as d3 from 'd3';
+import type { SimulationNodeDatum } from 'd3';
+
+// Core Schema Types
+// -----------------------------------------------
+
 export interface User {
     user_id: string; // now the SEA pubkey
     name: string; // e.g., 'Bjorn'
@@ -63,12 +69,6 @@ export interface Card {
     updated_at?: number;
 }
 
-export interface CardWithPosition extends Card {
-    position: { x: number; y: number };
-    _valueNames?: string[]; // Cached value names
-    _capabilityNames?: string[]; // Cached capability names
-}
-
 export interface Deck {
     deck_id: string; // e.g., 'd1'
     name: string; // e.g., 'Eco-Village Standard Deck'
@@ -116,7 +116,7 @@ export interface Actor {
 }
 
 export interface ActorWithCard extends Actor {
-    cards_by_game: Record<string,string>;
+    cards_by_game: Record<string, string>;
     /** Card assigned in this game */
     card?: CardWithPosition;
     /** Optional stored layout */
@@ -176,8 +176,14 @@ export interface Agreement {
 }
 
 export interface AgreementWithPosition extends Agreement {
+    /** for layout */
     position: { x: number; y: number };
-}
+  
+    /** for your D3 code */
+    partyItems?: PartyItem[];
+    obligations?: ObligationItem[];
+    benefits?: BenefitItem[];
+  }
 
 export interface NodePosition {
     node_id: string; // e.g., 'card_1', 'ag_1', or 'actor_1'
@@ -186,27 +192,6 @@ export interface NodePosition {
     x: number; // e.g., 100
     y: number; // e.g., 200
     updated_at: number;
-}
-
-export interface D3Node {
-    id: string; // card_id, agreement_id, or actor_id
-    name: string;
-    type: "card" | "agreement" | "actor";
-    data: Card | Agreement | Actor | ActorWithCard; // For Actors or ActorWithCard, use data.cards_by_game[gameId] or data.card to get the Card for a specific Game
-    x?: number;
-    y?: number;
-    fx?: number | null;
-    fy?: number | null;
-    active?: boolean;
-    _valueNames?: string[];
-    _capabilityNames?: string[];
-}
-
-export interface D3Link {
-    source: D3Node | string;
-    target: D3Node | string;
-    type?: "obligation" | "benefit";
-    id?: string;
 }
 
 export interface Pager<T> {
@@ -244,3 +229,76 @@ export interface GameContext {
     actors: ActorWithCard[];
     agreements: AgreementWithPosition[];
 }
+
+// -------------------------------------------------------------------
+// — D3 visualization helpers
+// -------------------------------------------------------------------
+
+export interface CardWithPosition extends Card {
+    /** your existing fields… */
+    position?: { x: number; y: number };
+    actor_id?: string;
+    _valueNames?: string[];
+    _capabilityNames?: string[];
+  }
+  
+  export interface ObligationItem {
+    id: string;
+    fromActorId: string;
+    toActorId?: string;
+    text: string;
+  }
+  
+  export interface BenefitItem {
+    id: string;
+    fromActorId: string;
+    toActorId?: string;
+    text: string;
+  }
+  
+  export interface PartyItem {
+    actorId: string;
+    card: CardWithPosition;
+    obligation: string;
+    benefit: string;
+  }
+      
+  export interface SubItem {
+    id: string;
+    label: string;
+    angle: number;
+    radius: number;
+    nodeX: number;
+    nodeY: number;
+    category: string;
+    categoryColor: string;
+    index: number;
+    totalItems: number;
+  }
+  
+  export interface D3Node extends SimulationNodeDatum {
+    id: string;
+    name: string;
+    type: 'actor' | 'agreement';
+    data: CardWithPosition | AgreementWithPosition;
+    x: number;
+    y: number;
+    fx?: number | null;
+    fy?: number | null;
+    active?: boolean;
+    _valueNames?: string[];
+    _capabilityNames?: string[];
+  }
+  
+  export interface D3Link {
+    source: string | D3Node;
+    target: string | D3Node;
+    type: 'obligation' | 'benefit';
+    id: string;
+  }
+  
+  export interface D3NodeWithRelationships extends D3Node {
+    sourceCard?: D3Node;
+    targetCard?: D3Node;
+  }
+  
