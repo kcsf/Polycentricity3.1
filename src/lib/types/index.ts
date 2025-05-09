@@ -285,18 +285,20 @@ export interface CardWithPosition extends Card {
     y: number;
     fx?: number | null;
     fy?: number | null;
+    x0?: number;
+    y0?: number;
     active?: boolean;
     _valueNames?: string[];
     _capabilityNames?: string[];
   }
   
   export interface D3Link {
-    source: string | D3Node;
-    target: string | D3Node;
-    type: 'obligation' | 'benefit';
-    id: string;
-  }
-  
+    source: D3Node | string;
+    target: D3Node | string;
+    type?: "obligation" | "benefit";
+    id?: string;
+    angle?: number; // Angle for multi-party agreement links
+}  
   export interface D3NodeWithRelationships extends D3Node {
     sourceCard?: D3Node;
     targetCard?: D3Node;

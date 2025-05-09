@@ -1,14 +1,20 @@
 <script lang="ts">
+  import type { SvelteComponent } from 'svelte';
   import * as d3 from 'd3';
-  import { iconStore, loadIcons } from '$lib/stores/iconStore';
-  import { getGameContext, subscribeToGame } from '$lib/services/gameService';
-  import type { Card, ActorWithCard, D3Node, CardWithPosition, AgreementWithPosition, ObligationItem, BenefitItem} from '$lib/types';
+  import { User } from '@lucide/svelte';
+  import { iconStore, loadIcons, } from '$lib/stores/iconStore';
+  import { 
+    getGameContext,
+    subscribeToGame,
+  } from '$lib/services/gameService';
+  import type { Card, Actor, Agreement, ActorWithCard, D3Node, D3Link, CardWithPosition, AgreementWithPosition, } from '$lib/types';
+  import { GameStatus } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
   import {
     createCardIcon,
     initializeD3Graph,
     addDonutRings,
-  } from '$lib/utils/d3GraphUtils';
+  } from '$lib/utils/d3index';  //d3GraphUtils or d3index
 
   const { gameId, activeActorId = undefined } = $props<{
     gameId: string;

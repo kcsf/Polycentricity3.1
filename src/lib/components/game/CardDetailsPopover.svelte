@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Agreement, D3Node, CardWithPosition, AgreementWithPosition, PartyItem } from '$lib/types';
-  import { onMount } from 'svelte';
 
   // Props
   const props = $props<{ node: D3Node; cards: CardWithPosition[]; onClose: () => void }>();
@@ -11,37 +10,67 @@
 
   // Recompute partyItems whenever node or cards change
   $effect(() => {
-  if (node.type !== 'agreement') {
-    partyItems = [];
-  } else {
-    partyItems = (node.data as AgreementWithPosition).partyItems ?? [];
-  }
-});
+    if (node.type !== 'agreement') {
+      partyItems = [];
+    } else {
+      partyItems = (node.data as AgreementWithPosition).partyItems ?? [];
+    }
+  });
 
   // Visibility state
   let isVisible = $state(false);
+
+  // Reference to the popover element
+  let popoverElement: HTMLDivElement | null = null;
 
   // Dev‐only logger
   const isDev = process.env.NODE_ENV !== 'production';
   const log = (...args: any[]) => isDev && console.log('[CardDetailsPopover]', ...args);
 
-  onMount(() => {
+  // Mount logic
+  $effect(() => {
     setTimeout(() => {
       isVisible = true;
       log('Popover visible for', node.name);
       log('Node data:', JSON.stringify(node.data, null, 2));
       log('Node type:', node.type);
     }, 10);
+
+    // Add global click listener to close popover when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverElement && !popoverElement.contains(event.target as Node)) {
+        log('Click outside detected, closing popover');
+        onClose();
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      // Clean up the event listener on destroy
+      document.removeEventListener('click', handleClickOutside);
+    };
   });
+
 </script>
 
 <div 
+  bind:this={popoverElement}
+  role="dialog"
+  aria-label={`Details for ${node.name}`}
+  tabindex="0"
   class="p-3 bg-surface-100-900/95 backdrop-blur-sm rounded-xl shadow-lg max-w-sm border border-surface-300-700/50 transition-all duration-200 overflow-hidden"
   style="max-height: 70vh; overflow-y: auto;"
   class:opacity-0={!isVisible} 
   class:opacity-100={isVisible}
   class:translate-y-4={!isVisible}
   class:translate-y-0={isVisible}
+  onclick={(event) => event.stopPropagation()}
+  onkeydown={(event) => {
+    if (event.key === 'Enter' || event.key === 'Space') {
+      event.stopPropagation();
+    }
+  }}
 >
   {#if node.type === 'card'}
     <!-- Card Details -->
@@ -218,24 +247,24 @@
         <span class="font-medium text-primary-500-400">Status:</span> {node.data.status}
       </div>
 
-        <div class="col-span-2 mt-1 space-y-3">
-          <span class="font-medium text-primary-500-400">Parties:</span>
-          {#each partyItems as { card, obligation, benefit }, i}
-            <div class="border-l-2 border-indigo-500/30 pl-2">
-              <div class="font-medium text-xs text-tertiary-700">
-                Party {i+1}: {card.role_title}
-              </div>
-              <div class="mt-0.5">
-                <span class="text-indigo-500 font-medium">Obligation:</span>
-                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{obligation || 'None specified'}</span>
-              </div>
-              <div class="mt-0.5">
-                <span class="text-emerald-500 font-medium">Benefit:</span>
-                <span class="opacity-90 text-xs whitespace-pre-line ml-1">{benefit    || 'None specified'}</span>
-              </div>
+      <div class="col-span-2 mt-1 space-y-3">
+        <span class="font-medium text-primary-500-400">Parties:</span>
+        {#each partyItems as { card, obligation, benefit }, i}
+          <div class="border-l-2 border-indigo-500/30 pl-2">
+            <div class="font-medium text-xs text-tertiary-700">
+              Party {i+1}: {card.role_title}
             </div>
-          {/each}
-        </div>
+            <div class="mt-0.5">
+              <span class="text-indigo-500 font-medium">Obligation:</span>
+              <span class="opacity-90 text-xs whitespace-pre-line ml-1">{obligation || 'None specified'}</span>
+            </div>
+            <div class="mt-0.5">
+              <span class="text-emerald-500 font-medium">Benefit:</span>
+              <span class="opacity-90 text-xs whitespace-pre-line ml-1">{benefit || 'None specified'}</span>
+            </div>
+          </div>
+        {/each}
+      </div>
     </div>
   {/if}
   
