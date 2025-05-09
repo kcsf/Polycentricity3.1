@@ -36,13 +36,13 @@ export async function sendMessage(
     created_at: now,
   };
 
-  // Write the message under chat_messages/<chatId>/<messageId>
-  gun.get(nodes.chat_messages).get(chatId).get(messageId).put(message);
+  // Write the message under chat_messages/<gameId>/<messageId>
+  gun.get(nodes.chat_messages).get(gameId).get(messageId).put(message);
   return message;
 }
 
 // Internal helper to fetch messages for a given chatId
-async function fetchMessages(chatId: ChatId): Promise<ChatMessage[]> {
+async function fetchMessages(gameId: string, chatId: ChatId): Promise<ChatMessage[]> {
   const gun = getGun();
   const messages: ChatMessage[] = [];
   if (!gun) return messages;
@@ -50,12 +50,15 @@ async function fetchMessages(chatId: ChatId): Promise<ChatMessage[]> {
   await new Promise<void>((resolve) => {
     gun
       .get(nodes.chat_messages)
-      .get(chatId)
+      .get(gameId)
       .map()
       .once((data: any, key?: string) => {
         if (typeof data !== 'object' || data === null) return;
         if (!('content' in data)) return; // skip nested updates
-        messages.push({ ...data, message_id: key! });
+        // Only include messages for this chat
+        if (data.chat_ref === chatId) {
+          messages.push({ ...data, message_id: key! });
+        }
       });
     setTimeout(resolve, 500);
   });
@@ -67,7 +70,8 @@ async function fetchMessages(chatId: ChatId): Promise<ChatMessage[]> {
 export async function getGroupMessages(
   gameId: string
 ): Promise<ChatMessage[]> {
-  const msgs = await fetchMessages(groupChatId(gameId));
+  const chatId = groupChatId(gameId);
+  const msgs = await fetchMessages(gameId, chatId);
   return msgs.sort((a, b) => a.created_at - b.created_at);
 }
 
@@ -82,8 +86,8 @@ export async function getPrivateMessages(
   const chatId2 = privateChatId(gameId, otherUserId, user.user_id);
 
   const [msgs1, msgs2] = await Promise.all([
-    fetchMessages(chatId1),
-    fetchMessages(chatId2),
+    fetchMessages(gameId, chatId1),
+    fetchMessages(gameId, chatId2),
   ]);
 
   return [...msgs1, ...msgs2].sort((a, b) => a.created_at - b.created_at);
@@ -96,15 +100,19 @@ export function subscribeToGroupChat(
 ): () => void {
   const gun = getGun();
   if (!gun) return () => {};
+  const chatId = groupChatId(gameId);
 
   const listener = gun
     .get(nodes.chat_messages)
-    .get(groupChatId(gameId))
+    .get(gameId)
     .map()
     .on((data: any, key?: string) => {
       if (typeof data !== 'object' || data === null) return;
       if (!('content' in data)) return; // skip nested field updates
-      callback({ ...data, message_id: key! });
+      // Only process messages for this chat room
+      if (data.chat_ref === chatId) {
+        callback({ ...data, message_id: key! });
+      }
     });
 
   return () => listener.off();
@@ -119,31 +127,24 @@ export function subscribeToPrivateChat(
   const gun = getGun();
   const user = getCurrentUser();
   if (!gun || !user) return () => {};
+  
+  const chatId1 = privateChatId(gameId, user.user_id, otherUserId);
+  const chatId2 = privateChatId(gameId, otherUserId, user.user_id);
 
-  const sub1 = gun
+  const listener = gun
     .get(nodes.chat_messages)
-    .get(privateChatId(gameId, user.user_id, otherUserId))
+    .get(gameId)
     .map()
     .on((data: any, key?: string) => {
       if (typeof data !== 'object' || data === null) return;
-      if (!('content' in data)) return;
-      callback({ ...data, message_id: key! });
+      if (!('content' in data)) return; // skip nested field updates
+      // Only process messages for this private chat (in either direction)
+      if (data.chat_ref === chatId1 || data.chat_ref === chatId2) {
+        callback({ ...data, message_id: key! });
+      }
     });
 
-  const sub2 = gun
-    .get(nodes.chat_messages)
-    .get(privateChatId(gameId, otherUserId, user.user_id))
-    .map()
-    .on((data: any, key?: string) => {
-      if (typeof data !== 'object' || data === null) return;
-      if (!('content' in data)) return;
-      callback({ ...data, message_id: key! });
-    });
-
-  return () => {
-    sub1.off();
-    sub2.off();
-  };
+  return () => listener.off();
 }
 
 // Get all chat participants in a game
