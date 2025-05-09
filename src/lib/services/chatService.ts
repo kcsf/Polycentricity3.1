@@ -23,29 +23,36 @@ export async function sendMessage(
   const chatId: ChatId =
     type === 'group' ? groupChatId(gameId) : privateChatId(gameId, user.user_id, recipientId!);
   const now = Date.now();
-  // Build the message structure with all required fields
-  const baseMessage = {
-    message_id: messageId,
-    chat_ref: chatId,
-    game_ref: gameId,
-    sender_ref: user.user_id,
-    sender_name: user.name,
-    content,
-    type,
-    read_by_ref: { [user.user_id]: true },
-    created_at: now,
-  };
-  
-  // Create the final message object based on the message type
+  // Create the message object based on the type
   let chatMessage: ChatMessage;
   
   if (type === 'private' && recipientId) {
     // For private messages, include the recipient_ref
-    chatMessage = { ...baseMessage, recipient_ref: recipientId };
+    chatMessage = {
+      message_id: messageId,
+      chat_ref: chatId,
+      game_ref: gameId,
+      sender_ref: user.user_id,
+      sender_name: user.name,
+      content,
+      type,
+      recipient_ref: recipientId, // Only set for private messages
+      read_by_ref: { [user.user_id]: true },
+      created_at: now,
+    };
   } else {
-    // For group messages, omit the recipient_ref entirely
-    const { recipient_ref, ...groupMessage } = baseMessage;
-    chatMessage = groupMessage as ChatMessage;
+    // For group messages, create object without recipient_ref
+    chatMessage = {
+      message_id: messageId,
+      chat_ref: chatId,
+      game_ref: gameId,
+      sender_ref: user.user_id,
+      sender_name: user.name,
+      content,
+      type,
+      read_by_ref: { [user.user_id]: true },
+      created_at: now,
+    };
   }
 
   // Write the message under chat_messages/<gameId>/<messageId>

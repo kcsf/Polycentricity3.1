@@ -89,7 +89,7 @@
       
       <div class="{!compact ? 'card' : ''} h-full flex flex-col">
         {#if !compact}
-          <header class="card-header p-4 flex items-center justify-between border-b border-surface-300-600">
+          <header class="card-header p-4 flex items-center justify-between border-b border-surface-300 dark:border-surface-600">
             <h3 class="h3">
               {#if chatType === 'group'}Group Chat{:else}Private Chat{/if}
             </h3>
@@ -111,8 +111,8 @@
                 <div class="flex {isCurrentUser(message.sender_ref) ? 'justify-end' : 'justify-start'}">
                   <div
                     class="max-w-[80%] p-{compact ? '2' : '3'} rounded-lg {isCurrentUser(message.sender_ref)
-                      ? 'bg-primary-500-500 text-white'
-                      : 'bg-surface-200-700'}"
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-200 dark:bg-surface-700'}"
                   >
                     {#if !isCurrentUser(message.sender_ref)}
                       <div class="flex items-center space-x-1 mb-1">
@@ -134,7 +134,7 @@
           {/if}
         </section>
       
-        <footer class="p-{compact ? '2' : '4'} border-t border-surface-300-600">
+        <footer class="p-{compact ? '2' : '4'} border-t border-surface-300 dark:border-surface-600">
           <form onsubmit={(e) => { e.preventDefault(); handleSendMessage(); }} class="flex space-x-1">
             <input
               type="text"
@@ -142,7 +142,7 @@
               placeholder="Type your message..."
               bind:value={newMessageContent}
             />
-            <button type="submit" class="btn btn-{compact ? 'sm' : 'md'} variant-filled-primary">
+            <button type="submit" class="btn btn-{compact ? 'sm' : 'md'} bg-primary-500 text-white hover:bg-primary-600">
               {compact ? 'Send' : 'Send Message'}
             </button>
           </form>
