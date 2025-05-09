@@ -1,6 +1,12 @@
 import * as d3 from 'd3';
 import type { D3Node, Card, CardWithPosition, ObligationItem } from '$lib/types';
 
+/**
+ * Add donut ring segments to card nodes based on their values, capabilities, etc.
+ * 
+ * @param nodeElements - D3 Selection of node elements
+ * @param activeCardId - ID of the active card (if any) for highlighting
+ */
 export function addDonutRings(
   nodeElements: d3.Selection<SVGGElement, D3Node, SVGGElement, unknown>,
   activeCardId?: string | null
@@ -10,12 +16,13 @@ export function addDonutRings(
   cardNodes.each(function(nodeData) {
     const node = d3.select(this);
     const isActive = nodeData.id === activeCardId;
+
     const BASE_SIZE = isActive ? 40 : 35;
 
     const DIMENSIONS = {
       centerRadius: BASE_SIZE * 0.9,
       donutRadius: BASE_SIZE * 1.15,
-      subWedgeRadius: BASE_SIZE * 1.4,  // Increased extension
+      subWedgeRadius: BASE_SIZE * 1.4, // Increased extension, matching Perplexity
       labelRadius: BASE_SIZE * 1.8,
       textSize: BASE_SIZE * 0.3,
       centerTextSize: BASE_SIZE * 0.35,
@@ -40,40 +47,12 @@ export function addDonutRings(
       .attr("stroke-width", 1);
 
     const categories = [
-      { 
-        name: "values", 
-        color: "#A7C731", 
-        items: valueNames.filter(v => v !== '#') 
-      },
-      { 
-        name: "goals", 
-        color: "#9BC23D", 
-        items: (nodeData.type === 'actor' && cardData.goals) ? 
-          (cardData.goals as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] 
-      },
-      { 
-        name: "capabilities", 
-        color: "#8FBC49", 
-        items: capabilityNames.filter(c => c !== '#') 
-      },
-      { 
-        name: "intellectualProperty", 
-        color: "#83B655", 
-        items: (nodeData.type === 'actor' && (nodeData.data as Card).intellectual_property) ? 
-          ((nodeData.data as Card).intellectual_property as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] 
-      },
-      { 
-        name: "resources", 
-        color: "#77B061", 
-        items: (nodeData.type === 'actor' && (nodeData.data as Card).resources) ? 
-          ((nodeData.data as Card).resources as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] 
-      },
-      { 
-        name: "obligations", 
-        color: "#6BA96D", 
-        items: (nodeData.type === 'agreement' && Array.isArray(nodeData.data.obligations)) ? 
-          nodeData.data.obligations.map((obligation: ObligationItem) => obligation.text || '').filter(Boolean) : [] 
-      }
+      { name: "values", color: "#A7C731", items: valueNames.filter(v => v !== '#') },
+      { name: "goals", color: "#9BC23D", items: (nodeData.type === 'actor' && cardData.goals) ? (cardData.goals as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] },
+      { name: "capabilities", color: "#8FBC49", items: capabilityNames.filter(c => c !== '#') },
+      { name: "intellectualProperty", color: "#83B655", items: (nodeData.type === 'actor' && (nodeData.data as Card).intellectual_property) ? ((nodeData.data as Card).intellectual_property as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] },
+      { name: "resources", color: "#77B061", items: (nodeData.type === 'actor' && (nodeData.data as Card).resources) ? ((nodeData.data as Card).resources as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] },
+      { name: "obligations", color: "#6BA96D", items: (nodeData.type === 'agreement' && Array.isArray(nodeData.data.obligations)) ? nodeData.data.obligations.map((obligation: ObligationItem) => obligation.text || '').filter(Boolean) : [] }
     ];
 
     const totalItems = categories.reduce(
@@ -93,11 +72,7 @@ export function addDonutRings(
     categories.forEach(category => {
       const proportion = totalItems > 0 ? category.items.length / totalItems : 0.25;
       const angleSize = proportion * (2 * Math.PI);
-      categoryAngles.push({ 
-        start: runningAngle, 
-        end: runningAngle + angleSize, 
-        size: angleSize 
-      });
+      categoryAngles.push({ start: runningAngle, end: runningAngle + angleSize, size: angleSize });
       runningAngle += angleSize;
     });
 
@@ -218,8 +193,8 @@ export function addDonutRings(
             .text(displayName);
 
           const subArc = d3.arc<any>()
-            .innerRadius(DIMENSIONS.centerRadius)  // Start at same inner radius
-            .outerRadius(DIMENSIONS.subWedgeRadius)  // Extend further out
+            .innerRadius(DIMENSIONS.centerRadius) // Start at parent wedge's inner radius
+            .outerRadius(DIMENSIONS.subWedgeRadius) // Extend further outward
             .startAngle(itemStartAngle)
             .endAngle(itemEndAngle);
 
@@ -237,14 +212,15 @@ export function addDonutRings(
       wedge.on("mouseenter", function(event) {
         event.stopPropagation();
         categoryGroup.raise();
-        
+
         // Hide parent wedge during hover
         wedge.style("visibility", "hidden");
-        
+
         // Show sub-wedges
         subWedgesContainer
           .style("visibility", "visible")
-          .transition().duration(150)
+          .transition()
+          .duration(150)
           .attr("opacity", 1);
 
         // Fade center elements
@@ -254,30 +230,35 @@ export function addDonutRings(
         // Show labels
         labelContainer
           .style("visibility", "visible")
-          .transition().duration(150)
+          .transition()
+          .duration(150)
           .attr("opacity", 1);
-          
+
         categoryLabelGroup
           .style("visibility", "visible")
-          .transition().duration(150)
+          .transition()
+          .duration(150)
           .attr("opacity", 1);
       })
       .on("mouseleave", function(event) {
         event.stopPropagation();
-        
+
         // Restore parent wedge visibility
         wedge.style("visibility", "visible");
-        
+
         // Hide sub-wedges & labels
-        subWedgesContainer.transition().duration(100)
+        subWedgesContainer.transition()
+          .duration(100)
           .attr("opacity", 0)
           .on("end", () => subWedgesContainer.style("visibility", "hidden"));
-          
-        labelContainer.transition().duration(100)
+
+        labelContainer.transition()
+          .duration(100)
           .attr("opacity", 0)
           .on("end", () => labelContainer.style("visibility", "hidden"));
-          
-        categoryLabelGroup.transition().duration(100)
+
+        categoryLabelGroup.transition()
+          .duration(100)
           .attr("opacity", 0)
           .on("end", () => categoryLabelGroup.style("visibility", "hidden"));
 
