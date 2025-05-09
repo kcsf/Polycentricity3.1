@@ -102,8 +102,12 @@ export function setupInteractions(
       simulation.alphaTarget(0);
     });
 
+  // Apply drag behavior to all nodes - keep this on the entire node for better drag experience
   nodeGroup.selectAll<SVGGElement, D3Node>('.node')
-    .call(dragBehavior)
+    .call(dragBehavior);
+    
+  // But apply click handler only to the inner circles, not the entire node or wedges
+  nodeGroup.selectAll<SVGCircleElement, D3Node>('.node > circle')
     .on('click', (event, d) => {
       event.stopPropagation();
       event.preventDefault();
