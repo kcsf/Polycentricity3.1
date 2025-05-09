@@ -23,11 +23,7 @@
   import { getGun, nodes } from '$lib/services/gunService';
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
   
-  // Sample data initialization variables
-  let isInitializingSample = $state(false);
-  let sampleDataError = $state<string | null>(null);
-  let sampleDataSuccess = $state(false);
-  let sampleDataResult = $state<{ success: boolean; message: string } | null>(null);
+  // Sample data initialization variables are declared below
   
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state([]);
@@ -186,37 +182,11 @@
   
 
   
-  // Variables for card enhancement function
-  let isEnhancingCards = $state(false);
-  let cardEnhanceError = $state<string | null>(null);
-  let cardEnhanceSuccess = $state(false);
-  let cardEnhanceResult = $state<{ success: boolean; cardsUpdated: number } | null>(null);
-  
-  // Enhance cards with values and capabilities function
-  async function enhanceCardValues() {
-    if (!confirm('Are you sure you want to enhance all cards with additional values and capabilities? This will ensure each card has at least 3 values and 3 capabilities.')) {
-      return;
-    }
-    
-    isEnhancingCards = true;
-    cardEnhanceError = null;
-    cardEnhanceSuccess = false;
-    
-    try {
-      console.log('Starting card value and capability enhancement...');
-      cardEnhanceResult = await enhanceCardValuesAndCapabilities();
-      console.log('Card enhancement complete', cardEnhanceResult);
-      cardEnhanceSuccess = cardEnhanceResult.success;
-      
-      // Dispatch a custom event for parent components
-      dispatch('cardsEnhanced', cardEnhanceResult);
-    } catch (err) {
-      console.error('Error enhancing cards:', err);
-      cardEnhanceError = err instanceof Error ? err.message : 'An unknown error occurred';
-    } finally {
-      isEnhancingCards = false;
-    }
-  }
+  // Variables for sample data initialization
+  let isInitializingSample = $state(false);
+  let sampleDataError = $state<string | null>(null);
+  let sampleDataSuccess = $state(false);
+  let sampleDataResult = $state<{ success: boolean; message?: string } | null>(null);
 
   // Initialize sample data function
   async function initializeSampleDataFunction() {
