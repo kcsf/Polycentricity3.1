@@ -11,45 +11,34 @@ export function addDonutRings(
   nodeElements: d3.Selection<SVGGElement, D3Node, SVGGElement, unknown>,
   activeCardId?: string | null
 ): void {
-  // Remove all existing wedges first to prevent duplicates on redraw
-  nodeElements.selectAll(".category-group").remove();
-  
-  // Filter to only card nodes (not agreements)
   const cardNodes = nodeElements.filter((d) => d.type === "actor");
 
-  // Process each card node
   cardNodes.each(function(nodeData) {
-    // Select the current node
     const node = d3.select(this);
     const isActive = nodeData.id === activeCardId;
 
-    // Define sizes based on whether node is active
     const BASE_SIZE = isActive ? 40 : 35;
 
-    // Set up dimensions for all visual elements
     const DIMENSIONS = {
       centerRadius: BASE_SIZE * 0.9,
       donutRadius: BASE_SIZE * 1.15,
-      subWedgeRadius: BASE_SIZE * 1.4, // Increased extension for subwedges
+      subWedgeRadius: BASE_SIZE * 1.4, // Increased extension, matching Perplexity
       labelRadius: BASE_SIZE * 1.8,
       textSize: BASE_SIZE * 0.3,
       centerTextSize: BASE_SIZE * 0.35,
       countTextSize: BASE_SIZE * 0.3
     };
 
-    // Get references to existing elements
     const centerIcon = node.select(".center-group");
     const foreignObjects = centerIcon.selectAll("foreignObject");
     const cardData = nodeData.data as CardWithPosition;
     const valueNames = cardData._valueNames || [];
     const capabilityNames = cardData._capabilityNames || [];
 
-    // Skip if no data to display
     if (valueNames.length === 0 && capabilityNames.length === 0) {
       return;
     }
 
-    // Add base ring
     node.append("circle")
       .attr("r", DIMENSIONS.donutRadius)
       .attr("class", `donut-ring ${isActive ? "active" : ""}`)
@@ -57,7 +46,6 @@ export function addDonutRings(
       .attr("stroke", "var(--border)")
       .attr("stroke-width", 1);
 
-    // Define categories to display
     const categories = [
       { name: "values", color: "#A7C731", items: valueNames.filter(v => v !== '#') },
       { name: "goals", color: "#9BC23D", items: (nodeData.type === 'actor' && cardData.goals) ? (cardData.goals as string).split(/[;,.]+/).map((s: string) => s.trim()).filter(Boolean) : [] },
@@ -67,22 +55,19 @@ export function addDonutRings(
       { name: "obligations", color: "#6BA96D", items: (nodeData.type === 'agreement' && Array.isArray(nodeData.data.obligations)) ? nodeData.data.obligations.map((obligation: ObligationItem) => obligation.text || '').filter(Boolean) : [] }
     ];
 
-    // Calculate total items for proportional sizing
     const totalItems = categories.reduce(
       (sum, category) => sum + (category.items?.length ?? 0),
       0
     );
 
-    // Define angle structure for calculations
     interface CategoryAngle {
       start: number;
       end: number;
       size: number;
     }
 
-    // Calculate angles for each category
     const categoryAngles: CategoryAngle[] = [];
-    let runningAngle = -Math.PI/2; // Start at top
+    let runningAngle = -Math.PI/2;
 
     categories.forEach(category => {
       const proportion = totalItems > 0 ? category.items.length / totalItems : 0.25;
@@ -91,12 +76,10 @@ export function addDonutRings(
       runningAngle += angleSize;
     });
 
-    // Create wedges for each category
     categories.forEach((category, categoryIndex) => {
       const startAngle = categoryAngles[categoryIndex].start;
       const endAngle = categoryAngles[categoryIndex].end;
 
-      // Create a group for this category
       const categoryGroup = node.append("g")
         .attr("class", "category-group")
         .attr("data-category", category.name);
@@ -107,7 +90,6 @@ export function addDonutRings(
         .startAngle(startAngle)
         .endAngle(endAngle);
 
-      // Create the main category wedge with enhanced styling  
       const wedge = categoryGroup.append("path")
         .attr("class", "category-wedge")
         .attr("d", arc({}) as string)
@@ -118,92 +100,6 @@ export function addDonutRings(
         .attr("data-category", category.name)
         .attr("pointer-events", "all")
         .style("cursor", "pointer");
-        
-      // Add explicit click capture area on top of wedge to ensure events get captured
-      const hitArea = categoryGroup.append("path")
-        .attr("class", "category-wedge-hitarea")
-        .attr("d", arc({}) as string) 
-        .attr("fill", "transparent")
-        .attr("stroke", "none")
-        .attr("data-category", category.name)
-        .attr("pointer-events", "all")
-        .style("cursor", "pointer");
-        
-      // Add debug logging and events to hit area
-      hitArea.on("mouseenter", function(event, d) {
-        console.log(`[donutRings] Wedge mouseenter: ${category.name} (${category.items.length} items)`);
-        
-        // Prevent event propagation
-        event.stopPropagation();
-        
-        // Bring this category group to the front
-        categoryGroup.raise();
-
-        // Hide the main wedge
-        wedge.style("visibility", "hidden");
-
-        // Show sub-wedges with transition
-        subWedgesContainer
-          .style("visibility", "visible")
-          .transition()
-          .duration(150)
-          .attr("opacity", 1);
-
-        // Fade center elements
-        node.select(".center-group").transition().duration(150).attr("opacity", 0.2);
-        node.selectAll("foreignObject").transition().duration(150).attr("opacity", 0.2);
-
-        // Show labels with transition
-        labelContainer
-          .style("visibility", "visible")
-          .transition()
-          .duration(150)
-          .attr("opacity", 1);
-
-        // Show category label with transition
-        categoryLabelGroup
-          .style("visibility", "visible")
-          .transition()
-          .duration(150)
-          .attr("opacity", 1);
-      })
-      .on("mouseleave", function(event, d) {
-        console.log(`[donutRings] Wedge mouseleave: ${category.name}`);
-        
-        // Prevent event propagation
-        event.stopPropagation();
-
-        // Restore visibility of the main wedge
-        wedge.style("visibility", "visible");
-
-        // Hide sub-wedges with transition
-        subWedgesContainer.transition()
-          .duration(100)
-          .attr("opacity", 0)
-          .on("end", function() {
-            subWedgesContainer.style("visibility", "hidden");
-          });
-
-        // Hide labels with transition
-        labelContainer.transition()
-          .duration(100)
-          .attr("opacity", 0)
-          .on("end", function() {
-            labelContainer.style("visibility", "hidden");
-          });
-
-        // Hide category label with transition
-        categoryLabelGroup.transition()
-          .duration(100)
-          .attr("opacity", 0)
-          .on("end", function() {
-            categoryLabelGroup.style("visibility", "hidden");
-          });
-
-        // Restore center elements
-        node.select(".center-group").transition().duration(200).attr("opacity", 1);
-        node.selectAll("foreignObject").transition().duration(200).attr("opacity", 1);
-      });
 
       const categoryLabelGroup = categoryGroup.append("g")
         .attr("class", "category-label")
@@ -309,43 +205,67 @@ export function addDonutRings(
             .attr("stroke", "white")
             .attr("stroke-width", 0.5)
             .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
-            .attr("pointer-events", "all")
-            .attr("cursor", "pointer")
-            .on("mouseenter", function() {
-              // Darken the subwedge on hover
-              d3.select(this)
-                .transition()
-                .duration(100)
-                .attr("fill", d3.color(category.color)!.darker(0.5).toString())
-                .attr("stroke-width", 1);
-              
-              // Highlight the matching label if possible
-              labelGroup.select("text")
-                .transition()
-                .duration(100)
-                .attr("font-weight", "bold")
-                .attr("fill", d3.color(category.color)!.darker(0.5).toString());
-            })
-            .on("mouseleave", function() {
-              // Restore original color on mouse leave
-              d3.select(this)
-                .transition()
-                .duration(100)
-                .attr("fill", category.color)
-                .attr("stroke-width", 0.5);
-              
-              // Restore label styling
-              labelGroup.select("text")
-                .transition()
-                .duration(100)
-                .attr("font-weight", "500")
-                .attr("fill", category.color);
-            });
+            .attr("pointer-events", "none");
         });
       }
 
-      // Note: The main wedge doesn't have event listeners
-      // All interaction is handled by the hitArea to avoid duplication
+      wedge.on("mouseenter", function(event) {
+        event.stopPropagation();
+        categoryGroup.raise();
+
+        // Hide parent wedge during hover
+        wedge.style("visibility", "hidden");
+
+        // Show sub-wedges
+        subWedgesContainer
+          .style("visibility", "visible")
+          .transition()
+          .duration(150)
+          .attr("opacity", 1);
+
+        // Fade center elements
+        node.select(".center-group").transition().duration(150).attr("opacity", 0);
+        node.selectAll("foreignObject").transition().duration(150).attr("opacity", 0);
+
+        // Show labels
+        labelContainer
+          .style("visibility", "visible")
+          .transition()
+          .duration(150)
+          .attr("opacity", 1);
+
+        categoryLabelGroup
+          .style("visibility", "visible")
+          .transition()
+          .duration(150)
+          .attr("opacity", 1);
+      })
+      .on("mouseleave", function(event) {
+        event.stopPropagation();
+
+        // Restore parent wedge visibility
+        wedge.style("visibility", "visible");
+
+        // Hide sub-wedges & labels
+        subWedgesContainer.transition()
+          .duration(100)
+          .attr("opacity", 0)
+          .on("end", () => subWedgesContainer.style("visibility", "hidden"));
+
+        labelContainer.transition()
+          .duration(100)
+          .attr("opacity", 0)
+          .on("end", () => labelContainer.style("visibility", "hidden"));
+
+        categoryLabelGroup.transition()
+          .duration(100)
+          .attr("opacity", 0)
+          .on("end", () => categoryLabelGroup.style("visibility", "hidden"));
+
+        // Restore center elements
+        node.select(".center-group").transition().duration(200).attr("opacity", 1);
+        node.selectAll("foreignObject").transition().duration(200).attr("opacity", 1);
+      });
     });
   });
 }
