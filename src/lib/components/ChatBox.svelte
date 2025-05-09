@@ -126,7 +126,7 @@
                       </div>
                     {/if}
                     <p class="break-words text-{compact ? 'xs' : 'base'}">{message.content}</p>
-                    <p class="text-{compact ? '2xs' : 'xs'} text-right mt-1 opacity-70">{formatTime(message.created_at)}</p>
+                    <p class="text-2xs text-right mt-1 opacity-60">{formatTime(message.created_at)}</p>
                   </div>
                 </div>
               {/each}
