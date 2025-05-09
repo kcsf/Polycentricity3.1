@@ -206,31 +206,50 @@ export function addDonutRings(
             .attr("stroke-width", 0.5)
             .attr("filter", "drop-shadow(0px 0px 1px rgba(0,0,0,0.2))")
             .attr("pointer-events", "all")
+            .attr("cursor", "pointer")
             .on("mouseenter", function() {
               // Darken the subwedge on hover
               d3.select(this)
                 .transition()
-                .duration(150)
+                .duration(100)
+                .attr("fill", d3.color(category.color)!.darker(0.5).toString())
+                .attr("stroke-width", 1);
+              
+              // Highlight the matching label if possible
+              labelGroup.select("text")
+                .transition()
+                .duration(100)
+                .attr("font-weight", "bold")
                 .attr("fill", d3.color(category.color)!.darker(0.5).toString());
             })
             .on("mouseleave", function() {
               // Restore original color on mouse leave
               d3.select(this)
                 .transition()
-                .duration(150)
+                .duration(100)
+                .attr("fill", category.color)
+                .attr("stroke-width", 0.5);
+              
+              // Restore label styling
+              labelGroup.select("text")
+                .transition()
+                .duration(100)
+                .attr("font-weight", "500")
                 .attr("fill", category.color);
             });
         });
       }
 
-      wedge.on("mouseenter", function(event) {
+      wedge.on("mouseenter", function(event, d) {
+        // Prevent event propagation to avoid triggering parent events
         event.stopPropagation();
+        // Bring this category group to the front
         categoryGroup.raise();
 
-        // Hide parent wedge during hover
-        wedge.style("visibility", "hidden");
+        // Hide the main wedge
+        d3.select(this).style("visibility", "hidden");
 
-        // Show sub-wedges
+        // Show sub-wedges with transition
         subWedgesContainer
           .style("visibility", "visible")
           .transition()
@@ -238,43 +257,56 @@ export function addDonutRings(
           .attr("opacity", 1);
 
         // Fade center elements
-        node.select(".center-group").transition().duration(150).attr("opacity", 0);
-        node.selectAll("foreignObject").transition().duration(150).attr("opacity", 0);
+        node.select(".center-group").transition().duration(150).attr("opacity", 0.2);
+        node.selectAll("foreignObject").transition().duration(150).attr("opacity", 0.2);
 
-        // Show labels
+        // Show labels with transition
         labelContainer
           .style("visibility", "visible")
           .transition()
           .duration(150)
           .attr("opacity", 1);
 
+        // Show category label with transition
         categoryLabelGroup
           .style("visibility", "visible")
           .transition()
           .duration(150)
           .attr("opacity", 1);
       })
-      .on("mouseleave", function(event) {
+      .on("mouseleave", function(event, d) {
+        // Prevent event propagation
         event.stopPropagation();
 
-        // Restore parent wedge visibility
-        wedge.style("visibility", "visible");
+        // Quick reference to this wedge element
+        const thisWedge = d3.select(this);
 
-        // Hide sub-wedges & labels
+        // Restore visibility of the main wedge
+        thisWedge.style("visibility", "visible");
+
+        // Hide sub-wedges with transition
         subWedgesContainer.transition()
           .duration(100)
           .attr("opacity", 0)
-          .on("end", () => subWedgesContainer.style("visibility", "hidden"));
+          .on("end", function() {
+            subWedgesContainer.style("visibility", "hidden");
+          });
 
+        // Hide labels with transition
         labelContainer.transition()
           .duration(100)
           .attr("opacity", 0)
-          .on("end", () => labelContainer.style("visibility", "hidden"));
+          .on("end", function() {
+            labelContainer.style("visibility", "hidden");
+          });
 
+        // Hide category label with transition
         categoryLabelGroup.transition()
           .duration(100)
           .attr("opacity", 0)
-          .on("end", () => categoryLabelGroup.style("visibility", "hidden"));
+          .on("end", function() {
+            categoryLabelGroup.style("visibility", "hidden");
+          });
 
         // Restore center elements
         node.select(".center-group").transition().duration(200).attr("opacity", 1);
