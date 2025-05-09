@@ -28,6 +28,7 @@ export interface User {
     created_at: number;
     last_login?: number;
     games_ref?: Record<string, boolean>;
+    lastActiveAt?: number;
 }
 
 export interface Value {

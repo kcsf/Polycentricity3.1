@@ -3,22 +3,46 @@
     import { fade, slide } from 'svelte/transition';
     import * as icons from '@lucide/svelte';
     import { userStore } from '$lib/stores/userStore';
+    import { subscribeToLastActive } from '$lib/services/userService';
     import type { Game, ActorWithCard } from '$lib/types';
     import ChatBox from '$lib/components/ChatBox.svelte';
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
     import AgreementModal from '$lib/components/AgreementModal.svelte';
+    import { onMount, onDestroy } from 'svelte';
 
-    // Props
-    const { game, gameId, playerRole, content, actors } = $props<{
-        game: Game;
-        gameId: string;
-        playerRole: ActorWithCard;
-        content?: typeof SvelteComponent<any>;
-        actors: ActorWithCard[];
-    }>();
-    
+   // Props
+   const { game, gameId, playerRole, content, actors } = $props<{
+    game: Game;
+    gameId: string;
+    playerRole: ActorWithCard;
+    content?: typeof SvelteComponent<any>;
+    actors: ActorWithCard[];
+  }>();
+
+  // Local reactive presence map
+  let presenceMap = $state<Record<string, boolean>>({});
+  // Hold unsubscribe functions
+  const unsubs: (() => void)[] = [];
+
+  onMount(() => {
+    actors.forEach((actor: ActorWithCard) => {
+      const uid = actor.user_ref;
+      if (!uid) return;            // skip if null
+      presenceMap[uid] = false;     // start offline
+
+      const unsub = subscribeToLastActive(uid, (ts: number) => {
+        presenceMap[uid] = Date.now() - ts < 5 * 60_000;
+      });
+      unsubs.push(unsub);
+    });
+  });
+
+  onDestroy(() => {
+    unsubs.forEach((fn) => fn());
+  });
+
     // References
     let agreementModal: { openModal: () => void } | undefined;
 
@@ -66,6 +90,7 @@
         const diffInDays = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
         return `${diffInDays} days`;
     }
+
 </script>
 
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-900 overflow-hidden">
@@ -327,7 +352,9 @@
                 <div class="px-4 py-2" transition:slide={{ duration: 200 }}>
                     <div class="card p-2 bg-surface-200-800">
                         <PlayersList 
-                            {game} 
+                            {game}
+                            actorsList={actors}
+                            presenceMap={presenceMap}
                             highlightCurrentUser={true} 
                             currentUserId={$userStore.user?.user_id || null} 
                             compact={true}

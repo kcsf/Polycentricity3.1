@@ -28,6 +28,7 @@ This schema defines the data structure for a Gun.js-based Polycentricity governa
     magic_key?: string; // Optional authentication key
     created_at: number;
     last_login?: number;
+    lastActiveAt?: number;
   }
   ```
 - **Edges**:

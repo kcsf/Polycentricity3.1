@@ -9,25 +9,54 @@
   import { Toaster } from '@skeletonlabs/skeleton-svelte';
   import { toaster } from '$lib/utils/toaster-svelte';
   import { page } from '$app/stores';
-  let { children } = $props();
-  let isAuthenticated = $state(get(userStore).isAuthenticated);
+  import { pokePresence } from '$lib/services/userService';
+  import { onMount } from 'svelte';
 
-  // Derive whether the current route is the home page
+  const { children } = $props();
+
+  let isAuthenticated = $state(false);
+  let currentUserId = $state<string | null>(null);
   let isHomePage = $derived($page.url.pathname === '/');
-  
-  // Update header height and initialize auth
+
+  // Sync auth state
+  $effect(() => {
+    const user = get(userStore);
+    isAuthenticated = user.isAuthenticated;
+    currentUserId = user.user?.user_id ?? null;
+  });
+
+  // Header sizing and auth initialization
   $effect(() => {
     const headerEl = document.querySelector('header');
     if (headerEl) {
-      const height = headerEl.offsetHeight;
-      document.documentElement.style.setProperty('--app-bar-height', `${height}px`);
+      document.documentElement.style.setProperty(
+        '--app-bar-height',
+        `${headerEl.offsetHeight}px`
+      );
     }
+    initializeAuth().catch((error) => console.error('Auth error:', error));
+  });
 
-    initializeAuth().catch(error => {
-      console.error('Auth error:', error);
-    });
+  // Heartbeat presence update
+  let timer: number;
+  onMount(() => {
+    function heartbeat() {
+      if (currentUserId) pokePresence(currentUserId);
+    }
+    // initial heartbeat
+    heartbeat();
+    // interval every minute via browser timer
+    timer = window.setInterval(heartbeat, 60_000);
 
-    isAuthenticated = get(userStore).isAuthenticated;
+    // also update on user interactions
+    window.addEventListener('keydown', heartbeat);
+    window.addEventListener('click', heartbeat);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('keydown', heartbeat);
+      window.removeEventListener('click', heartbeat);
+    };
   });
 </script>
 
@@ -39,7 +68,7 @@
     </div>
   </main>
   <Footer />
-  <Toaster {toaster}></Toaster>
+  <Toaster {toaster} />
 </div>
 
 <style>

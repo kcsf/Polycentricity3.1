@@ -4,49 +4,45 @@
   import {
     createActor,
     joinWithActor,
-    updateGame
+    updateGame,
   } from '$lib/services/gameService';
   import { currentGameStore } from '$lib/stores/gameStore';
   import { userStore } from '$lib/stores/userStore';
-  import type {
-    Game,
-    ActorWithCard,
-    CardWithPosition
-  } from '$lib/types';
+  import type { Game, ActorWithCard, CardWithPosition } from '$lib/types';
 
   // ─── Props ──────────────────────────────────────────────────────────────────
-  const {
+  let {
     gameId,
     game,
     actors = [] as ActorWithCard[],
     availableCardsForActors = [] as CardWithPosition[],
-    onGameEnter = () => goto(`/games/${gameId}`)
+    onGameEnter = () => goto(`/games/${gameId}`),
   } = $props<{
     gameId: string;
     game: Game;
-    actors?: ActorWithCard[];
-    availableCardsForActors?: CardWithPosition[];
-    onGameEnter?: () => void;
+    actors: ActorWithCard[];
+    availableCardsForActors: CardWithPosition[];
+    onGameEnter: () => void;
   }>();
 
   console.log('ActorSelector props:', { gameId, game, actors, availableCardsForActors });
 
   // ─── Local state ────────────────────────────────────────────────────────────
-  let joinMode        = $state<'existing'|'new'>('existing');
+  let joinMode = $state<'existing' | 'new'>('existing');
   let selectedActorId = $state<string>('');
-  let selectedCardId  = $state<string>('');
-  let actorType       = $state<'National Identity'|'Sovereign Identity'>('National Identity');
-  let customName      = $state<string>('');
-  let isJoining       = $state<boolean>(false);
-  let errorMessage    = $state<string>('');
+  let selectedCardId = $state<string>('');
+  let actorType = $state<'National Identity' | 'Sovereign Identity'>('National Identity');
+  let customName = $state<string>('');
+  let isJoining = $state<boolean>(false);
+  let errorMessage = $state<string>('');
 
   // ─── Derived: this user’s existing actors ───────────────────────────────────
-  const existingActors = $derived(() => {
-    const uid = $userStore.user?.user_id;
-    const list = actors.filter((a) => a.user_ref === uid);
-    console.log('Derived existingActors for', uid, list);
-    return list;
-  });
+  const existingActors = $derived<ActorWithCard[]>(() => {
+  const uid = $userStore.user?.user_id;
+  if (!uid) return [];
+  return actors.filter((a: ActorWithCard) => a.user_ref === uid);
+});
+
 
   // ─── Defaults & Debug ────────────────────────────────────────────────────────
   $effect(() => {
@@ -81,7 +77,7 @@
       selectedActorId,
       selectedCardId,
       actorType,
-      customName
+      customName,
     });
 
     if (!$userStore.user) {
@@ -116,13 +112,13 @@
           gameId,
           card: selectedCardId,
           actorType,
-          customName
+          customName,
         });
         const newActor = await createActor(
           gameId,
           selectedCardId,
           actorType,
-          customName || undefined
+          customName || undefined,
         );
         console.log('createActor result:', newActor);
         if (!newActor) throw new Error('Actor creation failed');
@@ -178,11 +174,11 @@
     <label class="label">
       <span class="font-semibold">Select Actor</span>
       <select class="select w-full mt-1" bind:value={selectedActorId}>
-        {#each existingActors as actor}
-          <option value={actor.actor_id}>
-            {actor.custom_name ?? actor.actor_id}
-          </option>
-        {/each}
+        {#each existingActors as actor (actor.actor_id)}
+        <option value={actor.actor_id}>
+          {actor.custom_name ?? actor.actor_id}
+        </option>
+      {/each}
       </select>
     </label>
   {:else}
@@ -207,7 +203,7 @@
     <label class="label">
       <span class="font-semibold">Choose Your Card</span>
       <select class="select w-full mt-1" bind:value={selectedCardId}>
-        {#each availableCardsForActors as card}
+        {#each availableCardsForActors as card (card.card_id)}
           <option value={card.card_id}>
             {card.role_title}{card.card_category ? ` (${card.card_category})` : ''}
           </option>

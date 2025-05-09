@@ -10,6 +10,7 @@ import {
   subscribe,
   nodes,
 } from "./gunService";
+import { subscribeToLastActive } from "./userService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
 import type {
