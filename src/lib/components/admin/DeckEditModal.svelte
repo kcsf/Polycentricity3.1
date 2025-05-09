@@ -6,7 +6,10 @@
   
   const dispatch = createEventDispatcher();
   
-  const { isOpen = false, deck = null } = $props<{ isOpen?: boolean, deck?: Deck | null }>();
+  const { isOpen = $bindable(false), deck = null } = $props<{
+    isOpen?: boolean;
+    deck?: Deck | null;
+  }>();
   
   let isLoading = $state(false);
   // Define formData with all Deck properties

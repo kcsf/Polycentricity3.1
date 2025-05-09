@@ -6,8 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview"
-  },
+    "preview": "vite preview",
+    "svelte-check": "svelte-check --tsconfig ./tsconfig.json"
+    },
   "keywords": [],
   "author": "",
   "license": "ISC",

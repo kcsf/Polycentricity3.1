@@ -5,35 +5,38 @@
   import { getGun, nodes, generateId } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
   import type { Card, Deck } from '$lib/types';
-  
-  // In Svelte 5 runes mode, use $props() instead of export let
+
+  // Define interfaces for clarity
+  interface ImportResult {
+    success: boolean;
+    message: string;
+    added?: number;
+    error?: string;
+  }
+
+  // Props in Svelte 5 Runes mode
   const props = $props<{ deckId?: string }>();
-  
+
+  // State variables
   let isLoading = $state(false);
   let result = $state<{ success: boolean; message: string } | null>(null);
-  let deckIdValue = $state(props.deckId || 'd1'); // Store prop value in a state variable
+  let deckIdValue = $state(props.deckId || 'd1');
   let deck = $state<Deck | null>(null);
   let userId = $state('');
   let decks = $state<Deck[]>([]);
-  
-  // Card import variables
   let importText = $state('');
   let isImporting = $state(false);
-  let importResult = $state<{ success: boolean; message: string } | null>(null);
-  
+  let importResult = $state<ImportResult | null>(null);
+
   onMount(async () => {
     const currentUser = getCurrentUser();
     if (currentUser) {
       userId = currentUser.user_id;
     }
-    
-    // Load all available decks
     await loadDecks();
-    
-    // Load the current deck
     await loadDeck();
   });
-  
+
   // Load all decks for dropdown
   async function loadDecks() {
     try {
@@ -42,19 +45,17 @@
         console.error('Gun database not initialized');
         return;
       }
-      
+
       const deckList: Deck[] = [];
-      
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         gun.get(nodes.decks).map().once((deckData: Deck, deckId: string) => {
           if (deckData && deckData.deck_id) {
             deckList.push({
               ...deckData,
-              deck_id: deckId
+              deck_id: deckId,
             });
           }
         });
-        
         setTimeout(() => {
           console.log('Loaded ' + deckList.length + ' decks');
           decks = deckList;
@@ -65,247 +66,214 @@
       console.error('Error loading decks:', err);
     }
   }
-  
+
   async function loadDeck() {
     isLoading = true;
     result = null;
-    
     try {
       deck = await getDeck(deckIdValue);
-      
       if (!deck) {
         result = {
           success: false,
-          message: `Deck with ID ${deckIdValue} not found`
+          message: `Deck with ID ${deckIdValue} not found`,
         };
       }
     } catch (error) {
       console.error('Error loading deck:', error);
       result = {
         success: false,
-        message: `Error loading deck: ${error instanceof Error ? error.message : String(error)}`
+        message: `Error loading deck: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       isLoading = false;
     }
   }
-  
+
   async function updateDeckCreator() {
     if (!userId) {
       result = {
         success: false,
-        message: 'No user logged in'
+        message: 'No user logged in',
       };
       return;
     }
-    
     if (!deck) {
       result = {
         success: false,
-        message: 'No deck loaded'
+        message: 'No deck loaded',
       };
       return;
     }
-    
+
     isLoading = true;
     result = null;
-    
     try {
       const success = await updateDeck(deckIdValue, {
         name: 'Eco-Village Deck',
-        creator: userId
+        creator_ref: userId,
       });
-      
       if (success) {
         result = {
           success: true,
-          message: `Successfully updated deck ${deckIdValue} with creator ${userId}`
+          message: `Successfully updated deck ${deckIdValue} with creator ${userId}`,
         };
-        
-        // Reload the deck
         await loadDeck();
       } else {
         result = {
           success: false,
-          message: 'Failed to update deck'
+          message: 'Failed to update deck',
         };
       }
     } catch (error) {
       console.error('Error updating deck:', error);
       result = {
         success: false,
-        message: `Error updating deck: ${error instanceof Error ? error.message : String(error)}`
+        message: `Error updating deck: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       isLoading = false;
     }
   }
-  
+
+  // Helper function to convert various formats to Record<string, boolean>
+  function toRecord(value: unknown): Record<string, boolean> {
+    // Handle undefined or null
+    if (value === undefined || value === null) {
+      return {};
+    }
+
+    // Handle string input
+    if (typeof value === 'string') {
+      if (!value.trim()) return {};
+      return value.split(',').reduce((acc, item) => {
+        const trimmed = item.trim();
+        if (trimmed) {
+          acc[`value_${trimmed.toLowerCase().replace(/\s+/g, '_')}`] = true;
+        }
+        return acc;
+      }, {} as Record<string, boolean>);
+    }
+
+    // Handle array input
+    if (Array.isArray(value)) {
+      return value.reduce((acc, item) => {
+        if (typeof item === 'string' && item.trim()) {
+          acc[`value_${item.toLowerCase().replace(/\s+/g, '_')}`] = true;
+        }
+        return acc;
+      }, {} as Record<string, boolean>);
+    }
+
+    // Handle object input
+    if (typeof value === 'object' && value !== null) {
+      // Ensure it's a Record<string, boolean>
+      const obj = value as Record<string, unknown>;
+      return Object.keys(obj).reduce((acc, key) => {
+        acc[key] = Boolean(obj[key]);
+        return acc;
+      }, {} as Record<string, boolean>);
+    }
+
+    // Fallback for unexpected types
+    return {};
+  }
+
   async function handleImportCards() {
     if (!importText.trim()) {
       importResult = {
         success: false,
-        message: 'Please enter card data'
+        message: 'Please enter card data',
       };
       return;
     }
-    
+
     isImporting = true;
     importResult = null;
-    
     try {
-      // Log the length of the input for debugging
       console.log(`Import text length: ${importText.length} characters`);
-      
-      // Try to parse the JSON
       let cardsData: Omit<Card, 'card_id'>[];
-      
       try {
         console.log('Attempting to parse card data...');
-        
-        // First try standard JSON parse
         try {
           cardsData = JSON.parse(importText);
           console.log('Successfully parsed as standard JSON');
         } catch (standardJsonError) {
           console.log('Standard JSON parse failed, trying with JavaScript object format');
-          
-          // Clean the input text before attempting to fix it
           const cleanedText = importText
-            .replace(/\n/g, ' ')              // Replace newlines with spaces
-            .replace(/\t/g, ' ')              // Replace tabs with spaces
-            .replace(/\s+/g, ' ')             // Collapse multiple spaces
-            .replace(/,\s*]/g, ']')           // Remove trailing commas in arrays
-            .replace(/,\s*}/g, '}')           // Remove trailing commas in objects
-            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'); // Ensure property names are quoted
-            
-          // If that fails, try evaluating it as JavaScript (for unquoted property names)
+            .replace(/\n/g, ' ')
+            .replace(/\t/g, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/,\s*]/g, ']')
+            .replace(/,\s*}/g, '}')
+            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
           try {
-            // Add quotes to property names and handle single quotes
             const sanitizedText = cleanedText
-              .replace(/'/g, '"')             // Replace single quotes with double quotes
-              .replace(/:\s*"([^"]+)"/g, (match, p1) => {
-                // Handle string values with embedded quotes
-                return ': "' + p1.replace(/"/g, '\\"') + '"';
-              });
-            
+              .replace(/'/g, '"')
+              .replace(/:\s*"([^"]+)"/g, (match, p1) => ': "' + p1.replace(/"/g, '\\"') + '"');
             console.log('Sanitized text for parsing');
             cardsData = JSON.parse(sanitizedText);
             console.log('Successfully parsed as sanitized JavaScript object format');
           } catch (jsParseError) {
-            // Try a more aggressive approach - extract just what looks like JSON objects
-            try {
-              console.log('Standard sanitization failed, trying more aggressive parsing');
-              
-              // Find all objects that look like {property: value} patterns
-              const objects = importText.match(/\{[^{}]*\}/g);
-              if (objects && objects.length > 0) {
-                // Process each object to ensure it has proper JSON format
-                const processedObjects = objects.map(obj => {
-                  return obj
-                    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure property names are quoted
-                    .replace(/'/g, '"')         // Replace single quotes with double quotes
-                    .replace(/,\s*}/g, '}');    // Remove trailing commas
-                });
-                
-                // Try to parse the array of objects
-                cardsData = JSON.parse('[' + processedObjects.join(',') + ']');
-                console.log('Successfully parsed using object extraction method');
-              } else {
-                console.error('Object extraction failed, no valid objects found');
-                throw new Error('No valid JSON objects found in the input');
-              }
-            } catch (extractionError) {
-              console.error('All parsing methods failed', extractionError);
-              // If all methods fail, throw the original error
-              throw standardJsonError;
+            console.log('Standard sanitization failed, trying more aggressive parsing');
+            const objects = importText.match(/\{[^{}]*\}/g);
+            if (objects && objects.length > 0) {
+              const processedObjects = objects.map((obj) =>
+                obj
+                  .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')
+                  .replace(/'/g, '"')
+                  .replace(/,\s*}/g, '}')
+              );
+              cardsData = JSON.parse('[' + processedObjects.join(',') + ']');
+              console.log('Successfully parsed using object extraction method');
+            } else {
+              console.error('Object extraction failed, no valid objects found');
+              throw new Error('No valid JSON objects found in the input');
             }
           }
         }
-        
-        // Check if it's an array
         if (!Array.isArray(cardsData)) {
           console.log('Data is not an array, converting single object to array');
-          cardsData = [cardsData]; // Convert single object to array
+          cardsData = [cardsData];
         }
-        
+
         // Pre-process the data to ensure compatibility with our schema
-        cardsData = cardsData.map(card => {
-          // Ensure card_number is a number (it might be a string in the import)
+        cardsData = cardsData.map((card) => {
           let cardNumber = card.card_number;
           if (typeof cardNumber === 'string') {
             cardNumber = parseInt(cardNumber, 10);
-            // If parsing fails, generate a random number between 1-52
             if (isNaN(cardNumber)) {
               cardNumber = Math.floor(Math.random() * 52) + 1;
             }
           }
-          
-          // Handle values field that could be a string, array, or object
-          // In the schema, this could be values or values_ref
-          let valuesData = card.values_ref || card.values;
-          
-          // Don't convert object format (like { "value_sustainability": true }) - pass through directly
-          if (typeof valuesData === 'object' && valuesData !== null && !Array.isArray(valuesData)) {
-            // Keep the object as is - this is the correct format
-            console.log('Values in correct object format');
-          } 
-          // Only convert arrays to comma-separated strings (legacy support)
-          else if (Array.isArray(valuesData)) {
-            valuesData = valuesData.join(', ');
-            console.log('Values converted from array to string');
-          }
-          
-          // Handle capabilities field that could be a string, array, or object
-          // In the schema, this could be capabilities or capabilities_ref
-          let capabilitiesData = card.capabilities_ref || card.capabilities;
-          
-          // Don't convert object format (like { "capability_permaculture-design": true }) - pass through directly
-          if (typeof capabilitiesData === 'object' && capabilitiesData !== null && !Array.isArray(capabilitiesData)) {
-            // Keep the object as is - this is the correct format
-            console.log('Capabilities in correct object format');
-          } 
-          // Only convert arrays to comma-separated strings (legacy support)
-          else if (Array.isArray(capabilitiesData)) {
-            capabilitiesData = capabilitiesData.join(', ');
-            console.log('Capabilities converted from array to string');
-          }
-          
-          // Set defaults for missing fields
+
+          // Normalize values_ref and capabilities_ref
+          const valuesRef = toRecord(card.values_ref);
+          const capabilitiesRef = toRecord(card.capabilities_ref);
+
           return {
             ...card,
             card_number: cardNumber,
-            // Use the updated schema field names for values and capabilities
-            values_ref: valuesData || '',
-            capabilities_ref: capabilitiesData || '',
-            // Remove the old fields to prevent duplication/confusion
-            values: undefined, 
-            capabilities: undefined,
+            values_ref: valuesRef,
+            capabilities_ref: capabilitiesRef,
             backstory: card.backstory || '',
             goals: card.goals || '',
             obligations: card.obligations || '',
             intellectual_property: card.intellectual_property || '',
-            rivalrous_resources: card.rivalrous_resources || '',
-            // Default these if missing
+            resources: card.resources || '',
             card_category: card.card_category || 'Supporters',
             type: card.type || 'Individual',
-            // Determine icon based on category if not provided
             icon: card.icon || {
-                'Funders': 'CircleDollarSign',
-                'Providers': 'Hammer',
-                'Supporters': 'Heart'
-            }[card.card_category] || 'User'
+              'Funders': 'CircleDollarSign',
+              'Providers': 'Hammer',
+              'Supporters': 'Heart',
+            }[card.card_category] || 'User',
           };
         });
-        
-        // Log the parsed data length
+
         console.log(`Successfully parsed ${cardsData.length} cards from input data`);
-        
-        // Debug: show a sample of the data
         if (cardsData.length > 0) {
           console.log('Sample of first card (processed):', JSON.stringify(cardsData[0]).substring(0, 100) + '...');
         }
-        
         if (cardsData.length > 10) {
           console.log(`Large import detected: ${cardsData.length} cards`);
         }
@@ -317,21 +285,19 @@
           1. Missing or mismatched quotes
           2. Extra/trailing commas
           3. Unquoted property names (should be "property": value)
-          4. Values containing quotes need to be escaped`
+          4. Values containing quotes need to be escaped`,
         };
         isImporting = false;
         return;
       }
-      
-      // Validate card data
+
       console.log('Validating card data...');
       let validCards = 0;
-      
       for (const card of cardsData) {
         if (!card.role_title) {
           importResult = {
             success: false,
-            message: 'Each card must have a role_title'
+            message: 'Each card must have a role_title',
           };
           console.error('Validation failed - missing role_title', card);
           isImporting = false;
@@ -339,29 +305,24 @@
         }
         validCards++;
       }
-      
       console.log(`Validation passed for all ${validCards} cards`);
-      
-      // Import the cards
+
       console.log(`Starting import of ${cardsData.length} cards to deck ${deckIdValue}`);
       const result = await importCardsToDeck(deckIdValue, cardsData);
-      
       if (result.success) {
         importResult = {
           success: true,
-          message: `Successfully imported ${result.added} cards`
+          message: `Successfully imported ${result.added} cards`,
+          added: result.added,
         };
         console.log(`Import completed successfully. Added ${result.added} cards`);
-        
-        // Clear the import text
         importText = '';
-        
-        // Reload the deck
         await loadDeck();
       } else {
         importResult = {
           success: false,
-          message: result.error || 'Failed to import cards'
+          message: result.error || 'Failed to import cards',
+          error: result.error,
         };
         console.error('Import failed with result:', result);
       }
@@ -369,7 +330,7 @@
       console.error('Error importing cards:', error);
       importResult = {
         success: false,
-        message: `Error importing cards: ${error instanceof Error ? error.message : String(error)}`
+        message: `Error importing cards: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       isImporting = false;
@@ -379,22 +340,21 @@
 
 <div class="card p-4 bg-surface-50-900-token">
   <h3 class="h4 mb-4 flex items-center">
-    {#if icons.Layers}
-      <icons.Layers class="w-5 h-5 mr-2 text-primary-500" />
-    {/if}
+    <icons.Layers class="w-5 h-5 mr-2 text-primary-500" />
     <span>Card Import Manager</span>
   </h3>
-  
+
   <!-- Deck Selection Dropdown -->
   <div class="mb-6">
     <label for="deck-select" class="block text-sm font-medium mb-2">Select Deck</label>
     <div class="flex gap-4 items-center">
-      <select 
-        id="deck-select" 
+      <select
+        id="deck-select"
         class="select rounded-md w-full md:w-1/2 lg:w-1/3"
         value={deckIdValue}
-        onchange={(e) => {
-          deckIdValue = e.target.value;
+        onchange={(e: Event) => {
+          const target = e.target as HTMLSelectElement;
+          deckIdValue = target.value;
           loadDeck();
         }}
         disabled={isLoading}
@@ -407,20 +367,14 @@
           {/each}
         {/if}
       </select>
-      
-      <button 
-        class="btn variant-filled-primary" 
-        onclick={loadDeck}
-        disabled={isLoading}
-      >
-        {#if icons.RefreshCcw}
-          <icons.RefreshCcw class="w-4 h-4 mr-2" />
-        {/if}
+
+      <button class="btn variant-filled-primary" onclick={loadDeck} disabled={isLoading}>
+        <icons.RefreshCcw class="w-4 h-4 mr-2" />
         Refresh
       </button>
     </div>
   </div>
-  
+
   {#if isLoading}
     <div class="flex items-center justify-center p-10">
       <div class="spinner-third w-8 h-8"></div>
@@ -438,16 +392,19 @@
       <div class="card p-3 bg-surface-100-800-token">
         <p><span class="font-semibold">Deck ID:</span> {deck.deck_id}</p>
         <p><span class="font-semibold">Name:</span> {deck.name || 'Unnamed'}</p>
-        <p><span class="font-semibold">Creator:</span> {deck.creator || 'None'}</p>
-        <p><span class="font-semibold">Cards:</span> {deck.cards_ref ? (Array.isArray(deck.cards_ref) ? deck.cards_ref.length : Object.keys(deck.cards_ref).length) : 0}</p>
+        <p><span class="font-semibold">Creator:</span> {deck.creator_ref || 'None'}</p>
+        <p>
+          <span class="font-semibold">Cards:</span>
+          {deck.cards_ref ? (Array.isArray(deck.cards_ref) ? deck.cards_ref.length : Object.keys(deck.cards_ref).length) : 0}
+        </p>
       </div>
     </div>
-    
+
     {#if result}
       <div class="alert {result.success ? 'variant-filled-success' : 'variant-filled-error'} mb-4">
-        {#if result.success && icons.CheckCircle}
+        {#if result.success}
           <icons.CheckCircle class="w-5 h-5" />
-        {:else if icons.AlertTriangle}
+        {:else}
           <icons.AlertTriangle class="w-5 h-5" />
         {/if}
         <div class="alert-message">
@@ -456,15 +413,13 @@
         </div>
       </div>
     {/if}
-    
+
     <hr class="!border-t-2 my-6">
-    
+
     <div class="mb-2">
       <h4 class="font-semibold mb-4">Import Cards</h4>
-      <p class="text-sm mb-4">
-        Paste JSON data for cards to import. Each card should include the following fields:
-      </p>
-      
+      <p class="text-sm mb-4">Paste JSON data for cards to import. Each card should include the following fields:</p>
+
       <div class="card p-3 bg-surface-100-800-token mb-4">
         <div class="mb-2 flex items-center">
           <span class="badge variant-filled-primary mr-2">NEW</span>
@@ -478,14 +433,14 @@
     "card_number": 1,
     "role_title": "Luminos Funder",
     "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
-    "values": {                                      // The preferred format!
+    "values_ref": {                                      // The preferred format!
       "value_sustainability": true,
       "value_equity": true,
       "value_community_resilience": true
     },
     "goals": "Fund projects that reduce ecological footprints.",
     "obligations": "Must report impact to a donor network.",
-    "capabilities": {                               // The preferred format!
+    "capabilities_ref": {                               // The preferred format!
       "capability_grant_writing": true,
       "capability_impact_assessment": true
     },
@@ -503,10 +458,10 @@
     "card_number": 3,
     "role_title": "Community Gardener",
     "backstory": "A permaculture expert who develops shared growing spaces.",
-    "values": ["Sustainability", "Community Resilience", "Health"],
+    "values_ref": ["Sustainability", "Community Resilience", "Health"],
     "goals": "Build 5 community gardens, establish seed saving network.",
     "obligations": "Must share harvest with community members.",
-    "capabilities": ["Permaculture design", "Seed saving", "Harvest planning"],
+    "capabilities_ref": ["Permaculture design", "Seed saving", "Harvest planning"],
     "intellectual_property": "Garden design plans, seed library.",
     "resources": "Garden tools, limited water access.",
     "card_category": "Providers",
@@ -526,7 +481,7 @@
     obligations: 'Decisions must pass a token-weighted vote; funds locked until consensus.',
     capabilities_ref: 'Smart contract development, crowdfunding coordination', // Note: Updated field name
     intellectual_property: 'Governance protocols, tokenomics model.',
-    rivalrous_resources: '10 ETH in treasury, limited developer hours.',
+    resources: '10 ETH in treasury, limited developer hours.',
     card_category: 'Funders',
     type: 'DAO',
     icon: 'link'
@@ -534,12 +489,12 @@
 ]`}
         </pre>
       </div>
-      
+
       <div class="mb-4">
         <label class="label">
           <span>Card JSON Data</span>
-          <textarea 
-            class="textarea" 
+          <textarea
+            class="textarea"
             bind:value={importText}
             rows="20"
             placeholder="Paste JSON data here..."
@@ -548,26 +503,26 @@
         </label>
         <p class="text-xs mt-1">{importText.length} characters • Supports large imports (50+ cards)</p>
       </div>
-      
-      <button 
-        class="btn variant-filled-secondary" 
+
+      <button
+        class="btn variant-filled-secondary"
         onclick={handleImportCards}
         disabled={isImporting || !importText.trim()}
       >
         {#if isImporting}
           <div class="spinner-third w-4 h-4 mr-2"></div>
           Importing...
-        {:else if icons.Upload}
+        {:else}
           <icons.Upload class="w-4 h-4 mr-2" />
           Import Cards
         {/if}
       </button>
-      
+
       {#if importResult}
         <div class="alert {importResult.success ? 'variant-filled-success' : 'variant-filled-error'} mt-4">
-          {#if importResult.success && icons.CheckCircle}
+          {#if importResult.success}
             <icons.CheckCircle class="w-5 h-5" />
-          {:else if icons.AlertTriangle}
+          {:else}
             <icons.AlertTriangle class="w-5 h-5" />
           {/if}
           <div class="alert-message">

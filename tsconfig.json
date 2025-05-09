@@ -17,6 +17,6 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true
   },
-  "include": ["src/**/*", "src/**/*.svelte"],
+  "include": ["src/**/*", "src/**/*.svelte", "types/**/*"],
   "exclude": ["node_modules", "build", "src/lib/services/gun-db.js"]
 }

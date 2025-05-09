@@ -1,3 +1,10 @@
+declare global {
+  interface IGunChain<T> {
+    get(key: string): IGunChain<T>;
+    open(cb: (data: T) => void): void;
+    off(): void;
+  }
+}
 declare module 'gun' {
   interface IGunInstance<TNode = any> {
     get: (key: string) => IGunChain<TNode>;

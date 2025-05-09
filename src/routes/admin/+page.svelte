@@ -13,38 +13,66 @@
   import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
   import DatabaseTools from '$lib/components/admin/DatabaseTools.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
-  // SvelteRunesGuide moved to src/lib/components/guides/SvelteRunesGuide.svelte
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
-  
-  // For visualization
+
+  // Define interfaces for type safety
+  interface NodeData {
+    id: string;
+    type: string;
+    data: Record<string, any>;
+  }
+
+  interface DatabaseNodeGroup {
+    type: string;
+    count: number;
+    nodes: NodeData[];
+  }
+
+  interface EdgeStyle {
+    stroke?: string;
+    lineWidth?: number;
+  }
+
+  interface GraphNode {
+    id: string;
+    nodeId: string;
+    type: string;
+    label: string;
+    style: { fill: string; stroke: string };
+    data: Record<string, any>;
+  }
+
+  interface GraphEdge {
+    id: string;
+    source: string;
+    target: string;
+    label: string;
+    style: EdgeStyle;
+  }
+
+  // State variables with explicit types
   let isG6Loading = $state<boolean>(false);
   let g6Error = $state<string | null>(null);
-  let graphData = $state<{nodes: any[], edges: any[]}>({ nodes: [], edges: [] });
-  
-  // State variables
+  let graphData = $state<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], edges: [] });
   let isMounted = $state<boolean>(false);
   let isLoading = $state<boolean>(true);
   let error = $state<string | null>(null);
-  let databaseNodes = $state<any[]>([]);
+  let databaseNodes = $state<DatabaseNodeGroup[]>([]);
   let nodeCount = $state<number>(0);
   let activeTab = $state<string>('overview');
   let activeDataTab = $state<string>('users');
-  
-  // Cleanup variables
   let isCleanupLoading = $state<boolean>(false);
   let cleanupError = $state<string | null>(null);
   let cleanupSuccess = $state<boolean>(false);
   let cleanupResult = $state<{ success: boolean; removed: number; error?: string } | null>(null);
   let currentUser = $state<any>(null);
-  
-  // Simplified visualization loading
+
+  // Load graph visualization
   function loadGraphVisualization() {
     isG6Loading = true;
     g6Error = null;
-    
     try {
-      // Prepare graph data
       prepareGraphData();
       isG6Loading = false;
     } catch (err) {
@@ -53,336 +81,192 @@
       isG6Loading = false;
     }
   }
-  
+
   // Get color for node type
   function getColorForNodeType(type: string): string {
     return COLOR_MAP.get(type) || '#5B8FF9';
   }
-  
-  // Color mapping for different node types
+
+  // Color mappings
   const COLOR_MAP = new Map<string, string>([
-    ['users', '#5B8FF9'],      // Blue
-    ['games', '#5AD8A6'],      // Green
-    ['cards', '#F6BD16'],      // Yellow
-    ['decks', '#E8684A'],      // Red
-    ['actors', '#5D7092'],     // Purple
-    ['chat', '#F6BD16'],       // Yellow
-    ['agreements', '#E8684A'], // Red
-    ['node_positions', '#FF9D4D'], // Orange
-    ['values', '#9254DE'],     // Purple
-    ['capabilities', '#36CFC9'] // Teal
+    ['users', '#5B8FF9'],
+    ['games', '#5AD8A6'],
+    ['cards', '#F6BD16'],
+    ['decks', '#E8684A'],
+    ['actors', '#5D7092'],
+    ['chat', '#F6BD16'],
+    ['agreements', '#E8684A'],
+    ['node_positions', '#FF9D4D'],
+    ['values', '#9254DE'],
+    ['capabilities', '#36CFC9'],
   ]);
-  
-  // Color mapping for edge types
+
   const EDGE_COLOR_MAP = new Map<string, string>([
-    ['contains', '#E8684A'],   // Red (for deck-card relationships)
-    ['default', '#b8b8b8']     // Gray (default)
+    ['contains', '#E8684A'],
+    ['default', '#b8b8b8'],
   ]);
-  
-  // Prepare graph data from the database nodes
+
+  // Prepare graph data
   function prepareGraphData() {
-    const nodes: any[] = [];
-    const edges: any[] = [];
-    
-    // Use the color map for consistency
-    const colorMap = COLOR_MAP;
-    
-    // Process each node type
-    databaseNodes.forEach(nodeType => {
-      const color = colorMap.get(nodeType.type) || '#5B8FF9';
-      
-      // Add nodes
-      nodeType.nodes.forEach(node => {
+    const nodes: GraphNode[] = [];
+    const edges: GraphEdge[] = [];
+
+    databaseNodes.forEach((nodeType) => {
+      const color = COLOR_MAP.get(nodeType.type) || '#5B8FF9';
+      nodeType.nodes.forEach((node: NodeData) => {
         nodes.push({
           id: `${nodeType.type}_${node.id}`,
           nodeId: node.id,
           type: nodeType.type,
           label: getLabelForNode(node, nodeType.type),
-          style: {
-            fill: color,
-            stroke: color
-          },
-          data: node.data
+          style: { fill: color, stroke: color },
+          data: node.data,
         });
       });
     });
-    
-    // Create edges between related nodes - more comprehensive edge detection
-    databaseNodes.forEach(nodeType => {
-      nodeType.nodes.forEach(node => {
+
+    databaseNodes.forEach((nodeType) => {
+      nodeType.nodes.forEach((node: NodeData) => {
         if (typeof node.data === 'object') {
-          // Process properties that might be references
           Object.entries(node.data).forEach(([key, value]) => {
-            // These are internal Gun.js properties or metadata fields we want to skip
             const skipFields = ['_', '#', 'created_at', 'updated_at', 'creator'];
-            
-            // Skip certain fields, but include more potential reference fields
             if (skipFields.includes(key)) return;
-            
-            // Handle string references that are actual references (not just the ID field with same name)
+
             if (typeof value === 'string' && value.length > 8 && !key.endsWith('_id')) {
               const targetNode = findNodeById(nodes, value);
               if (targetNode) {
-                // Apply styling for edges based on node relationships
-                const edgeStyle = {};
-                
-                // Apply special colors for certain relationships
+                const edgeStyle: EdgeStyle = {
+                  stroke: EDGE_COLOR_MAP.get('default'),
+                };
                 if (nodeType.type === 'cards' && targetNode.type === 'values') {
-                  edgeStyle.stroke = '#9254DE'; // Purple for card-value relations
+                  edgeStyle.stroke = '#9254DE';
                   edgeStyle.lineWidth = 2;
                 } else if (nodeType.type === 'cards' && targetNode.type === 'capabilities') {
-                  edgeStyle.stroke = '#36CFC9'; // Teal for card-capability relations
+                  edgeStyle.stroke = '#36CFC9';
                   edgeStyle.lineWidth = 2;
-                } else {
-                  edgeStyle.stroke = EDGE_COLOR_MAP.get('default'); // Default gray
                 }
-                
                 edges.push({
                   id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}`,
                   source: `${nodeType.type}_${node.id}`,
                   target: `${targetNode.type}_${targetNode.nodeId}`,
                   label: key,
-                  style: edgeStyle
+                  style: edgeStyle,
                 });
               }
             }
-            
-            // Handle objects with references (Gun.js {id: true} pattern)
-            if (value && typeof value === 'object') {
-              // Handle Gun.js soul references (#)
-              if (value['#']) {
-                console.log(`${nodeType.type} ${node.id} has ${key} reference with soul: ${value['#']}`);
-                
-                // Special case for cards <-> values relationship
-                if (nodeType.type === 'values' && key === 'cards') {
-                  // Find all cards and create edges to this value
-                  databaseNodes.forEach(cardNodeType => {
-                    if (cardNodeType.type === 'cards') {
-                      cardNodeType.nodes.forEach(cardNode => {
-                        // Create an edge from value to card
-                        edges.push({
-                          id: `edge_value_${node.id}_card_${cardNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${cardNodeType.type}_${cardNode.id}`,
-                          label: 'used by',
-                          style: {
-                            stroke: '#9254DE', // Purple for value-card relationship
-                            lineWidth: 2
-                          }
-                        });
+
+            if (value && typeof value === 'object' && '#' in value) {
+              console.log(`${nodeType.type} ${node.id} has ${key} reference with soul: ${value['#']}`);
+              if (nodeType.type === 'values' && key === 'cards') {
+                databaseNodes.forEach((cardNodeType) => {
+                  if (cardNodeType.type === 'cards') {
+                    cardNodeType.nodes.forEach((cardNode: NodeData) => {
+                      edges.push({
+                        id: `edge_value_${node.id}_card_${cardNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${cardNodeType.type}_${cardNode.id}`,
+                        label: 'used by',
+                        style: { stroke: '#9254DE', lineWidth: 2 },
                       });
-                    }
-                  });
-                }
-                
-                // Special case for cards <-> capabilities relationship
-                else if (nodeType.type === 'capabilities' && key === 'cards') {
-                  // Find all cards and create edges to this capability
-                  databaseNodes.forEach(cardNodeType => {
-                    if (cardNodeType.type === 'cards') {
-                      cardNodeType.nodes.forEach(cardNode => {
-                        // Create an edge from capability to card
-                        edges.push({
-                          id: `edge_capability_${node.id}_card_${cardNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${cardNodeType.type}_${cardNode.id}`,
-                          label: 'enabled by',
-                          style: {
-                            stroke: '#36CFC9', // Teal for capability-card relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-                
-                // Special case for decks <-> cards relationship
-                else if (nodeType.type === 'decks' && key === 'cards') {
-                  // Find all cards and create edges to this deck
-                  databaseNodes.forEach(cardNodeType => {
-                    if (cardNodeType.type === 'cards') {
-                      cardNodeType.nodes.forEach(cardNode => {
-                        // Create an edge from deck to card
-                        edges.push({
-                          id: `edge_deck_${node.id}_card_${cardNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${cardNodeType.type}_${cardNode.id}`,
-                          label: 'contains',
-                          style: {
-                            stroke: '#E8684A', // Red for deck-card relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-                
-                // Special case for games <-> users relationship
-                else if (nodeType.type === 'games' && (key === 'player_refs' || key === 'creator_ref')) {
-                  // Find all users and create edges to this game
-                  databaseNodes.forEach(userNodeType => {
-                    if (userNodeType.type === 'users') {
-                      userNodeType.nodes.forEach(userNode => {
-                        // Create an edge from game to user
-                        edges.push({
-                          id: `edge_game_${node.id}_user_${userNode.id}_${key}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${userNodeType.type}_${userNode.id}`,
-                          label: key === 'creator_ref' ? 'created by' : 'played by',
-                          style: {
-                            stroke: '#5B8FF9', // Blue for game-user relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-                
-                // Special case for games <-> actors relationship
-                else if (nodeType.type === 'games' && key === 'actor_refs') {
-                  // Find all actors and create edges to this game
-                  databaseNodes.forEach(actorNodeType => {
-                    if (actorNodeType.type === 'actors') {
-                      actorNodeType.nodes.forEach(actorNode => {
-                        // Create an edge from game to actor
-                        edges.push({
-                          id: `edge_game_${node.id}_actor_${actorNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${actorNodeType.type}_${actorNode.id}`,
-                          label: 'has role',
-                          style: {
-                            stroke: '#5D7092', // Navy for game-actor relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-                
-                // Special case for cards <-> values relationship (from card side)
-                else if (nodeType.type === 'cards' && key === 'values') {
-                  // Find all values and create edges from this card
-                  databaseNodes.forEach(valueNodeType => {
-                    if (valueNodeType.type === 'values') {
-                      valueNodeType.nodes.forEach(valueNode => {
-                        // Create an edge from card to value
-                        edges.push({
-                          id: `edge_card_${node.id}_value_${valueNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${valueNodeType.type}_${valueNode.id}`,
-                          label: 'has value',
-                          style: {
-                            stroke: '#9254DE', // Purple for card-value relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-                
-                // Special case for users > decks relationships
-                else if (nodeType.type === 'users' && key === 'decks') {
-                  // Find all decks and create edges from this user
-                  databaseNodes.forEach(deckNodeType => {
-                    if (deckNodeType.type === 'decks') {
-                      deckNodeType.nodes.forEach(deckNode => {
-                        // Create an edge from user to deck
-                        edges.push({
-                          id: `edge_user_${node.id}_deck_${deckNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${deckNodeType.type}_${deckNode.id}`,
-                          label: 'created deck',
-                          style: {
-                            stroke: '#5B8FF9', // Blue for user-deck relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-                
-                // Special case for cards <-> capabilities relationship (from card side)
-                else if (nodeType.type === 'cards' && key === 'capabilities') {
-                  // Find all capabilities and create edges from this card
-                  databaseNodes.forEach(capNodeType => {
-                    if (capNodeType.type === 'capabilities') {
-                      capNodeType.nodes.forEach(capNode => {
-                        // Create an edge from card to capability
-                        edges.push({
-                          id: `edge_card_${node.id}_capability_${capNode.id}`,
-                          source: `${nodeType.type}_${node.id}`,
-                          target: `${capNodeType.type}_${capNode.id}`,
-                          label: 'has capability',
-                          style: {
-                            stroke: '#36CFC9', // Teal for card-capability relationship
-                            lineWidth: 2
-                          }
-                        });
-                      });
-                    }
-                  });
-                }
-              } 
-              // Standard object with key-value pairs
-              else {
-                Object.keys(value).forEach(refKey => {
-                  // Handle special case for decks with cards as direct references
-                  if (nodeType.type === 'decks' && key === 'cards') {
-                    // Look for card with this ID
-                    databaseNodes.forEach(cardNodeType => {
-                      if (cardNodeType.type === 'cards') {
-                        const matchingCard = cardNodeType.nodes.find(cardNode => cardNode.id === refKey);
-                        if (matchingCard) {
-                          // Create an edge from deck to card
-                          edges.push({
-                            id: `edge_deck_${node.id}_card_${refKey}`,
-                            source: `${nodeType.type}_${node.id}`,
-                            target: `${cardNodeType.type}_${refKey}`,
-                            label: 'contains',
-                            style: {
-                              stroke: '#E8684A', // Color for deck-card relationship
-                              lineWidth: 2
-                            }
-                          });
-                        }
-                      }
                     });
                   }
-                  // Standard reference handling
-                  else if (value[refKey] === true) {
-                    const targetNode = findNodeById(nodes, refKey);
-                    if (targetNode) {
-                      // Apply styling for edges based on node relationships
-                      const edgeStyle = {};
-                      
-                      // Apply special colors for certain relationships
-                      if (nodeType.type === 'cards' && targetNode.type === 'values') {
-                        edgeStyle.stroke = '#9254DE'; // Purple for card-value relations
-                        edgeStyle.lineWidth = 2;
-                      } else if (nodeType.type === 'cards' && targetNode.type === 'capabilities') {
-                        edgeStyle.stroke = '#36CFC9'; // Teal for card-capability relations
-                        edgeStyle.lineWidth = 2;
-                      } else if (nodeType.type === 'decks' && key === 'cards') {
-                        edgeStyle.stroke = '#E8684A'; // Red for deck-card relations
-                        edgeStyle.lineWidth = 2;
-                      } else {
-                        edgeStyle.stroke = EDGE_COLOR_MAP.get('default'); // Default gray
-                      }
-                      
+                });
+              } else if (nodeType.type === 'capabilities' && key === 'cards') {
+                databaseNodes.forEach((cardNodeType) => {
+                  if (cardNodeType.type === 'cards') {
+                    cardNodeType.nodes.forEach((cardNode: NodeData) => {
                       edges.push({
-                        id: `edge_${nodeType.type}_${node.id}_${targetNode.type}_${targetNode.nodeId}_${key}`,
+                        id: `edge_capability_${node.id}_card_${cardNode.id}`,
                         source: `${nodeType.type}_${node.id}`,
-                        target: `${targetNode.type}_${targetNode.nodeId}`,
-                        label: key,
-                        style: edgeStyle
+                        target: `${cardNodeType.type}_${cardNode.id}`,
+                        label: 'enabled by',
+                        style: { stroke: '#36CFC9', lineWidth: 2 },
                       });
-                    }
+                    });
+                  }
+                });
+              } else if (nodeType.type === 'decks' && key === 'cards') {
+                databaseNodes.forEach((cardNodeType) => {
+                  if (cardNodeType.type === 'cards') {
+                    cardNodeType.nodes.forEach((cardNode: NodeData) => {
+                      edges.push({
+                        id: `edge_deck_${node.id}_card_${cardNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${cardNodeType.type}_${cardNode.id}`,
+                        label: 'contains',
+                        style: { stroke: '#E8684A', lineWidth: 2 },
+                      });
+                    });
+                  }
+                });
+              } else if (nodeType.type === 'games' && (key === 'player_refs' || key === 'creator_ref')) {
+                databaseNodes.forEach((userNodeType) => {
+                  if (userNodeType.type === 'users') {
+                    userNodeType.nodes.forEach((userNode: NodeData) => {
+                      edges.push({
+                        id: `edge_game_${node.id}_user_${userNode.id}_${key}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${userNodeType.type}_${userNode.id}`,
+                        label: key === 'creator_ref' ? 'created by' : 'played by',
+                        style: { stroke: '#5B8FF9', lineWidth: 2 },
+                      });
+                    });
+                  }
+                });
+              } else if (nodeType.type === 'games' && key === 'actor_refs') {
+                databaseNodes.forEach((actorNodeType) => {
+                  if (actorNodeType.type === 'actors') {
+                    actorNodeType.nodes.forEach((actorNode: NodeData) => {
+                      edges.push({
+                        id: `edge_game_${node.id}_actor_${actorNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${actorNodeType.type}_${actorNode.id}`,
+                        label: 'has role',
+                        style: { stroke: '#5D7092', lineWidth: 2 },
+                      });
+                    });
+                  }
+                });
+              } else if (nodeType.type === 'cards' && key === 'values') {
+                databaseNodes.forEach((valueNodeType) => {
+                  if (valueNodeType.type === 'values') {
+                    valueNodeType.nodes.forEach((valueNode: NodeData) => {
+                      edges.push({
+                        id: `edge_card_${node.id}_value_${valueNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${valueNodeType.type}_${valueNode.id}`,
+                        label: 'has value',
+                        style: { stroke: '#9254DE', lineWidth: 2 },
+                      });
+                    });
+                  }
+                });
+              } else if (nodeType.type === 'users' && key === 'decks') {
+                databaseNodes.forEach((deckNodeType) => {
+                  if (deckNodeType.type === 'decks') {
+                    deckNodeType.nodes.forEach((deckNode: NodeData) => {
+                      edges.push({
+                        id: `edge_user_${node.id}_deck_${deckNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${deckNodeType.type}_${deckNode.id}`,
+                        label: 'created deck',
+                        style: { stroke: '#5B8FF9', lineWidth: 2 },
+                      });
+                    });
+                  }
+                });
+              } else if (nodeType.type === 'cards' && key === 'capabilities') {
+                databaseNodes.forEach((capNodeType) => {
+                  if (capNodeType.type === 'capabilities') {
+                    capNodeType.nodes.forEach((capNode: NodeData) => {
+                      edges.push({
+                        id: `edge_card_${node.id}_capability_${capNode.id}`,
+                        source: `${nodeType.type}_${node.id}`,
+                        target: `${capNodeType.type}_${capNode.id}`,
+                        label: 'has capability',
+                        style: { stroke: '#36CFC9', lineWidth: 2 },
+                      });
+                    });
                   }
                 });
               }
@@ -391,18 +275,14 @@
         }
       });
     });
-    
+
     graphData = { nodes, edges };
     console.log('Graph data prepared:', graphData);
   }
-  
-  // Helper functions for graph data preparation
-  function getLabelForNode(node: any, nodeType: string): string {
-    if (typeof node.data !== 'object') {
-      return node.id.substring(0, 8);
-    }
-    
-    // Try to find a good property to use as label based on node type
+
+  // Helper functions
+  function getLabelForNode(node: NodeData, nodeType: string): string {
+    if (typeof node.data !== 'object') return node.id.substring(0, 8);
     switch (nodeType) {
       case 'users':
         return node.data.name || node.data.email || node.id.substring(0, 8);
@@ -422,29 +302,25 @@
         return `${nodeType} ${node.id.substring(0, 6)}`;
     }
   }
-  
-  function findNodeById(nodes: any[], id: string): any {
-    return nodes.find(n => n.nodeId === id);
+
+  function findNodeById(nodes: GraphNode[], id: string): GraphNode | undefined {
+    return nodes.find((n) => n.nodeId === id);
   }
-  
-  // Delete a node from the database
+
+  // Delete node
   async function deleteNode(nodeType: string, nodeId: string) {
     try {
       const gun = getGun();
-      
       if (!gun) {
         error = 'Gun not initialized';
         return;
       }
-      
-      // Set the node to null to delete it
       gun.get(nodeType).get(nodeId).put(null, async (ack: any) => {
         if (ack.err) {
           console.error(`Error deleting ${nodeType} node:`, ack.err);
           error = `Failed to delete ${nodeType} node: ${ack.err}`;
         } else {
           console.log(`Deleted ${nodeType} node: ${nodeId}`);
-          // Wait a moment then refresh the database stats
           await tick();
           fetchDatabaseStats();
         }
@@ -454,156 +330,82 @@
       error = err instanceof Error ? err.message : String(err);
     }
   }
-  
-  // Tab switching
+
+  // Tab handling
   function handleTabChange(tab: string) {
     activeTab = tab;
-    
-    if (tab === 'visualize' && typeof window !== 'undefined') {
-      // Prepare graph data when switching to visualization tab
-      loadGraphVisualization();
-    }
-    
-    // Update URL with tab parameter
+    if (tab === 'visualize' && typeof window !== 'undefined') loadGraphVisualization();
     if (browser) {
       const urlParams = new URLSearchParams(window.location.search);
       urlParams.set('tab', tab);
-      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-      // Use SvelteKit's replaceState instead of direct history API
-      replaceState(newUrl, {});
+      replaceState(`${window.location.pathname}?${urlParams.toString()}`, {});
     }
   }
-  
+
   function handleDataTabChange(tab: string) {
     activeDataTab = tab;
   }
-  
-  // Database cleanup functions
+
+  // Cleanup functions
   async function performCleanup() {
-    if (!confirm('WARNING: This action will permanently remove all user nodes from the database except your own. This cannot be undone. Are you sure you want to continue?')) {
-      return;
-    }
-    
+    if (!confirm('WARNING: This action will permanently remove all user nodes except your own. Are you sure?')) return;
     isCleanupLoading = true;
     cleanupError = null;
     cleanupSuccess = false;
     cleanupResult = null;
-    
     try {
       const result = await cleanupUsers();
       cleanupResult = result;
       cleanupSuccess = result.success;
-      if (!result.success) {
-        cleanupError = result.error || 'Unknown error during cleanup';
-      }
+      if (!result.success) cleanupError = result.error || 'Unknown error during cleanup';
     } catch (err) {
       console.error('Error cleaning up users:', err);
       cleanupError = err instanceof Error ? err.message : String(err);
       cleanupSuccess = false;
     } finally {
       isCleanupLoading = false;
-      // Refresh stats after cleanup
       fetchDatabaseStats();
     }
   }
-  
+
   async function removeSpecificUser(userId: string) {
-    if (!confirm(`Are you sure you want to remove user ${userId}? This cannot be undone.`)) {
-      return;
-    }
-    
+    if (!confirm(`Are you sure you want to remove user ${userId}?`)) return;
     try {
       const result = await removeUser(userId);
-      if (result.success) {
-        // Refresh stats after removing user
-        fetchDatabaseStats();
-      } else {
-        alert(`Error removing user: ${result.error}`);
-      }
+      if (result.success) fetchDatabaseStats();
+      else alert(`Error removing user: ${result.error}`);
     } catch (err) {
       console.error('Error removing user:', err);
       alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  // Function to remove all users (no login required)
   async function performCleanupAllUsers() {
-    if (!confirm('WARNING: This action will permanently remove ALL user nodes from the database. This is an admin function that does not require login. This cannot be undone. Are you sure you want to continue?')) {
-      return;
-    }
-    
+    if (!confirm('WARNING: This will remove ALL user nodes. Are you sure?')) return;
     isCleanupLoading = true;
     cleanupError = null;
     cleanupSuccess = false;
     cleanupResult = null;
-    
     try {
       const result = await cleanupAllUsers();
       cleanupResult = result;
       cleanupSuccess = result.success;
-      if (!result.success) {
-        cleanupError = result.error || 'Unknown error during cleanup';
-      }
+      if (!result.success) cleanupError = result.error || 'Unknown error during cleanup';
     } catch (err) {
       console.error('Error cleaning up all users:', err);
       cleanupError = err instanceof Error ? err.message : String(err);
       cleanupSuccess = false;
     } finally {
       isCleanupLoading = false;
-      // Refresh stats after cleanup
       fetchDatabaseStats();
     }
   }
-  
-  $effect(() => {
-    isMounted = true;
-    
-    // Initialize app asynchronously
-    async function initializeApp() {
-      // Fetch basic Gun.js database stats
-      if (typeof window !== 'undefined') {
-        try {
-          await fetchDatabaseStats();
-          
-          // Check for URL parameters to set initial tab
-          if (browser) {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tabParam = urlParams.get('tab');
-            const deckIdParam = urlParams.get('deckId');
-            
-            // If deckId is present, switch to overview tab
-            if (deckIdParam) {
-              activeTab = 'overview';
-            } 
-            // Otherwise use the tab parameter if present
-            else if (tabParam) {
-              activeTab = tabParam;
-            }
-            
-            // Initialize visualization if needed
-            if (activeTab === 'visualize') {
-              loadGraphVisualization();
-            }
-          }
-        } catch (err) {
-          console.error('Error loading database stats:', err);
-          error = 'Failed to load database information.';
-        } finally {
-          isLoading = false;
-        }
-      }
-    }
-    
-    // Execute initialization
-    initializeApp();
-  });
-  
-  // Fetch basic database stats
+
+  // Fetch database stats
   async function fetchDatabaseStats() {
     console.log('Fetching database stats...');
     isLoading = true;
     error = null;
-    
     const gun = getGun();
     if (!gun) {
       console.error('Gun instance not initialized');
@@ -611,39 +413,19 @@
       isLoading = false;
       return;
     }
-    
-    // Track all nodes
     databaseNodes = [];
     nodeCount = 0;
-    
-    // Process each node type
     const nodeTypes = Object.values(gunNodes);
-    console.log('Node types:', nodeTypes);
-    
     for (const nodeType of nodeTypes) {
-      console.log(`Processing node type: ${nodeType}`);
-      const typeNodes: any[] = [];
-      
-      await new Promise<void>(resolve => {
+      const typeNodes: NodeData[] = [];
+      await new Promise<void>((resolve) => {
         try {
           gun.get(nodeType).map().once((data: any, id: string) => {
-            if (data) {
-              typeNodes.push({
-                id,
-                type: nodeType,
-                data
-              });
-            }
+            if (data) typeNodes.push({ id, type: nodeType, data });
           });
-          
-          // Wait for Gun to process
           setTimeout(() => {
             console.log(`Found ${typeNodes.length} nodes of type ${nodeType}`);
-            databaseNodes.push({
-              type: nodeType,
-              count: typeNodes.length,
-              nodes: typeNodes
-            });
+            databaseNodes.push({ type: nodeType, count: typeNodes.length, nodes: typeNodes });
             nodeCount += typeNodes.length;
             resolve();
           }, 500);
@@ -653,10 +435,35 @@
         }
       });
     }
-    
     console.log('Database stats loaded:', databaseNodes);
     isLoading = false;
   }
+
+  // Initialization effect
+  $effect(() => {
+    isMounted = true;
+    async function initializeApp() {
+      if (typeof window !== 'undefined') {
+        try {
+          await fetchDatabaseStats();
+          if (browser) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            const deckIdParam = urlParams.get('deckId');
+            if (deckIdParam) activeTab = 'overview';
+            else if (tabParam) activeTab = tabParam;
+            if (activeTab === 'visualize') loadGraphVisualization();
+          }
+        } catch (err) {
+          console.error('Error loading database stats:', err);
+          error = 'Failed to load database information.';
+        } finally {
+          isLoading = false;
+        }
+      }
+    }
+    initializeApp();
+  });
 </script>
 
 <div class="admin-dashboard p-4 h-full">
@@ -695,7 +502,7 @@
         class="admin-tab {activeTab === 'decks' ? 'active' : ''}" 
         onclick={() => handleTabChange('decks')}
       >
-        <icons.Cards class="w-4 h-4 mr-2" />
+        <icons.CreditCard class="w-4 h-4 mr-2" />
         Decks
       </button>
       <button 

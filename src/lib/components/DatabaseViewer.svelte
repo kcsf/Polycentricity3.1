@@ -3,125 +3,125 @@
   import { onMount } from 'svelte';
   import gun from '$lib/services/gun-db';
 
-  // Reactive state with runes
-  let rootKey = $state('cards'); // Default root key
-  let deepData = $state<string | null>(null); // For Deep tab
-  let rawData = $state<string | null>(null); // For Raw tab
+  // State management
+  let rootKey = $state<string>('cards');
+  let deepData = $state<string | null>(null);
+  let rawData = $state<string | null>(null);
   let error = $state<string | null>(null);
   let isLoading = $state(true);
-  let activeTab = $state('deep'); // Track active tab: 'deep' or 'raw'
-
-  // Flag to track if open.js is loaded
+  let activeTab = $state<'deep' | 'raw'>('deep');
   let openLoaded = $state(false);
 
-  // Load Gun.js open plugin dynamically in browser
+  // Enhanced open.js loading with fallback
   onMount(() => {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/gun/lib/open.js';
     script.async = true;
+    
+    const loadTimeout = setTimeout(() => {
+      console.warn('open.js load timeout - falling back to raw mode');
+      openLoaded = false;
+      isLoading = false;
+      error = 'open.js plugin failed to load - using raw view only';
+    }, 5000);
+
     script.onload = () => {
-      console.log('Gun open.js loaded');
+      clearTimeout(loadTimeout);
       openLoaded = true;
-      refreshData();
+      if (activeTab === 'deep') refreshData();
     };
+
     script.onerror = () => {
-      console.error('Failed to load Gun open.js');
-      error = 'Failed to load Gun open.js plugin';
+      clearTimeout(loadTimeout);
+      openLoaded = false;
+      error = 'Failed to load open.js plugin';
       isLoading = false;
     };
+
     document.head.appendChild(script);
-    return () => document.head.removeChild(script);
+    return () => {
+      document.head.removeChild(script);
+      clearTimeout(loadTimeout);
+    };
   });
 
-  // Safely stringify with circular reference handling
-  function safeStringify(obj: any): string {
+  // Circular reference handling
+  function safeStringify(obj: unknown): string {
     const seen = new WeakSet();
-    return JSON.stringify(
-      obj,
-      (key, value) => {
-        if (typeof value === 'object' && value !== null) {
-          if (seen.has(value)) return '[Circular]';
-          seen.add(value);
-        }
-        if (value && typeof value === 'object' && value['#'] && Object.keys(value).length === 1) {
-          return `[GUN Reference → ${value['#']}]`;
-        }
-        return value;
-      },
-      2
-    );
+    return JSON.stringify(obj, (_, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) return '[Circular]';
+        seen.add(value);
+        if (value['#']) return `[GUN Ref: ${value['#']}]`;
+      }
+      return value;
+    }, 2);
   }
 
-  // Fetch deep data using open.js
-  async function fetchDeepData() {
-    if (!openLoaded) {
-      console.log('Waiting for Gun open.js to load...');
-      return;
-    }
+  const commonKeys = $state<string[]>([ // [doc_6]
+  'cards',
+  'actors',
+  'values',
+  'capabilities',
+  'decks',
+  'games',
+  'users',
+  'chat_rooms',
+  'chat_messages', 
+  'agreements',
+  'node_positions'
+]);
+
+  async function fetchDeepData(): Promise<string> {
+    if (!openLoaded) throw new Error('open.js not loaded');
+    
     try {
       const pathSegments = rootKey.split('/').filter(Boolean);
-      let gunRef = gun;
-      pathSegments.forEach(segment => {
+      let gunRef = gun.get(pathSegments[0]);
+      
+      pathSegments.slice(1).forEach(segment => {
         gunRef = gunRef.get(segment);
       });
-
-      if (typeof gunRef.open !== 'function') {
-        throw new Error('Gun.js open plugin not loaded yet');
-      }
 
       return new Promise<string>((resolve) => {
-        gunRef.open((data: any) => {
-          resolve(data ? safeStringify(data) : 'No data')
-          gunRef.off()    // stop the live‐feed before it floods you again
+        (gunRef as any).open((data: unknown) => {
+          resolve(data ? safeStringify(data) : 'No data');
+          (gunRef as any).off();
         });
       });
     } catch (e) {
-      throw new Error(`Error accessing deep data: ${e.message}`);
+      throw new Error(`Deep fetch error: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  // Fetch raw data (flat key/value pairs)
-  async function fetchRawData() {
+  async function fetchRawData(): Promise<string> {
     try {
       const pathSegments = rootKey.split('/').filter(Boolean);
-      let gunRef = gun;
-      pathSegments.forEach(segment => {
+      let gunRef = gun.get(pathSegments[0]);
+      
+      pathSegments.slice(1).forEach(segment => {
         gunRef = gunRef.get(segment);
       });
 
-      const nodes: Record<string, any> = {};
+      const nodes: Record<string, unknown> = {};
       await new Promise<void>((resolve) => {
-        gunRef.map().once((data, key) => {
+        gunRef.map().once((data: unknown, key: string) => {
           if (key && key !== '_' && data) {
-            nodes[key] = { ...data, _: undefined };
+            nodes[key] = data;
           }
         });
-        setTimeout(resolve, 500);
+        setTimeout(resolve, 1000);
       });
-
       return safeStringify(nodes);
     } catch (e) {
-      throw new Error(`Error accessing raw data: ${e.message}`);
+      throw new Error(`Raw fetch error: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  // Refresh data based on active tab
   async function refreshData() {
-    if (!openLoaded && activeTab === 'deep') {
-      console.log('Waiting for Gun open.js to load...');
-      isLoading = true;
-      return;
-    }
-
     error = null;
-    if (activeTab === 'deep') {
-      deepData = null;
-    } else {
-      rawData = null;
-    }
     isLoading = true;
-
-    console.log(`Fetching ${activeTab} data for key: ${rootKey}`);
+    
     try {
       if (activeTab === 'deep') {
         deepData = await fetchDeepData();
@@ -129,37 +129,17 @@
         rawData = await fetchRawData();
       }
     } catch (e) {
-      console.error(`Error fetching ${activeTab} data:`, e);
-      error = e.message;
+      error = e instanceof Error ? e.message : String(e);
     } finally {
       isLoading = false;
     }
   }
 
-  // Fetch data when rootKey or activeTab changes
   $effect(() => {
     if (openLoaded || activeTab === 'raw') {
       refreshData();
-    } else {
-      console.log('Waiting for Gun open.js to load before fetching data for', rootKey);
-      isLoading = true;
     }
   });
-
-  // Common root keys for quick access
-  const commonKeys = [
-    'cards',
-    'actors',
-    'values',
-    'capabilities',
-    'decks',
-    'games',
-    'users',
-    'chat_rooms',
-    'chat_messages',
-    'agreements',
-    'node_positions'
-  ];
 </script>
 
 <div class="container p-4 bg-surface-100-800-token">
@@ -177,7 +157,7 @@
       />
       <button
         class="btn variant-filled-primary"
-        on:click={() => refreshData()}
+        onclick={() => refreshData()}
       >
         Refresh
       </button>
@@ -196,7 +176,7 @@
       {#each commonKeys as key}
         <button
           class="btn {rootKey === key ? 'variant-filled-primary' : 'variant-soft'}"
-          on:click={() => {
+          onclick={() => {
             rootKey = key;
             refreshData();
           }}
@@ -210,13 +190,13 @@
   <div class="tabs mb-4">
     <button
       class="btn {activeTab === 'deep' ? 'variant-filled-primary' : 'variant-soft'}"
-      on:click={() => { activeTab = 'deep'; refreshData(); }}
+      onclick={() => { activeTab = 'deep'; refreshData(); }}
     >
       Deep View
     </button>
     <button
       class="btn {activeTab === 'raw' ? 'variant-filled-primary' : 'variant-soft'}"
-      on:click={() => { activeTab = 'raw'; refreshData(); }}
+      onclick={() => { activeTab = 'raw'; refreshData(); }}
     >
       Raw View
     </button>
