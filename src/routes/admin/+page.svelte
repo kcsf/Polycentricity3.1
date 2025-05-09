@@ -685,15 +685,6 @@
         }} />
       {:else if activeTab === 'dev'}
         <div class="p-2">
-          <!-- SvelteRunesGuide moved to /runes-guide page -->
-          <div class="p-4 border border-surface-300 dark:border-surface-600 rounded-lg mb-4">
-            <h3 class="text-xl font-semibold mb-2">Svelte 5 Runes Guide</h3>
-            <p class="mb-4">The Svelte 5 Runes Guide has been moved to a dedicated page to prevent reactivity conflicts.</p>
-            <a href="/runes-guide" class="btn variant-filled-primary">
-              View Svelte 5 Runes Guide
-            </a>
-          </div>
-          
           <!-- Database Explorer Link -->
           <div class="card p-4 bg-surface-100-800-token border border-surface-300-600 mb-4">
             <div class="flex items-center space-x-4">
