@@ -99,6 +99,12 @@ html[class~="dark"] {
 }
 
 @layer components {
+  /* Custom text size for extra small text */
+  .text-2xs {
+    font-size: 0.65rem;
+    line-height: 0.85rem;
+  }
+  
   /* Card glow effect */
   .card-glow {
     position: relative;
