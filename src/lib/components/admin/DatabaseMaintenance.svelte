@@ -39,8 +39,7 @@
     cleanupAllDecks, 
     cleanupAllCards, 
     cleanupAllActors,
-    cleanupAllAgreements,
-    enhanceCardValuesAndCapabilities 
+    cleanupAllAgreements
   } from '$lib/services/cleanupService';
   
   let cleanupLoading = $state(false);
