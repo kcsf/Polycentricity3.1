@@ -416,7 +416,7 @@
     <div class="card bg-surface-50-950 p-4 space-y-4 shadow-xl backdrop-blur-sm border border-surface-200-700/30 max-w-screen-lg w-full max-h-[90vh] overflow-y-auto rounded-lg">
       <header class="flex justify-between items-center">
         <h2 class="h2 text-primary-700-300">Create New Agreement</h2>
-        <button class="btn-icon variant-soft" onclick={closeModal}>
+        <button class="btn-icon preset-soft" onclick={closeModal}>
           <icons.X />
         </button>
       </header>
@@ -486,7 +486,7 @@
                       2. Doesn't have cards_by_game data structure with an entry for this game
                     -->
                     <button 
-                      class="btn {selectedParties.includes(a.actor_id) ? 'variant-filled-primary' : 'variant-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''} {a.actor_id === currentActorId ? 'cursor-default' : ''}"
+                      class="btn {selectedParties.includes(a.actor_id) ? 'preset-filled-primary' : 'preset-soft'} btn-sm {!hasValidCardRef ? 'opacity-50 cursor-not-allowed' : ''} {a.actor_id === currentActorId ? 'cursor-default' : ''}"
                       onclick={() => hasValidCardRef ? toggleParty(a.actor_id) : null}
                       title={!hasValidCardRef ? 'This actor cannot be added (invalid or missing card reference for this game)' : (a.actor_id === currentActorId ? 'This is your actor (always included)' : '')}
                     >
@@ -495,10 +495,10 @@
                     </button>
                     <span class="{!hasValidCardRef ? 'opacity-50' : ''} {a.actor_id === currentActorId ? 'font-semibold' : ''}">{a.card?.role_title || a.custom_name || 'Unnamed Actor'}</span>
                     {#if a.card?.card_category}
-                      <span class="badge variant-soft">{a.card.card_category}</span>
+                      <span class="badge preset-soft">{a.card.card_category}</span>
                     {/if}
                     {#if !a.card?.card_id}
-                      <span class="badge variant-soft-error text-xs">Invalid card reference</span>
+                      <span class="badge preset-soft-error text-xs">Invalid card reference</span>
                     {:else if !a.cards_by_game || !a.cards_by_game[gameId]}
                       <span class="badge variant-soft-warning text-xs">Missing game reference</span>
                     {/if}
