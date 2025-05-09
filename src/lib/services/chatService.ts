@@ -23,7 +23,8 @@ export async function sendMessage(
   const chatId: ChatId =
     type === 'group' ? groupChatId(gameId) : privateChatId(gameId, user.user_id, recipientId!);
   const now = Date.now();
-  const message: ChatMessage = {
+  // Build the message structure with all required fields
+  const baseMessage = {
     message_id: messageId,
     chat_ref: chatId,
     game_ref: gameId,
@@ -31,14 +32,25 @@ export async function sendMessage(
     sender_name: user.name,
     content,
     type,
-    recipient_ref: type === 'private' ? recipientId : undefined,
     read_by_ref: { [user.user_id]: true },
     created_at: now,
   };
+  
+  // Create the final message object based on the message type
+  let chatMessage: ChatMessage;
+  
+  if (type === 'private' && recipientId) {
+    // For private messages, include the recipient_ref
+    chatMessage = { ...baseMessage, recipient_ref: recipientId };
+  } else {
+    // For group messages, omit the recipient_ref entirely
+    const { recipient_ref, ...groupMessage } = baseMessage;
+    chatMessage = groupMessage as ChatMessage;
+  }
 
   // Write the message under chat_messages/<gameId>/<messageId>
-  gun.get(nodes.chat_messages).get(gameId).get(messageId).put(message);
-  return message;
+  gun.get(nodes.chat_messages).get(gameId).get(messageId).put(chatMessage);
+  return chatMessage;
 }
 
 // Internal helper to fetch messages for a given chatId
