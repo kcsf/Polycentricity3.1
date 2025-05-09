@@ -220,7 +220,7 @@
         const actor = actorsList.find(a => a.actor_id === actorId);
         toaster.error({
           title: 'Validation Error',
-          description: `${actor?.custom_name || actor?.card?.role_title || 'Actor'} needs at least one obligation or benefit`,
+          description: `${actor?.card?.role_title || actor?.custom_name || 'Actor'} needs at least one obligation or benefit`,
           classes: 'bg-white dark:bg-gray-800 rounded border border-red-500 dark:border-red-700 shadow-lg'
         });
         return;
@@ -258,12 +258,12 @@
         
         // Basic card association check
         if (!actor?.card) {
-          throw new Error(`Actor ${actorId} (${actor?.custom_name || 'Unknown'}) is missing card reference`);
+          throw new Error(`Actor ${actorId} (${actor?.card?.role_title || actor?.custom_name || 'Unknown'}) is missing card reference`);
         }
         
         // Game-specific card reference check (critical for saving in database)
         if (!actor.cards_by_game || !actor.cards_by_game[gameId]) {
-          throw new Error(`Actor ${actor?.custom_name || actor?.card?.role_title || actorId} is missing the required card reference for this game. This is needed for database storage.`);
+          throw new Error(`Actor ${actor?.card?.role_title || actor?.custom_name || actorId} is missing the required card reference for this game. This is needed for database storage.`);
         }
         
         // Log the found card reference for debugging
@@ -325,7 +325,7 @@
         
         // Get basic actor info for better error messages
         const actor = actorsList.find(a => a.actor_id === actorId);
-        const actorName = actor?.custom_name || actor?.card?.role_title || actorId;
+        const actorName = actor?.card?.role_title || actor?.custom_name || actorId;
         
         // Add a more helpful error to log internal actor structure for debugging
         console.log('Actor structure for debugging:', {
