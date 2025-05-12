@@ -280,8 +280,8 @@ export interface CardWithPosition extends Card {
   export interface D3Node extends SimulationNodeDatum {
     id: string;
     name: string;
-    type: 'actor' | 'agreement';
-    data: CardWithPosition | AgreementWithPosition;
+    type: 'actor' | 'agreement' | 'subnode';
+    data: CardWithPosition | AgreementWithPosition | null;
     x: number;
     y: number;
     fx?: number | null;
@@ -296,7 +296,7 @@ export interface CardWithPosition extends Card {
   export interface D3Link {
     source: D3Node | string;
     target: D3Node | string;
-    type?: "obligation" | "benefit";
+    type?: "obligation" | "benefit" | "subnode";
     id?: string;
     angle?: number; // Angle for multi-party agreement links
 }  

@@ -1,25 +1,29 @@
 <script lang="ts">
   import type { SvelteComponent } from 'svelte';
   import * as d3 from 'd3';
-  import { User } from '@lucide/svelte';
-  import { iconStore, loadIcons, } from '$lib/stores/iconStore';
-  import { 
+  import { iconStore, loadIcons } from '$lib/stores/iconStore';
+  import {
     getGameContext,
     subscribeToGame,
   } from '$lib/services/gameService';
-  import type { Card, Actor, Agreement, ActorWithCard, D3Node, D3Link, CardWithPosition, AgreementWithPosition, } from '$lib/types';
-  import { GameStatus } from '$lib/types';
+  import type {
+    Card,
+    ActorWithCard,
+    D3Node,
+    D3Link,
+    CardWithPosition,
+    AgreementWithPosition,
+  } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
   import {
     createCardIcon,
     initializeD3Graph,
     addDonutRings,
-  } from '$lib/utils/d3index';  //d3GraphUtils or d3index
+  } from '$lib/utils/d3index';
 
   const { gameId, activeActorId = undefined } = $props<{
     gameId: string;
     activeActorId?: string;
-    cards?: Card[];
   }>();
 
   // UI state
@@ -27,6 +31,7 @@
   let width = $state(800);
   let height = $state(600);
   let simulation = $state<d3.Simulation<D3Node, undefined> | null>(null);
+  // note: nodeElements is a group <g> selection, not the SVG root
   let nodeElements = $state<d3.Selection<SVGGElement, D3Node, SVGGElement, unknown> | null>(null);
   let cardsWithPosition = $state<CardWithPosition[]>([]);
   let agreements = $state<AgreementWithPosition[]>([]);
@@ -45,7 +50,6 @@
     }
   });
 
-  /** Load and map game context to D3 types */
   async function loadGameData(): Promise<{
     cards: CardWithPosition[];
     agreements: AgreementWithPosition[];
@@ -57,30 +61,26 @@
       return { cards: [], agreements: [], actors: [] };
     }
 
-    // Assigned cards with positions
     const assigned = ctx.actors
       .filter(a => !!a.card)
       .map(a => ({
         ...a.card!,
         actor_id: a.actor_id,
-        position: a.position || { x: Math.random() * width, y: Math.random() * height }
+        position: a.position || { x: Math.random() * width, y: Math.random() * height },
       }));
 
-    // Available cards with random positions
     const availableWithPos = (ctx.availableCards || []).map(c => ({
       ...c,
-      position: { x: Math.random() * width, y: Math.random() * height }
+      position: { x: Math.random() * width, y: Math.random() * height },
     }));
 
-    const allCards = [...assigned, ...availableWithPos];
-
-    // Map agreements to include obligations & benefits objects, and boolean parties
-    const d3Agreements: AgreementWithPosition[] = ctx.agreements || [];
-
-    return { cards: allCards, agreements: d3Agreements, actors: ctx.actors || [] };
+    return {
+      cards: [...assigned, ...availableWithPos],
+      agreements: ctx.agreements || [],
+      actors: ctx.actors || [],
+    };
   }
 
-  /** Initialize and render D3 graph */
   async function initializeVisualization() {
     console.log('[D3CardBoard] Initializing');
     if (!svgElement) return;
@@ -90,13 +90,11 @@
     agreements = loadedAgreements;
     actors = loadedActors;
 
-    // Active card for highlighting
     if (activeActorId) {
       const actor = actors.find(a => a.actor_id === activeActorId);
       if (actor?.card) activeCardId = actor.card.card_id;
     }
 
-    // Build actor→card map
     actorCardMap.clear();
     actors.forEach(a => {
       if (a.card) actorCardMap.set(a.actor_id, a.card.card_id);
@@ -104,7 +102,6 @@
 
     if (!cardsWithPosition.length) return;
 
-    // Create force graph
     const graphState = initializeD3Graph(
       svgElement,
       cardsWithPosition,
@@ -113,16 +110,15 @@
       height,
       activeCardId,
       node => (selectedNode = node),
-      actorCardMap
+      actorCardMap,
     );
 
     simulation = graphState.simulation;
     nodeElements = graphState.nodeElements;
 
-    // Add donut rings
-    if (nodeElements) addDonutRings(nodeElements, activeCardId);
+    // use the same type signature as in donutRings.ts
+    if (nodeElements) addDonutRings(nodeElements as unknown as d3.Selection<SVGElement, D3Node, SVGSVGElement, unknown>, activeCardId);
 
-    // Preload and render icons
     const iconNames = cardsWithPosition
       .map(c => c.icon || 'user')
       .filter((v, i, a) => a.indexOf(v) === i);
@@ -166,7 +162,6 @@
     console.log('[D3CardBoard] Render complete');
   }
 
-  // Subscribe to live updates
   function subscribeToGameData() {
     unsubscribe.forEach(fn => fn());
     unsubscribe = [];
@@ -182,11 +177,10 @@
           last = Date.now();
           initializeVisualization();
         }, 500);
-      })
+      }),
     );
   }
 
-  // Mount & cleanup
   $effect(() => {
     setTimeout(initializeVisualization, 300);
     return () => {

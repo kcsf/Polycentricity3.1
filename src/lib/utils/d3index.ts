@@ -1,5 +1,6 @@
 export * from '$lib/types';
 export * from './constants';
+export * from './graphCore';
 export * from './donutRings';
 export * from './iconUtils';
-export * from './graphCore';
+export { spawnCategorySubnode } from './graphCore';
