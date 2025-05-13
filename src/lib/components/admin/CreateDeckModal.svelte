@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import * as icons from '@lucide/svelte';
   import { createDeck } from '$lib/services/gameService';
   import { getToastStore } from '@skeletonlabs/skeleton';
@@ -19,10 +18,12 @@
   // Toast store for notifications
   const toastStore = getToastStore();
   
-  // Create custom event dispatcher
-  const dispatch = createEventDispatcher<{
-    close: void;
-    created: { deckId: string; name: string };
+  // Events setup
+  let { onevent } = $props<{
+    onevent?: {
+      close?: () => void;
+      created?: (event: { detail: { deckId: string; name: string } }) => void;
+    };
   }>();
 
   // Reset form fields
@@ -36,7 +37,7 @@
   // Close modal and reset form
   function handleClose(): void {
     resetForm();
-    dispatch('close');
+    onevent?.close?.();
   }
 
   // Handle form submission
@@ -63,11 +64,15 @@
         background: 'preset-filled-success'
       });
 
-      // Dispatch the created event with deck info
-      dispatch('created', { 
-        deckId: newDeck.deck_id, 
-        name: newDeck.name 
-      });
+      // Call the created event with deck info
+      if (onevent?.created) {
+        onevent.created({
+          detail: {
+            deckId: newDeck.deck_id,
+            name: newDeck.name
+          }
+        });
+      }
       
       // Close modal
       handleClose();

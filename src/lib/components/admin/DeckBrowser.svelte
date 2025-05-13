@@ -435,6 +435,8 @@
 <!-- Create Deck Modal -->
 <CreateDeckModal 
   isOpen={isCreateModalOpen} 
-  on:close={closeCreateModal}
-  on:created={handleDeckCreated}
+  onevent={{
+    close: closeCreateModal,
+    created: handleDeckCreated
+  }}
 />
