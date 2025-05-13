@@ -10,6 +10,7 @@
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
+    import { userStore } from '$lib/stores/userStore';
 
     // — pull gameId from the route
     const gameId = $page.params.gameId;
@@ -108,6 +109,29 @@
           setTimeout(() => {
             availableCardsForActors = ctx.availableCards;
             actors = ctx.actors;
+            
+            // Log actors and player_actor_map data for debugging
+            console.log(`[GameDetailsPage] Loaded ${actors.length} actors for game:`, actors.map(a => a.actor_id));
+            console.log(`[GameDetailsPage] Game players:`, game.players);
+            console.log(`[GameDetailsPage] Game player_actor_map:`, game.player_actor_map);
+            
+            // Check if current user's actors match with player_actor_map
+            const userStore = require('$lib/stores/userStore');
+            if (userStore.userStore.user) {
+              const userId = userStore.userStore.user.user_id;
+              console.log(`[GameDetailsPage] Current user ID: ${userId}`);
+              
+              // Find user's actors
+              const userActors = actors.filter(actor => actor.user_ref === userId);
+              console.log(`[GameDetailsPage] User's actors in this game:`, userActors.map(a => a.actor_id));
+              
+              // Check player_actor_map for user's entry
+              if (game.player_actor_map && game.player_actor_map[userId]) {
+                console.log(`[GameDetailsPage] Found user in player_actor_map: ${game.player_actor_map[userId]}`);
+              } else {
+                console.log(`[GameDetailsPage] User not found in player_actor_map`);
+              }
+            }
           }, 0);
           
           console.log(
