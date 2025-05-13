@@ -228,14 +228,24 @@
                   {/each}
                 {/if}
               </select>
-              <button
-                class="preset-filled bg-primary-500-400 text-white-950 border-primary-600-300 rounded-md flex items-center gap-2 hover:bg-primary-600-300 disabled:bg-surface-300-600/50"
-                onclick={() => loadDeckCards(selectedDeckId)}
-                disabled={isLoading}
-              >
-                <icons.RefreshCcw class="w-4 h-4" />
-                Refresh
-              </button>
+              <div class="flex gap-2">
+                <button
+                  class="preset-filled bg-primary-500-400 text-white-950 border-primary-600-300 rounded-md flex items-center gap-2 hover:bg-primary-600-300 disabled:bg-surface-300-600/50"
+                  onclick={() => loadDeckCards(selectedDeckId)}
+                  disabled={isLoading}
+                >
+                  <icons.RefreshCcw class="size-4" />
+                  Refresh
+                </button>
+                <button
+                  class="preset-filled-success rounded-md flex items-center gap-2 disabled:opacity-50"
+                  onclick={openCreateModal}
+                  disabled={isLoading}
+                >
+                  <icons.FolderPlus class="size-4" />
+                  Create New Deck
+                </button>
+              </div>
             </div>
           </div>
 
@@ -353,6 +363,15 @@
     </Accordion.Item>
   </Accordion>
 </div>
+
+<!-- Create Deck Modal -->
+<CreateDeckModal 
+  isOpen={isCreateModalOpen} 
+  onevent={{
+    close: closeCreateModal,
+    created: handleDeckCreated
+  }}
+/>
 
 <style>
   .deck-browser {
