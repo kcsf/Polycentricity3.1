@@ -6,6 +6,7 @@
   import type { Deck, Card, CardWithPosition, Value, Capability } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
+  import CreateDeckModal from '$lib/components/admin/CreateDeckModal.svelte';
 
   // State variables using Svelte 5 Runes
   let selectedDeckId = $state('');
@@ -16,6 +17,9 @@
 
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state<string[]>([]);
+  
+  // Modal state
+  let isCreateModalOpen = $state(false);
 
   // Load all decks for dropdown
   async function loadDecks() {
@@ -166,6 +170,23 @@
     selectedDeckId = select.value;
     loadDeckCards(selectedDeckId);
   }
+  
+  // Modal functions
+  function openCreateModal(): void {
+    isCreateModalOpen = true;
+  }
+
+  function closeCreateModal(): void {
+    isCreateModalOpen = false;
+  }
+
+  function handleDeckCreated(event: CustomEvent<{ deckId: string; name: string }>): void {
+    console.log('[DeckBrowser] Deck created:', event.detail);
+    // Refresh deck list
+    loadDecks();
+    // Select the newly created deck
+    selectedDeckId = event.detail.deckId;
+  }
 
   onMount(loadDecks);
 </script>
@@ -216,7 +237,14 @@
                   <icons.RefreshCcw class="size-4" />
                   Refresh
                 </button>
-                <!-- Create Deck button removed temporarily -->
+                <button
+                  class="preset-filled-success rounded-md flex items-center gap-2 disabled:opacity-50"
+                  onclick={openCreateModal}
+                  disabled={isLoading}
+                >
+                  <icons.FolderPlus class="size-4" />
+                  Create New Deck
+                </button>
               </div>
             </div>
           </div>
@@ -343,3 +371,10 @@
     max-width: 1400px;
   }
 </style>
+
+<!-- Create Deck Modal -->
+<CreateDeckModal 
+  open={isCreateModalOpen} 
+  on:update:open={(e) => isCreateModalOpen = e.detail}
+  on:created={handleDeckCreated}
+/>
