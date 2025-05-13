@@ -242,7 +242,9 @@ export function spawnCategorySubnode(
   parentId: string,
   itemName: string,
   angle: number,
-  color: string
+  color: string,
+  anchorRadius: number,
+  origin?: { x: number, y: number }
 ): boolean {
   console.group(`spawnCategorySubnode(${parentId}, ${itemName})`);
 
@@ -284,18 +286,18 @@ export function spawnCategorySubnode(
         },
         exit => exit.remove()
       );
-  
+
     // 8b) clear out any old subnode paths & labels
     linkElementsGlobal.selectAll('path.subnode-path, text.link-label').remove();
-  
+
     // 8c) draw either a subnode path+label or leave the line
     linkElementsGlobal.each(function(d) {
       const g = d3.select<SVGGElement, D3Link>(this);
-  
+
       if (d.type === 'subnode') {
         // remove old line
         g.selectAll('line').remove();
-  
+
         // append the subnode path
         g.append('path')
           .attr('class', 'link-path subnode-path')
@@ -303,7 +305,7 @@ export function spawnCategorySubnode(
           .attr('stroke', color)
           .attr('stroke-width', 1.5)
           .attr('fill', 'none');
-  
+
         // append the tiny text along that path
         g.append('text')
           .attr('class', 'link-label')
@@ -318,28 +320,27 @@ export function spawnCategorySubnode(
               const parts = d.id!.split('_');
               return `has ${parts[parts.length - 1]}`;
             });
-  
+
       } else {
         // non-subnode: drop any leftover subnode path, leave the line
         g.selectAll('path.subnode-path').remove();
-        // (enter case already appended the line; update case recolored above)
       }
     });
-  
+
     // 8d) re‐join nodes just like before
     const nodeSel = nodeGroupGlobal
       .selectAll<SVGGElement, D3Node>('.node')
       .data(nodesGlobal, d => d.id);
-  
+
     nodeSel.exit().remove();
-  
+
     const nodeEnter = nodeSel.enter()
       .append('g')
         .attr('class', d => `node node-${d.type}`)
         .attr('id',    d => `node-${d.id}`)
         .style('pointer-events', 'all')
         .attr('transform', d => `translate(${d.x},${d.y})`);
-  
+
     nodeEnter.each(function(d) {
       const g = d3.select<SVGGElement, D3Node>(this);
       if (d.type === 'actor') {
@@ -364,24 +365,21 @@ export function spawnCategorySubnode(
           .text(itemName);
       }
     });
-  
+
     nodeElementsGlobal = nodeEnter.merge(nodeSel);
-  
+
     // 9) re‐apply to force simulation
     simulationGlobal.nodes(nodesGlobal);
     (simulationGlobal.force('link') as d3.ForceLink<D3Node,D3Link>)
       .links(linksGlobal);
     simulationGlobal.alpha(1).restart();
-  
+
     console.log('…DOM re-bound, simulation restarted');
   }
-  
-  
 
   // 3) If *other* subnodes exist, remove them first (switching)
   if (otherSubs.length) {
     console.log('removing OTHER subnode(s):', otherSubs);
-    // drop them from data
     nodesGlobal = nodesGlobal.filter(n => n.type !== 'subnode');
     linksGlobal = linksGlobal.filter(l => {
       const src = typeof l.source==='string' ? l.source : (l.source as D3Node).id;
@@ -389,7 +387,7 @@ export function spawnCategorySubnode(
       return !otherSubs.includes(src) && !otherSubs.includes(tgt);
     });
     rebindAndRestart();
-    // now fall through: we will spawn the newly-clicked subnode
+    // now fall through to spawn the newly-clicked subnode
   }
 
   // 4) If this exact subnode already existed, toggle it OFF and return
@@ -415,11 +413,16 @@ export function spawnCategorySubnode(
     return true;
   }
 
-  // (position math unchanged…)
+  // 6) Compute the spawn position, using anchorRadius (or explicit origin)
   const adjAngle = angle - Math.PI/2;
-  const innerR   = 150;
-  const lx = parent.x + Math.cos(adjAngle)*innerR;
-  const ly = parent.y + Math.sin(adjAngle)*innerR;
+  let lx: number, ly: number;
+  if (origin) {
+    lx = origin.x;
+    ly = origin.y;
+  } else {
+    lx = parent.x + Math.cos(adjAngle) * anchorRadius;
+    ly = parent.y + Math.sin(adjAngle) * anchorRadius;
+  }
 
   nodesGlobal.push({
     id: subId,
@@ -430,7 +433,12 @@ export function spawnCategorySubnode(
     y: ly
   });
 
-  // link parent→subnode
+  // 7) Pin it so the force layout won’t move it
+  const newNode = nodesGlobal.find(n => n.id === subId)!;
+  newNode.fx = lx;
+  newNode.fy = ly;
+
+  // 8) link parent→subnode
   linksGlobal.push({
     source: parentId,
     target: subId,
@@ -439,7 +447,7 @@ export function spawnCategorySubnode(
     angle
   });
 
-  // link subnode→matching actors (unchanged)
+  // 9) link subnode→matching actors
   nodesGlobal.filter(n => n.type==='actor' && n.id!==parentId).forEach((actorNode, i) => {
     const arr = (actorNode.data as CardWithPosition)._valueNames
              || (actorNode.data as CardWithPosition)._capabilityNames
@@ -455,7 +463,7 @@ export function spawnCategorySubnode(
     }
   });
 
-  // marker definition (unchanged)…
+  // 10) marker definition (unchanged)…
   const markerId = `arrow-subnode-${color.replace('#','')}`;
   const svg = d3.select('svg.d3-graph');
   if (!svg.select(`#${markerId}`).node()) {
@@ -465,7 +473,7 @@ export function spawnCategorySubnode(
       .append('path').attr('d','M0,-5L10,0L0,5').attr('fill', color);
   }
 
-  // 8+9) finally rebind & restart
+  // 11) final rebind & restart
   rebindAndRestart();
   console.groupEnd();
   return true;

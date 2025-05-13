@@ -54,6 +54,7 @@ export function addDonutRings(
     });
 
     categories.forEach((category, ci) => {
+      const isInteractive = category.name === 'values' || category.name === 'capabilities';
       const { start, end } = angles[ci];
 
       const categoryGroup = node.append('g')
@@ -161,18 +162,31 @@ export function addDonutRings(
             .style('pointer-events','all')
             .style('cursor','pointer')
             .on('mouseenter',function(){
+              if (!isInteractive) return;
               d3.select(this).transition().duration(100)
                 .attr('fill',d3.color(category.color)!.darker(0.7).toString());
             })
             .on('mouseleave',function(){
+              if (!isInteractive) return;
               d3.select(this).transition().duration(100)
                 .attr('fill',category.color);
             })
             .on('click', function(event){
+              if (!isInteractive) return;
               event.stopPropagation();
               event.preventDefault();
               const midAngle = (a0 + a1)/2;
+              const adjAngle = midAngle - Math.PI/2;
+
+              //–– compute the *local* centroid on this node’s donut
+              const localX = Math.cos(adjAngle) * DIMENSIONS.subWedgeRadius;
+              const localY = Math.sin(adjAngle) * DIMENSIONS.subWedgeRadius;
             
+              //–– now translate into *world* coordinates:
+              //    nodeData.x/y are the center of the actor‐node.  So:
+              const originX = nodeData.x! + localX;
+              const originY = nodeData.y! + localY;
+                        
               // 0) restore all labels first (so any previously hidden label comes back)
               labelContainer
                 .selectAll('text')
@@ -183,7 +197,8 @@ export function addDonutRings(
                 nodeData.id,
                 item,
                 midAngle,
-                category.color
+                category.color,
+                DIMENSIONS.subWedgeRadius * 5
               );
             
               // 2) if we just *created* the subnode, hide *only* its label
@@ -192,8 +207,7 @@ export function addDonutRings(
                   .select(`text[data-item="${item}"]`)
                   .style('visibility', 'hidden');
               }
-            });
-            
+            });    
             
 
           const mid = (a0+a1)/2;
