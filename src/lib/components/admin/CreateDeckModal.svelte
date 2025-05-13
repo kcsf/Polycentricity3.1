@@ -4,8 +4,12 @@
   import { getToastStore } from '@skeletonlabs/skeleton';
 
   // Props
-  let { isOpen = false } = $props<{
+  let { isOpen = false, onevent } = $props<{
     isOpen?: boolean;
+    onevent?: {
+      close?: () => void;
+      created?: (event: { detail: { deckId: string; name: string } }) => void;
+    };
   }>();
 
   // Local state
@@ -17,14 +21,6 @@
 
   // Toast store for notifications
   const toastStore = getToastStore();
-  
-  // Events setup
-  let { onevent } = $props<{
-    onevent?: {
-      close?: () => void;
-      created?: (event: { detail: { deckId: string; name: string } }) => void;
-    };
-  }>();
 
   // Reset form fields
   function resetForm(): void {
