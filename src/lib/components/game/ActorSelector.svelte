@@ -4,7 +4,8 @@
   import {
     createActor,
     joinWithActor,
-    updateGame
+    updateGame,
+    getGame
   } from '$lib/services/gameService';
   import { getCurrentUser } from '$lib/services/authService';
   import { currentGameStore } from '$lib/stores/gameStore';
@@ -254,6 +255,51 @@
       const didJoin = await joinWithActor(gameId, actorId);
       console.log('joinWithActor →', didJoin);
       if (!didJoin) throw new Error('Game join failed');
+      
+      // Debug database state after joining
+      console.log('Checking game state after joining');
+      
+      // This part is critical - we need to manually update actors_ref
+      // since joinWithActor doesn't do it properly
+      
+      // Get the current game
+      const updatedGame = await getGame(gameId);
+      console.log('Game after joining:', updatedGame);
+      
+      if (updatedGame) {
+        console.log('Current game.players:', updatedGame.players);
+        console.log('Current game.player_actor_map:', updatedGame.player_actor_map);
+        console.log('Current game.actors_ref:', updatedGame.actors_ref); 
+        
+        // The issue is that game.actors_ref is not being updated!
+        // We need to manually add the actor to actors_ref for proper display
+        
+        // Let's fix the missing actors_ref relationship
+        // This will fix the issue where the details page doesn't recognize the actor
+        try {
+          console.log(`Adding relationship between game ${gameId} 'actors_ref' and actor ${actorId}`);
+          
+          // Create the bidirectional relationship - this is what's missing from joinWithActor
+          const gameActorsRefPath = `${nodes.games}/${gameId}/actors_ref`;
+          const actorPath = `${nodes.actors}/${actorId}`;
+          
+          // Create an object with actor_id: true
+          const actorsRefMap = { ...(updatedGame.actors_ref || {}) };
+          actorsRefMap[actorId] = true;
+          
+          // Update the map first
+          await get(gameActorsRefPath).put(actorsRefMap);
+          console.log('Updated game.actors_ref map:', actorsRefMap);
+          
+          // Then create the relationship edge
+          await get(gameActorsRefPath).set(get(actorPath));
+          console.log(`Created relationship from ${gameActorsRefPath} to ${actorPath}`);
+          
+          console.log('FIXED: Added actor to game.actors_ref');
+        } catch (err) {
+          console.error('Error fixing actors_ref relationship:', err);
+        }
+      }
 
       console.log('Calling updateGame()', game.status);
       await updateGame(gameId, { status: game.status });
