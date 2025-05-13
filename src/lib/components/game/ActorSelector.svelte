@@ -12,6 +12,16 @@
   
   // Get current user from store for use throughout the component
   let currentUser = $state<User | null>(null);
+  
+  // Initialize user from store via effect - works better in Runes mode than direct store access
+  $effect(() => {
+    const unsubscribe = userStore.subscribe(session => {
+      currentUser = session.user;
+      console.log('User session updated:', currentUser?.user_id || 'Not logged in');
+    });
+    
+    return unsubscribe; // Clean up subscription when component unmounts
+  });
 
   // ─── Props ──────────────────────────────────────────────────────────────────
   let {
@@ -41,13 +51,8 @@
 
   // ─── Derived: this user’s existing actors ───────────────────────────────────
   const existingActors = $derived<ActorWithCard[]>(() => {
-  // Get current user from the store
-  let currentUserSession;
-  userStore.subscribe(session => {
-    currentUserSession = session;
-  })();
-  
-  const uid = currentUserSession?.user?.user_id;
+  // Using our properly maintained currentUser
+  const uid = currentUser?.user_id;
   console.log('Current user ID for actor filtering:', uid);
   
   if (!uid) return [];
@@ -86,12 +91,6 @@
 
   // ─── Main join handler ──────────────────────────────────────────────────────
   async function handleJoin() {
-    // Get current user from store
-    let currentUser;
-    userStore.subscribe(session => {
-      currentUser = session.user;
-    })();
-    
     console.log('handleJoin start:', {
       user: currentUser,
       joinMode,
