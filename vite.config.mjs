@@ -5,7 +5,9 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [
-    tailwindcss(),
+    tailwindcss({
+      config: './tailwind.config.js',
+    }),
     sveltekit()
   ],
   optimizeDeps: {
