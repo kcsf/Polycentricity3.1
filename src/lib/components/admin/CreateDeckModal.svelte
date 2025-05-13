@@ -90,7 +90,7 @@
 <!-- Modal Backdrop -->
 {#if isOpen}
   <div 
-    class="modal-backdrop fixed inset-0 bg-surface-950-50/90 backdrop-blur-sm z-40" 
+    class="modal-backdrop fixed inset-0 bg-surface-950/50 backdrop-blur-sm z-40" 
     role="dialog"
     aria-modal="true"
     onclick={(e) => e.target === e.currentTarget && handleClose()}
@@ -99,14 +99,14 @@
   >
     <!-- Modal Content -->
     <div class="modal fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-lg w-full mx-auto z-50">
-      <div class="card bg-surface-50-900-token p-0 rounded-lg shadow-xl border border-surface-300-600-token overflow-hidden">
+      <div class="card bg-surface-50-900 p-0 rounded-lg shadow-xl border border-surface-300-600 overflow-hidden">
         <!-- Modal Header -->
-        <header class="bg-primary-500-token text-white p-4 flex justify-between items-center">
+        <header class="bg-primary-500 text-white p-4 flex justify-between items-center">
           <div class="flex items-center gap-2">
             <icons.FolderPlus size={20} />
             <h3 class="h3">Create New Deck</h3>
           </div>
-          <button class="btn btn-sm preset-ghost-surface text-white" onclick={handleClose}>
+          <button class="btn btn-sm preset-tonal text-white" onclick={handleClose}>
             <icons.X size={18} />
           </button>
         </header>
@@ -125,10 +125,10 @@
           <form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
             <!-- Deck Name -->
             <label class="label">
-              <span class="font-semibold">Deck Name<span class="text-error-500-token">*</span></span>
+              <span class="font-semibold">Deck Name<span class="text-error-500">*</span></span>
               <input 
                 type="text" 
-                class="input w-full" 
+                class="input size-full" 
                 bind:value={name}
                 placeholder="Enter deck name"
                 disabled={isSubmitting}
@@ -139,7 +139,7 @@
             <label class="label">
               <span class="font-semibold">Description</span>
               <textarea 
-                class="textarea w-full h-24" 
+                class="textarea size-full h-24" 
                 bind:value={description}
                 placeholder="Enter deck description"
                 disabled={isSubmitting}
@@ -156,7 +156,7 @@
             <div class="flex justify-end gap-2 mt-6">
               <button 
                 type="button" 
-                class="btn preset-ghost-surface" 
+                class="btn preset-tonal" 
                 onclick={handleClose}
                 disabled={isSubmitting}
               >
@@ -168,7 +168,7 @@
                 disabled={isSubmitting}
               >
                 {#if isSubmitting}
-                  <span class="spinner-third w-4 h-4"></span>
+                  <span class="spinner-third size-4"></span>
                   Creating...
                 {:else}
                   <icons.Save size={16} />

@@ -247,7 +247,7 @@
             <div class="flex gap-4 items-center">
               <select
                 id="deck-select"
-                class="select rounded-md w-full md:w-1/2 lg:w-1/3 bg-surface-100-800-token text-surface-900-50-token border border-surface-300-600-token"
+                class="select rounded-md w-full md:size-1/2 lg:size-1/3 bg-surface-100-800 text-surface-900-50 border border-surface-300-600"
                 value={selectedDeckId}
                 onchange={handleDeckChange}
                 disabled={isLoading}
@@ -312,7 +312,7 @@
               {#each cards as card}
                 <div class="card overflow-hidden rounded-md shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-800-token border border-surface-300-600-token card-glow">
                   <!-- Card header -->
-                  <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500-token to-{getCategoryColor(card.card_category)}-700-token rounded-t-md">
+                  <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500-token to-{getCategoryColor(card.card_category)}-700-token rounded-md">
                     <div class="absolute left-2 top-2 bg-surface-900-token/50 rounded-full p-1">
                       {#if card.icon}
                         {@const IconComponent = getCardIcon(card.icon)}
@@ -335,15 +335,15 @@
                   <div class="p-2 space-y-1">
                     <!-- Backstory -->
                     <div>
-                      <h4 class="text-xs font-semibold text-surface-700-300-token">Backstory</h4>
-                      <p class="text-xs text-surface-900-50-token line-clamp-2">{card.backstory}</p>
+                      <h4 class="text-xs font-semibold text-surface-700-300">Backstory</h4>
+                      <p class="text-xs text-surface-900-50 line-clamp-2">{card.backstory}</p>
                     </div>
 
                     <!-- Values -->
                     {#if card._valueNames?.length}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-700-300-token">Values</h4>
-                        <ul class="list-disc list-inside text-xs text-surface-900-50-token">
+                        <h4 class="text-xs font-semibold text-surface-700-300">Values</h4>
+                        <ul class="list-disc list-inside text-xs text-surface-900-50">
                           {#each card._valueNames as value}
                             <li>{value}</li>
                           {/each}
@@ -354,8 +354,8 @@
                     <!-- Capabilities -->
                     {#if card._capabilityNames?.length}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-700-300-token">Capabilities</h4>
-                        <ul class="list-disc list-inside text-xs text-surface-900-50-token">
+                        <h4 class="text-xs font-semibold text-surface-700-300">Capabilities</h4>
+                        <ul class="list-disc list-inside text-xs text-surface-900-50">
                           {#each card._capabilityNames as capability}
                             <li>{capability}</li>
                           {/each}
@@ -366,8 +366,8 @@
                     <!-- Goals -->
                     {#if card.goals}
                       <div>
-                        <h4 class="text-xs font-semibold text-surface-700-300-token">Goals</h4>
-                        <p class="text-xs text-surface-900-50-token line-clamp-2">{formatGoals(card.goals)}</p>
+                        <h4 class="text-xs font-semibold text-surface-700-300">Goals</h4>
+                        <p class="text-xs text-surface-900-50 line-clamp-2">{formatGoals(card.goals)}</p>
                       </div>
                     {/if}
 
