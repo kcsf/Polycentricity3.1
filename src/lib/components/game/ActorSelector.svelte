@@ -149,9 +149,15 @@
   // ─── Defaults & Debug ────────────────────────────────────────────────────────
   $effect(() => {
     console.log('availableCardsForActors →', availableCardsForActors);
+    // Always set a default card selection when cards are available
     if (availableCardsForActors.length && !selectedCardId) {
       selectedCardId = availableCardsForActors[0].card_id;
       console.log('Default selectedCardId →', selectedCardId);
+    }
+    
+    // Make sure we have a selected card, regardless of join mode
+    if (!selectedCardId && availableCardsForActors.length > 0) {
+      selectedCardId = availableCardsForActors[0].card_id;
     }
   });
 
@@ -210,6 +216,12 @@
       return;
     }
 
+    // Both joining paths now require card selection
+    if (!selectedCardId) {
+      errorMessage = 'Please select a card';
+      return;
+    }
+    
     if (joinMode === 'existing') {
       console.log('Using existing actor branch');
       if (!selectedActorId) {
@@ -218,10 +230,6 @@
       }
     } else {
       console.log('Creating new actor branch');
-      if (!selectedCardId) {
-        errorMessage = 'Please select a card';
-        return;
-      }
     }
 
     isJoining = true;
@@ -250,8 +258,11 @@
         actorId = newActor.actor_id;
       }
 
-      console.log('Calling joinWithActor()', { gameId, actorId });
-      const didJoin = await joinWithActor(gameId, actorId);
+      // Pass both actor ID and card ID to joinWithActor
+      console.log('Calling joinWithActor()', { gameId, actorId, cardId: selectedCardId });
+      
+      // The joinWithActor function will associate the actor with this card in the specific game
+      const didJoin = await joinWithActor(gameId, actorId, selectedCardId);
       console.log('joinWithActor →', didJoin);
       if (!didJoin) throw new Error('Game join failed');
 
@@ -338,6 +349,18 @@
             {actor.custom_name ?? actor.actor_id}
           </option>
         {/each}
+        </select>
+      </label>
+      
+      <!-- Add card selection for existing actors too -->
+      <label class="label">
+        <span class="font-semibold">Choose Your Card</span>
+        <select class="select w-full mt-1" bind:value={selectedCardId}>
+          {#each availableCardsForActors as card (card.card_id)}
+            <option value={card.card_id}>
+              {card.role_title}{card.card_category ? ` (${card.card_category})` : ''}
+            </option>
+          {/each}
         </select>
       </label>
     <!-- New Actor Creation -->

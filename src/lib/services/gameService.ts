@@ -3,14 +3,11 @@ import {
   getCollection,
   getField,
   createRelationship,
-  buildShardedPath,
-  generateId,
   getSet,
   getGun,
   subscribe,
   nodes,
 } from "./gunService";
-import { subscribeToLastActive } from "./userService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
 import type {
@@ -29,8 +26,6 @@ import type {
   Value,
   Capability,
   PartyItem,
-  ObligationItem,
-  BenefitItem,
 } from "$lib/types";
 import { GameStatus, AgreementStatus } from "$lib/types";
 
@@ -50,13 +45,10 @@ type SchemaType =
   | Capability
   | NodePosition;
 
+// --- Helpers -----------------------------------------
 function randomPos(): { x: number; y: number } {
   return { x: Math.random() * 800, y: Math.random() * 600 };
 }
-
-/**
- * Simple write helper, mirroring SampleDataService.write()
- */
 async function write(path: string, key: string, data: any): Promise<void> {
   const gun = getGun();
   if (!gun) throw new Error("[gameService] Gun not initialized");
@@ -68,15 +60,12 @@ async function write(path: string, key: string, data: any): Promise<void> {
       .put(data, (ack: any) => {
         if (done) return;
         done = true;
-        if (ack?.err) {
-          console.error(`[gameService] Error writing ${path}/${key}:`, ack.err);
-        }
+        if (ack?.err) console.error(ack.err);
         resolve();
       });
     setTimeout(() => {
       if (!done) {
         done = true;
-        console.warn(`[gameService] Fallback write timeout for ${path}/${key}`);
         resolve();
       }
     }, 500);
@@ -286,7 +275,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Actor flows
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────���────────────────────────────
 export async function createActor(
   gameId: string,
   cardId: string,
@@ -296,11 +285,25 @@ export async function createActor(
   const user = getCurrentUser();
   if (!user) return null;
 
-  const actorId = `actor_${generateId()}`;
+  // Validate game and card exist
+  const [game, card] = await Promise.all([
+    get<Game>(`${nodes.games}/${gameId}`),
+    get<Card>(`${nodes.cards}/${cardId}`),
+  ]);
+  if (!game || !card) return null;
+
+  // Generate sequential actor_<n>
+  const existing = await getCollection<Actor>(nodes.actors);
+  let max = 0;
+  for (const a of existing) {
+    const m = a.actor_id.match(/^actor_(\d+)$/);
+    if (m) max = Math.max(max, +m[1]);
+  }
+  const actorId = `actor_${max + 1}`;
   const now = Date.now();
 
-  // 1️⃣ Base actor node under actors/<actorId>
-  await write(nodes.actors, actorId, {
+  // Base actor node
+  const actorData: Actor = {
     actor_id: actorId,
     user_ref: user.user_id,
     actor_type: actorType,
@@ -308,41 +311,32 @@ export async function createActor(
     status: "active",
     created_at: now,
     updated_at: now,
-  });
+  };
+  await write(nodes.actors, actorId, actorData);
 
-  // 2️⃣ Nested maps under actors/<actorId>/
+  // Nested maps
   await Promise.all([
     write(`${nodes.actors}/${actorId}`, "games_ref", { [gameId]: true }),
     write(`${nodes.actors}/${actorId}`, "cards_by_game", { [gameId]: cardId }),
   ]);
 
-  // 3️⃣ Pointer-edges exactly like SampleDataService
+  // Wire pointer-edges
   await Promise.all([
-    // user.actors_ref → actor
     createRelationship(
       `${nodes.users}/${user.user_id}`,
       "actors_ref",
       `${nodes.actors}/${actorId}`,
     ),
-    // actor.games_ref → game
     createRelationship(
       `${nodes.actors}/${actorId}`,
       "games_ref",
       `${nodes.games}/${gameId}`,
     ),
-    // game.actors_ref → actor
     createRelationship(
       `${nodes.games}/${gameId}`,
       "actors_ref",
       `${nodes.actors}/${actorId}`,
     ),
-    // game.player_actor_map → actor
-    createRelationship(
-      `${nodes.games}/${gameId}`,
-      "player_actor_map",
-      `${nodes.actors}/${actorId}`,
-    ),
-    // actor.cards_by_game → card
     createRelationship(
       `${nodes.actors}/${actorId}`,
       "cards_by_game",
@@ -350,61 +344,70 @@ export async function createActor(
     ),
   ]);
 
-  // 4️⃣ Return the created Actor
-  return {
-    actor_id: actorId,
-    user_ref: user.user_id,
-    games_ref: { [gameId]: true },
-    cards_by_game: { [gameId]: cardId },
-    actor_type: actorType,
-    custom_name: customName || "",
-    status: "active",
-    agreements_ref: {}, // no agreements in this flow
-    created_at: now,
-    updated_at: now,
-  };
+  return actorData;
 }
 
+// --- Join game with existing actor ------------------
 export async function joinWithActor(
   gameId: string,
   actorId: string,
+  cardId: string,
 ): Promise<boolean> {
   const user = getCurrentUser();
   if (!user) return false;
 
-  // 1️⃣ Load game
+  // 1️⃣ Load game and actor existence
   const game = await get<Game>(`${nodes.games}/${gameId}`);
   if (!game) return false;
+  const actorRaw = await get<Actor>(`${nodes.actors}/${actorId}`);
+  if (!actorRaw) return false;
 
-  // 2️⃣ Build updated maps
+  // 2️⃣ Update nested maps on game
   const playersMap = { ...(game.players || {}), [user.user_id]: true };
   const pamMap = { ...(game.player_actor_map || {}), [user.user_id]: actorId };
+  const actorsRef = { ...(game.actors_ref || {}), [actorId]: true };
 
-  // 3️⃣ Write nested maps under games/<gameId>/
   await Promise.all([
     write(`${nodes.games}/${gameId}`, "players", playersMap),
     write(`${nodes.games}/${gameId}`, "player_actor_map", pamMap),
+    write(`${nodes.games}/${gameId}`, "actors_ref", actorsRef),
   ]);
 
-  // 4️⃣ Re-create pointer edges
+  // 3️⃣ Load existing cards_by_game map and merge new card_ref
+  const existingCards =
+    (await getField<Record<string, string>>(
+      `${nodes.actors}/${actorId}`,
+      "cards_by_game",
+    )) || {};
+  const cardsByGame = { ...existingCards, [gameId]: cardId };
+  await write(`${nodes.actors}/${actorId}`, "cards_by_game", cardsByGame);
+
+  // 4️⃣ Wire pointer-edges
   await Promise.all([
-    // game.players → user
     createRelationship(
       `${nodes.games}/${gameId}`,
       "players",
       `${nodes.users}/${user.user_id}`,
     ),
-    // user.games_ref → game
-    createRelationship(
-      `${nodes.users}/${user.user_id}`,
-      "games_ref",
-      `${nodes.games}/${gameId}`,
-    ),
-    // game.player_actor_map → actor
     createRelationship(
       `${nodes.games}/${gameId}`,
       "player_actor_map",
       `${nodes.actors}/${actorId}`,
+    ),
+    createRelationship(
+      `${nodes.games}/${gameId}`,
+      "actors_ref",
+      `${nodes.actors}/${actorId}`,
+    ),
+    createRelationship(
+      `${nodes.actors}/${actorId}`,
+      "games_ref",
+      `${nodes.games}/${gameId}`,
+    ),
+    createRelationship(
+      `${nodes.actors}/${actorId}`,
+      "cards_by_game",
+      `${nodes.cards}/${cardId}`,
     ),
   ]);
 
@@ -880,69 +883,68 @@ export async function getGameContext(
       (c) => c != null,
     ) as CardWithPosition[];
 
-// ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
-const rawAgs = await getCollection<Agreement>(nodes.agreements);
-const agreements: AgreementWithPosition[] = await Promise.all(
-  rawAgs
-    .filter((ag) => ag.game_ref === gameId)
-    .map(async (ag) => {
-      // 1) Get the raw actor‐id → Gun pointers
-      const partiesRef =
-        (await getField<Record<string, { "#": string }>>(
-          `${nodes.agreements}/${ag.agreement_id}`,
-          "parties",
-        )) ?? {};
+    // ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
+    const rawAgs = await getCollection<Agreement>(nodes.agreements);
+    const agreements: AgreementWithPosition[] = await Promise.all(
+      rawAgs
+        .filter((ag) => ag.game_ref === gameId)
+        .map(async (ag) => {
+          // 1) Get the raw actor‐id → Gun pointers
+          const partiesRef =
+            (await getField<Record<string, { "#": string }>>(
+              `${nodes.agreements}/${ag.agreement_id}`,
+              "parties",
+            )) ?? {};
 
-      // 2) For each actorId, load its stored strings and find its CardWithPosition
-      const partyItems: PartyItem[] = await Promise.all(
-        Object.keys(partiesRef).map(async (actorId) => {
-          // pull obligation/benefit/card_ref
-          const pd = (await getField<{
-            card_ref: string;
-            obligation: string;
-            benefit: string;
-          }>(
-            `${nodes.agreements}/${ag.agreement_id}/parties`,
-            actorId,
-          )) ?? { card_ref: "", obligation: "", benefit: "" };
+          // 2) For each actorId, load its stored strings and find its CardWithPosition
+          const partyItems: PartyItem[] = await Promise.all(
+            Object.keys(partiesRef).map(async (actorId) => {
+              // pull obligation/benefit/card_ref
+              const pd = (await getField<{
+                card_ref: string;
+                obligation: string;
+                benefit: string;
+              }>(
+                `${nodes.agreements}/${ag.agreement_id}/parties`,
+                actorId,
+              )) ?? { card_ref: "", obligation: "", benefit: "" };
 
-          // find the ActorWithCard loaded earlier, and grab its .card
-          const actor = actors.find((a) => a.actor_id === actorId);
-          if (!actor?.card) {
-            console.warn(
-              `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
-            );
-            return null;
-          }
+              // find the ActorWithCard loaded earlier, and grab its .card
+              const actor = actors.find((a) => a.actor_id === actorId);
+              if (!actor?.card) {
+                console.warn(
+                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
+                );
+                return null;
+              }
+
+              return {
+                actorId,
+                card: actor.card,
+                obligation: pd.obligation,
+                benefit: pd.benefit,
+              } as PartyItem;
+            }),
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
 
           return {
-            actorId,
-            card: actor.card,
-            obligation: pd.obligation,
-            benefit: pd.benefit,
-          } as PartyItem;
+            ...ag,
+            partyItems,
+            position: randomPos(),
+          };
         }),
-      ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+    );
 
-      return {
-        ...ag,
-        partyItems,
-        position: randomPos(),
-      };
-    }),
-);
-
-return {
-  game,
-  actors,
-  totalCards,
-  usedCards: usedSet.size,
-  availableCards,
-  availableCardsCount: availableCards.length,
-  agreements,
-  deckName: deck?.name ?? game.deck_type,
-};
-
+    return {
+      game,
+      actors,
+      totalCards,
+      usedCards: usedSet.size,
+      availableCards,
+      availableCardsCount: availableCards.length,
+      agreements,
+      deckName: deck?.name ?? game.deck_type,
+    };
   } catch (e) {
     console.error(`[gameService] getGameContext error for ${gameId}:`, e);
     return null;
