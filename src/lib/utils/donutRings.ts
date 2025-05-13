@@ -27,7 +27,6 @@ export function addDonutRings(
     const capabilityNames = cardData._capabilityNames || [];
     if (!valueNames.length && !capabilityNames.length) return;
 
-    // Outer transparent ring
     node.append('circle')
       .attr('r', DIMENSIONS.donutRadius)
       .attr('class', `donut-ring ${isActive ? 'active' : ''}`)
@@ -36,7 +35,6 @@ export function addDonutRings(
       .attr('stroke-width', 1)
       .style('pointer-events','none');
 
-    // Build categories array
     const categories = [
       { name: 'values', color: '#A7C731', items: valueNames.filter(v => v !== '#') },
       { name: 'goals',  color: '#9BC23D', items: (cardData.goals||'').split(/[;,.]+/).map(s=>s.trim()).filter(Boolean) },
@@ -55,11 +53,9 @@ export function addDonutRings(
       running += span;
     });
 
-    // For each category, render wedge, labels, and sub-wedges
     categories.forEach((category, ci) => {
       const { start, end } = angles[ci];
 
-      // Group for hover state
       const categoryGroup = node.append('g')
         .attr('class','category-group')
         .attr('data-category', category.name)
@@ -93,7 +89,6 @@ export function addDonutRings(
           node.selectAll('foreignObject').transition().duration(200).attr('opacity',1);
         });
 
-      // Main category wedge
       const arcGen = d3.arc<any>()
         .innerRadius(DIMENSIONS.centerRadius)
         .outerRadius(DIMENSIONS.donutRadius)
@@ -107,11 +102,9 @@ export function addDonutRings(
         .style('cursor','pointer')
         .on('click', function(event){
           event.stopPropagation();
-          // expand on click without needing slow hover
           categoryGroup.dispatch('mouseenter');
         });
 
-      // Central count + label styling
       const categoryLabelGroup = categoryGroup.append('g')
         .attr('class','category-label')
         .attr('opacity',0)
@@ -137,7 +130,6 @@ export function addDonutRings(
             .trim()
         );
 
-      // Containers for sub-wedges & labels
       const labelContainer = categoryGroup.append('g')
         .attr('class','label-container')
         .attr('opacity',0)
@@ -147,7 +139,6 @@ export function addDonutRings(
         .attr('opacity',0)
         .style('visibility','hidden');
 
-      // Sub-wedges + radial labels + click handler
       if(category.items.length>0){
         const anglePer = (end-start)/category.items.length;
         category.items.forEach((item:string,i:number)=>{
@@ -181,9 +172,11 @@ export function addDonutRings(
               event.stopPropagation(); event.preventDefault();
               const midAngle = (a0 + a1)/2;
               spawnCategorySubnode(nodeData.id, item, midAngle, category.color);
+              // Hide the label for this item
+              labelContainer.select(`text[data-item="${item}"]`)
+                .style('visibility', 'hidden');
             });
 
-          // radial text label
           const mid = (a0+a1)/2;
           const adj = mid - Math.PI/2;
           const labelDist = DIMENSIONS.subWedgeRadius * 1.2;
@@ -204,6 +197,7 @@ export function addDonutRings(
             .attr('font-weight','500')
             .attr('fill',category.color)
             .attr('transform',`rotate(${rotLab},${lx},${ly})`)
+            .attr('data-item', item) // Add identifier to target the label
             .text(txt);
         });
       }

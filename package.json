@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "svelte-check": "svelte-check --tsconfig ./tsconfig.json"
-    },
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

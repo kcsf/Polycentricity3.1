@@ -6,6 +6,8 @@ import { AgreementStatus } from '$lib/types';
 let simulationGlobal: d3.Simulation<D3Node, undefined>;
 let nodesGlobal: D3Node[] = [];
 let linksGlobal: D3Link[] = [];
+let nodeGroupGlobal: d3.Selection<SVGGElement, unknown, null, undefined>;
+let linkGroupGlobal: d3.Selection<SVGGElement, unknown, null, undefined>;
 
 /**
  * Creates D3 nodes from cards and agreements
@@ -52,7 +54,6 @@ export function createLinks(
       .map((pi) => actorCardMap.get(pi.actorId))
       .filter((id): id is string => !!id);
     if (cardIds.length < 2) return;
-    // benefit link
     links.push({
       source: cardIds[0],
       target: agreementId,
@@ -60,7 +61,6 @@ export function createLinks(
       id: `${cardIds[0]}_to_${agreementId}_benefit`,
       angle: 0
     });
-    // obligation links
     const others = cardIds.slice(1);
     const step = others.length > 1 ? (2 * Math.PI) / others.length : Math.PI;
     others.forEach((cid, i) => {
@@ -88,7 +88,6 @@ export function setupInteractions(
   height: number,
   handleNodeClick: (node: D3Node) => void
 ): void {
-  // Zoom
   const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.1, 3])
     .on('zoom', (event) => {
@@ -97,7 +96,6 @@ export function setupInteractions(
     });
   svg.call(zoomBehavior);
 
-  // Drag
   const nodeG = nodeGroup.selectAll<SVGGElement, D3Node>('.node')
     .on('mousedown.zoom', null);
 
@@ -117,7 +115,6 @@ export function setupInteractions(
     });
   nodeG.call(dragBehavior);
 
-  // Click on main circle
   nodeG.selectAll<SVGCircleElement, D3Node>('circle.main-circle')
     .style('cursor', 'pointer')
     .on('click', (event, d) => {
@@ -127,13 +124,48 @@ export function setupInteractions(
       handleNodeClick(d);
     });
 
-  // Click on agreement groups
   nodeG.filter((d) => d.type === 'agreement')
     .style('cursor', 'pointer')
     .on('click', (event, d) => {
       event.stopPropagation(); event.preventDefault();
       handleNodeClick(d);
     });
+}
+
+/**
+ * Defines the angle force for simulation
+ */
+function angleForce(links: D3Link[], nodes: D3Node[]) {
+  return () => {
+    links.forEach((link) => {
+      const source = typeof link.source === 'string'
+        ? nodes.find(n => n.id === link.source)
+        : link.source;
+      const target = typeof link.target === 'string'
+        ? nodes.find(n => n.id === link.target)
+        : link.target;
+      if (!source || !target || link.angle === undefined) return;
+
+      if (link.type === 'subnode') {
+        const parentNode = source.type === 'subnode' ? target : source;
+        const subNode = source.type === 'subnode' ? source : target;
+        const desiredDistance = 150;
+        const dx = Math.cos(link.angle) * desiredDistance;
+        const dy = Math.sin(link.angle) * desiredDistance;
+        subNode.vx = (subNode.vx || 0) + (parentNode.x! + dx - subNode.x!) * 0.3;
+        subNode.vy = (subNode.vy || 0) + (parentNode.y! + dy - subNode.y!) * 0.3;
+      } else if (link.type === 'obligation' || link.type === 'benefit') {
+        const agreementNode = source.type === 'agreement' ? source : target;
+        const cardNode = source.type === 'agreement' ? target : source;
+        if (!agreementNode || !cardNode) return;
+        const desiredDistance = 100;
+        const dx = Math.cos(link.angle) * desiredDistance;
+        const dy = Math.sin(link.angle) * desiredDistance;
+        cardNode.vx = (cardNode.vx || 0) + (agreementNode.x! + dx - cardNode.x!) * 0.05;
+        cardNode.vy = (cardNode.vy || 0) + (agreementNode.y! + dy - cardNode.y!) * 0.05;
+      }
+    });
+  };
 }
 
 /**
@@ -146,28 +178,6 @@ export function updateForces(
   width: number,
   height: number
 ): void {
-  const angleForce = () => {
-    links.forEach((link) => {
-      const source = typeof link.source === 'string'
-        ? nodes.find(n => n.id === link.source)
-        : link.source;
-      const target = typeof link.target === 'string'
-        ? nodes.find(n => n.id === link.target)
-        : link.target;
-      if (!source || !target || link.angle === undefined) return;
-
-      const agreementNode = source.type === 'agreement' ? source : target;
-      const cardNode      = source.type === 'agreement' ? target : source;
-      if (!agreementNode || !cardNode) return;
-
-      const desiredDistance = 100;
-      const dx = Math.cos(link.angle) * desiredDistance;
-      const dy = Math.sin(link.angle) * desiredDistance;
-      cardNode.vx = (cardNode.vx || 0) + (agreementNode.x! + dx - cardNode.x!) * 0.05;
-      cardNode.vy = (cardNode.vy || 0) + (agreementNode.y! + dy - cardNode.y!) * 0.05;
-    });
-  };
-
   simulation
     .nodes(nodes)
     .force('link', d3.forceLink<D3Node, D3Link>(links)
@@ -177,8 +187,8 @@ export function updateForces(
     .force('charge', d3.forceManyBody().strength(-200))
     .force('center', d3.forceCenter(width/2, height/2))
     .force('collide', d3.forceCollide<D3Node>()
-      .radius(d => d.type==='actor' ? 50 : 20).strength(1))
-    .force('angle', angleForce)
+      .radius(d => d.type === 'actor' ? 50 : d.type === 'subnode' ? 20 : 20).strength(1))
+    .force('angle', angleForce(links, nodes))
     .force('x', d3.forceX(width/2).strength(0.05))
     .force('y', d3.forceY(height/2).strength(0.05))
     .alpha(1)
@@ -193,74 +203,302 @@ export function spawnCategorySubnode(
   parentId: string,
   itemName: string,
   angle: number,
-  color: string
+  color: string // Explicitly typed
 ) {
+  console.group(`spawnCategorySubnode(${parentId}, ${itemName})`);
+  console.log('→ args:', { parentId, itemName, angle, color });
+
   // 1) Unique new ID
   const subId = `sub_${parentId}_${itemName}`;
+  console.log('computed subId:', subId);
 
   // 2) Avoid duplicates: if already exists, remove and restart
   if (nodesGlobal.find(n => n.id === subId)) {
-    // remove from arrays
+    console.log('subnode already exists – removing it');
     nodesGlobal = nodesGlobal.filter(n => n.id !== subId);
     linksGlobal = linksGlobal.filter(l => l.source !== subId && l.target !== subId);
-    // rebind & restart
+    console.log(' → new nodes count:', nodesGlobal.length);
+    console.log(' → new links count:', linksGlobal.length);
     simulationGlobal.nodes(nodesGlobal);
     (simulationGlobal.force('link') as d3.ForceLink<D3Node, D3Link>).links(linksGlobal);
     simulationGlobal.alpha(1).restart();
+    console.log('simulation restarted');
+
+    // Update SVG elements after removal
+    const linkSel = linkGroupGlobal
+      .selectAll<SVGGElement, D3Link>('g.link-group')
+      .data(linksGlobal, d => d.id!);
+    linkSel.exit().remove();
+    const linkEnter = linkSel.enter().append('g')
+    .attr('class', 'link-group')
+    .attr('id', d => `link-group-${d.id}`);
+  linkEnter.append('line')
+    .attr('class', d => `link link-${d.type}`)
+    .attr('stroke', d => d.type === 'subnode' ? color : d.type === 'benefit' ? 'var(--color-emerald-500-400)' : 'var(--color-indigo-600-400)')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-opacity', 0.7)
+    .attr('stroke-dasharray', d => d.type === 'benefit' ? '4,2' : 'none')
+    .attr('id', d => `subline-${d.id}`)
+    .attr('x1', d => {
+      const sourceNode = typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source;
+      if (d.type === 'subnode' && sourceNode.type === 'actor') {
+        const offset = 40 * 1.1;
+        const x1 = sourceNode.x! + Math.cos(d.angle!) * offset;
+        console.log(`Link ${d.id} x1:`, { sourceX: sourceNode.x, angle: d.angle, offset, x1 });
+        return x1;
+      }
+      return sourceNode.x!;
+    })
+      .attr('y1', d => {
+        const sourceNode = typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source;
+        if (d.type === 'subnode' && sourceNode.type === 'actor') {
+          const offset = 40 * 1.1;
+          const y1 = sourceNode.y! + Math.sin(d.angle!) * offset;
+          console.log(`Link ${d.id} y1:`, { sourceY: sourceNode.y, angle: d.angle, offset, y1 });
+          return y1;
+        }
+        return sourceNode.y!;
+      })
+      .attr('x2', d => {
+        const targetNode = typeof d.target === 'string' ? nodesGlobal.find(n => n.id === d.target)! : d.target;
+        if (d.type === 'subnode' && targetNode.type === 'subnode') {
+          const dx = targetNode.x! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).x!;
+          const dy = targetNode.y! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).y!;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const offset = 40 * 1.1;
+          const x2 = targetNode.x! - (dx / dist) * offset;
+          console.log(`Link ${d.id} x2:`, { targetX: targetNode.x, dx, dist, offset, x2 });
+          return x2;
+        }
+        return targetNode.x!;
+      })
+      .attr('y2', d => {
+        const targetNode = typeof d.target === 'string' ? nodesGlobal.find(n => n.id === d.target)! : d.target;
+        if (d.type === 'subnode' && targetNode.type === 'subnode') {
+          const dx = targetNode.x! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).x!;
+          const dy = targetNode.y! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).y!;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const offset = 40 * 1.1;
+          const y2 = targetNode.y! - (dy / dist) * offset;
+          console.log(`Link ${d.id} y2:`, { targetY: targetNode.y, dy, dist, offset, y2 });
+          return y2;
+        }
+        return targetNode.y!;
+      });
+
+    const nodeSel = nodeGroupGlobal
+      .selectAll<SVGGElement, D3Node>('.node')
+      .data(nodesGlobal, d => d.id);
+    nodeSel.exit().remove();
+    const nodeEnter = nodeSel.enter().append('g')
+      .attr('class', d => `node node-${d.type}`)
+      .attr('id', d => `node-${d.id}`)
+      .style('pointer-events', 'all')
+      .attr('transform', d => `translate(${d.x},${d.y})`);
+    nodeEnter.filter(d => d.type === 'subnode')
+      .append('circle')
+      .attr('r', 8)
+      .attr('fill', color)
+      .attr('stroke', '#333')
+      .append('title')
+      .text(itemName);
+    console.groupEnd();
     return;
   }
 
   // 3) Find parent’s current position
   const parent = nodesGlobal.find(n => n.id === parentId);
-  if (!parent || parent.x === undefined || parent.y === undefined) return;
+  if (!parent) {
+    console.warn('❌ Parent node not found:', parentId);
+    console.groupEnd();
+    return;
+  }
+  if (parent.x === undefined || parent.y === undefined) {
+    console.warn('❌ Parent has no coordinates yet:', parent);
+    console.groupEnd();
+    return;
+  }
+  console.log('parent position:', { x: parent.x, y: parent.y });
 
-  // 4) Create new subnode out on the same radius
-  const innerR = 50; // or match your DIMENSIONS.subWedgeRadius * 1.1
-  const x0 = parent.x + Math.cos(angle) * innerR;
-  const y0 = parent.y + Math.sin(angle) * innerR;
+  // 4) Create new subnode farther out to accommodate label
+  const labelDist = 40 * 1.2;
+  const adjAngle = angle - Math.PI / 2;
+  const deg = ((adjAngle * 180) / Math.PI + 360) % 360;
+  const left = deg > 90 && deg < 270;
+  const rotLab = left ? deg + 180 : deg;
+  const innerR = 150;
+  const lx = parent.x! + Math.cos(adjAngle) * innerR;
+  const ly = parent.y! + Math.sin(adjAngle) * innerR;
+  console.log('subnode position adjusted:', { lx, ly, adjAngle, deg, rotLab });
 
   const newNode: D3Node = {
-    id:   subId,
+    id: subId,
     name: itemName,
     type: 'subnode',
     data: null,
-    x:    x0,
-    y:    y0
+    x: lx,
+    y: ly
   };
   nodesGlobal.push(newNode);
+  console.log('pushed new node, total nodes:', nodesGlobal.length);
 
   // 5) Link parent → subnode
   linksGlobal.push({
     source: parentId,
     target: subId,
-    type:   'subnode',
-    id:     `${parentId}_to_${subId}`,
+    type: 'subnode',
+    id: `${parentId}_to_${subId}`,
     angle
   });
 
   // 6) Link subnode → every other actor sharing itemName
+  const matchingActors: string[] = [];
   nodesGlobal
-    .filter(n => n.type==='actor')
-    .forEach(n => {
-      const arr = (n.data as CardWithPosition)[
-        /* adapt per category: values vs capabilities */
-        '_valueNames' // or '_capabilityNames'
-      ] as string[]|undefined;
-      if (arr?.includes(itemName)) {
-        linksGlobal.push({
-          source: subId,
-          target: n.id,
-          type: 'subnode',
-          id:   `${subId}_to_${n.id}`,
-          angle: 0
-        });
+    .filter(n => n.type === 'actor' && n.id !== parentId)
+    .forEach(actorNode => {
+      const arr = (actorNode.data as CardWithPosition)._valueNames 
+               || (actorNode.data as CardWithPosition)._capabilityNames 
+               || [];
+      if (arr.includes(itemName)) {
+        matchingActors.push(actorNode.id);
       }
     });
 
-  // 7) Re-bind simulation & restart
+  matchingActors.forEach((actorId, index) => {
+    linksGlobal.push({
+      source: subId,
+      target: actorId,
+      type: 'subnode',
+      id: `${subId}_to_${actorId}_${index}`,
+      angle
+    });
+  });
+  console.log('pushed links for matching actors, total links:', linksGlobal.length);
+
+  // 7) Define the marker for this subnode's color
+  const svg = d3.select('svg.d3-graph');
+  const markerId = `arrow-subnode-${color.replace('#', '')}`;
+  if (!svg.select(`#${markerId}`).node()) {
+    svg.select('defs')
+      .append('marker')
+      .attr('id', markerId)
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 15)
+      .attr('refY', 0)
+      .attr('orient', 'auto')
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', color);
+  }
+
+  // 8) Update SVG elements for new subnode and links
+  const linkSel = linkGroupGlobal
+    .selectAll<SVGGElement, D3Link>('g.link-group')
+    .data(linksGlobal, d => d.id!);
+  linkSel.exit().remove();
+  const linkEnter = linkSel.enter().append('g')
+  .attr('class', 'link-group')
+  .attr('id', d => `link-group-${d.id}`);
+const linkLine = linkEnter.append('line')
+  .attr('class', d => `link link-${d.type}`)
+  .attr('stroke', d => d.type === 'subnode' ? color : d.type === 'benefit' ? 'var(--color-emerald-500-400)' : 'var(--color-indigo-600-400)')
+  .attr('stroke-width', 1.5)
+  .attr('stroke-opacity', 0.7)
+  .attr('stroke-dasharray', d => d.type === 'benefit' ? '4,2' : 'none')
+    .attr('id', d => `subline-${d.id}`)
+    .attr('x1', d => {
+      const sourceNode = typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source;
+      if (d.type === 'subnode' && sourceNode.type === 'actor') {
+        const offset = 40 * 1.1;
+        const x1 = sourceNode.x! + Math.cos(d.angle!) * offset;
+        console.log(`Link ${d.id} x1:`, { sourceX: sourceNode.x, angle: d.angle, offset, x1 });
+        return x1;
+      }
+      return sourceNode.x!;
+    })
+    .attr('y1', d => {
+      const sourceNode = typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source;
+      if (d.type === 'subnode' && sourceNode.type === 'actor') {
+        const offset = 40 * 1.1;
+        const y1 = sourceNode.y! + Math.sin(d.angle!) * offset;
+        console.log(`Link ${d.id} y1:`, { sourceY: sourceNode.y, angle: d.angle, offset, y1 });
+        return y1;
+      }
+      return sourceNode.y!;
+    })
+    .attr('x2', d => {
+      const targetNode = typeof d.target === 'string' ? nodesGlobal.find(n => n.id === d.target)! : d.target;
+      if (d.type === 'subnode' && targetNode.type === 'subnode') {
+        const dx = targetNode.x! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).x!;
+        const dy = targetNode.y! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).y!;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const offset = 40 * 1.1;
+        const x2 = targetNode.x! - (dx / dist) * offset;
+        console.log(`Link ${d.id} x2:`, { targetX: targetNode.x, dx, dist, offset, x2 });
+        return x2;
+      }
+      return targetNode.x!;
+    })
+    .attr('y2', d => {
+      const targetNode = typeof d.target === 'string' ? nodesGlobal.find(n => n.id === d.target)! : d.target;
+      if (d.type === 'subnode' && targetNode.type === 'subnode') {
+        const dx = targetNode.x! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).x!;
+        const dy = targetNode.y! - (typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source).y!;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const offset = 40 * 1.1;
+        const y2 = targetNode.y! - (dy / dist) * offset;
+        console.log(`Link ${d.id} y2:`, { targetY: targetNode.y, dy, dist, offset, y2 });
+        return y2;
+      }
+      return targetNode.y!;
+    });
+
+  // Add text along the parent-to-subnode link with rotation
+  linkEnter.filter(d => d.id === `${parentId}_to_${subId}`)
+    .append('text')
+    .attr('dy', -5)
+    .attr('transform', d => {
+      const sourceNode = typeof d.source === 'string' ? nodesGlobal.find(n => n.id === d.source)! : d.source;
+      const targetNode = typeof d.target === 'string' ? nodesGlobal.find(n => n.id === d.target)! : d.target;
+      const midX = (sourceNode.x! + targetNode.x!) / 2;
+      const midY = (sourceNode.y! + targetNode.y!) / 2;
+      console.log(`Link text rotation for ${d.id}:`, { midX, midY, rotLab });
+      return `rotate(${rotLab}, ${midX}, ${midY})`;
+    })
+    .append('textPath')
+    .attr('xlink:href', d => `#${d.id}`)
+    .attr('startOffset', '50%')
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10px')
+    .attr('font-weight', '500')
+    .attr('fill', color)
+    .text(itemName);
+
+  const nodeSel = nodeGroupGlobal
+    .selectAll<SVGGElement, D3Node>('.node')
+    .data(nodesGlobal, d => d.id);
+  nodeSel.exit().remove();
+  const nodeEnter = nodeSel.enter().append('g')
+    .attr('class', d => `node node-${d.type}`)
+    .attr('id', d => `node-${d.id}`)
+    .style('pointer-events', 'all')
+    .attr('transform', d => `translate(${d.x},${d.y})`);
+  nodeEnter.filter(d => d.type === 'subnode')
+    .append('circle')
+    .attr('r', 8)
+    .attr('fill', color)
+    .attr('stroke', '#333')
+    .append('title')
+    .text(itemName);
+
+  // 9) Re-bind simulation & restart
   simulationGlobal.nodes(nodesGlobal);
   (simulationGlobal.force('link') as d3.ForceLink<D3Node, D3Link>).links(linksGlobal);
   simulationGlobal.alpha(1).restart();
+  console.log('simulation restarted');
+  console.groupEnd();
 }
 
 /**
@@ -282,50 +520,67 @@ export function initializeD3Graph(
 
     const actorCardMap = externalActorCardMap && externalActorCardMap.size > 0
       ? new Map(externalActorCardMap)
-      : new Map(cards.map(c => [c.actor_id!, c.card_id] as [string,string]));
+      : new Map(cards.map(c => [c.actor_id!, c.card_id] as [string, string]));
 
     const nodes = createNodes(cards, agreements, width, height);
     const links = createLinks(nodes, agreements, actorCardMap);
 
-    // Save into globals for later spawn calls
     nodesGlobal = nodes;
     linksGlobal = links;
 
     const defs = svg.append('defs');
     defs.append('marker')
-      .attr('id','arrow-benefit').attr('viewBox','0 -5 10 10')
-      .attr('refX',15).attr('refY',0).attr('orient','auto')
-      .attr('markerWidth',6).attr('markerHeight',6)
-      .append('path').attr('d','M0,-5L10,0L0,5')
-      .attr('fill','var(--color-emerald-500-400)');
+      .attr('id', 'arrow-benefit')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 15)
+      .attr('refY', 0)
+      .attr('orient', 'auto')
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', 'var(--color-emerald-500-400)');
     defs.append('marker')
-      .attr('id','arrow-obligation').attr('viewBox','0 -5 10 10')
-      .attr('refX',15).attr('refY',0).attr('orient','auto')
-      .attr('markerWidth',6).attr('markerHeight',6)
-      .append('path').attr('d','M0,-5L10,0L0,5')
-      .attr('fill','var(--color-indigo-600-400)');
+      .attr('id', 'arrow-obligation')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 15)
+      .attr('refY', 0)
+      .attr('orient', 'auto')
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', 'var(--color-indigo-600-400)');
 
-    const linkGroup = svg.append('g').attr('class','links');
-    const nodeGroup = svg.append('g').attr('class','nodes');
+    const linkGroup = svg.append('g').attr('class', 'links');
+    const nodeGroup = svg.append('g').attr('class', 'nodes');
 
-    const linkElements = linkGroup.selectAll('line')
-      .data(links).enter().append('line')
-      .attr('class', d => `link link-${d.type}`)
-      .attr('stroke', d => d.type==='benefit'
-        ? 'var(--color-emerald-500-400)' : 'var(--color-indigo-600-400)')
-      .attr('stroke-width',1.5)
-      .attr('stroke-opacity',0.7)
-      .attr('stroke-dasharray', d => d.type==='benefit' ? '4,2' : 'none')
-      .attr('marker-end', d => `url(#arrow-${d.type})`);
+    linkGroupGlobal = linkGroup;
+    nodeGroupGlobal = nodeGroup;
+
+    const linkElements = linkGroup.selectAll('g.link-group')
+    .data(links)
+    .enter()
+    .append('g')
+    .attr('class', 'link-group')
+    .attr('id', d => `link-group-${d.id}`);
+  linkElements.append('line')
+    .attr('class', d => `link link-${d.type}`)
+    .attr('stroke', d => d.type === 'benefit' ? 'var(--color-emerald-500-400)' : 'var(--color-indigo-600-400)')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-opacity', 0.7)
+    .attr('stroke-dasharray', d => d.type === 'benefit' ? '4,2' : 'none')
+    .attr('id', d => `link-line-${d.id}`);
 
     const nodeElements = nodeGroup.selectAll('.node')
-      .data(nodes).enter().append('g')
-      .attr('class', d => `node node-${d.type} ${d.id===activeCardId?'active':''}`)
-      .attr('id',   d => `node-${d.id}`)
-      .style('pointer-events','all')
+      .data(nodes)
+      .enter()
+      .append('g')
+      .attr('class', d => `node node-${d.type} ${d.id === activeCardId ? 'active' : ''}`)
+      .attr('id', d => `node-${d.id}`)
+      .style('pointer-events', 'all')
       .on('mousedown.zoom', null);
 
-    // Create actor nodes with inner circle and click handler
     const actorNodes = nodeElements.filter((d) => d.type === 'actor');
     actorNodes.append('circle')
       .attr('r', (d) => d.id === activeCardId ? 45 : 30)
@@ -342,7 +597,6 @@ export function initializeD3Graph(
         handleNodeClick(d);
       });
 
-    // Create agreement nodes with inner circle and click handler
     const agreementNodes = nodeElements.filter((d) => d.type === 'agreement');
     agreementNodes.append('circle')
       .attr('r', 12)
@@ -359,7 +613,6 @@ export function initializeD3Graph(
         handleNodeClick(d);
       });
 
-    // Add status ring for agreement nodes (non-interactive)
     agreementNodes.append('circle')
       .attr('r', 14)
       .attr('fill', 'none')
@@ -406,48 +659,85 @@ export function initializeD3Graph(
           .attr('font-weight', 'bold').attr('fill', '#fff').text(lab);
       }
     });
-// Build the simulation
-const fx = d3.forceX<D3Node>(d => d.x!).strength(0);
-const fy = d3.forceY<D3Node>(d => d.y!).strength(0);
 
-const simulation = d3.forceSimulation<D3Node>(nodes)
-  .force('link', d3.forceLink<D3Node,D3Link>(links)
-    .id(d => d.id).distance(100).strength(1))
-  .force('charge', d3.forceManyBody().strength(-200))
-  .force('center', d3.forceCenter(width/2, height/2))
-  .force('collide', d3.forceCollide<D3Node>()
-    .radius(d => d.type==='actor'?50:20).strength(1))
-  .force('angle', () => { /* your angleForce… */ })
-  .force('x', fx)
-  .force('y', fy)
-  .alpha(1)
-  .on('tick', () => {
-    linkElements
-      .attr('x1', d => (d.source as D3Node).x!)
-      .attr('y1', d => (d.source as D3Node).y!)
-      .attr('x2', d => (d.target as D3Node).x!)
-      .attr('y2', d => (d.target as D3Node).y!);
-    nodeElements.attr('transform', d => `translate(${d.x},${d.y})`);
-  });
+    const simulation = d3.forceSimulation<D3Node>(nodes)
+      .force('link', d3.forceLink<D3Node, D3Link>(links)
+        .id(d => d.id).distance(100).strength(1))
+      .force('charge', d3.forceManyBody().strength(-200))
+      .force('center', d3.forceCenter(width/2, height/2))
+      .force('collide', d3.forceCollide<D3Node>()
+        .radius(d => d.type === 'actor' ? 50 : d.type === 'subnode' ? 20 : 20).strength(1))
+      .force('angle', angleForce(links, nodes))
+      .force('x', d3.forceX<D3Node>(d => d.x!).strength(0))
+      .force('y', d3.forceY<D3Node>(d => d.y!).strength(0))
+      .alpha(1)
+      .on('tick', () => {
+        linkElements.select('line')
+          .attr('x1', d => {
+            const sourceNode = d.source as D3Node;
+            if (d.type === 'subnode' && sourceNode.type === 'actor') {
+              const offset = 40 * 1.1;
+              const x1 = sourceNode.x! + Math.cos(d.angle!) * offset;
+              console.log(`Tick Link ${d.id} x1:`, { sourceX: sourceNode.x, angle: d.angle, offset, x1 });
+              return x1;
+            }
+            return sourceNode.x!;
+          })
+          .attr('y1', d => {
+            const sourceNode = d.source as D3Node;
+            if (d.type === 'subnode' && sourceNode.type === 'actor') {
+              const offset = 40 * 1.1;
+              const y1 = sourceNode.y! + Math.sin(d.angle!) * offset;
+              console.log(`Tick Link ${d.id} y1:`, { sourceY: sourceNode.y, angle: d.angle, offset, y1 });
+              return y1;
+            }
+            return sourceNode.y!;
+          })
+          .attr('x2', d => {
+            const targetNode = d.target as D3Node;
+            if (d.type === 'subnode' && targetNode.type === 'subnode') {
+              const dx = targetNode.x! - (d.source as D3Node).x!;
+              const dy = targetNode.y! - (d.source as D3Node).y!;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const offset = 40 * 1.1;
+              const x2 = targetNode.x! - (dx / dist) * offset;
+              console.log(`Tick Link ${d.id} x2:`, { targetX: targetNode.x, dx, dist, offset, x2 });
+              return x2;
+            }
+            return targetNode.x!;
+          })
+          .attr('y2', d => {
+            const targetNode = d.target as D3Node;
+            if (d.type === 'subnode' && targetNode.type === 'subnode') {
+              const dx = targetNode.x! - (d.source as D3Node).x!;
+              const dy = targetNode.y! - (d.source as D3Node).y!;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const offset = 40 * 1.1;
+              const y2 = targetNode.y! - (dy / dist) * offset;
+              console.log(`Tick Link ${d.id} y2:`, { targetY: targetNode.y, dy, dist, offset, y2 });
+              return y2;
+            }
+            return targetNode.y!;
+          });
+        nodeElements.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
 
-// save simulation into global
-simulationGlobal = simulation;
+    simulationGlobal = simulation;
 
-setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height, handleNodeClick);
+    setupInteractions(svg, nodeGroup, linkGroup, simulation, width, height, handleNodeClick);
 
-// gently warm up
-d3.timer((elapsed) => {
-  const k = Math.min(0.1, elapsed/2000);
-  fx.strength(k);
-  fy.strength(k);
-  simulation.alpha(1).restart();
-  return k<0.1;
-});
+    d3.timer((elapsed) => {
+      const k = Math.min(0.1, elapsed / 2000);
+      simulation.force<d3.ForceX<D3Node>>('x')!.strength(k);
+      simulation.force<d3.ForceY<D3Node>>('y')!.strength(k);
+      simulation.alpha(1).restart();
+      return k < 0.1;
+    });
 
-updateForces(simulation, nodes, links, width, height);
-return { simulation, nodeElements, linkElements };
-} catch (err) {
-console.error('Error initializing D3 graph:', err);
-throw err;
-}
+    updateForces(simulation, nodes, links, width, height);
+    return { simulation, nodeElements, linkElements };
+  } catch (err) {
+    console.error('Error initializing D3 graph:', err);
+    throw err;
+  }
 }
