@@ -19,6 +19,25 @@
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state<string[]>([]);
 
+  // Open/close deck creation modal
+  function openCreateModal() {
+    isCreateModalOpen = true;
+  }
+
+  function closeCreateModal() {
+    isCreateModalOpen = false;
+  }
+
+  // Handle newly created deck
+  function handleDeckCreated(event: CustomEvent<{ deckId: string; name: string }>) {
+    console.log('[DeckBrowser] New deck created:', event.detail);
+    // Refresh decks list and select the new deck
+    loadDecks().then(() => {
+      selectedDeckId = event.detail.deckId;
+      loadDeckCards(event.detail.deckId);
+    });
+  }
+
   // Load all decks for dropdown
   async function loadDecks() {
     isLoading = true;
@@ -230,7 +249,7 @@
                 id="deck-select"
                 class="select rounded-md w-full md:w-1/2 lg:w-1/3 bg-surface-100-800-token text-surface-900-50-token border border-surface-300-600-token"
                 value={selectedDeckId}
-                on:change={handleDeckChange}
+                onchange={handleDeckChange}
                 disabled={isLoading}
               >
                 {#if decks.length === 0}
@@ -241,14 +260,24 @@
                   {/each}
                 {/if}
               </select>
-              <button
-                class="btn bg-primary-500-token hover:bg-primary-600-token text-white flex items-center gap-2"
-                on:click={() => loadDeckCards(selectedDeckId)}
-                disabled={isLoading}
-              >
-                <icons.RefreshCcw class="w-4 h-4" />
-                Refresh
-              </button>
+              <div class="flex gap-2">
+                <button
+                  class="btn preset-filled-primary flex items-center gap-2"
+                  onclick={() => loadDeckCards(selectedDeckId)}
+                  disabled={isLoading}
+                >
+                  <icons.RefreshCcw size={16} />
+                  Refresh
+                </button>
+                <button
+                  class="btn preset-filled-success flex items-center gap-2"
+                  onclick={openCreateModal}
+                  disabled={isLoading}
+                >
+                  <icons.FolderPlus size={16} />
+                  Create New Deck
+                </button>
+              </div>
             </div>
           </div>
 
@@ -402,3 +431,10 @@
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
   }
 </style>
+
+<!-- Create Deck Modal -->
+<CreateDeckModal 
+  isOpen={isCreateModalOpen} 
+  on:close={closeCreateModal}
+  on:created={handleDeckCreated}
+/>

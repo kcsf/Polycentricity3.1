@@ -90,7 +90,11 @@
 {#if isOpen}
   <div 
     class="modal-backdrop fixed inset-0 bg-surface-950-50/90 backdrop-blur-sm z-40" 
+    role="dialog"
+    aria-modal="true"
     onclick={(e) => e.target === e.currentTarget && handleClose()}
+    onkeydown={(e) => e.key === 'Escape' && handleClose()}
+    tabindex="-1"
   >
     <!-- Modal Content -->
     <div class="modal fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-lg w-full mx-auto z-50">
