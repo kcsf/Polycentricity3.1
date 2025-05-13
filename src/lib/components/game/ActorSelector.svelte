@@ -10,18 +10,7 @@
   import { userStore } from '$lib/stores/userStore';
   import type { Game, ActorWithCard, CardWithPosition, User } from '$lib/types';
   
-  // Get current user from store for use throughout the component
-  let currentUser = $state<User | null>(null);
-  
-  // Initialize user from store via effect - works better in Runes mode than direct store access
-  $effect(() => {
-    const unsubscribe = userStore.subscribe(session => {
-      currentUser = session.user;
-      console.log('User session updated:', currentUser?.user_id || 'Not logged in');
-    });
-    
-    return unsubscribe; // Clean up subscription when component unmounts
-  });
+  // We'll revert to using the store directly without trying to maintain local state
 
   // ─── Props ──────────────────────────────────────────────────────────────────
   let {
@@ -51,17 +40,19 @@
 
   // ─── Derived: this user’s existing actors ───────────────────────────────────
   const existingActors = $derived<ActorWithCard[]>(() => {
-  // Using our properly maintained currentUser
-  const uid = currentUser?.user_id;
-  console.log('Current user ID for actor filtering:', uid);
-  
-  if (!uid) return [];
-  
-  // Filter actors that belong to this user
-  const userActors = actors.filter((a: ActorWithCard) => a.user_ref === uid);
-  console.log('Found user actors:', userActors.length, userActors);
-  return userActors;
-});
+    // Get current user ID safely
+    let userId: string | undefined;
+    userStore.subscribe(session => {
+      userId = session.user?.user_id;
+    })();
+    
+    if (!userId) return [];
+    
+    // Filter actors that belong to this user
+    const userActors = actors.filter((a: ActorWithCard) => a.user_ref === userId);
+    console.log('Found user actors:', userActors.length, userActors);
+    return userActors;
+  });
 
 
   // ─── Defaults & Debug ────────────────────────────────────────────────────────
@@ -91,8 +82,14 @@
 
   // ─── Main join handler ──────────────────────────────────────────────────────
   async function handleJoin() {
+    // Get current user safely
+    let currentUser;
+    userStore.subscribe(session => {
+      currentUser = session.user;
+    })();
+    
     console.log('handleJoin start:', {
-      user: currentUser,
+      user: currentUser?.user_id || 'Not logged in',
       joinMode,
       selectedActorId,
       selectedCardId,
