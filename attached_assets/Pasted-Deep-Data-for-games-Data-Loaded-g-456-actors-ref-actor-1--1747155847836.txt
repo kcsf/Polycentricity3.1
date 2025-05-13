@@ -1,0 +1,374 @@
+Deep Data for "games"
+Data Loaded
+          {
+  "g_456": {
+    "actors_ref": {
+      "actor_1": true,
+      "actor_2": true,
+      "actor_3": true,
+      "actor_4": true,
+      "actors/actor_1": {
+        "actor_id": "actor_1",
+        "actor_type": "National Identity",
+        "created_at": 1746718502338,
+        "custom_name": "Alice's Luminos Funder",
+        "status": "active",
+        "updated_at": 1746718502338,
+        "user_ref": "u_123"
+      },
+      "actors/actor_2": {
+        "actor_id": "actor_2",
+        "actor_type": "National Identity",
+        "created_at": 1746718502338,
+        "custom_name": "Bob's Green Veil DAO",
+        "status": "active",
+        "updated_at": 1746718502338,
+        "user_ref": "u_124"
+      },
+      "actors/actor_3": {
+        "actor_id": "actor_3",
+        "actor_type": "Sovereign Identity",
+        "created_at": 1746718502338,
+        "custom_name": "Charlie's PMA Seedkeeper",
+        "status": "active",
+        "updated_at": 1746718502338,
+        "user_ref": "u_125"
+      },
+      "actors/actor_4": {
+        "actor_id": "actor_4",
+        "actor_type": "Sovereign Identity",
+        "created_at": 1746718502338,
+        "custom_name": "David's Eco-Patron",
+        "status": "active",
+        "updated_at": 1746718502338,
+        "user_ref": "u_126"
+      },
+      "actors/actor__mafj7pr5_fd87rkt2": {
+        "actor_id": "actor__mafj7pr5_fd87rkt2",
+        "actor_type": "National Identity",
+        "created_at": 1746718698785,
+        "custom_name": "Jobu",
+        "status": "active",
+        "updated_at": 1746718698785,
+        "user_ref": "UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk"
+      }
+    },
+    "agreements_ref": {
+      "ag_1": true,
+      "ag_2": true,
+      "ag_3": true,
+      "ag_4": true,
+      "ag_5": true,
+      "agreements/ag_1": {
+        "agreement_id": "ag_1",
+        "cards_ref": {
+          "card_1": true,
+          "card_2": true
+        },
+        "created_at": 1746718502338,
+        "creator_ref": "u_123",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_1": {
+            "benefit": "Receive impact reports",
+            "card_ref": "card_1",
+            "obligation": "Provide $10K funding"
+          },
+          "actor_2": {
+            "benefit": "Receive funding",
+            "card_ref": "card_2",
+            "obligation": "Implement eco-village project"
+          }
+        },
+        "status": "accepted",
+        "summary": "Luminos Funder provides capital to Green Veil DAO",
+        "title": "Funding Agreement",
+        "type": "asymmetric",
+        "updated_at": 1746718502338,
+        "votes": {
+          "actor_1": "accept",
+          "actor_2": "accept"
+        }
+      },
+      "agreements/ag_2": {
+        "agreement_id": "ag_2",
+        "cards_ref": {
+          "card_2": true,
+          "card_3": true
+        },
+        "created_at": 1746718502338,
+        "creator_ref": "u_124",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_2": {
+            "benefit": "Access to land",
+            "card_ref": "card_2",
+            "obligation": "Contribute governance expertise"
+          },
+          "actor_3": {
+            "benefit": "Gain governance support",
+            "card_ref": "card_3",
+            "obligation": "Provide land access"
+          }
+        },
+        "status": "proposed",
+        "summary": "Green Veil DAO and PMA Seedkeeper share land resources",
+        "title": "Land Trust Collaboration",
+        "type": "symmetric",
+        "votes": {
+          "actor_2": "pending",
+          "actor_3": "pending"
+        }
+      },
+      "agreements/ag_3": {
+        "agreement_id": "ag_3",
+        "cards_ref": {
+          "card_3": true,
+          "card_4": true
+        },
+        "created_at": 1746718502338,
+        "creator_ref": "u_125",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_3": {
+            "benefit": "Expand community initiatives",
+            "card_ref": "card_3",
+            "obligation": "Contribute $5K"
+          },
+          "actor_4": {
+            "benefit": "Expand community initiatives",
+            "card_ref": "card_4",
+            "obligation": "Contribute $5K"
+          }
+        },
+        "status": "rejected",
+        "summary": "PMA Seedkeeper and Eco-Patron Collective pool resources",
+        "title": "Community Funding Pact",
+        "type": "symmetric",
+        "updated_at": 1746718502338,
+        "votes": {
+          "actor_3": "reject",
+          "actor_4": "reject"
+        }
+      },
+      "agreements/ag_4": {
+        "agreement_id": "ag_4",
+        "cards_ref": {
+          "card_4": true
+        },
+        "created_at": 1746718502338,
+        "creator_ref": "u_126",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_4": {
+            "benefit": "Gain tech prototype access",
+            "card_ref": "card_4",
+            "obligation": "Provide $3K funding"
+          }
+        },
+        "status": "completed",
+        "summary": "Eco-Patron Collective funds tech project",
+        "title": "Tech Investment Deal",
+        "type": "asymmetric",
+        "updated_at": 1746718502338,
+        "votes": {
+          "actor_4": "accept"
+        }
+      },
+      "agreements/ag_5": {
+        "agreement_id": "ag_5",
+        "cards_ref": {
+          "card_1": true,
+          "card_4": true
+        },
+        "created_at": 1746718502338,
+        "creator_ref": "u_123",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_1": {
+            "benefit": "Access tech solutions",
+            "card_ref": "card_1",
+            "obligation": "Share funding expertise"
+          },
+          "actor_4": {
+            "benefit": "Access funding networks",
+            "card_ref": "card_4",
+            "obligation": "Share tech expertise"
+          }
+        },
+        "status": "accepted",
+        "summary": "Luminos Funder and Eco-Patron Collective share resources",
+        "title": "Resource Sharing",
+        "type": "symmetric",
+        "updated_at": 1746718502338,
+        "votes": {
+          "actor_1": "accept",
+          "actor_4": "accept"
+        }
+      },
+      "agreements/ag_6": {
+        "agreement_id": "ag_6",
+        "cards_ref": {
+          "card_2": true,
+          "card_3": true,
+          "card_5": true
+        },
+        "created_at": 1746718792723,
+        "creator_ref": "UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_2": {
+            "benefit": "get awesome software",
+            "card_ref": "card_2",
+            "obligation": "pay for stuff"
+          },
+          "actor_3": {
+            "benefit": "get more software",
+            "card_ref": "card_3",
+            "obligation": "pay for more stuff"
+          },
+          "actor__mafj7pr5_fd87rkt2": {
+            "benefit": "get paid",
+            "card_ref": "card_5",
+            "obligation": "build stuff"
+          }
+        },
+        "status": "proposed",
+        "summary": "description of ag",
+        "title": "New agreement 3",
+        "type": "asymmetric",
+        "updated_at": 1746718792723,
+        "votes": {
+          "actor_2": "pending",
+          "actor_3": "pending",
+          "actor__mafj7pr5_fd87rkt2": "pending"
+        }
+      },
+      "agreements/ag_7": {
+        "agreement_id": "ag_7",
+        "cards_ref": {
+          "card_2": true,
+          "card_3": true,
+          "card_5": true
+        },
+        "created_at": 1746806796634,
+        "creator_ref": "UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk",
+        "game_ref": "g_456",
+        "parties": {
+          "actor_2": {
+            "benefit": "get credits",
+            "card_ref": "card_2",
+            "obligation": "pay monies"
+          },
+          "actor_3": {
+            "benefit": "get credits",
+            "card_ref": "card_3",
+            "obligation": "Contribute funds"
+          },
+          "actor__mafj7pr5_fd87rkt2": {
+            "benefit": "get paid",
+            "card_ref": "card_5",
+            "obligation": "Build aweseome stuff"
+          }
+        },
+        "status": "proposed",
+        "summary": "Test description",
+        "title": "TestAg2",
+        "type": "asymmetric",
+        "updated_at": 1746806796634,
+        "votes": {
+          "actor_2": "pending",
+          "actor_3": "pending",
+          "actor__mafj7pr5_fd87rkt2": "pending"
+        }
+      }
+    },
+    "chat_rooms_ref": {},
+    "created_at": 1746718502338,
+    "creator_ref": {
+      "users/u_123": {
+        "actors_ref": {
+          "actor_1": true,
+          "actors/actor_1": "[Circular]"
+        },
+        "created_at": 1746718502338,
+        "email": "alice@example.com",
+        "games_ref": {
+          "g_456": true,
+          "games/g_456": "[Circular]"
+        },
+        "name": "Alice Admin",
+        "role": "Admin",
+        "user_id": "u_123"
+      }
+    },
+    "deck_ref": {
+      "decks/d_1": {
+        "cards_ref": {
+          "card_1": true,
+          "card_2": true,
+          "card_3": true,
+          "card_4": true,
+          "card_5": true
+        },
+        "created_at": 1746718502338,
+        "creator_ref": "u_123",
+        "deck_id": "d_1",
+        "description": "A deck of funder roles for eco-village simulation",
+        "is_public": true,
+        "name": "Eco-Village Funder Deck",
+        "updated_at": 1746718502338
+      }
+    },
+    "deck_type": "eco-village",
+    "description": "A simulation of eco-village funding and collaboration",
+    "game_id": "g_456",
+    "max_players": 5,
+    "name": "Eco-Village Simulation",
+    "player_actor_map": "[GUN Ref: games/g_456/player_actor_map]",
+    "players": "[GUN Ref: games/g_456/players]",
+    "role_assignment_type": "player-choice",
+    "status": "active",
+    "updated_at": 1746718701701
+  },
+  "g_457": {
+    "actors_ref": {},
+    "agreements_ref": {},
+    "chat_rooms_ref": {},
+    "created_at": 1747153118673,
+    "creator_ref": {
+      "users/UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk": {
+        "actors_ref": {
+          "actors/actor__mafj7pr5_fd87rkt2": "[Circular]"
+        },
+        "agreements_ref": {
+          "agreements/ag_6": "[Circular]",
+          "agreements/ag_7": "[Circular]"
+        },
+        "created_at": 1746718671939,
+        "email": "bjorn@endogon.com",
+        "games_ref": {
+          "games/g_456": "[Circular]",
+          "games/g_457": "[Circular]"
+        },
+        "name": "Bjorn",
+        "pub": "UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk",
+        "role": "Admin",
+        "user_id": "UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk"
+      }
+    },
+    "deck_ref": {
+      "decks/d_1": "[Circular]"
+    },
+    "deck_type": "eco-village",
+    "description": "",
+    "game_id": "g_457",
+    "max_players": 50,
+    "name": "testG2",
+    "player_actor_map": "[GUN Ref: games/g_457/player_actor_map]",
+    "players": "[GUN Ref: games/g_457/players]",
+    "role_assignment_type": "random",
+    "status": "active",
+    "updated_at": 1747154714133
+  }
+}
