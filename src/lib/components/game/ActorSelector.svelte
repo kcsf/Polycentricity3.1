@@ -53,7 +53,6 @@
     
     // Debug authentication state
     console.log('[ActorSelector] Authentication check:', { 
-      isAuthenticated: isAuthenticated(),
       hasUser: !!currentUser,
       userId: currentUser?.user_id
     });
@@ -163,8 +162,7 @@
     const currentUser = getCurrentUser();
     if (!currentUser) {
       console.log('[ActorSelector] Not authenticated - will show login warning');
-      errorMessage = 'You must be logged in to join this game';
-    } else {
+      // Clear any previous error message
       errorMessage = '';
     }
   });
