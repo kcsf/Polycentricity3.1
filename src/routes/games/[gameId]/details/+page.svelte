@@ -116,9 +116,8 @@
             console.log(`[GameDetailsPage] Game player_actor_map:`, game.player_actor_map);
             
             // Check if current user's actors match with player_actor_map
-            const userStore = require('$lib/stores/userStore');
-            if (userStore.userStore.user) {
-              const userId = userStore.userStore.user.user_id;
+            if ($userStore.user) {
+              const userId = $userStore.user.user_id;
               console.log(`[GameDetailsPage] Current user ID: ${userId}`);
               
               // Find user's actors
