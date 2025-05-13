@@ -56,13 +56,7 @@
                 }
             }
             
-            // For demo/testing purposes - create a mock player role if none exists
-            // This ensures sidebars work correctly in development
-            if (!playerRole && gameContext.actors && gameContext.actors.length > 0) {
-                // Use the first actor as a mock player role for demonstration
-                playerRole = gameContext.actors[0];
-                console.log(`[GamePage] Using mock player role for demo: ${playerRole.actor_id}`);
-            }
+            // No more mock player roles - we only use authentic data
             
         } catch (err) {
             console.error('[GamePage] Error loading game:', err);
@@ -105,16 +99,16 @@
         </div>
     {:else if error}
         <div class="flex flex-col items-center justify-center h-full">
-            <div class="alert variant-filled-error w-1/2 p-4 mb-4">
+            <div class="alert bg-error-500 text-on-error-token w-1/2 p-4 mb-4">
                 <icons.AlertCircle size={24} class="mr-2" />
                 <p>{error}</p>
             </div>
             <div class="flex gap-4 mt-4">
-                <button class="btn variant-filled-primary" onclick={() => loadGameData()}>
+                <button class="btn bg-primary-500 text-on-primary-token" onclick={() => loadGameData()}>
                     <icons.RefreshCcw size={18} class="mr-2" />
                     Try Again
                 </button>
-                <a href="/games" class="btn variant-ghost">
+                <a href="/games" class="btn preset-ghost">
                     <icons.ArrowLeft size={18} class="mr-2" />
                     Back to Games
                 </a>
@@ -129,19 +123,19 @@
             <!-- Top Navigation Bar -->
             <div class="bg-surface-100-800 border-b border-surface-300 p-3 shadow-sm flex justify-between">
                 <div class="flex items-center">
-                    <a href="/games" class="btn btn-sm variant-ghost-surface">
+                    <a href="/games" class="btn btn-sm preset-ghost-surface">
                         <icons.ArrowLeft size={16} class="mr-2" />
                         Back to Games
                     </a>
                     <h1 class="ml-4 text-xl font-bold truncate">{game.name}</h1>
                     {#if game.status}
-                        <span class="badge ml-2 variant-filled-primary">{game.status}</span>
+                        <span class="badge ml-2 bg-primary-500 text-on-primary-token">{game.status}</span>
                     {/if}
                 </div>
                 <div class="flex gap-2">
                     {#if !playerRole}
                         <button 
-                            class="btn btn-sm variant-filled-primary" 
+                            class="btn btn-sm bg-primary-500 text-on-primary-token" 
                             onclick={goToDetails}
                         >
                             <icons.UserPlus size={16} class="mr-2" />
@@ -149,7 +143,7 @@
                         </button>
                     {/if}
                     <button 
-                        class="btn btn-sm variant-ghost-surface"
+                        class="btn btn-sm preset-ghost-surface"
                         onclick={goToDetails}
                     >
                         <icons.Info size={16} class="mr-2" />
@@ -167,11 +161,11 @@
         </div>
     {:else}
         <div class="flex flex-col items-center justify-center h-full">
-            <div class="alert variant-filled-warning w-1/2 p-4 mb-4">
+            <div class="alert bg-warning-500 text-on-warning-token w-1/2 p-4 mb-4">
                 <icons.AlertTriangle size={24} class="mr-2" />
                 <p>Game not found. The game may have been deleted or you may not have permission to view it.</p>
             </div>
-            <a href="/games" class="btn variant-filled-primary mt-4">
+            <a href="/games" class="btn bg-primary-500 text-on-primary-token mt-4">
                 <icons.ArrowLeft size={18} class="mr-2" />
                 Back to Games
             </a>
