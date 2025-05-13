@@ -302,28 +302,28 @@
 
           <!-- Card grid -->
           {#if !isLoading && cards.length === 0}
-            <div class="card p-6 bg-surface-50-900-token text-center rounded-md shadow-md border border-surface-300-600-token">
-              <icons.Package class="w-12 h-12 mx-auto mb-4 text-surface-500-400-token" />
-              <h3 class="text-base font-bold text-surface-900-50-token mb-2">No Cards Found</h3>
-              <p class="text-xs text-surface-700-300-token">This deck doesn't contain any cards or couldn't be loaded properly.</p>
+            <div class="card p-6 bg-surface-50-900 text-center rounded-md shadow-md border border-surface-300-600">
+              <icons.Package class="size-12 mx-auto mb-4 text-surface-500-400" />
+              <h3 class="text-base font-bold text-surface-900-50 mb-2">No Cards Found</h3>
+              <p class="text-xs text-surface-700-300">This deck doesn't contain any cards or couldn't be loaded properly.</p>
             </div>
           {:else if !isLoading}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {#each cards as card}
-                <div class="card overflow-hidden rounded-md shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-800-token border border-surface-300-600-token card-glow">
+                <div class="card overflow-hidden rounded-md shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-800 border border-surface-300-600 card-glow">
                   <!-- Card header -->
-                  <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500-token to-{getCategoryColor(card.card_category)}-700-token rounded-md">
-                    <div class="absolute left-2 top-2 bg-surface-900-token/50 rounded-full p-1">
+                  <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500 to-{getCategoryColor(card.card_category)}-700 rounded-md">
+                    <div class="absolute left-2 top-2 bg-surface-900/50 rounded-full p-1">
                       {#if card.icon}
                         {@const IconComponent = getCardIcon(card.icon)}
-                        <IconComponent class="w-6 h-6" />
+                        <IconComponent class="size-6" />
                       {:else}
-                        <icons.User class="w-6 h-6" />
+                        <icons.User class="size-6" />
                       {/if}
                     </div>
                     <div class="flex items-center justify-between pl-10">
                       <h3 class="text-base font-bold truncate">{card.role_title}</h3>
-                      <span class="badge bg-surface-100-800-token text-surface-900-50-token text-xs px-2 py-1 rounded-full">{card.card_number}</span>
+                      <span class="badge bg-surface-100-800 text-surface-900-50 text-xs px-2 py-1 rounded-full">{card.card_number}</span>
                     </div>
                     <div class="flex items-center gap-2 text-xs mt-1 pl-10">
                       <span>{card.type}</span>
