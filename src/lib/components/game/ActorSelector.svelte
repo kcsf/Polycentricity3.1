@@ -4,8 +4,9 @@
   import {
     createActor,
     joinWithActor,
-    updateGame,
+    updateGame
   } from '$lib/services/gameService';
+  import { getCurrentUser } from '$lib/services/authService';
   import { currentGameStore } from '$lib/stores/gameStore';
   import { userStore } from '$lib/stores/userStore';
   import type { Game, ActorWithCard, CardWithPosition, User } from '$lib/types';

@@ -1,0 +1,127 @@
+Console.js:61 TSS: Counted history being pushed
+Console.js:61 TSS: Caught history
+Console.js:61 TSS: Checking if repeated 500 times for interval 1000 against data:  {}
+Console.js:61 Attempting login for: bjorn@endogon.com
+Console.js:61 Login attempt in progress...
+Console.js:61 User profile found
+Console.js:61 Login successful: UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 TSS: Counted history being pushed
+Console.js:61 TSS: Caught history
+Console.js:61 TSS: Checking if repeated 500 times for interval 1000 against data:  {lastTime: 1747153854856, lastCount: 1}
+Console.js:61 [Dashboard] Found 1 actor references for user UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [Dashboard] Loaded 1 actors for user UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [Dashboard] Found 2 total games
+Console.js:61 [Dashboard] Found 2 game references for user UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [Dashboard] Filtered to 2 user games
+Console.js:61 [Dashboard] Loaded 2 games for user UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [Dashboard] Found 1 cards owned by user's actors
+Console.js:61 [GameCard] Game g_456 - User ID: UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [GameCard] Game g_456 - isCreator: false
+Console.js:61 [GameCard] Game g_456 - isInPlayersList: false
+Console.js:61 [GameCard] Game g_456 - isUserInGame: true
+Console.js:61 [GameCard] Game g_457 - User ID: UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [GameCard] Game g_457 - isCreator: false
+Console.js:61 [GameCard] Game g_457 - isInPlayersList: false
+Console.js:61 [GameCard] Game g_457 - isUserInGame: true
+Console.js:61 TSS: Counted history being pushed
+Console.js:61 TSS: Caught history
+Console.js:61 TSS: Checking if repeated 500 times for interval 1000 against data:  {lastTime: 1747153856708, lastCount: 1}
+Console.js:61 Retrieved 2 games
+Console.js:61 [GameCard] Game g_456 - User ID: UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [GameCard] Game g_456 - isCreator: false
+Console.js:61 [GameCard] Game g_456 - isInPlayersList: false
+Console.js:61 [GameCard] Game g_456 - isUserInGame: false
+Console.js:61 [GameCard] Game g_457 - User ID: UVjQvvuLZtz-Tnv5NTOVB37rM6MbutnHx84WJZarny4.BXSf1CzEFPoBxJEm8q0PhW7yBLkOb9TZI2DHVy9GzOk
+Console.js:61 [GameCard] Game g_457 - isCreator: false
+Console.js:61 [GameCard] Game g_457 - isInPlayersList: false
+Console.js:61 [GameCard] Game g_457 - isUserInGame: false
+Console.js:61 [GameCard] Viewing details for gameId: g_457
+Console.js:61 TSS: Counted history being pushed
+Console.js:61 TSS: Caught history
+Console.js:61 TSS: Checking if repeated 500 times for interval 1000 against data:  {lastTime: 1747153860977, lastCount: 1}
+Console.js:61 [GameDetailsPage] Loading context for g_457
+Console.js:61 [GameDetailsPage] Subscription updated for g_457
+Console.js:61 [GameDetailsPage] Subscription updated for g_457
+Console.js:61 [GameDetailsPage] Subscription updated for g_457
+Console.js:61 [GameDetailsPage] Cards – total:5, used:0, avail:5
+Console.js:61 [GameDetailsPage] Context loaded in 2377.30ms
+Console.js:61 ActorSelector props: {gameId: 'g_457', game: Proxy(Object), actors: Proxy(Array), availableCardsForActors: Proxy(Array)}
+Console.js:61 [svelte] console_log_stateYour `console.log` contained `$state` proxies. Consider using `$inspect(...)` or `$state.snapshot(...)` insteadhttps://svelte.dev/e/console_log_state
+Mt.forEach.n.<computed> @ Console.js:61
+warn @ client.js?v=5a0d8124:2949
+console_log_state @ chunk-VIZMNZTH.js?v=5a0d8124:28
+(anonymous) @ chunk-D7BAK47I.js?v=5a0d8124:3909
+untrack @ chunk-NXAN6IPG.js?v=5a0d8124:2041
+log_if_contains_state @ chunk-D7BAK47I.js?v=5a0d8124:3896
+$effect @ ActorSelector.svelte:60
+update_reaction @ chunk-NXAN6IPG.js?v=5a0d8124:1638
+update_effect @ chunk-NXAN6IPG.js?v=5a0d8124:1757
+flush_queued_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1854
+flush_queued_root_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1833
+setTimeout
+(anonymous) @ gunService.ts:288
+getCollection @ gunService.ts:276
+getGameContext @ gameService.ts:884
+await in getGameContext
+$effect @ +page.svelte:65
+update_reaction @ chunk-NXAN6IPG.js?v=5a0d8124:1638
+update_effect @ chunk-NXAN6IPG.js?v=5a0d8124:1757
+flush_queued_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1854
+flush_queued_root_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1833
+Console.js:61 [snapshot] availableCardsForActors → []
+Console.js:61 availableCardsForActors → Proxy(Array) {}
+Console.js:61 existingActors → () => {
+		// Get current user ID safely
+		let userId;
+
+		userStore.subscribe((session) => {
+			userId = session.user?.user_id;
+		})();
+
+		if (!userId) return [];
+
+		// Filter actors that belong to th…
+Console.js:61 No existing actors — switching joinMode to "new"
+Console.js:61 [svelte] console_log_stateYour `console.log` contained `$state` proxies. Consider using `$inspect(...)` or `$state.snapshot(...)` insteadhttps://svelte.dev/e/console_log_state
+Mt.forEach.n.<computed> @ Console.js:61
+warn @ client.js?v=5a0d8124:2949
+console_log_state @ chunk-VIZMNZTH.js?v=5a0d8124:28
+(anonymous) @ chunk-D7BAK47I.js?v=5a0d8124:3909
+untrack @ chunk-NXAN6IPG.js?v=5a0d8124:2041
+log_if_contains_state @ chunk-D7BAK47I.js?v=5a0d8124:3896
+$effect @ ActorSelector.svelte:60
+update_reaction @ chunk-NXAN6IPG.js?v=5a0d8124:1638
+update_effect @ chunk-NXAN6IPG.js?v=5a0d8124:1757
+flush_queued_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1854
+flush_queued_root_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1833
+setTimeout
+$effect @ +page.svelte:93
+await in $effect
+update_reaction @ chunk-NXAN6IPG.js?v=5a0d8124:1638
+update_effect @ chunk-NXAN6IPG.js?v=5a0d8124:1757
+flush_queued_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1854
+flush_queued_root_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1833
+Console.js:61 [snapshot] availableCardsForActors → (5) [{…}, {…}, {…}, {…}, {…}]
+Console.js:61 availableCardsForActors → Proxy(Array) {0: {…}, 1: {…}, 2: {…}, 3: {…}, 4: {…}}
+Console.js:61 Default selectedCardId → card_1
+Console.js:61 [svelte] console_log_stateYour `console.log` contained `$state` proxies. Consider using `$inspect(...)` or `$state.snapshot(...)` insteadhttps://svelte.dev/e/console_log_state
+Mt.forEach.n.<computed> @ Console.js:61
+warn @ client.js?v=5a0d8124:2949
+console_log_state @ chunk-VIZMNZTH.js?v=5a0d8124:28
+(anonymous) @ chunk-D7BAK47I.js?v=5a0d8124:3909
+untrack @ chunk-NXAN6IPG.js?v=5a0d8124:2041
+log_if_contains_state @ chunk-D7BAK47I.js?v=5a0d8124:3896
+$effect @ ActorSelector.svelte:60
+update_reaction @ chunk-NXAN6IPG.js?v=5a0d8124:1638
+update_effect @ chunk-NXAN6IPG.js?v=5a0d8124:1757
+flush_queued_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1854
+flush_queued_root_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1833
+setTimeout
+$effect @ +page.svelte:93
+await in $effect
+update_reaction @ chunk-NXAN6IPG.js?v=5a0d8124:1638
+update_effect @ chunk-NXAN6IPG.js?v=5a0d8124:1757
+flush_queued_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1854
+flush_queued_root_effects @ chunk-NXAN6IPG.js?v=5a0d8124:1833
+Console.js:61 [snapshot] availableCardsForActors → (5) [{…}, {…}, {…}, {…}, {…}]
+Console.js:61 availableCardsForActors → Proxy(Array) {0: {…}, 1: {…}, 2: {…}, 3: {…}, 4: {…}}
