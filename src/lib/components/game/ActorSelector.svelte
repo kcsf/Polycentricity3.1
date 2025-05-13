@@ -130,13 +130,15 @@
     }
   }
   
-  // Call fetchUserActors on component initialization
-  $effect(async () => {
-    await fetchUserActors();
-  });
+  // Call fetchUserActors on component initialization and track results
+  let existingActors = $state<ActorWithCard[]>([]);
   
-  // Derived value for displaying existing actors that's reactive to userActors
-  const existingActors = $derived<ActorWithCard[]>(() => userActors);
+  $effect(async () => {
+    console.log('[ActorSelector] Initializing fetchUserActors effect');
+    const actors = await fetchUserActors();
+    console.log('[ActorSelector] Setting existingActors to', actors);
+    existingActors = actors;
+  });
 
   // ─── Defaults & Debug ────────────────────────────────────────────────────────
   $effect(() => {
@@ -147,12 +149,9 @@
     }
   });
 
+  // Log existingActors whenever it changes
   $effect(() => {
     console.log('existingActors →', existingActors);
-    if (existingActors.length && !selectedActorId) {
-      selectedActorId = existingActors[0].actor_id;
-      console.log('Default selectedActorId →', selectedActorId);
-    }
   });
 
   // ─── EFFECTS: Handle actors and authentication ─────────────────────────────
@@ -169,9 +168,17 @@
   
   // Force "new" mode when no existing actors are available
   $effect(() => {
-    if (existingActors.length === 0 && joinMode === 'existing') {
+    console.log('[ActorSelector] Checking existingActors length:', existingActors?.length);
+    if (!existingActors?.length && joinMode === 'existing') {
       console.log('[ActorSelector] No existing actors — switching joinMode to "new"');
       joinMode = 'new';
+    } else if (existingActors?.length) {
+      console.log('[ActorSelector] Found existing actors, setting selectedActorId');
+      // Set default selected actor if we have actors but no selection
+      if (!selectedActorId && existingActors.length > 0) {
+        selectedActorId = existingActors[0].actor_id;
+        console.log('[ActorSelector] Default selectedActorId →', selectedActorId);
+      }
     }
   });
 
