@@ -12,7 +12,7 @@
     // Form state
     let gameName = $state('');
     let deckType = $state('eco-village');
-    let roleAssignment = $state('player-choice');
+    let roleAssignment = $state<"player-choice" | "random">('player-choice');
     let maxPlayers = $state<number | undefined>(undefined);
     let isCreating = $state(false);
     let error = $state('');
@@ -50,9 +50,9 @@
             onStatusUpdate('success', 'Game created successfully!');
             onCreated(game.game_id);
 
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Error creating game:', err);
-            error = `Failed to create game: ${err.message || 'Unknown error'}`;
+            error = `Failed to create game: ${err instanceof Error ? err.message : 'Unknown error'}`;
             onStatusUpdate('error', error);
         } finally {
             isCreating = false;
