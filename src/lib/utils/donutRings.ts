@@ -168,14 +168,33 @@ export function addDonutRings(
               d3.select(this).transition().duration(100)
                 .attr('fill',category.color);
             })
-            .on('click',function(event){
-              event.stopPropagation(); event.preventDefault();
+            .on('click', function(event){
+              event.stopPropagation();
+              event.preventDefault();
               const midAngle = (a0 + a1)/2;
-              spawnCategorySubnode(nodeData.id, item, midAngle, category.color);
-              // Hide the label for this item
-              labelContainer.select(`text[data-item="${item}"]`)
-                .style('visibility', 'hidden');
+            
+              // 0) restore all labels first (so any previously hidden label comes back)
+              labelContainer
+                .selectAll('text')
+                .style('visibility', 'visible');
+            
+              // 1) spawn/toggle
+              const isNowActive = spawnCategorySubnode(
+                nodeData.id,
+                item,
+                midAngle,
+                category.color
+              );
+            
+              // 2) if we just *created* the subnode, hide *only* its label
+              if (isNowActive) {
+                labelContainer
+                  .select(`text[data-item="${item}"]`)
+                  .style('visibility', 'hidden');
+              }
             });
+            
+            
 
           const mid = (a0+a1)/2;
           const adj = mid - Math.PI/2;

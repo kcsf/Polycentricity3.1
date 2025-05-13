@@ -219,13 +219,6 @@
   :global(.center-icon-container) {
     pointer-events: none;
   }
-  :global(.link.obligation) {
-    stroke: var(--color-indigo-600-400);
-  }
-  :global(.link.benefit) {
-    stroke: var(--color-emerald-500-400);
-    stroke-dasharray: 4 2;
-  }
   :global(.node.active circle) {
     stroke: var(--color-green-400-500);
     stroke-width: 3px;
