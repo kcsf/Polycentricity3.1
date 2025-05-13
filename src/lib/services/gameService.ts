@@ -286,7 +286,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Actor flows
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────de�────────────────────────────
 export async function createActor(
   gameId: string,
   cardId: string,
@@ -372,39 +372,53 @@ export async function joinWithActor(
   const user = getCurrentUser();
   if (!user) return false;
 
-  // 1️⃣ Load game
-  const game = await get<Game>(`${nodes.games}/${gameId}`);
-  if (!game) return false;
+  // 1️⃣ Load game and actor
+  const [game, actor] = await Promise.all([
+    get<Game>(`${nodes.games}/${gameId}`),
+    get<Actor>(`${nodes.actors}/${actorId}`),
+  ]);
+  if (!game || !actor) return false;
 
   // 2️⃣ Build updated maps
   const playersMap = { ...(game.players || {}), [user.user_id]: true };
   const pamMap = { ...(game.player_actor_map || {}), [user.user_id]: actorId };
+  const actorGamesRef = { ...(actor.games_ref || {}), [gameId]: true };
 
-  // 3️⃣ Write nested maps under games/<gameId>/
+  // 3️⃣ Write nested maps
   await Promise.all([
     write(`${nodes.games}/${gameId}`, "players", playersMap),
     write(`${nodes.games}/${gameId}`, "player_actor_map", pamMap),
+    write(`${nodes.actors}/${actorId}`, "games_ref", actorGamesRef),
   ]);
 
-  // 4️⃣ Re-create pointer edges
+  // 4️⃣ Create pointer edges
   await Promise.all([
-    // game.players → user
     createRelationship(
       `${nodes.games}/${gameId}`,
       "players",
       `${nodes.users}/${user.user_id}`,
     ),
-    // user.games_ref → game
     createRelationship(
       `${nodes.users}/${user.user_id}`,
       "games_ref",
       `${nodes.games}/${gameId}`,
     ),
-    // game.player_actor_map → actor
     createRelationship(
       `${nodes.games}/${gameId}`,
       "player_actor_map",
       `${nodes.actors}/${actorId}`,
+    ),
+    // Add missing actors_ref edge
+    createRelationship(
+      `${nodes.games}/${gameId}`,
+      "actors_ref",
+      `${nodes.actors}/${actorId}`,
+    ),
+    // Ensure actor.games_ref edge
+    createRelationship(
+      `${nodes.actors}/${actorId}`,
+      "games_ref",
+      `${nodes.games}/${gameId}`,
     ),
   ]);
 
@@ -880,69 +894,68 @@ export async function getGameContext(
       (c) => c != null,
     ) as CardWithPosition[];
 
-// ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
-const rawAgs = await getCollection<Agreement>(nodes.agreements);
-const agreements: AgreementWithPosition[] = await Promise.all(
-  rawAgs
-    .filter((ag) => ag.game_ref === gameId)
-    .map(async (ag) => {
-      // 1) Get the raw actor‐id → Gun pointers
-      const partiesRef =
-        (await getField<Record<string, { "#": string }>>(
-          `${nodes.agreements}/${ag.agreement_id}`,
-          "parties",
-        )) ?? {};
+    // ── 6️⃣ Fetch and fully resolve all agreements for this game ──────────
+    const rawAgs = await getCollection<Agreement>(nodes.agreements);
+    const agreements: AgreementWithPosition[] = await Promise.all(
+      rawAgs
+        .filter((ag) => ag.game_ref === gameId)
+        .map(async (ag) => {
+          // 1) Get the raw actor‐id → Gun pointers
+          const partiesRef =
+            (await getField<Record<string, { "#": string }>>(
+              `${nodes.agreements}/${ag.agreement_id}`,
+              "parties",
+            )) ?? {};
 
-      // 2) For each actorId, load its stored strings and find its CardWithPosition
-      const partyItems: PartyItem[] = await Promise.all(
-        Object.keys(partiesRef).map(async (actorId) => {
-          // pull obligation/benefit/card_ref
-          const pd = (await getField<{
-            card_ref: string;
-            obligation: string;
-            benefit: string;
-          }>(
-            `${nodes.agreements}/${ag.agreement_id}/parties`,
-            actorId,
-          )) ?? { card_ref: "", obligation: "", benefit: "" };
+          // 2) For each actorId, load its stored strings and find its CardWithPosition
+          const partyItems: PartyItem[] = await Promise.all(
+            Object.keys(partiesRef).map(async (actorId) => {
+              // pull obligation/benefit/card_ref
+              const pd = (await getField<{
+                card_ref: string;
+                obligation: string;
+                benefit: string;
+              }>(
+                `${nodes.agreements}/${ag.agreement_id}/parties`,
+                actorId,
+              )) ?? { card_ref: "", obligation: "", benefit: "" };
 
-          // find the ActorWithCard loaded earlier, and grab its .card
-          const actor = actors.find((a) => a.actor_id === actorId);
-          if (!actor?.card) {
-            console.warn(
-              `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
-            );
-            return null;
-          }
+              // find the ActorWithCard loaded earlier, and grab its .card
+              const actor = actors.find((a) => a.actor_id === actorId);
+              if (!actor?.card) {
+                console.warn(
+                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
+                );
+                return null;
+              }
+
+              return {
+                actorId,
+                card: actor.card,
+                obligation: pd.obligation,
+                benefit: pd.benefit,
+              } as PartyItem;
+            }),
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
 
           return {
-            actorId,
-            card: actor.card,
-            obligation: pd.obligation,
-            benefit: pd.benefit,
-          } as PartyItem;
+            ...ag,
+            partyItems,
+            position: randomPos(),
+          };
         }),
-      ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+    );
 
-      return {
-        ...ag,
-        partyItems,
-        position: randomPos(),
-      };
-    }),
-);
-
-return {
-  game,
-  actors,
-  totalCards,
-  usedCards: usedSet.size,
-  availableCards,
-  availableCardsCount: availableCards.length,
-  agreements,
-  deckName: deck?.name ?? game.deck_type,
-};
-
+    return {
+      game,
+      actors,
+      totalCards,
+      usedCards: usedSet.size,
+      availableCards,
+      availableCardsCount: availableCards.length,
+      agreements,
+      deckName: deck?.name ?? game.deck_type,
+    };
   } catch (e) {
     console.error(`[gameService] getGameContext error for ${gameId}:`, e);
     return null;

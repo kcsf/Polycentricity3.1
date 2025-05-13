@@ -480,7 +480,7 @@ export async function createRelationship(
  * @returns Unique ID string
  */
 export function generateId(): string {
-  return `_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
