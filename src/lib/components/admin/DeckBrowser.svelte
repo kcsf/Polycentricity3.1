@@ -283,8 +283,8 @@
 
           <!-- Error display -->
           {#if error}
-            <div class="alert bg-error-500-token text-white mb-4 flex items-center gap-3 rounded-md">
-              <icons.AlertTriangle class="w-5 h-5" />
+            <div class="alert bg-error-500 text-white mb-4 flex items-center gap-3 rounded-md">
+              <icons.AlertTriangle class="size-5" />
               <div>
                 <h3 class="text-sm font-bold">Error</h3>
                 <p class="text-xs">{error}</p>
