@@ -17,6 +17,9 @@
 
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state<string[]>([]);
+  
+  // Modal state
+  let isCreateModalOpen = $state(false);
 
   // Load all decks for dropdown
   async function loadDecks() {
@@ -166,6 +169,23 @@
     const select = event.target as HTMLSelectElement;
     selectedDeckId = select.value;
     loadDeckCards(selectedDeckId);
+  }
+  
+  // Modal functions
+  function openCreateModal(): void {
+    isCreateModalOpen = true;
+  }
+
+  function closeCreateModal(): void {
+    isCreateModalOpen = false;
+  }
+
+  function handleDeckCreated(event: { detail: { deckId: string; name: string } }): void {
+    console.log('[DeckBrowser] Deck created:', event.detail);
+    // Refresh deck list
+    loadDecks();
+    // Select the newly created deck
+    selectedDeckId = event.detail.deckId;
   }
 
   onMount(loadDecks);
