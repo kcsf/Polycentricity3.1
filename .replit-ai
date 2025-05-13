@@ -59,6 +59,27 @@ Replit AI must follow the latest syntax for all packages, as outlined in their r
   - Use optimized Color Pairings that respect light/dark mode like:  {property}-{color}-{lightModeShade}-{darkModeShade}/{transparency}
   (e.g., bg-surface-50-950/90)
 
+# Polycentricity3 Style Guide for Tailwind CSS v4.1.3 + Skeleton Labs v3.1.2
+
+## Design Principle
+- Use `{property}-{color}-{lightShade}-{darkShade}` for light/dark mode color pairs.
+- When using transparency, apply it as `{property}-{color}-{lightShade}-{darkShade}/{transparency}` (e.g., `bg-surface-100-800/50`).
+- Reference: [Skeleton Labs Colors](https://www.skeleton.dev/docs/colors) and [Tailwind CSS v4.1 Upgrade Guide](https://tailwindcss.com/docs/upgrade-guide).
+
+## 📛 Deprecated vs. ✅ Correct Syntax
+
+### Colors & Borders
+- ❌ `border-surface-300-600-token` → ✅ `border-surface-300-600`
+- ❌ `bg-surface-100 dark:bg-surface-800` → ✅ `bg-surface-100-800`
+- ❌ `text-surface-900-50-token` → ✅ `text-surface-900-50`
+- ❌ `bg-surface-100/50` → ✅ `bg-surface-100-800/50` (always specify light/dark shades with transparency)
+
+### Component Variants (Skeleton Labs v3.1.2)
+- ❌ `variant-filled` → ✅ `preset-filled`
+- ❌ `variant-ghost` → ✅ `preset-tonal` or `preset-outlined`
+- ❌ `variant-soft` → ✅ `preset-tonal`
+- **Note**: Only `preset-filled`, `preset-tonal`, and `preset-outlined` are included by default. Avoid deprecated `variant-*` classes.
+
 ### Gun.js (0.2020.1240)
 - **Documentation**: [Gun.js API](https://gun.eco/docs/API)
 - **Key Rules**:
