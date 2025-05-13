@@ -104,7 +104,7 @@
         <header class="bg-primary-500 text-white p-4 flex justify-between items-center">
           <div class="flex items-center gap-2">
             <icons.FolderPlus size={20} />
-            <h3 class="h3">Create New Deck</h3>
+            <div class="h2">Create New Deck</div>
           </div>
           <button class="btn btn-sm preset-tonal text-white" onclick={handleClose}>
             <icons.X size={18} />

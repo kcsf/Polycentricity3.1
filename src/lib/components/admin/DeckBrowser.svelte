@@ -6,7 +6,6 @@
   import type { Deck, Card, CardWithPosition, Value, Capability } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
-  import CreateDeckModal from '$lib/components/admin/CreateDeckModal.svelte';
 
   // State variables using Svelte 5 Runes
   let selectedDeckId = $state('');
@@ -17,9 +16,6 @@
 
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state<string[]>([]);
-  
-  // Modal state
-  let isCreateModalOpen = $state(false);
 
   // Load all decks for dropdown
   async function loadDecks() {
@@ -170,29 +166,12 @@
     selectedDeckId = select.value;
     loadDeckCards(selectedDeckId);
   }
-  
-  // Modal functions
-  function openCreateModal(): void {
-    isCreateModalOpen = true;
-  }
-
-  function closeCreateModal(): void {
-    isCreateModalOpen = false;
-  }
-
-  function handleDeckCreated(event: { detail: { deckId: string; name: string } }): void {
-    console.log('[DeckBrowser] Deck created:', event.detail);
-    // Refresh deck list
-    loadDecks();
-    // Select the newly created deck
-    selectedDeckId = event.detail.deckId;
-  }
 
   onMount(loadDecks);
 </script>
 
 <div class="deck-browser container mx-auto p-4 max-w-7xl">
-  <div class="preset-tonal bg-surface-100-800 border-surface-200-700 rounded-lg p-4 mb-4 shadow-md">
+  <div class="preset-tonal bg-surface-100-800 border-surface-200-700 rounded-lg p-4 mb-4 shadow">
     <div class="flex items-center space-x-4">
       <icons.Layout class="text-primary-500-400 size-6" />
       <div>
@@ -237,14 +216,7 @@
                   <icons.RefreshCcw class="size-4" />
                   Refresh
                 </button>
-                <button
-                  class="preset-filled-success rounded-md flex items-center gap-2 disabled:opacity-50"
-                  onclick={openCreateModal}
-                  disabled={isLoading}
-                >
-                  <icons.FolderPlus class="size-4" />
-                  Create New Deck
-                </button>
+                <!-- Create Deck button removed temporarily -->
               </div>
             </div>
           </div>
@@ -364,14 +336,7 @@
   </Accordion>
 </div>
 
-<!-- Create Deck Modal -->
-<CreateDeckModal 
-  isOpen={isCreateModalOpen} 
-  onevent={{
-    close: closeCreateModal,
-    created: handleDeckCreated
-  }}
-/>
+
 
 <style>
   .deck-browser {
