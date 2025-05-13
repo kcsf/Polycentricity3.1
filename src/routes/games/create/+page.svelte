@@ -67,7 +67,7 @@
                 <p class="text-sm text-surface-300">
                     Create a new game session where players can collaborate to build an eco-village or other sustainable projects.
                 </p>
-                <h4 class="h4 text-base text-tertiary-500">Game Types:</h4>
+                <h4 class="h4 text-base text-tertiary-500">Available Decks:</h4>
                 <ul class="list-disc list-inside space-y-1 text-sm text-surface-300">
                     <li>
                         <strong>Eco-Village:</strong> Build a self-sufficient community focused on sustainability

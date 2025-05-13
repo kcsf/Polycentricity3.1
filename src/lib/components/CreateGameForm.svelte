@@ -61,7 +61,7 @@
 </script>
 
 <div class="card p-6 bg-surface-100-800-token space-y-6">
-    <form on:submit|preventDefault={handleSubmit}>
+    <form onsubmit={event => { event.preventDefault(); handleSubmit(); }}>
         {#if error}
             <div class="alert variant-filled-error p-4 mb-4">
                 <icons.AlertCircle size={20} class="mr-2" />
@@ -93,7 +93,7 @@
         <!-- Deck Type -->
         <div class="space-y-2 mb-4">
             <label class="label">
-                <span class="font-medium">Game Type</span>
+                <span class="font-medium">Select Deck</span>
                 <select class="select" bind:value={deckType} disabled={isCreating}>
                     {#each predefinedDeckTypes as type}
                         <option value={type.value}>{type.label}</option>
