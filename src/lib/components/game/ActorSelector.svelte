@@ -8,7 +8,10 @@
   } from '$lib/services/gameService';
   import { currentGameStore } from '$lib/stores/gameStore';
   import { userStore } from '$lib/stores/userStore';
-  import type { Game, ActorWithCard, CardWithPosition } from '$lib/types';
+  import type { Game, ActorWithCard, CardWithPosition, User } from '$lib/types';
+  
+  // Get current user from store for use throughout the component
+  let currentUser = $state<User | null>(null);
 
   // ─── Props ──────────────────────────────────────────────────────────────────
   let {
@@ -38,9 +41,21 @@
 
   // ─── Derived: this user’s existing actors ───────────────────────────────────
   const existingActors = $derived<ActorWithCard[]>(() => {
-  const uid = $userStore.user?.user_id;
+  // Get current user from the store
+  let currentUserSession;
+  userStore.subscribe(session => {
+    currentUserSession = session;
+  })();
+  
+  const uid = currentUserSession?.user?.user_id;
+  console.log('Current user ID for actor filtering:', uid);
+  
   if (!uid) return [];
-  return actors.filter((a: ActorWithCard) => a.user_ref === uid);
+  
+  // Filter actors that belong to this user
+  const userActors = actors.filter((a: ActorWithCard) => a.user_ref === uid);
+  console.log('Found user actors:', userActors.length, userActors);
+  return userActors;
 });
 
 
@@ -71,8 +86,14 @@
 
   // ─── Main join handler ──────────────────────────────────────────────────────
   async function handleJoin() {
+    // Get current user from store
+    let currentUser;
+    userStore.subscribe(session => {
+      currentUser = session.user;
+    })();
+    
     console.log('handleJoin start:', {
-      user: $userStore.user,
+      user: currentUser,
       joinMode,
       selectedActorId,
       selectedCardId,
@@ -80,7 +101,7 @@
       customName,
     });
 
-    if (!$userStore.user) {
+    if (!currentUser) {
       errorMessage = 'You must be logged in to join';
       return;
     }
