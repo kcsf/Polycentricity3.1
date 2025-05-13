@@ -98,7 +98,7 @@
     tabindex="-1"
   >
     <!-- Modal Content -->
-    <div class="modal fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-lg size-full mx-auto z-50">
+    <div class="modal fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-lg w-full mx-auto z-50">
       <div class="card bg-surface-50-800 p-0 rounded-lg shadow-xl border border-surface-300-600 overflow-hidden">
         <!-- Modal Header -->
         <header class="bg-primary-500 text-white p-4 flex justify-between items-center">
@@ -128,7 +128,7 @@
               <span class="font-semibold">Deck Name<span class="text-error-500">*</span></span>
               <input 
                 type="text" 
-                class="input size-full" 
+                class="input w-full" 
                 bind:value={name}
                 placeholder="Enter deck name"
                 disabled={isSubmitting}
@@ -139,7 +139,7 @@
             <label class="label">
               <span class="font-semibold">Description</span>
               <textarea 
-                class="textarea size-full h-24" 
+                class="textarea w-full h-24" 
                 bind:value={description}
                 placeholder="Enter deck description"
                 disabled={isSubmitting}
@@ -168,7 +168,7 @@
                 disabled={isSubmitting}
               >
                 {#if isSubmitting}
-                  <span class="spinner-third size-4"></span>
+                  <span class="spinner-third"></span>
                   Creating...
                 {:else}
                   <icons.Save size={16} />
