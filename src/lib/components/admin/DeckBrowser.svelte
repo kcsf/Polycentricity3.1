@@ -6,6 +6,7 @@
   import type { Deck, Card, CardWithPosition, Value, Capability } from '$lib/types';
   import { page } from '$app/stores';
   import DeckManager from '$lib/components/admin/DeckManager.svelte';
+  import CreateDeckModal from '$lib/components/admin/CreateDeckModal.svelte';
 
   // State variables using Svelte 5 Runes
   let selectedDeckId = $state('');
@@ -13,6 +14,7 @@
   let cards = $state<CardWithPosition[]>([]);
   let isLoading = $state(true);
   let error = $state<string | null>(null);
+  let isCreateModalOpen = $state(false);
 
   // For accordion sections - empty array means all accordions are closed by default
   let accordionValue = $state<string[]>([]);
