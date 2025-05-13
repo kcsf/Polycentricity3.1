@@ -9,9 +9,10 @@
   import { getCurrentUser } from '$lib/services/authService';
   import { currentGameStore } from '$lib/stores/gameStore';
   import { userStore } from '$lib/stores/userStore';
-  import type { Game, ActorWithCard, CardWithPosition, User } from '$lib/types';
+  import type { Game, ActorWithCard, CardWithPosition, User, Actor } from '$lib/types';
   
-  // We'll revert to using the store directly without trying to maintain local state
+  // We'll import gunService directly to fetch user actors
+  import { get, getSet, nodes, getCollection } from '$lib/services/gunService';
 
   // ─── Props ──────────────────────────────────────────────────────────────────
   let {
@@ -39,22 +40,81 @@
   let isJoining = $state<boolean>(false);
   let errorMessage = $state<string>('');
 
-  // ─── Derived: this user’s existing actors ───────────────────────────────────
-  const existingActors = $derived<ActorWithCard[]>(() => {
+  // ─── User's existing actors ───────────────────────────────────────────────
+  let userActors = $state<ActorWithCard[]>([]);
+  let isLoadingActors = $state(false);
+  
+  // Function to fetch user actors directly from the database
+  async function fetchUserActors() {
+    isLoadingActors = true;
+    
     // Get current user ID safely
     let userId: string | undefined;
     userStore.subscribe(session => {
       userId = session.user?.user_id;
     })();
     
-    if (!userId) return [];
+    if (!userId) {
+      isLoadingActors = false;
+      return [];
+    }
     
-    // Filter actors that belong to this user
-    const userActors = actors.filter((a: ActorWithCard) => a.user_ref === userId);
-    console.log('Found user actors:', userActors.length, userActors);
-    return userActors;
+    try {
+      // First check if user has actors_ref set
+      const actorRefs = await getSet(`${nodes.users}/${userId}`, "actors_ref");
+      console.log(`[ActorSelector] Found ${actorRefs.length} actor references for user ${userId}`);
+      
+      let fetchedActors: ActorWithCard[] = [];
+      
+      // If user has actor references, fetch those specific actors
+      if (actorRefs.length > 0) {
+        const userActorsData = await Promise.all(
+          actorRefs.map(async (ref) => {
+            // Extract actor ID from reference path
+            const actorId = ref.includes('/') ? ref.split('/').pop()! : ref;
+            const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
+            if (actor) {
+              // Convert to ActorWithCard format expected by the component
+              return {
+                ...actor,
+                card: null // We don't need the card details here
+              } as ActorWithCard;
+            }
+            return null;
+          })
+        );
+        
+        // Filter out any nulls from failed fetches
+        fetchedActors = userActorsData.filter((actor): actor is ActorWithCard => actor !== null);
+      } else {
+        // Fallback: query all actors and filter by user reference
+        const allActors = await getCollection<Actor>(nodes.actors);
+        fetchedActors = allActors
+          .filter(actor => actor.user_ref === userId)
+          .map(actor => ({
+            ...actor,
+            card: null // We don't need the card details here
+          } as ActorWithCard));
+      }
+      
+      console.log('[ActorSelector] Found user actors:', fetchedActors.length, fetchedActors);
+      userActors = fetchedActors;
+      return fetchedActors;
+    } catch (error) {
+      console.error('[ActorSelector] Error fetching user actors:', error);
+      return [];
+    } finally {
+      isLoadingActors = false;
+    }
+  }
+  
+  // Call fetchUserActors on component initialization
+  $effect(async () => {
+    await fetchUserActors();
   });
-
+  
+  // Derived value for displaying existing actors that's reactive to userActors
+  const existingActors = $derived<ActorWithCard[]>(() => userActors);
 
   // ─── Defaults & Debug ────────────────────────────────────────────────────────
   $effect(() => {
@@ -73,7 +133,7 @@
     }
   });
 
-  // ─── NEW EFFECT: force “new” when no existing actors ────────────────────────
+  // ─── NEW EFFECT: force "new" when no existing actors ────────────────────────
   $effect(() => {
     if (existingActors.length === 0 && joinMode === 'existing') {
       console.log('No existing actors — switching joinMode to "new"');
@@ -165,97 +225,110 @@
 </script>
 
 <div class="space-y-4">
-  {#if existingActors.length}
-    <fieldset class="flex gap-6">
-      <label class="flex items-center cursor-pointer">
-        <input
-          type="radio"
-          class="radio mr-2"
-          bind:group={joinMode}
-          value="existing"
-        />
-        Use Existing Actor
-      </label>
-      <label class="flex items-center cursor-pointer">
-        <input
-          type="radio"
-          class="radio mr-2"
-          bind:group={joinMode}
-          value="new"
-        />
-        Create New Actor
-      </label>
-    </fieldset>
-  {/if}
-
-  {#if joinMode === 'existing' && existingActors.length}
-    <label class="label">
-      <span class="font-semibold">Select Actor</span>
-      <select class="select w-full mt-1" bind:value={selectedActorId}>
-        {#each existingActors as actor (actor.actor_id)}
-        <option value={actor.actor_id}>
-          {actor.custom_name ?? actor.actor_id}
-        </option>
-      {/each}
-      </select>
-    </label>
+  <!-- Loading indicator when fetching actors -->
+  {#if isLoadingActors}
+    <div class="flex justify-center items-center p-4">
+      <span class="spinner-third h-8 w-8"></span>
+      <span class="ml-2">Loading your actors...</span>
+    </div>
   {:else}
-    <label class="label">
-      <span class="font-semibold">Identity Type</span>
-      <select class="select w-full mt-1" bind:value={actorType}>
-        <option value="National Identity">National Identity</option>
-        <option value="Sovereign Identity">Sovereign Identity</option>
-      </select>
-    </label>
+    <!-- Radio group for choosing mode (only shown if user has existing actors) -->
+    {#if existingActors.length}
+      <fieldset class="flex gap-6">
+        <label class="flex items-center cursor-pointer">
+          <input
+            type="radio"
+            class="radio mr-2"
+            bind:group={joinMode}
+            value="existing"
+          />
+          Use Existing Actor
+        </label>
+        <label class="flex items-center cursor-pointer">
+          <input
+            type="radio"
+            class="radio mr-2"
+            bind:group={joinMode}
+            value="new"
+          />
+          Create New Actor
+        </label>
+      </fieldset>
+    {/if}
 
-    <label class="label">
-      <span class="font-semibold">Custom Name (optional)</span>
-      <input
-        class="input w-full mt-1"
-        type="text"
-        bind:value={customName}
-        placeholder="Enter a name for your actor"
-      />
-    </label>
-
-    <label class="label">
-      <span class="font-semibold">Choose Your Card</span>
-      <select class="select w-full mt-1" bind:value={selectedCardId}>
-        {#each availableCardsForActors as card (card.card_id)}
-          <option value={card.card_id}>
-            {card.role_title}{card.card_category ? ` (${card.card_category})` : ''}
+    <!-- Existing Actor Selection -->
+    {#if joinMode === 'existing' && existingActors.length}
+      <label class="label">
+        <span class="font-semibold">Select Actor</span>
+        <select class="select w-full mt-1" bind:value={selectedActorId}>
+          {#each existingActors as actor (actor.actor_id)}
+          <option value={actor.actor_id}>
+            {actor.custom_name ?? actor.actor_id}
           </option>
         {/each}
-      </select>
-    </label>
-  {/if}
-
-  {#if errorMessage}
-    <div class="alert variant-filled-error p-4">
-      <icons.AlertCircle class="mr-2" />
-      <span>{errorMessage}</span>
-    </div>
-  {/if}
-
-  <button
-    class="btn variant-filled-primary w-full flex justify-center items-center"
-    onclick={handleJoin}
-    disabled={isJoining}
-  >
-    {#if isJoining}
-      <span class="spinner-third w-4 h-4 mr-2"></span>
-      Joining…
+        </select>
+      </label>
+    <!-- New Actor Creation -->
     {:else}
-      <icons.UserPlus class="mr-2" />
-      Join Game
-    {/if}
-  </button>
+      <label class="label">
+        <span class="font-semibold">Identity Type</span>
+        <select class="select w-full mt-1" bind:value={actorType}>
+          <option value="National Identity">National Identity</option>
+          <option value="Sovereign Identity">Sovereign Identity</option>
+        </select>
+      </label>
 
-  <button
-    class="btn variant-ghost-surface-secondary w-full"
-    onclick={() => goto(`/games/${gameId}`)}
-  >
-    <icons.Eye class="mr-2" />
-    View Game Without Joining
-  </button>
+      <label class="label">
+        <span class="font-semibold">Custom Name (optional)</span>
+        <input
+          class="input w-full mt-1"
+          type="text"
+          bind:value={customName}
+          placeholder="Enter a name for your actor"
+        />
+      </label>
+
+      <label class="label">
+        <span class="font-semibold">Choose Your Card</span>
+        <select class="select w-full mt-1" bind:value={selectedCardId}>
+          {#each availableCardsForActors as card (card.card_id)}
+            <option value={card.card_id}>
+              {card.role_title}{card.card_category ? ` (${card.card_category})` : ''}
+            </option>
+          {/each}
+        </select>
+      </label>
+    {/if}
+
+    <!-- Error message display -->
+    {#if errorMessage}
+      <div class="alert variant-filled-error p-4">
+        <icons.AlertCircle class="mr-2" />
+        <span>{errorMessage}</span>
+      </div>
+    {/if}
+
+    <!-- Action buttons -->
+    <button
+      class="btn variant-filled-primary w-full flex justify-center items-center"
+      onclick={handleJoin}
+      disabled={isJoining}
+    >
+      {#if isJoining}
+        <span class="spinner-third w-4 h-4 mr-2"></span>
+        Joining…
+      {:else}
+        <icons.UserPlus class="mr-2" />
+        Join Game
+      {/if}
+    </button>
+
+    <button
+      class="btn variant-ghost-surface-secondary w-full"
+      onclick={() => goto(`/games/${gameId}`)}
+    >
+      <icons.Eye class="mr-2" />
+      View Game Without Joining
+    </button>
+  {/if}
 </div>
