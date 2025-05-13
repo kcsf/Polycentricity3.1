@@ -153,7 +153,7 @@ export interface ChatMessage {
     sender_name: string; // e.g., 'Bjorn'
     content: string; // e.g., 'Let’s discuss the garden agreement'
     type: "group" | "private";
-    recipient_ref?: string | null; // e.g., 'u_123' for private messages, null for group
+    recipient_ref?: string; // e.g., 'u_123'
     read_by_ref: Record<string, boolean>; // e.g., { u_838: true }
     created_at: number;
 }
