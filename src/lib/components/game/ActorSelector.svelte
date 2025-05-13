@@ -48,18 +48,28 @@
   async function fetchUserActors() {
     isLoadingActors = true;
     
-    // Get current user ID safely
-    let userId: string | undefined;
-    userStore.subscribe(session => {
-      userId = session.user?.user_id;
-    })();
+    // Get current user from authService
+    const currentUser = getCurrentUser();
+    
+    // Debug authentication state
+    console.log('[ActorSelector] Authentication check:', { 
+      isAuthenticated: isAuthenticated(),
+      hasUser: !!currentUser,
+      userId: currentUser?.user_id
+    });
+    
+    // Get user ID safely
+    const userId = currentUser?.user_id;
     
     if (!userId) {
+      console.log('[ActorSelector] No authenticated user found');
       isLoadingActors = false;
       return [];
     }
     
     try {
+      console.log(`[ActorSelector] Fetching actors for user: ${userId}`);
+      
       // First check if user has actors_ref set
       const actorRefs = await getSet(`${nodes.users}/${userId}`, "actors_ref");
       console.log(`[ActorSelector] Found ${actorRefs.length} actor references for user ${userId}`);
@@ -68,18 +78,25 @@
       
       // If user has actor references, fetch those specific actors
       if (actorRefs.length > 0) {
+        console.log(`[ActorSelector] Fetching ${actorRefs.length} specific actors:`, actorRefs);
+        
         const userActorsData = await Promise.all(
           actorRefs.map(async (ref) => {
             // Extract actor ID from reference path
             const actorId = ref.includes('/') ? ref.split('/').pop()! : ref;
+            console.log(`[ActorSelector] Fetching actor: ${actorId}`);
+            
             const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
+            
             if (actor) {
+              console.log(`[ActorSelector] Found actor: ${actorId}`, actor);
               // Convert to ActorWithCard format expected by the component
               return {
                 ...actor,
                 card: null // We don't need the card details here
               } as ActorWithCard;
             }
+            console.log(`[ActorSelector] Actor not found: ${actorId}`);
             return null;
           })
         );
@@ -87,17 +104,23 @@
         // Filter out any nulls from failed fetches
         fetchedActors = userActorsData.filter((actor): actor is ActorWithCard => actor !== null);
       } else {
+        console.log(`[ActorSelector] No actor references found, querying all actors`);
+        
         // Fallback: query all actors and filter by user reference
         const allActors = await getCollection<Actor>(nodes.actors);
+        console.log(`[ActorSelector] Found ${allActors.length} total actors, filtering for user ${userId}`);
+        
         fetchedActors = allActors
           .filter(actor => actor.user_ref === userId)
           .map(actor => ({
             ...actor,
             card: null // We don't need the card details here
           } as ActorWithCard));
+          
+        console.log(`[ActorSelector] After filtering, found ${fetchedActors.length} actors for user ${userId}`);
       }
       
-      console.log('[ActorSelector] Found user actors:', fetchedActors.length, fetchedActors);
+      console.log('[ActorSelector] Final actors found:', fetchedActors.length, fetchedActors);
       userActors = fetchedActors;
       return fetchedActors;
     } catch (error) {
@@ -133,10 +156,23 @@
     }
   });
 
-  // ─── NEW EFFECT: force "new" when no existing actors ────────────────────────
+  // ─── EFFECTS: Handle actors and authentication ─────────────────────────────
+  
+  // Check authentication status on component initialization
+  $effect(() => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      console.log('[ActorSelector] Not authenticated - will show login warning');
+      errorMessage = 'You must be logged in to join this game';
+    } else {
+      errorMessage = '';
+    }
+  });
+  
+  // Force "new" mode when no existing actors are available
   $effect(() => {
     if (existingActors.length === 0 && joinMode === 'existing') {
-      console.log('No existing actors — switching joinMode to "new"');
+      console.log('[ActorSelector] No existing actors — switching joinMode to "new"');
       joinMode = 'new';
     }
   });
@@ -231,9 +267,34 @@
       <span class="spinner-third h-8 w-8"></span>
       <span class="ml-2">Loading your actors...</span>
     </div>
+  
+  <!-- Authentication check -->
+  {:else if !getCurrentUser()}
+    <div class="alert preset-filled-warning p-4">
+      <icons.AlertTriangle class="mr-2" />
+      <span>You must be logged in to join this game.</span>
+    </div>
+    
+    <button
+      class="btn variant-filled-primary w-full flex justify-center items-center"
+      onclick={() => goto('/login')}
+    >
+      <icons.LogIn class="mr-2" />
+      Log In
+    </button>
+    
+    <button
+      class="btn variant-ghost-surface-secondary w-full"
+      onclick={() => goto(`/games/${gameId}`)}
+    >
+      <icons.Eye class="mr-2" />
+      View Game Without Joining
+    </button>
+  
+  <!-- Main join interface -->
   {:else}
     <!-- Radio group for choosing mode (only shown if user has existing actors) -->
-    {#if existingActors.length}
+    {#if existingActors?.length}
       <fieldset class="flex gap-6">
         <label class="flex items-center cursor-pointer">
           <input
@@ -257,7 +318,7 @@
     {/if}
 
     <!-- Existing Actor Selection -->
-    {#if joinMode === 'existing' && existingActors.length}
+    {#if joinMode === 'existing' && existingActors?.length}
       <label class="label">
         <span class="font-semibold">Select Actor</span>
         <select class="select w-full mt-1" bind:value={selectedActorId}>
@@ -312,7 +373,7 @@
     <button
       class="btn variant-filled-primary w-full flex justify-center items-center"
       onclick={handleJoin}
-      disabled={isJoining}
+      disabled={isJoining || !getCurrentUser()}
     >
       {#if isJoining}
         <span class="spinner-third w-4 h-4 mr-2"></span>
