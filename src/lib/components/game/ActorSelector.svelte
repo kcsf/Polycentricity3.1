@@ -276,7 +276,7 @@
     </div>
     
     <button
-      class="btn variant-filled-primary w-full flex justify-center items-center"
+      class="btn preset-filled-primary w-full flex justify-center items-center"
       onclick={() => goto('/login')}
     >
       <icons.LogIn class="mr-2" />
@@ -284,7 +284,7 @@
     </button>
     
     <button
-      class="btn variant-ghost-surface-secondary w-full"
+      class="btn preset-ghost-surface-secondary w-full"
       onclick={() => goto(`/games/${gameId}`)}
     >
       <icons.Eye class="mr-2" />
@@ -363,7 +363,7 @@
 
     <!-- Error message display -->
     {#if errorMessage}
-      <div class="alert variant-filled-error p-4">
+      <div class="alert preset-filled-error p-4">
         <icons.AlertCircle class="mr-2" />
         <span>{errorMessage}</span>
       </div>
@@ -371,7 +371,7 @@
 
     <!-- Action buttons -->
     <button
-      class="btn variant-filled-primary w-full flex justify-center items-center"
+      class="btn preset-filled-primary w-full flex justify-center items-center"
       onclick={handleJoin}
       disabled={isJoining || !getCurrentUser()}
     >
@@ -385,7 +385,7 @@
     </button>
 
     <button
-      class="btn variant-ghost-surface-secondary w-full"
+      class="btn preset-ghost-surface-secondary w-full"
       onclick={() => goto(`/games/${gameId}`)}
     >
       <icons.Eye class="mr-2" />
