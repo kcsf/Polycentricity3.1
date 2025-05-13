@@ -57,6 +57,12 @@
       userId: currentUser?.user_id
     });
     
+    if ($userStore.user) {
+      console.log('[ActorSelector] User store user ID:', $userStore.user.user_id);
+    } else {
+      console.log('[ActorSelector] No user in userStore');
+    }
+    
     // Get user ID safely
     const userId = currentUser?.user_id;
     

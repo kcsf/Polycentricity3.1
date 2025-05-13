@@ -49,6 +49,21 @@
         cardId:    actor.card?.card_id  ?? '',
         cardTitle: actor.card?.role_title ?? 'Unknown Card'
       }));
+      
+      // DEBUG: log out all actors to check for user's actor
+      console.log('[DetailsPage] Actors in game:', actors);
+      
+      // Check if current user has an actor in this game
+      if ($userStore.user) {
+        const userId = $userStore.user.user_id;
+        console.log(`[DetailsPage] Looking for actor with user_ref: ${userId}`);
+        const currentUserActor = actors.find(actor => actor.user_ref === userId);
+        if (currentUserActor) {
+          console.log(`[DetailsPage] Found actor for current user:`, currentUserActor);
+        } else {
+          console.log(`[DetailsPage] No actor found for current user in this game`);
+        }
+      }
     });
 
     // — initial load with performance optimization
