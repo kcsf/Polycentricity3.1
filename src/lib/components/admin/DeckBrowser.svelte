@@ -192,9 +192,9 @@
 </script>
 
 <div class="deck-browser container mx-auto p-4 max-w-7xl">
-  <div class="preset-tonal bg-surface-100-900 border-surface-200-800 rounded-lg p-4 mb-4 shadow-md">
+  <div class="preset-tonal bg-surface-100-800 border-surface-200-700 rounded-lg p-4 mb-4 shadow-md">
     <div class="flex items-center space-x-4">
-      <icons.Layout class="text-primary-500-400 w-6 h-6" />
+      <icons.Layout class="text-primary-500-400 size-6" />
       <div>
         <h3 class="h3 font-bold text-surface-900-50">Deck Browser</h3>
         <p class="text-sm text-surface-700-200">Explore cards in the selected deck with a vibrant new look.</p>

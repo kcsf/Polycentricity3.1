@@ -99,7 +99,7 @@
   >
     <!-- Modal Content -->
     <div class="modal fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-lg size-full mx-auto z-50">
-      <div class="card bg-surface-50-900 p-0 rounded-lg shadow-xl border border-surface-300-600 overflow-hidden">
+      <div class="card bg-surface-50-800 p-0 rounded-lg shadow-xl border border-surface-300-600 overflow-hidden">
         <!-- Modal Header -->
         <header class="bg-primary-500 text-white p-4 flex justify-between items-center">
           <div class="flex items-center gap-2">
