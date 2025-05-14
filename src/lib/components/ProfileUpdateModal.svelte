@@ -3,15 +3,16 @@
   import { userStore } from '$lib/stores/userStore';
   import type { User, UserSession } from '$lib/types';
   import { X } from '@lucide/svelte';
-  import { createEventDispatcher } from 'svelte';
 
-  const { open = false } = $props<{ open: boolean }>();
-  const dispatch = createEventDispatcher();
+  let { open = $bindable(false), onclose } = $props<{
+    open: boolean;
+    onclose?: () => void;
+  }>();
 
   // Form state
   let name = $state('');
   let email = $state('');
-  let role = $state('Member');
+  let role = $state<User['role']>('Member');
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let successMessage = $state('');
@@ -64,12 +65,12 @@
       const gunUser = getUser();
 
       console.log('Gun initialized:', !!gun);
-      console.log('Gun user initialized:', !!gunUser, gunUser?.is?.pub || 'No pub key');
+      console.log('Gun user initialized:', !!gunUser, gunUser?._.sea?.pub || 'No pub key');
 
       if (!gun) {
         throw new Error('Gun not initialized');
       }
-      if (!gunUser || !gunUser.is) {
+      if (!gunUser || !gunUser._.sea) {
         throw new Error('User not authenticated');
       }
 
@@ -79,8 +80,7 @@
         name,
         email,
         role,
-        created_at: user.created_at,
-        updated_at: Date.now(),
+        created_at: user.created_at        
       };
 
       console.log('Submitting data:', updatedData);
@@ -119,7 +119,10 @@
 
       successMessage = 'Profile updated successfully!';
       console.log('Submit successful, closing modal');
-      setTimeout(() => dispatch('update:open', false), 1500);
+      setTimeout(() => {
+        open = false;
+        onclose?.();
+      }, 1500);
     } catch (error) {
       console.error('Submit error:', error);
       errorMessage = `Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -129,7 +132,8 @@
   }
 
   function handleCancel() {
-    dispatch('update:open', false);
+    open = false;
+    onclose?.();
     isInitialized = false;
   }
 </script>

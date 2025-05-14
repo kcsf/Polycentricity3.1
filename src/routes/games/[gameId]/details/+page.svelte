@@ -51,115 +51,90 @@
         cardTitle: actor.card?.role_title ?? 'Unknown Card'
       }));
       
-      // DEBUG: log out all actors to check for user's actor
       console.log('[DetailsPage] Actors in game:', actors);
-      
-      // Check if current user has an actor in this game
+
       if ($userStore.user) {
         const userId = $userStore.user.user_id;
-        console.log(`[DetailsPage] Looking for actor with user_ref: ${userId}`);
-        const currentUserActor = actors.find(actor => actor.user_ref === userId);
-        if (currentUserActor) {
-          console.log(`[DetailsPage] Found actor for current user:`, currentUserActor);
-        } else {
-          console.log(`[DetailsPage] No actor found for current user in this game`);
-        }
+        const currentUserActor = actors.find(a => a.user_ref === userId);
+        console.log(
+          currentUserActor
+            ? `[DetailsPage] Found actor for current user:` 
+            : `[DetailsPage] No actor found for current user in this game`,
+          currentUserActor
+        );
       }
     });
 
     // — initial load with performance optimization
-    $effect(async () => {
-      // Set loading state first
-      isLoading = true;
-      errorMessage = '';
-      
-      // Log start time for performance debugging
-      const startTime = performance.now();
-      console.log(`[GameDetailsPage] Loading context for ${gameId}`);
-      
-      try {
-        const ctx: GameContext | null = await getGameContext(gameId);
-  
-        if (!ctx) {
-          errorMessage = 'Game not found';
-          game = null;
-          deckName = '';
-          totalCards = 0;
-          usedCards = 0;
-          availableCardsCount = 0;
-          actors = [];
-          availableCardsForActors = [];
-          isFull = false;
-        } else {
-          // Unpack critical data first for faster initial render
-          game = ctx.game;
-          deckName = ctx.deckName;
-          totalCards = ctx.totalCards;
-          usedCards = ctx.usedCards;
-          availableCardsCount = ctx.availableCardsCount;
-          
-          // Calculate "full" status
-          const max = typeof game.max_players === 'string'
-            ? parseInt(game.max_players, 10)
-            : game.max_players;
-          const count = Object.keys(game.players || {}).length;
-          isFull = max ? count >= max : false;
-          
-          // Delay loading actors data using microtask queue to improve perceived performance
-          setTimeout(() => {
-            availableCardsForActors = ctx.availableCards;
-            actors = ctx.actors;
+    $effect(() => {
+      (async () => {
+        isLoading = true;
+        errorMessage = '';
+        
+        const startTime = performance.now();
+        console.log(`[GameDetailsPage] Loading context for ${gameId}`);
+        
+        try {
+          const ctx: GameContext | null = await getGameContext(gameId);
+    
+          if (!ctx) {
+            errorMessage = 'Game not found';
+            game = null;
+            deckName = '';
+            totalCards = usedCards = availableCardsCount = 0;
+            actors = [];
+            availableCardsForActors = [];
+            isFull = false;
+          } else {
+            game = ctx.game;
+            deckName = ctx.deckName;
+            totalCards = ctx.totalCards;
+            usedCards = ctx.usedCards;
+            availableCardsCount = ctx.availableCardsCount;
             
-            // Log actors and player_actor_map data for debugging
-            console.log(`[GameDetailsPage] Loaded ${actors.length} actors for game:`, actors.map(a => a.actor_id));
-            console.log(`[GameDetailsPage] Game players:`, game.players);
-            console.log(`[GameDetailsPage] Game player_actor_map:`, game.player_actor_map);
+            const max = typeof game!.max_players === 'string'
+              ? parseInt(game!.max_players, 10)
+              : game!.max_players;
+            const count = Object.keys(game!.players || {}).length;
+            isFull = max ? count >= max : false;
             
-            // Check if current user's actors match with player_actor_map
-            if ($userStore.user) {
-              const userId = $userStore.user.user_id;
-              console.log(`[GameDetailsPage] Current user ID: ${userId}`);
-              
-              // Find user's actors
-              const userActors = actors.filter(actor => actor.user_ref === userId);
-              console.log(`[GameDetailsPage] User's actors in this game:`, userActors.map(a => a.actor_id));
-              
-              // Check player_actor_map for user's entry
-              if (game.player_actor_map && game.player_actor_map[userId]) {
-                console.log(`[GameDetailsPage] Found user in player_actor_map: ${game.player_actor_map[userId]}`);
-              } else {
-                console.log(`[GameDetailsPage] User not found in player_actor_map`);
-              }
-            }
-          }, 0);
-          
+            setTimeout(() => {
+              availableCardsForActors = ctx.availableCards;
+              actors = ctx.actors;
+              console.log(
+                `[GameDetailsPage] Loaded ${actors.length} actors for game:`,
+                actors.map(a => a.actor_id)
+              );
+            }, 0);
+            
+            console.log(
+              `[GameDetailsPage] Cards – total:${totalCards}, used:${usedCards}, avail:${availableCardsCount}`
+            );
+          }
+        } catch (err) {
+          console.error('[GameDetailsPage] Error loading game context:', err);
+          errorMessage = 'Error loading game data. Please try again.';
+        } finally {
+          isLoading = false;
+          isMounted = true;
           console.log(
-            `[GameDetailsPage] Cards – total:${totalCards}, used:${usedCards}, avail:${availableCardsCount}`
+            `[GameDetailsPage] Context loaded in ${
+              (performance.now() - startTime).toFixed(2)
+            }ms`
           );
         }
-        
-        // Log performance
-        const endTime = performance.now();
-        console.log(`[GameDetailsPage] Context loaded in ${(endTime - startTime).toFixed(2)}ms`);
-      } catch (error) {
-        console.error('[GameDetailsPage] Error loading game context:', error);
-        errorMessage = 'Error loading game data. Please try again.';
-      } finally {
-        isLoading = false;
-        isMounted = true;
-      }
+      })();
     });
 
-    // — live‐update subscription
+    // — live-update subscription
     $effect(() => {
       const unsub = subscribeToGame(gameId, updatedGame => {
         if (!updatedGame) return;
         game = updatedGame;
-        // re‐compute full
-        const max = typeof game.max_players === 'string'
-          ? parseInt(game.max_players, 10)
-          : game.max_players;
-        const count = Object.keys(game.players || {}).length;
+        const max = typeof game!.max_players === 'string'
+          ? parseInt(game!.max_players, 10)
+          : game!.max_players;
+        const count = Object.keys(game!.players || {}).length;
         isFull = max ? count >= max : false;
         console.log(`[GameDetailsPage] Subscription updated for ${gameId}`);
       });
@@ -178,8 +153,6 @@
            : `${days} days ago`;
     }
 </script>
-
-
 
 <div class="container mx-auto p-6 space-y-8">
     <!-- Header Section -->

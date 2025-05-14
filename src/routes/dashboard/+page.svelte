@@ -94,7 +94,7 @@
           const gameId = ref.includes('/') ? ref.split('/').pop()! : ref;
           return gameId === game.game_id;
         }) ||
-        actors.some(a => a.game_ref === game.game_id)
+        actors.some(a => a.games_ref?.[game.game_id])
       );
       
       console.log(`[Dashboard] Filtered to ${userGames.length} user games`);
@@ -112,7 +112,7 @@
   async function calculateCardsOwned(userActors: Actor[]): Promise<number> {
     try {
       // Count cards owned directly through card_ref
-      const directCardRefs = userActors.filter(a => !!a.card_ref).length;
+      const directCardRefs = 0;
       
       // Get cards from cards_by_game maps
       const cardsFromMap = await Promise.all(
@@ -310,7 +310,7 @@
   <!-- Modals -->
   <ProfileUpdateModal 
     open={profileModalOpen} 
-    on:update:open={(e) => profileModalOpen = e.detail} 
+    onclose={() => profileModalOpen = false}
   />
   <ActorEditModal bind:open={actorEditModalOpen} bind:actor={selectedActor} />
 </div>

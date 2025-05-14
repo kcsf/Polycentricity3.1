@@ -3,36 +3,52 @@
   import { get, putSigned, nodes } from '$lib/services/gunService';
   import { Save, X } from '@lucide/svelte';
 
-  const props = $props<{ open?: boolean; actor?: Actor | null }>();
-  let isOpen = $state(props.open || false);
+  let { open = $bindable(false), actor = $bindable(null), onclose } = $props<{
+    open: boolean;
+    actor: Actor | null;
+    onclose?: () => void;
+  }>();
   let customName = $state('');
   let actorType = $state('');
   let isSubmitting = $state(false);
   let errorMessage = $state('');
+  let successMessage = $state('');
 
-  // Sync props changes and handle actor reactivity
+  // Sync internal state with actor prop and update parent when modal closes
   $effect(() => {
-    isOpen = props.open || false;
-    if (props.actor) {
-      customName = props.actor.custom_name || '';
-      actorType = props.actor.actor_type || '';
+    if (actor) {
+      customName = actor.custom_name || '';
+      actorType = actor.actor_type || '';
     } else {
       customName = '';
       actorType = '';
+    }
+    return () => {
+      open = false; // Update parent when modal is closed
+      onclose?.(); // Trigger onclose callback
+    };
+  });
+
+  // Reset messages when modal opens
+  $effect(() => {
+    if (open) {
+      errorMessage = '';
+      successMessage = '';
     }
   });
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
-    if (!props.actor) return;
+    if (!actor) return;
 
     isSubmitting = true;
     errorMessage = '';
+    successMessage = '';
 
     try {
-      const soul = `${nodes.actors}/${props.actor.actor_id}`;
+      const soul = `${nodes.actors}/${actor.actor_id}`;
       const currentActor = await get<Actor>(soul);
-      if (!currentActor || currentActor.game_ref !== props.actor.game_ref) {
+      if (!currentActor || !actor?.games_ref?.[currentActor.actor_id]) {
         errorMessage = 'Actor not found or invalid.';
         return;
       }
@@ -51,7 +67,7 @@
       }
 
       console.log('Updated actor:', {
-        actor_id: props.actor.actor_id,
+        actor_id: actor.actor_id,
         custom_name: customName,
         actor_type: actorType
       });
@@ -65,7 +81,11 @@
         }
       }, 500);
 
-      isOpen = false;
+      successMessage = 'Actor updated successfully!';
+      setTimeout(() => {
+        open = false;
+        onclose?.();
+      }, 1500);
     } catch (err) {
       console.error('Failed to update actor:', err);
       errorMessage = 'Failed to update actor. Please try again.';
@@ -75,75 +95,92 @@
   }
 
   function handleCancel() {
-    isOpen = false;
+    open = false;
+    onclose?.();
   }
 </script>
 
-{#if isOpen && props.actor}
-  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-lg w-full">
-      <header class="mb-4">
-        <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">Edit Actor</h3>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Update actor details below</p>
+{#if open && actor}
+  <div class="fixed inset-0 bg-surface-950-50/90 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+    <div class="card bg-surface-50-950/90 p-6 shadow-xl max-w-lg w-full m-4">
+      <header class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="h3 text-primary-500">Edit Actor</h3>
+          <p class="text-sm opacity-80">Update actor details below</p>
+        </div>
+        <button 
+          type="button" 
+          class="btn-icon preset-tonal-surface"
+          onclick={handleCancel}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
       </header>
 
-      <form onsubmit={handleSubmit} class="space-y-4">
+      <form onsubmit={handleSubmit} class="space-y-5">
         <!-- Custom Name -->
-        <div class="space-y-1">
-          <label for="actor-name" class="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Name</label>
+        <div class="space-y-2">
+          <label for="actor-name" class="label font-medium text-surface-900-100">
+            Custom Name
+          </label>
           <input
             id="actor-name"
             type="text"
-            class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            class="input rounded-md border-primary-500/30 bg-surface-100-900 text-surface-900-100"
             placeholder="Custom actor name"
             value={customName}
             oninput={(e) => (customName = e.currentTarget.value)}
+            required
           />
         </div>
 
         <!-- Actor Type -->
-        <div class="space-y-1">
-          <label for="actor-type" class="text-sm font-medium text-gray-700 dark:text-gray-300">Actor Type</label>
+        <div class="space-y-2">
+          <label for="actor-type" class="label font-medium text-surface-900-100">
+            Actor Type
+          </label>
           <input
             id="actor-type"
             type="text"
-            class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            class="input rounded-md border-primary-500/30 bg-surface-100-900 text-surface-900-100"
             placeholder="Farmer, Funder, etc."
             value={actorType}
             oninput={(e) => (actorType = e.currentTarget.value)}
+            required
           />
         </div>
 
+        <!-- Messages -->
         {#if errorMessage}
-          <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div class="alert preset-filled-error bg-error-500-100 text-error-900-50">
             <span>{errorMessage}</span>
           </div>
         {/if}
+        {#if successMessage}
+          <div class="alert preset-filled-success bg-success-500-100 text-success-900-50">
+            <span>{successMessage}</span>
+          </div>
+        {/if}
 
-        <!-- Form Actions -->
-        <div class="flex justify-end gap-4 pt-2">
+        <!-- Actions -->
+        <div class="flex justify-end gap-4 pt-4">
           <button
             type="button"
-            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+            class="btn preset-tonal-surface"
             onclick={handleCancel}
             disabled={isSubmitting}
           >
-            <X size={18} class="inline mr-2" />
             Cancel
           </button>
-          <button
-            type="submit"
-            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded disabled:opacity-50"
+          <button 
+            type="submit" 
+            class="btn preset-tonal-secondary"
             disabled={isSubmitting}
           >
             {#if isSubmitting}
-              <svg class="animate-spin w-4 h-4 inline mr-2" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              Saving...
+              <span class="animate-pulse">Saving...</span>
             {:else}
-              <Save size={18} class="inline mr-2" />
               Save Changes
             {/if}
           </button>

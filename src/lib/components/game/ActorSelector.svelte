@@ -11,7 +11,6 @@
   import { userStore } from '$lib/stores/userStore';
   import type { Game, ActorWithCard, CardWithPosition, User, Actor } from '$lib/types';
   
-  // We'll import gunService directly to fetch user actors
   import { get, getSet, nodes, getCollection } from '$lib/services/gunService';
 
   // ─── Props ──────────────────────────────────────────────────────────────────
@@ -29,8 +28,6 @@
     onGameEnter: () => void;
   }>();
 
-  console.log('ActorSelector props:', { gameId, game, actors, availableCardsForActors });
-
   // ─── Local state ────────────────────────────────────────────────────────────
   let joinMode = $state<'existing' | 'new'>('existing');
   let selectedActorId = $state<string>('');
@@ -40,236 +37,113 @@
   let isJoining = $state<boolean>(false);
   let errorMessage = $state<string>('');
 
-  // ─── User's existing actors ───────────────────────────────────────────────
   let userActors = $state<ActorWithCard[]>([]);
   let isLoadingActors = $state(false);
-  
-  // Function to fetch user actors directly from the database
-  async function fetchUserActors() {
+
+  // ─── Fetch user actors ───────────────────────────────────────────────────────
+  async function fetchUserActors(): Promise<ActorWithCard[]> {
     isLoadingActors = true;
-    
-    // Get current user from authService
     const currentUser = getCurrentUser();
-    
-    // Debug authentication state
-    console.log('[ActorSelector] Authentication check:', { 
-      hasUser: !!currentUser,
-      userId: currentUser?.user_id
-    });
-    
-    if ($userStore.user) {
-      console.log('[ActorSelector] User store user ID:', $userStore.user.user_id);
-    } else {
-      console.log('[ActorSelector] No user in userStore');
-    }
-    
-    // Get user ID safely
     const userId = currentUser?.user_id;
-    
     if (!userId) {
-      console.log('[ActorSelector] No authenticated user found');
       isLoadingActors = false;
       return [];
     }
-    
+
     try {
-      console.log(`[ActorSelector] Fetching actors for user: ${userId}`);
-      
-      // First check if user has actors_ref set
-      const actorRefs = await getSet(`${nodes.users}/${userId}`, "actors_ref");
-      console.log(`[ActorSelector] Found ${actorRefs.length} actor references for user ${userId}`);
-      
-      let fetchedActors: ActorWithCard[] = [];
-      
-      // If user has actor references, fetch those specific actors
-      if (actorRefs.length > 0) {
-        console.log(`[ActorSelector] Fetching ${actorRefs.length} specific actors:`, actorRefs);
-        
-        const userActorsData = await Promise.all(
-          actorRefs.map(async (ref) => {
-            // Extract actor ID from reference path
-            const actorId = ref.includes('/') ? ref.split('/').pop()! : ref;
-            console.log(`[ActorSelector] Fetching actor: ${actorId}`);
-            
+      const actorRefs = await getSet(`${nodes.users}/${userId}`, 'actors_ref');
+      let fetched: ActorWithCard[] = [];
+
+      if (actorRefs.length) {
+        const results = await Promise.all(
+          actorRefs.map(async ref => {
+            const actorId = ref.split('/').pop()!;
             const actor = await get<Actor>(`${nodes.actors}/${actorId}`);
-            
-            if (actor) {
-              console.log(`[ActorSelector] Found actor: ${actorId}`, actor);
-              // Convert to ActorWithCard format expected by the component
-              return {
-                ...actor,
-                card: null // We don't need the card details here
-              } as ActorWithCard;
-            }
-            console.log(`[ActorSelector] Actor not found: ${actorId}`);
-            return null;
+            if (!actor) return null;
+            return {
+              ...actor,
+              card: undefined
+            } as ActorWithCard;
           })
         );
-        
-        // Filter out any nulls from failed fetches
-        fetchedActors = userActorsData.filter((actor): actor is ActorWithCard => actor !== null);
+        fetched = results.filter((a): a is ActorWithCard => a !== null);
       } else {
-        console.log(`[ActorSelector] No actor references found, querying all actors`);
-        
-        // Fallback: query all actors and filter by user reference
         const allActors = await getCollection<Actor>(nodes.actors);
-        console.log(`[ActorSelector] Found ${allActors.length} total actors, filtering for user ${userId}`);
-        
-        fetchedActors = allActors
-          .filter(actor => actor.user_ref === userId)
-          .map(actor => ({
-            ...actor,
-            card: null // We don't need the card details here
-          } as ActorWithCard));
-          
-        console.log(`[ActorSelector] After filtering, found ${fetchedActors.length} actors for user ${userId}`);
+        fetched = allActors
+          .filter(a => a.user_ref === userId)
+          .map(a => ({ ...a, card: undefined } as ActorWithCard));
       }
-      
-      console.log('[ActorSelector] Final actors found:', fetchedActors.length, fetchedActors);
-      userActors = fetchedActors;
-      return fetchedActors;
-    } catch (error) {
-      console.error('[ActorSelector] Error fetching user actors:', error);
+
+      userActors = fetched;
+      return fetched;
+    } catch (err) {
+      console.error('[ActorSelector] Error fetching user actors:', err);
       return [];
     } finally {
       isLoadingActors = false;
     }
   }
-  
-  // Call fetchUserActors on component initialization and track results
+
+  // ─── EFFECT: initialize existingActors ───────────────────────────────────────
   let existingActors = $state<ActorWithCard[]>([]);
-  
-  $effect(async () => {
-    console.log('[ActorSelector] Initializing fetchUserActors effect');
-    const actors = await fetchUserActors();
-    console.log('[ActorSelector] Setting existingActors to', actors);
-    existingActors = actors;
+  $effect(() => {
+    (async () => {
+      const fetched = await fetchUserActors();
+      existingActors = fetched;
+    })();
   });
 
-  // ─── Defaults & Debug ────────────────────────────────────────────────────────
+  // ─── Default card selection ─────────────────────────────────────────────────
   $effect(() => {
-    console.log('availableCardsForActors →', availableCardsForActors);
-    // Always set a default card selection when cards are available
     if (availableCardsForActors.length && !selectedCardId) {
       selectedCardId = availableCardsForActors[0].card_id;
-      console.log('Default selectedCardId →', selectedCardId);
-    }
-    
-    // Make sure we have a selected card, regardless of join mode
-    if (!selectedCardId && availableCardsForActors.length > 0) {
-      selectedCardId = availableCardsForActors[0].card_id;
     }
   });
 
-  // Log existingActors whenever it changes
+  // ─── Force "new" mode when no existing actors ───────────────────────────────
   $effect(() => {
-    console.log('existingActors →', existingActors);
-  });
-
-  // ─── EFFECTS: Handle actors and authentication ─────────────────────────────
-  
-  // Check authentication status on component initialization
-  $effect(() => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      console.log('[ActorSelector] Not authenticated - will show login warning');
-      // Clear any previous error message
-      errorMessage = '';
-    }
-  });
-  
-  // Force "new" mode when no existing actors are available
-  $effect(() => {
-    console.log('[ActorSelector] Checking existingActors length:', existingActors?.length);
-    if (!existingActors?.length && joinMode === 'existing') {
-      console.log('[ActorSelector] No existing actors — switching joinMode to "new"');
+    if (!existingActors.length && joinMode === 'existing') {
       joinMode = 'new';
-    } else if (existingActors?.length) {
-      console.log('[ActorSelector] Found existing actors, setting selectedActorId');
-      // Set default selected actor if we have actors but no selection
-      if (!selectedActorId && existingActors.length > 0) {
-        selectedActorId = existingActors[0].actor_id;
-        console.log('[ActorSelector] Default selectedActorId →', selectedActorId);
-      }
+    } else if (existingActors.length && !selectedActorId) {
+      selectedActorId = existingActors[0].actor_id;
     }
   });
 
   // ─── Main join handler ──────────────────────────────────────────────────────
   async function handleJoin() {
-    // Get current user safely
-    let currentUser;
-    userStore.subscribe(session => {
-      currentUser = session.user;
-    })();
-    
-    console.log('handleJoin start:', {
-      user: currentUser?.user_id || 'Not logged in',
-      joinMode,
-      selectedActorId,
-      selectedCardId,
-      actorType,
-      customName,
-    });
-
+    let currentUser: User | null = null;
+    userStore.subscribe(s => (currentUser = s.user))();
     if (!currentUser) {
       errorMessage = 'You must be logged in to join';
       return;
     }
 
-    // Both joining paths now require card selection
     if (!selectedCardId) {
       errorMessage = 'Please select a card';
       return;
     }
-    
-    if (joinMode === 'existing') {
-      console.log('Using existing actor branch');
-      if (!selectedActorId) {
-        errorMessage = 'Please select an actor';
-        return;
-      }
-    } else {
-      console.log('Creating new actor branch');
+    if (joinMode === 'existing' && !selectedActorId) {
+      errorMessage = 'Please select an actor';
+      return;
     }
 
     isJoining = true;
     errorMessage = '';
-
     try {
-      let actorId: string;
+      const actorId =
+        joinMode === 'existing'
+          ? selectedActorId
+          : (await createActor(
+              gameId,
+              selectedCardId,
+              actorType,
+              customName || undefined
+            ))!.actor_id;
 
-      if (joinMode === 'existing') {
-        actorId = selectedActorId;
-      } else {
-        console.log('Calling createActor()', {
-          gameId,
-          card: selectedCardId,
-          actorType,
-          customName,
-        });
-        const newActor = await createActor(
-          gameId,
-          selectedCardId,
-          actorType,
-          customName || undefined,
-        );
-        console.log('createActor result:', newActor);
-        if (!newActor) throw new Error('Actor creation failed');
-        actorId = newActor.actor_id;
-      }
-
-      // Pass both actor ID and card ID to joinWithActor
-      console.log('Calling joinWithActor()', { gameId, actorId, cardId: selectedCardId });
-      
-      // The joinWithActor function will associate the actor with this card in the specific game
       const didJoin = await joinWithActor(gameId, actorId, selectedCardId);
-      console.log('joinWithActor →', didJoin);
       if (!didJoin) throw new Error('Game join failed');
 
-      console.log('Calling updateGame()', game.status);
       await updateGame(gameId, { status: game.status });
-
-      console.log('Syncing currentGameStore and navigating in');
       currentGameStore.set(game);
       onGameEnter();
     } catch (err) {
@@ -277,10 +151,10 @@
       errorMessage = err instanceof Error ? err.message : 'Unable to join game';
     } finally {
       isJoining = false;
-      console.log('handleJoin end');
     }
   }
 </script>
+
 
 <div class="space-y-4">
   <!-- Loading indicator when fetching actors -->
