@@ -1,11 +1,25 @@
 <script lang="ts">
   import * as icons from '@lucide/svelte';
   import { createDeck } from '$lib/services/gameService';
-  import { getToastStore } from '@skeletonlabs/skeleton';
+  import { toaster } from '$lib/utils/toaster-svelte';
+  import { createEventDispatcher } from 'svelte';
+
+  // Define toaster options type
+  interface ToasterOptions {
+    title: string;
+    description: string;
+  }
+
+  // Create event dispatcher
+  const dispatch = createEventDispatcher<{
+    'update:open': boolean;
+    created: { deckId: string; name: string };
+    close: undefined;
+  }>();
 
   // Props
-  let { isOpen = false, onevent } = $props<{
-    isOpen?: boolean;
+  let { open = false, onevent } = $props<{
+    open?: boolean;
     onevent?: {
       close?: () => void;
       created?: (event: { detail: { deckId: string; name: string } }) => void;
@@ -19,8 +33,10 @@
   let isSubmitting = $state(false);
   let error = $state('');
 
-  // Toast store for notifications
-  const toastStore = getToastStore();
+  // Watch for changes to open prop and dispatch update:open
+  $effect(() => {
+    dispatch('update:open', open);
+  });
 
   // Reset form fields
   function resetForm(): void {
@@ -33,7 +49,9 @@
   // Close modal and reset form
   function handleClose(): void {
     resetForm();
+    open = false; // Update open state
     onevent?.close?.();
+    dispatch('close');
   }
 
   // Handle form submission
@@ -41,6 +59,10 @@
     try {
       if (!name.trim()) {
         error = 'Please enter a deck name';
+        toaster.error({
+          title: 'Validation Error',
+          description: 'Please enter a deck name',
+        } as ToasterOptions);
         return;
       }
 
@@ -55,32 +77,33 @@
       }
 
       // Success notification
-      toastStore.trigger({
-        message: `Deck "${newDeck.name}" created successfully!`,
-        background: 'preset-filled-success'
-      });
+      toaster.success({
+        title: 'Success',
+        description: `Deck "${newDeck.name}" created successfully!`,
+      } as ToasterOptions);
 
-      // Call the created event with deck info
+      // Call the created event
       if (onevent?.created) {
         onevent.created({
           detail: {
             deckId: newDeck.deck_id,
-            name: newDeck.name
-          }
+            name: newDeck.name,
+          },
         });
       }
-      
+      dispatch('created', { deckId: newDeck.deck_id, name: newDeck.name });
+
       // Close modal
       handleClose();
     } catch (err) {
       console.error('[CreateDeckModal] Error creating deck:', err);
       error = err instanceof Error ? err.message : 'An unexpected error occurred';
-      
+
       // Error notification
-      toastStore.trigger({
-        message: `Error: ${error}`,
-        background: 'preset-filled-error'
-      });
+      toaster.error({
+        title: 'Error',
+        description: error,
+      } as ToasterOptions);
     } finally {
       isSubmitting = false;
     }
@@ -88,9 +111,9 @@
 </script>
 
 <!-- Modal Backdrop -->
-{#if isOpen}
-  <div 
-    class="modal-backdrop fixed inset-0 bg-surface-950/50 backdrop-blur-sm z-40" 
+{#if open}
+  <div
+    class="modal-backdrop fixed inset-0 bg-surface-950/50 backdrop-blur-sm z-40"
     role="dialog"
     aria-modal="true"
     onclick={(e) => e.target === e.currentTarget && handleClose()}
@@ -126,9 +149,9 @@
             <!-- Deck Name -->
             <label class="label">
               <span class="font-semibold">Deck Name<span class="text-error-500">*</span></span>
-              <input 
-                type="text" 
-                class="input w-full" 
+              <input
+                type="text"
+                class="input w-full"
                 bind:value={name}
                 placeholder="Enter deck name"
                 disabled={isSubmitting}
@@ -138,8 +161,8 @@
             <!-- Deck Description -->
             <label class="label">
               <span class="font-semibold">Description</span>
-              <textarea 
-                class="textarea w-full h-24" 
+              <textarea
+                class="textarea w-full h-24"
                 bind:value={description}
                 placeholder="Enter deck description"
                 disabled={isSubmitting}
@@ -154,17 +177,17 @@
 
             <!-- Footer with Actions -->
             <div class="flex justify-end gap-2 mt-6">
-              <button 
-                type="button" 
-                class="btn preset-tonal" 
+              <button
+                type="button"
+                class="btn preset-tonal"
                 onclick={handleClose}
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
-                class="btn preset-filled-primary flex items-center gap-2" 
+              <button
+                type="submit"
+                class="btn preset-filled-primary flex items-center gap-2"
                 disabled={isSubmitting}
               >
                 {#if isSubmitting}

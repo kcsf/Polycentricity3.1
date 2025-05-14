@@ -192,7 +192,7 @@
 </script>
 
 <div class="deck-browser container mx-auto p-4 max-w-7xl">
-  <div class="preset-tonal bg-surface-100-800 border-surface-200-700 rounded-lg p-4 mb-4 shadow">
+  <div class="bg-surface-100-800 border-surface-200-700 rounded-lg p-4 mb-4 shadow">
     <div class="flex items-center space-x-4">
       <icons.Layout class="text-primary-500-400 size-6" />
       <div>
@@ -276,7 +276,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {#each cards as card}
                 {@const IconComponent = getCardIcon(card.icon)}
-                <div class="preset-tonal overflow-hidden rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-900 border-surface-200-800">
+                <div class="overflow-hidden rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 bg-surface-100-900 border-surface-200-800">
                   <header class="relative p-2 text-white bg-gradient-to-r from-{getCategoryColor(card.card_category)}-500-400 to-{getCategoryColor(card.card_category)}-600-300 rounded-t-lg">
                     <div class="absolute left-2 top-2 bg-surface-900-50/50 rounded-full p-1">
                       <IconComponent class="w-6 h-6" />
