@@ -1,5 +1,5 @@
 // Card utility functions - separated to avoid circular dependencies
-import { getCollection, nodes } from './gunService';
+import { getGun, getCollection, nodes } from './gunService';
 import type { Card } from '$lib/types';
 
 /**
@@ -8,27 +8,45 @@ import type { Card } from '$lib/types';
  * @returns Promise with the next sequential card ID
  */
 export async function generateSequentialCardId(): Promise<string> {
-  try {
-    const cards = await getCollection<Card>(nodes.cards);
-    // Find the highest card number from cards with valid IDs (card_NUMBER format)
-    const cardNumbers = cards
-      .filter(card => /^card_\d+$/.test(card.card_id))
-      .map(card => parseInt(card.card_id.replace('card_', '')));
-    
-    const maxCardNumber = cardNumbers.length > 0 
-      ? cardNumbers.reduce((max, num) => Math.max(max, num), 0)
-      : 0;
-    
-    console.log(`[generateSequentialCardId] Found max card number: ${maxCardNumber}, generating card_${maxCardNumber + 1}`);
-    // Return the next sequential ID
-    return `card_${maxCardNumber + 1}`;
-  } catch (err) {
-    console.error('[generateSequentialCardId] Error:', err);
-    // Fallback to a safe default (large number less likely to conflict)
-    const fallbackId = Math.floor(Math.random() * 1000) + 1000;
-    console.log(`[generateSequentialCardId] Using fallback ID: card_${fallbackId}`);
-    return `card_${fallbackId}`;
+  const gun = getGun();
+  if (!gun) {
+    throw new Error("Gun not initialized");
   }
+
+  // Collect only the card IDs whose value is an object
+  const existingIds: string[] = [];
+  await new Promise<void>((resolve) => {
+    gun
+      .get(nodes.cards)
+      .map()
+      .once((val: unknown, id: string) => {
+        // Filter out Gun metadata and any primitive leaf (e.g. created_at)
+        if (
+          id !== "_" &&
+          id !== "#" &&
+          val !== null &&
+          typeof val === "object"
+        ) {
+          existingIds.push(id);
+        }
+      });
+    // Give Gun a moment to fetch
+    setTimeout(resolve, 500);
+  });
+
+  // Parse out numeric parts of IDs like "card_7" → 7
+  const numbers = existingIds
+    .map((id) => {
+      const parts = id.split("_");
+      const n = parseInt(parts[1], 10);
+      return isNaN(n) ? 0 : n;
+    })
+    .filter((n) => n > 0);
+
+  const max = numbers.length ? Math.max(...numbers) : 0;
+  const next = max + 1;
+  console.log(`[generateSequentialCardId] Found max card number: ${max}, generating card_${next}`);
+  return `card_${next}`;
 }
 
 /**

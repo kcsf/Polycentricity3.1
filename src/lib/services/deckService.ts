@@ -213,7 +213,7 @@ export async function createCard(
                     const valueData = {
                         value_id: valueId,
                         name: capitalizedName,
-                        creator_ref: "u_123",
+                        creator_ref: (card as any).creator_ref || "u_123",
                         cards_ref: {},
                         created_at: Date.now(),
                     };
@@ -254,7 +254,7 @@ export async function createCard(
                     const valueData = {
                         value_id: valueId,
                         name: capitalizedName,
-                        creator_ref: "u_123",
+                        creator_ref: (card as any).creator_ref || "u_123",
                         cards_ref: {},
                         created_at: Date.now(),
                     };
@@ -293,7 +293,7 @@ export async function createCard(
                     const valueData = {
                         value_id: valueId,
                         name: capitalizedName,
-                        creator_ref: "u_123",
+                        creator_ref: (card as any).creator_ref || "u_123",
                         cards_ref: {},
                         created_at: Date.now(),
                     };
@@ -346,7 +346,7 @@ export async function createCard(
                 const valueData = {
                     value_id: valueId,
                     name: capitalizedName,
-                    creator_ref: "u_123",
+                    creator_ref: (card as any).creator_ref || "u_123",
                     cards_ref: {},
                     created_at: Date.now(),
                 };
@@ -409,7 +409,7 @@ export async function createCard(
                     const capabilityData = {
                         capability_id: capabilityId,
                         name: capitalizedName,
-                        creator_ref: "u_123",
+                        creator_ref: (card as any).creator_ref || "u_123",
                         cards_ref: {},
                         created_at: Date.now(),
                     };
@@ -458,7 +458,7 @@ export async function createCard(
                     const capabilityData = {
                         capability_id: capabilityId,
                         name: capitalizedName,
-                        creator_ref: "u_123",
+                        creator_ref: (card as any).creator_ref || "u_123",
                         cards_ref: {},
                         created_at: Date.now(),
                     };
@@ -500,7 +500,7 @@ export async function createCard(
                     const capabilityData = {
                         capability_id: capabilityId,
                         name: displayName,
-                        creator_ref: "u_123",
+                        creator_ref: (card as any).creator_ref || "u_123",
                         cards_ref: {},
                         created_at: Date.now(),
                     };
@@ -555,7 +555,7 @@ export async function createCard(
                 const capabilityData = {
                     capability_id: capabilityId,
                     name: displayName,
-                    creator_ref: "u_123",
+                    creator_ref: (card as any).creator_ref || "u_123",
                     cards_ref: {},
                     created_at: Date.now(),
                 };
@@ -597,20 +597,14 @@ export async function createCard(
         obligations: card.obligations || "",
         intellectual_property: card.intellectual_property || "",
         resources: card.resources || "",
-        // Store values_ref as a Record<string, boolean> per schema
         values_ref: values_ref,
-        // Store capabilities_ref as a Record<string, boolean> per schema
         capabilities_ref: capabilities_ref,
-        // Store decks_ref as a Record<string, boolean> per schema
         decks_ref: {},
-        // Empty agreements_ref per schema
         agreements_ref: {},
         card_category: card.card_category || "Supporters",
         type: card.type || "Practice",
         icon: icon,
-        created_at: Date.now(),
-        // Use creator_ref as per schema with proper user reference
-        creator_ref: "u_123", // Default creator reference
+        creator_ref: (card as any).creator_ref || "u_123",
     };
 
     try {
@@ -618,13 +612,18 @@ export async function createCard(
         // This ensures consistent implementation across the codebase
 
         // STEP 1: Save the card data using robustPut
-        console.log(`[createCard] Saving card data to Gun DB: ${cardId}`);
+        console.log(`[createCard] Saving card data (no timestamp) to Gun DB: ${cardId}`);
         await robustPut(nodes.cards, cardId, gunCard);
+
+        // STEP 2: Now write created_at as a **leaf** property
+        const now = Date.now();
+        console.log(`[createCard] Writing created_at timestamp: ${now}`);
+        await robustPut(`${nodes.cards}/${cardId}`, 'created_at', now);
 
         // Add a small delay to let Gun process the request
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        // STEP 2: Create bidirectional relationships using robustPut for each edge
+        // STEP 3: Create bidirectional relationships using robustPut for each edge
 
         // Process values_ref bidirectional relationships
         for (const valueId of Object.keys(values_ref)) {
@@ -909,20 +908,13 @@ export async function importCardsToDeck(
             // These defaults align with those in the DeckManager component preprocessor
             const processedCardData = {
                 ...cardData,
-                // Default card_category if missing
                 card_category: cardData.card_category || "Supporters",
-                // Default type if missing
-                type: cardData.type || "Individual",
-                // Default backstory if missing
-                backstory: cardData.backstory || "",
-                // Ensure goals is a string
-                goals: typeof cardData.goals === "string" ? cardData.goals : "",
-                // Ensure obligations is a string
-                obligations: cardData.obligations || "",
-                // Ensure intellectual_property is a string
+                type:          cardData.type          || "Individual",
+                backstory:     cardData.backstory     || "",
+                goals:         typeof cardData.goals === "string" ? cardData.goals : "",
+                obligations:   cardData.obligations   || "",
                 intellectual_property: cardData.intellectual_property || "",
-                // Ensure rivalrous_resources is a string
-                rivalrous_resources: cardData.rivalrous_resources || "",
+                resources:     cardData.resources     || "",
             };
 
             // Step 1: Create the card

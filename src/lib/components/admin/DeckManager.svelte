@@ -5,6 +5,7 @@
   import { getGun, nodes, generateId } from '$lib/services/gunService';
   import { getCurrentUser } from '$lib/services/authService';
   import type { Card, Deck } from '$lib/types';
+  import { standardizeValueId, standardizeCapabilityId } from '$lib/services/cardUtils';
 
   // Define interfaces for clarity
   interface ImportResult {
@@ -36,6 +37,43 @@
     await loadDecks();
     await loadDeck();
   });
+
+  /** 
+ * A card shape coming straight from the user’s import JSON 
+ * (before we normalize into the Card interface for Gun.js) 
+ */
+interface RawImportCard {
+  // Mandatory fields:
+  card_number: string | number;
+  role_title: string;
+
+  // Optional descriptive fields:
+  backstory?: string;
+  goals?: string;
+  obligations?: string;
+  intellectual_property?: string;
+  resources?: string;
+  card_category?: string;
+  type?: string;
+  icon?: string;
+
+  // Value inputs can be any of:
+  // - comma-separated string
+  // - array of strings
+  // - object map of booleans
+  values?: string | string[] | Record<string, boolean>;
+  values_ref?: Record<string, boolean>;
+
+  // Capability inputs can be any of:
+  // - comma-separated string
+  // - array of strings
+  // - object map of booleans
+  capabilities?: string | string[] | Record<string, boolean>;
+  capabilities_ref?: Record<string, boolean>;
+
+  // Catch-all for any extra properties your JSON might include:
+  [k: string]: any;
+}
 
   // Load all decks for dropdown
   async function loadDecks() {
@@ -135,6 +173,57 @@
     }
   }
 
+  /** 
+   * Turn a free-form values input into a { value_xxx: true } map 
+   */
+   function toValueRecord(input: unknown): Record<string, boolean> {
+    const out: Record<string, boolean> = {};
+    if (!input) return out;
+    if (typeof input === 'object' && !Array.isArray(input)) {
+      for (const k of Object.keys(input as any)) {
+        if ((input as any)[k]) {
+          out[ standardizeValueId(k) ] = true;
+        }
+      }
+    } else if (Array.isArray(input)) {
+      for (const v of input as string[]) {
+        out[ standardizeValueId(v) ] = true;
+      }
+    } else if (typeof input === 'string') {
+      for (const v of (input as string).split(',')) {
+        const t = v.trim();
+        if (t) out[ standardizeValueId(t) ] = true;
+      }
+    }
+    return out;
+  }
+
+  /** 
+   * Same as above, but for capabilities (cap_ prefix) 
+   */
+  function toCapabilityRecord(input: unknown): Record<string, boolean> {
+    const out: Record<string, boolean> = {};
+    if (!input) return out;
+    if (typeof input === 'object' && !Array.isArray(input)) {
+      for (const k of Object.keys(input as any)) {
+        if ((input as any)[k]) {
+          out[ standardizeCapabilityId(k) ] = true;
+        }
+      }
+    } else if (Array.isArray(input)) {
+      for (const v of input as string[]) {
+        out[ standardizeCapabilityId(v) ] = true;
+      }
+    } else if (typeof input === 'string') {
+      for (const v of (input as string).split(',')) {
+        const t = v.trim();
+        if (t) out[ standardizeCapabilityId(t) ] = true;
+      }
+    }
+    return out;
+  }
+
+
   // Helper function to convert various formats to Record<string, boolean>
   function toRecord(value: unknown): Record<string, boolean> {
     // Handle undefined or null
@@ -191,7 +280,7 @@
     importResult = null;
     try {
       console.log(`Import text length: ${importText.length} characters`);
-      let cardsData: Omit<Card, 'card_id'>[];
+      let cardsData: RawImportCard[];
       try {
         console.log('Attempting to parse card data...');
         try {
@@ -247,8 +336,10 @@
           }
 
           // Normalize values_ref and capabilities_ref
-          const valuesRef = toRecord(card.values_ref);
-          const capabilitiesRef = toRecord(card.capabilities_ref);
+          //const valuesRef = toRecord(card.values);
+          //const capabilitiesRef = toRecord(card.capabilities);
+          const valuesRef = toValueRecord(card.values || card.values_ref);
+          const capabilitiesRef = toCapabilityRecord(card.capabilities || card.capabilities_ref);
 
           return {
             ...card,
@@ -262,11 +353,8 @@
             resources: card.resources || '',
             card_category: card.card_category || 'Supporters',
             type: card.type || 'Individual',
-            icon: card.icon || {
-              'Funders': 'CircleDollarSign',
-              'Providers': 'Hammer',
-              'Supporters': 'Heart',
-            }[card.card_category] || 'User',
+            icon: card.icon || 'User',
+            creator_ref: userId,
           };
         });
 
@@ -308,7 +396,7 @@
       console.log(`Validation passed for all ${validCards} cards`);
 
       console.log(`Starting import of ${cardsData.length} cards to deck ${deckIdValue}`);
-      const result = await importCardsToDeck(deckIdValue, cardsData);
+      const result = await importCardsToDeck(deckIdValue, cardsData as RawImportCard[]);
       if (result.success) {
         importResult = {
           success: true,
@@ -395,7 +483,7 @@
         <p><span class="font-semibold">Creator:</span> {deck.creator_ref || 'None'}</p>
         <p>
           <span class="font-semibold">Cards:</span>
-          {deck.cards_ref ? (Array.isArray(deck.cards_ref) ? deck.cards_ref.length : Object.keys(deck.cards_ref).length) : 0}
+          { Object.keys(deck.cards_ref ?? {}).length }
         </p>
       </div>
     </div>

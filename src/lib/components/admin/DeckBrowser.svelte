@@ -180,13 +180,11 @@
     isCreateModalOpen = false;
   }
 
-  function handleDeckCreated(event: CustomEvent<{ deckId: string; name: string }>): void {
-    console.log('[DeckBrowser] Deck created:', event.detail);
-    // Refresh deck list
-    loadDecks();
-    // Select the newly created deck
-    selectedDeckId = event.detail.deckId;
-  }
+  function handleDeckCreated({ deckId, name }: { deckId: string; name: string }) {
+  console.log('[DeckBrowser] Deck created:', { deckId, name });
+  loadDecks();
+  selectedDeckId = deckId;
+}
 
   onMount(loadDecks);
 </script>
@@ -374,7 +372,8 @@
 
 <!-- Create Deck Modal -->
 <CreateDeckModal 
-  open={isCreateModalOpen} 
-  on:update:open={(e) => isCreateModalOpen = e.detail}
-  on:created={handleDeckCreated}
+  open={isCreateModalOpen}
+  onupdateopen={(open) => isCreateModalOpen = open}
+  oncreated={handleDeckCreated}
+  onclose={() => isCreateModalOpen = false}
 />

@@ -2,7 +2,6 @@
   import * as icons from '@lucide/svelte';
   import { createDeck } from '$lib/services/gameService';
   import { toaster } from '$lib/utils/toaster-svelte';
-  import { createEventDispatcher } from 'svelte';
 
   // Define toaster options type
   interface ToasterOptions {
@@ -10,20 +9,12 @@
     description: string;
   }
 
-  // Create event dispatcher
-  const dispatch = createEventDispatcher<{
-    'update:open': boolean;
-    created: { deckId: string; name: string };
-    close: undefined;
-  }>();
-
-  // Props
-  let { open = false, onevent } = $props<{
+  // Define props with callback props for events
+  let { open = false, onclose, oncreated, onupdateopen } = $props<{
     open?: boolean;
-    onevent?: {
-      close?: () => void;
-      created?: (event: { detail: { deckId: string; name: string } }) => void;
-    };
+    onclose?: () => void;
+    oncreated?: (detail: { deckId: string; name: string }) => void;
+    onupdateopen?: (open: boolean) => void;
   }>();
 
   // Local state
@@ -33,9 +24,9 @@
   let isSubmitting = $state(false);
   let error = $state('');
 
-  // Watch for changes to open prop and dispatch update:open
+  // Watch for changes to open prop and trigger onupdateopen callback
   $effect(() => {
-    dispatch('update:open', open);
+    onupdateopen?.(open);
   });
 
   // Reset form fields
@@ -50,8 +41,7 @@
   function handleClose(): void {
     resetForm();
     open = false; // Update open state
-    onevent?.close?.();
-    dispatch('close');
+    onclose?.();
   }
 
   // Handle form submission
@@ -82,16 +72,8 @@
         description: `Deck "${newDeck.name}" created successfully!`,
       } as ToasterOptions);
 
-      // Call the created event
-      if (onevent?.created) {
-        onevent.created({
-          detail: {
-            deckId: newDeck.deck_id,
-            name: newDeck.name,
-          },
-        });
-      }
-      dispatch('created', { deckId: newDeck.deck_id, name: newDeck.name });
+      // Trigger created callback
+      oncreated?.({ deckId: newDeck.deck_id, name: newDeck.name });
 
       // Close modal
       handleClose();
