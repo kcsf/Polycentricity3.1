@@ -52,6 +52,10 @@ function randomPos(): { x: number; y: number } {
 async function write(path: string, key: string, data: any): Promise<void> {
   const gun = getGun();
   if (!gun) throw new Error("[gameService] Gun not initialized");
+  if (data === undefined || data === null) {
+    console.warn(`[gameService] Skipping write for undefined/null data at ${path}/${key}`);
+    return;
+  }
   await new Promise<void>((resolve) => {
     let done = false;
     gun
@@ -227,7 +231,7 @@ export async function createGame(
     ),
   ]);
 
-  // 6️⃣ Return freshly‐read object
+  // 6️⃣ Return freshly-read object
   return await getGame(gameId);
 }
 
@@ -311,6 +315,9 @@ export async function createActor(
     status: "active",
     created_at: now,
     updated_at: now,
+    games_ref: { [gameId]: true }, 
+    cards_by_game: { [gameId]: cardId },
+    agreements_ref: {},
   };
   await write(nodes.actors, actorId, actorData);
 
@@ -352,15 +359,15 @@ export async function joinWithActor(
   gameId: string,
   actorId: string,
   cardId: string,
-): Promise<boolean> {
+): Promise<Actor | null> {
   const user = getCurrentUser();
-  if (!user) return false;
+  if (!user) return null;
 
   // 1️⃣ Load game and actor existence
   const game = await get<Game>(`${nodes.games}/${gameId}`);
-  if (!game) return false;
+  if (!game) return null;
   const actorRaw = await get<Actor>(`${nodes.actors}/${actorId}`);
-  if (!actorRaw) return false;
+  if (!actorRaw) return null;
 
   // 2️⃣ Update nested maps on game
   const playersMap = { ...(game.players || {}), [user.user_id]: true };
@@ -411,7 +418,12 @@ export async function joinWithActor(
     ),
   ]);
 
-  return true;
+  // 5️⃣ Return updated actor
+  return {
+    ...actorRaw,
+    cards_by_game: cardsByGame,
+    games_ref: { ...(actorRaw.games_ref || {}), [gameId]: true },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -798,7 +810,7 @@ export async function getGameContext(
           ),
         ]);
         if (!a) return null;
-
+        
         const actorMap = cardsByGame || {};
         const cardId = actorMap[gameId];
         let card: CardWithPosition | undefined;

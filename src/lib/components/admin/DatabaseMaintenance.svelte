@@ -1,34 +1,26 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { 
-  AlertTriangle, 
-  CheckCircle, 
-  Database, 
-  FileText,
-  FilePen, 
-  HardDrive, 
-  Network,
-  RefreshCcw,
-  RefreshCw, 
-  Shield, 
-  Radiation,
-  Trash2,
-  UserCog,
-  UserX,
-  Users,
-  Wrench
-} from '@lucide/svelte';
+    AlertTriangle, 
+    CheckCircle, 
+    Database, 
+    FileText,
+    FilePen, 
+    HardDrive, 
+    Network,
+    RefreshCcw,
+    RefreshCw, 
+    Shield, 
+    Radiation,
+    Trash2,
+    UserCog,
+    UserX,
+    Users,
+    Wrench
+  } from '@lucide/svelte';
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
   import AdminTools from './AdminTools.svelte';
   import { getGun, nodes } from '$lib/services/gunService';
   import { initializeSampleData, verifySampleData } from '$lib/services/sampleDataService';
-  
-  // Sample data initialization variables are declared below
-  
-  // For accordion sections - empty array means all accordions are closed by default
-  let accordionValue = $state([]);
-  
-  // Cleanup functions
   import { 
     cleanupAllUsers, 
     cleanupAllGames, 
@@ -37,12 +29,20 @@
     cleanupAllActors,
     cleanupAllAgreements
   } from '$lib/services/cleanupService';
-  
+
+  let { onSampleDataInitialized = (result: { success: boolean; message?: string }) => {} } = $props<{
+    onSampleDataInitialized?: (result: { success: boolean; message?: string }) => void;
+  }>();
+
+  // For accordion sections - empty array means all accordions are closed by default
+  let accordionValue = $state<string[]>([]);
+
+  // Cleanup state
   let cleanupLoading = $state(false);
   let cleanupError = $state<string | null>(null);
   let cleanupSuccess = $state(false);
   let cleanupResult = $state<{ success: boolean; removed: number } | null>(null);
-  
+
   async function handleCleanupGames() {
     if (!confirm('Are you sure you want to remove ALL games? This action cannot be undone.')) {
       return;
@@ -64,7 +64,7 @@
       cleanupLoading = false;
     }
   }
-  
+
   async function handleCleanupDecks() {
     if (!confirm('Are you sure you want to remove ALL decks? This action cannot be undone.')) {
       return;
@@ -79,7 +79,6 @@
       cleanupResult = await cleanupAllDecks();
       console.log('Decks cleanup complete', cleanupResult);
       cleanupSuccess = cleanupResult.success;
-      
     } catch (err) {
       console.error('Error cleaning up decks:', err);
       cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -87,7 +86,7 @@
       cleanupLoading = false;
     }
   }
-  
+
   async function handleCleanupCards() {
     if (!confirm('Are you sure you want to remove ALL cards? This action cannot be undone.')) {
       return;
@@ -102,7 +101,6 @@
       cleanupResult = await cleanupAllCards();
       console.log('Cards cleanup complete', cleanupResult);
       cleanupSuccess = cleanupResult.success;
-      
     } catch (err) {
       console.error('Error cleaning up cards:', err);
       cleanupError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -110,7 +108,7 @@
       cleanupLoading = false;
     }
   }
-  
+
   async function handleCleanupUsers() {
     if (!confirm('Are you sure you want to remove ALL users except your current user? This action cannot be undone.')) {
       return;
@@ -132,7 +130,7 @@
       cleanupLoading = false;
     }
   }
-  
+
   async function handleCleanupActors() {
     if (!confirm('Are you sure you want to remove ALL actors? This action cannot be undone.')) {
       return;
@@ -154,7 +152,7 @@
       cleanupLoading = false;
     }
   }
-  
+
   async function handleCleanupAgreements() {
     if (!confirm('Are you sure you want to remove ALL agreements? This action cannot be undone.')) {
       return;
@@ -176,12 +174,7 @@
       cleanupLoading = false;
     }
   }
-  
-  import { createEventDispatcher } from 'svelte';
-  const dispatch = createEventDispatcher();
-  
 
-  
   // Variables for sample data initialization
   let isInitializingSample = $state(false);
   let sampleDataError = $state<string | null>(null);
@@ -204,8 +197,8 @@
       console.log('Sample data initialization complete', sampleDataResult);
       sampleDataSuccess = sampleDataResult.success;
       
-      // Dispatch a custom event for parent components
-      dispatch('sampleDataInitialized', sampleDataResult);
+      // Call callback for parent components
+      onSampleDataInitialized(sampleDataResult);
     } catch (err) {
       console.error('Error initializing sample data:', err);
       sampleDataError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -213,7 +206,7 @@
       isInitializingSample = false;
     }
   }
-  
+
   // Helper function to log current game relationships for debugging
   async function logCurrentGameRelationships() {
     const gun = getGun();
@@ -262,10 +255,6 @@
       }, 1000);
     });
   }
-  
-  onMount(() => {
-    // No initialization needed
-  });
 </script>
 
 <div class="p-2">
@@ -279,7 +268,7 @@
     </div>
   </div>
   
-  <Accordion value={accordionValue} onValueChange={(e) => (accordionValue = e.value)} multiple>
+  <Accordion value={accordionValue} onValueChange={(e) => (accordionValue = e.value as string[])} multiple>
     <!-- Schema Section -->
     <Accordion.Item value="schema">
       {#snippet lead()}
@@ -297,7 +286,7 @@
           <p class="text-sm mb-4">
             Access the Database Schema page for detailed documentation, initialization, and verification tools.
           </p>
-          <a href="/database-schema" class="btn variant-filled-primary w-full">
+          <a href="/database-schema" class="btn preset-filled-primary-500 w-full">
             <FileText class="w-4 h-4 mr-2" />
             View Database Schema
           </a>
@@ -333,18 +322,18 @@
                 <span class="ml-3">Initializing Sample Data...</span>
               </div>
             {:else if sampleDataError}
-              <div class="alert variant-filled-error">
+              <div class="alert preset-filled-error-500">
                 <AlertTriangle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Error</h3>
                   <p>{sampleDataError}</p>
                 </div>
                 <div class="alert-actions">
-                  <button class="btn variant-filled" onclick={initializeSampleDataFunction}>Retry</button>
+                  <button class="btn preset-filled-primary-500" onclick={initializeSampleDataFunction}>Retry</button>
                 </div>
               </div>
             {:else if sampleDataSuccess}
-              <div class="alert variant-filled-success">
+              <div class="alert preset-filled-success-500">
                 <CheckCircle class="w-5 h-5" />
                 <div class="alert-message">
                   <h3 class="h4">Success</h3>
@@ -354,7 +343,7 @@
             {/if}
             
             <button 
-              class="btn variant-filled-primary w-full mt-4" 
+              class="btn preset-filled-primary-500 w-full mt-4" 
               onclick={initializeSampleDataFunction}
               disabled={isInitializingSample}
             >
@@ -489,7 +478,7 @@
               <span class="ml-3">Processing cleanup operation...</span>
             </div>
           {:else if cleanupError}
-            <div class="alert variant-filled-error mt-4">
+            <div class="alert preset-filled-error-500 mt-4">
               <AlertTriangle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Error</h3>
@@ -497,7 +486,7 @@
               </div>
             </div>
           {:else if cleanupSuccess}
-            <div class="alert variant-filled-success mt-4">
+            <div class="alert preset-filled-success-500 mt-4">
               <CheckCircle class="w-5 h-5" />
               <div class="alert-message">
                 <h3 class="h4">Success</h3>
@@ -508,7 +497,5 @@
         </div>
       {/snippet}
     </Accordion.Item>
-    
-    <!-- End of Accordion -->
   </Accordion>
 </div>

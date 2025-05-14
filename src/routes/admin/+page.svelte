@@ -678,11 +678,7 @@
         </div>
       {:else if activeTab === 'maintenance'}
         <!-- Render the DatabaseMaintenance component -->
-        <DatabaseMaintenance on:relationshipsFixed={() => {
-          console.log('Game relationships fixed, refreshing visualization data');
-          fetchDatabaseStats();
-          loadGraphVisualization();
-        }} />
+        <DatabaseMaintenance />
       {:else if activeTab === 'dev'}
         <div class="p-2">
           <!-- Database Explorer Link -->

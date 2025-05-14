@@ -1,46 +1,53 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import * as icons from '@lucide/svelte';
-  
-  export let node: any = null;
-  export let isOpen = false;
-  
-  const dispatch = createEventDispatcher();
-  
-  // Function to close the panel
-  function closePanel() {
-    isOpen = false;
-    dispatch('close');
-  }
-  
+  import type { D3Node } from '$lib/types';
+
+  let { node = null, isOpen = false, onClose = () => {}, onSave = () => {} } = $props<{
+    node: D3Node | null;
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (node: D3Node) => void;
+  }>();
+
   // Format JSON values for display
   function formatValue(value: any): string {
     if (value === null || value === undefined) {
       return 'null';
     }
-    
     if (typeof value === 'object') {
-      return JSON.stringify(value, null, 2);
+      return formatJson(value);
     }
-    
     return String(value);
   }
-  
+
+  // Format JSON with error handling
+  function formatJson(value: any): string {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (e) {
+      return '[Complex Object - Cannot Display]';
+    }
+  }
+
   // Determine if a property should be editable
   function isEditableProperty(key: string, value: any): boolean {
-    // Don't allow editing of special Gun.js properties or complex objects
     if (key === '_' || key === '#' || key === 'id') {
       return false;
     }
-    
-    // Only allow editing of primitive values for now
     return typeof value !== 'object' || value === null;
   }
-  
-  // Event handler for saving changes (could be implemented)
+
+  // Close the panel
+  function closePanel() {
+    isOpen = false;
+    onClose();
+  }
+
+  // Save changes
   function saveChanges() {
-    // This would send changes to Gun.js
-    dispatch('save', { node });
+    if (node) {
+      onSave(node);
+    }
   }
 </script>
 
@@ -51,10 +58,10 @@
     <h3 class="text-lg font-semibold">Node Details</h3>
     <button 
       class="btn btn-sm btn-icon variant-ghost-surface" 
-      on:click={closePanel}
+      onclick={closePanel}
       title="Close Panel"
     >
-      <svelte:component this={icons.X} class="w-4 h-4" />
+      <icons.X class="w-4 h-4" />
     </button>
   </div>
   
@@ -79,11 +86,7 @@
                   <div class="property-value mt-1 text-sm">
                     {#if typeof value === 'object' && value !== null}
                       <pre class="bg-surface-100 dark:bg-surface-700 p-2 rounded text-xs overflow-x-auto">
-                        {try {
-                          JSON.stringify(value, null, 2)
-                        } catch (e) {
-                          '[Complex Object - Cannot Display]'
-                        }}
+                        {formatJson(value)}
                       </pre>
                     {:else}
                       <div class="bg-surface-100 dark:bg-surface-700 p-2 rounded font-mono text-xs break-all">
@@ -103,12 +106,12 @@
       <div class="mt-6 border-t border-surface-200 dark:border-surface-700 pt-4">
         <h5 class="font-semibold mb-2">Actions</h5>
         <div class="flex space-x-2">
-          <button class="btn btn-sm variant-filled-primary">
-            <svelte:component this={icons.Edit} class="w-4 h-4 mr-1" />
+          <button class="btn btn-sm variant-filled-primary" onclick={saveChanges}>
+            <icons.Edit class="w-4 h-4 mr-1" />
             Edit Node
           </button>
           <button class="btn btn-sm variant-filled-surface">
-            <svelte:component this={icons.RefreshCcw} class="w-4 h-4 mr-1" />
+            <icons.RefreshCcw class="w-4 h-4 mr-1" />
             Refresh
           </button>
         </div>

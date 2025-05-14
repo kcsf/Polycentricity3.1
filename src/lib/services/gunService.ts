@@ -278,6 +278,7 @@ export async function getCollection<
     g.get(soul)
       .map()
       .once((data: T | undefined, key: string) => {
+        console.log(`[getCollection] key: ${key}, data:`, data);
         if (key && key !== "_" && data) {
           const cleanedData = cleanData<T>({ ...data, id: key });
           if (cleanedData) {

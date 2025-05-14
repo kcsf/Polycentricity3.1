@@ -26,9 +26,9 @@
     players = actorsList.map((actor: ActorWithCard) => {
       const id = actor.user_ref;
       return {
-        id,
-        online: presenceMap[id] ?? false,
-        name: actor.card?.role_title ?? actor.custom_name ?? id
+        id: id ?? 'unknown', // Fallback for null user_ref
+        online: id ? presenceMap[id] ?? false : false, // Check id before indexing
+        name: actor.card?.role_title ?? actor.custom_name ?? id ?? 'Unknown'
       };
     });
   });

@@ -951,6 +951,12 @@ export async function verifySampleData() {
   async function countEntities(path: string): Promise<number> {
     return new Promise((resolve) => {
       let count = 0;
+      const gun = getGun();
+      if (!gun) {
+        console.error(`[verify] Gun not initialized for counting ${path}`);
+        resolve(0);
+        return;
+      }
       gun
         .get(path)
         .map()
@@ -1069,6 +1075,10 @@ export async function clearSampleData() {
       console.log(`[clear] Clearing ${nodeType}...`);
       const nodeData: Record<string, any> = await new Promise((resolve) => {
         const result: Record<string, any> = {};
+        if (!gun) {
+          resolve(result);
+          return;
+        }
         gun
           .get(nodeType)
           .map()
@@ -1083,6 +1093,10 @@ export async function clearSampleData() {
       for (const key of Object.keys(nodeData)) {
         gun.get(nodeType).get(key).put(null);
         await new Promise<void>((resolve) => {
+          if (!gun) {
+            resolve();
+            return;
+          }
           gun
             .get(nodeType)
             .get(key)

@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import gun from '$lib/services/gun-db';
+  import { getCollection, getGun } from '$lib/services/gunService';
+  import type { Game, Actor, Card, Deck, Agreement } from '$lib/types';
 
   // Reactive state with runes
   let data = $state<{
-    games: Record<string, any>;
-    actors: Record<string, any>;
-    cards: Record<string, any>;
-    decks: Record<string, any>;
-    agreements: Record<string, any>;
+    games: Record<string, Game>;
+    actors: Record<string, Actor>;
+    cards: Record<string, Card>;
+    decks: Record<string, Deck>;
+    agreements: Record<string, Agreement>;
   } | null>(null);
   let error = $state<string | null>(null);
   let isLoading = $state(true);
@@ -19,17 +20,19 @@
     return JSON.stringify(
       obj,
       (key, value) => {
-        // handle circular refs
+        // Handle circular refs
         if (typeof value === 'object' && value !== null) {
           if (seen.has(value)) return '[Circular]';
           seen.add(value);
         }
-        // inline GUN reference one level deep only
+        // Inline GUN reference one level deep only
         if (
-          value && typeof value === 'object' &&
-          Object.keys(value).length === 1 && '#' in value
+          value &&
+          typeof value === 'object' &&
+          Object.keys(value).length === 1 &&
+          '#' in value
         ) {
-          const path: string = (value as any)['#'];
+          const path: string = value['#'];
           const [rootKey, id] = path.split('/');
           const nodeData = data?.[rootKey as keyof typeof data]?.[id];
           if (nodeData && typeof nodeData === 'object') {
@@ -49,20 +52,31 @@
     );
   }
 
-  // Fetch raw data for a given root key
-  async function fetchRawData(rootKey: string): Promise<Record<string, any>> {
+  // Map rootKey to the correct ID field for each type
+  function getIdField<T extends Game | Actor | Card | Deck | Agreement>(item: T, rootKey: string): string {
+    switch (rootKey) {
+      case 'games':
+        return (item as Game).game_id;
+      case 'actors':
+        return (item as Actor).actor_id;
+      case 'cards':
+        return (item as Card).card_id;
+      case 'decks':
+        return (item as Deck).deck_id;
+      case 'agreements':
+        return (item as Agreement).agreement_id;
+      default:
+        throw new Error(`Unknown rootKey: ${rootKey}`);
+    }
+  }
+
+  // Fetch raw data for a given root key using getCollection
+  async function fetchRawData<T extends Game | Actor | Card | Deck | Agreement>(
+    rootKey: string
+  ): Promise<Record<string, T>> {
     try {
-      const nodes: Record<string, any> = {};
-      await new Promise<void>((resolve) => {
-        gun.get(rootKey).map().once((node, key) => {
-          if (key && key !== '_' && node) {
-            const { _, ...clean } = node;
-            nodes[key] = clean;
-          }
-        });
-        setTimeout(resolve, 500);
-      });
-      return nodes;
+      const items = await getCollection<T>(rootKey);
+      return Object.fromEntries(items.map((item) => [getIdField(item, rootKey), item]));
     } catch (e: any) {
       throw new Error(`Error accessing raw data for ${rootKey}: ${e.message}`);
     }
@@ -72,11 +86,11 @@
   async function fetchAllData() {
     try {
       const [games, actors, cards, decks, agreements] = await Promise.all([
-        fetchRawData('games'),
-        fetchRawData('actors'),
-        fetchRawData('cards'),
-        fetchRawData('decks'),
-        fetchRawData('agreements'),
+        fetchRawData<Game>('games'),
+        fetchRawData<Actor>('actors'),
+        fetchRawData<Card>('cards'),
+        fetchRawData<Deck>('decks'),
+        fetchRawData<Agreement>('agreements'),
       ]);
       data = { games, actors, cards, decks, agreements };
     } catch (e: any) {
@@ -90,7 +104,10 @@
   // Load data on mount
   onMount(() => {
     fetchAllData();
-    (window as any).gun = gun;
+    const gunInstance = getGun();
+    if (gunInstance) {
+      (window as any).gun = gunInstance;
+    }
   });
 </script>
 

@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { CircleDollarSign } from '@lucide/svelte';
-import type { ComponentType } from 'svelte';
+import type { Component } from 'svelte';
 
 // Map GunDB icon names to @lucide/svelte names
 const iconNameMap: Record<string, string> = {
@@ -30,10 +30,17 @@ const iconNameMap: Record<string, string> = {
 
 interface IconData {
   name: string;
-  component: ComponentType;
+  component: Component;
 }
 
 export const iconStore = writable<Map<string, IconData>>(new Map());
+
+// Type for @lucide/svelte module
+interface LucideModule {
+  [key: string]: Component | undefined | unknown;
+  CircleDollarSign: Component;
+  DollarSign: Component;
+}
 
 export async function loadIcons(iconNames: string[]) {
   let existingIcons: Map<string, IconData> = new Map();
@@ -54,16 +61,13 @@ export async function loadIcons(iconNames: string[]) {
       .join('');
 
     try {
-      const module = await import('@lucide/svelte');
-      const iconComponent = module[pascalName] as ComponentType;
+      const module = await import('@lucide/svelte') as unknown as LucideModule;
+      const iconComponent = module[pascalName] as Component | undefined;
+      
       if (iconComponent) {
         newIcons.set(name, { name, component: iconComponent });
-      } else if (pascalName === 'Circledollarsign') {
-        if (module.DollarSign) {
-          newIcons.set(name, { name, component: module.DollarSign as ComponentType });
-        } else {
-          throw new Error('DollarSign fallback not found');
-        }
+      } else if (pascalName === 'CircleDollarSign') {
+        newIcons.set(name, { name, component: module.DollarSign });
       } else {
         throw new Error(`${pascalName} not found in @lucide/svelte`);
       }
