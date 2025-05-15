@@ -2,6 +2,17 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
   
+  // Define Turnstile type for window global
+  declare global {
+    interface Window {
+      turnstile?: {
+        render: (container: HTMLElement, options: any) => string;
+        reset: (widgetId: string) => void;
+        remove: (widgetId: string) => void;
+      }
+    }
+  }
+  
   // Define props properly using Svelte 5 Runes syntax
   // Allow optional override of the sitekey, but default to environment variable
   const props = $props<{ sitekey?: string }>();
