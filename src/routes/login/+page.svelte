@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import { userStore } from '$lib/stores/userStore';
-  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
   import { loginUser } from '$lib/services/authService';
+  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
+  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
 
   let email = $state('bjorn@endogon.com');
   let password = $state('admin123');
@@ -13,8 +13,8 @@
   let isLoggingIn = $state(false);
   let error = $state<string | null>(null);
 
-  // Client-side validation
-  let validationError = $derived(() => {
+  // Client-side validation with proper Svelte 5 Runes syntax
+  const validationError = $derived(() => {
     if (!email.trim() || !password) return 'Email and password are required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format';
     if (password.length < 6) return 'Password must be at least 6 characters';
@@ -45,29 +45,27 @@
     }
     
     // Ensure turnstile verification has been completed
-    // This should be set by the TurnstileWidget when verification completes
     if (!turnstileToken) {
       error = 'Please complete the Turnstile verification';
       return;
     }
-    
-    console.log("Form submitted with token:", turnstileToken);
 
     isLoggingIn = true;
+    
     try {
       // Verify Turnstile token server-side
       const isTurnstileValid = await verifyTurnstile(turnstileToken);
       
       if (!isTurnstileValid) {
         error = 'Turnstile verification failed. Please try again.';
-        isLoggingIn = false;
         return;
       }
       
-      // Call the loginUser service function - proper way that doesn't access Gun directly
+      // Call the loginUser service function (properly using the auth service)
       const user = await loginUser(email, password);
       
       if (user) {
+        // Save email preference if 'remember me' is checked
         if (rememberMe) {
           localStorage.setItem('polycentricity_email', email);
         } else {
@@ -79,13 +77,13 @@
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      error = err.message || 'An error occurred during login';
+      error = typeof err === 'string' ? err : err.message || 'An error occurred during login';
     } finally {
       isLoggingIn = false;
     }
   }
 
-  async function verifyTurnstile(token: string) {
+  async function verifyTurnstile(token: string): Promise<boolean> {
     try {
       const response = await fetch('/api/turnstile', {
         method: 'POST',
@@ -96,14 +94,14 @@
       });
       
       const data = await response.json();
-      return data.success;
+      return !!data.success;
     } catch (err) {
       console.error('Turnstile verification error:', err);
       return false;
     }
   }
 
-  function handleTurnstileVerified(event: CustomEvent<string>) {
+  function handleTurnstileVerified(event: CustomEvent<string>): void {
     turnstileToken = event.detail;
   }
 </script>

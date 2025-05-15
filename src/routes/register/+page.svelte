@@ -7,6 +7,7 @@
   import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
 
+  // Form state with Svelte 5 Runes syntax
   let name = $state('');
   let email = $state('');
   let password = $state('');
@@ -15,8 +16,8 @@
   let turnstileToken = $state<string | null>(null);
   let isRegistrationComplete = $state(false);
 
-  // Client-side validation
-  let validationError = $derived(() => {
+  // Client-side validation with proper Svelte 5 Runes syntax
+  const validationError = $derived(() => {
     if (!name.trim() || !email.trim() || !password) return 'All fields are required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address';
     if (password.length < 6) return 'Password must be at least 6 characters long';
@@ -24,12 +25,18 @@
   });
 
   onMount(() => {
+    // Check if user is already authenticated
     if ($userStore.isAuthenticated && $userStore.user) {
       goto('/dashboard');
     }
   });
 
-  async function verifyTurnstile(token: string) {
+  /**
+   * Verify Turnstile token with the server
+   * @param token The Turnstile token to verify
+   * @returns Promise<boolean> indicating if verification succeeded
+   */
+  async function verifyTurnstile(token: string): Promise<boolean> {
     try {
       const response = await fetch('/api/turnstile', {
         method: 'POST',
@@ -40,18 +47,25 @@
       });
       
       const data = await response.json();
-      return data.success;
+      return !!data.success;
     } catch (err) {
       console.error('Turnstile verification error:', err);
       return false;
     }
   }
   
-  function handleTurnstileVerified(event: CustomEvent<string>) {
+  /**
+   * Handle Turnstile verification event
+   * @param event CustomEvent with token as detail
+   */
+  function handleTurnstileVerified(event: CustomEvent<string>): void {
     turnstileToken = event.detail;
   }
 
-  async function handleSubmit() {
+  /**
+   * Handle form submission
+   */
+  async function handleSubmit(): Promise<void> {
     // Clear previous errors
     error = null;
     
@@ -66,13 +80,11 @@
       error = 'Please complete the Turnstile verification';
       return;
     }
-    
-    console.log("Registration form submitted with token:", turnstileToken);
 
     isRegistering = true;
     
     try {
-      // First verify Turnstile token
+      // First verify Turnstile token server-side
       const isTurnstileValid = await verifyTurnstile(turnstileToken);
       
       if (!isTurnstileValid) {
@@ -87,7 +99,7 @@
         return;
       }
       
-      // If we get here, the user doesn't exist, so register them
+      // Register the user through the auth service
       const user = await registerUser(name, email, password);
       
       if (user) {
@@ -102,10 +114,11 @@
     } catch (err: any) {
       console.error('Registration error:', err);
       
+      // Handle special case for duplicate users
       if (typeof err === 'string' && err.includes('User already created')) {
         error = 'This email is already registered in the database. Please try using a different email.';
       } else {
-        error = err.message || 'An error occurred during registration';
+        error = typeof err === 'string' ? err : err.message || 'An error occurred during registration';
       }
     } finally {
       isRegistering = false;

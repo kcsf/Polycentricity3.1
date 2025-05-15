@@ -1,51 +1,76 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   
-  // Define props
-  let { sitekey } = $props<{ sitekey: string }>();
+  // Properly define interfaces for Turnstile
+  interface TurnstileRenderOptions {
+    sitekey: string;
+    callback: (token: string) => void;
+    'error-callback': (error: any) => void;
+    'expired-callback': () => void;
+    theme?: 'light' | 'dark' | 'auto';
+  }
   
-  let turnstileContainer;
+  interface TurnstileInstance {
+    render: (container: HTMLElement, options: TurnstileRenderOptions) => string;
+    reset: (widgetId: string) => void;
+    remove: (widgetId: string) => void;
+  }
+  
+  // Define typed window interface
+  declare global {
+    interface Window {
+      turnstile?: TurnstileInstance;
+    }
+  }
+
+  // Define props properly using Svelte 5 Runes syntax
+  const { sitekey } = $props<{ sitekey: string }>();
+  
+  // UI state
+  let turnstileContainer: HTMLDivElement;
   let widgetId = $state<string | null>(null);
-  let token = $state('');
-  let errorMessage = $state('');
-  let scriptLoaded = $state(false);
+  let errorMessage = $state<string>('');
+  let scriptLoaded = $state<boolean>(false);
   
+  // Event dispatcher for component communication
   const dispatch = createEventDispatcher<{
     verified: string;
     error: string;
   }>();
   
-  function renderTurnstile() {
-    if (!turnstileContainer || !scriptLoaded || typeof window === 'undefined' || !(window as any).turnstile) {
+  /**
+   * Renders the Turnstile widget using the explicit render method
+   */
+  function renderTurnstile(): void {
+    // Guard clauses to prevent errors
+    if (!turnstileContainer || !scriptLoaded || typeof window === 'undefined' || !window.turnstile) {
       return;
     }
     
+    // Reset widget if it already exists
     if (widgetId) {
-      // Reset if needed
-      (window as any).turnstile?.reset(widgetId);
+      window.turnstile.reset(widgetId);
     }
     
     try {
-      console.log('Rendering Turnstile with sitekey:', sitekey);
-      widgetId = (window as any).turnstile.render(turnstileContainer, {
+      // Render widget with proper Turnstile options
+      widgetId = window.turnstile.render(turnstileContainer, {
         sitekey: sitekey,
-        callback: function(token: string) {
-          console.log('Turnstile verification successful');
+        callback: (token: string) => {
           dispatch('verified', token);
         },
-        'error-callback': function(error: any) {
-          console.error('Turnstile error:', error);
-          errorMessage = typeof error === 'string' ? error : 'Verification failed';
-          dispatch('error', errorMessage);
+        'error-callback': (error: any) => {
+          const errorMsg = typeof error === 'string' ? error : 'Verification failed';
+          errorMessage = errorMsg;
+          dispatch('error', errorMsg);
         },
-        'expired-callback': function() {
-          console.warn('Turnstile verification expired');
+        'expired-callback': () => {
           errorMessage = 'Verification expired, please try again';
-          dispatch('error', errorMessage);
-        }
+          dispatch('error', 'Verification expired, please try again');
+        },
+        theme: 'auto' // Automatically adapt to light/dark mode
       });
-    } catch (err) {
-      console.error('Error rendering Turnstile:', err);
+    } catch (err: any) {
       errorMessage = 'Error initializing verification widget';
       dispatch('error', errorMessage);
     }
@@ -73,17 +98,20 @@
       }
     }
     
+    // Cleanup function that properly removes the widget
     return () => {
-      // Clean up when component is destroyed
-      if (typeof window !== 'undefined' && (window as any).turnstile && widgetId) {
-        (window as any).turnstile.remove(widgetId);
+      if (typeof window !== 'undefined' && window.turnstile && widgetId) {
+        window.turnstile.remove(widgetId);
       }
     };
   });
 </script>
 
-<div class="turnstile-container relative my-4" bind:this={turnstileContainer}></div>
+<!-- Use proper TailwindCSS classes for styling -->
+<div class="flex justify-center py-2 relative" aria-live="polite">
+  <div class="turnstile-container" bind:this={turnstileContainer}></div>
+</div>
 
 {#if errorMessage}
-<p class="text-error-400-500 text-sm" role="alert">{errorMessage}</p>
+<p class="text-error-400-500 text-sm text-center" role="alert">{errorMessage}</p>
 {/if}
