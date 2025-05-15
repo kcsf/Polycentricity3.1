@@ -73,10 +73,12 @@
         <span>Games</span>
       </a>
       
+      {#if $userStore.user?.role === 'Admin'}
       <a href="/admin" class="flex items-center space-x-1 px-3 py-2 rounded-full transition-all hover:bg-primary-500/10">
         <Settings size={18} />
         <span>Admin</span>
       </a>
+      {/if}
     </nav>
     
     <!-- Right Side Actions -->
@@ -164,10 +166,12 @@
             <Gamepad2 size={20} />
             <span>Games</span>
           </a>
+          {#if $userStore.user?.role === 'Admin'}
           <a href="/admin" class="flex items-center space-x-2 p-3 rounded-lg hover:bg-primary-500/10" onclick={handleNavClick}>
             <Settings size={20} />
             <span>Admin</span>
           </a>
+          {/if}
         </nav>
         
         <div class="mt-auto pt-5 border-t border-surface-300-600/30">
