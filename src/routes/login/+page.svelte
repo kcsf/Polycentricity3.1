@@ -1,210 +1,177 @@
 <script lang="ts">
-        import { goto } from '$app/navigation';
-        import { onMount } from 'svelte';
-        import { loginUser, getGun, getUser } from '$lib/services/authService';
-        import { userStore } from '$lib/stores/userStore';
-        import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
-        import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
+  import { userStore } from '$lib/stores/userStore';
+  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
+  import { loginUser } from '$lib/services/authService';
+
+  let email = $state('bjorn@endogon.com');
+  let password = $state('admin123');
+  let rememberMe = $state(true);
+  let turnstileToken = $state<string | null>(null);
+  let isLoggingIn = $state(false);
+  let error = $state<string | null>(null);
+
+  // Client-side validation
+  let validationError = $derived(() => {
+    if (!email.trim() || !password) return 'Email and password are required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format';
+    if (password.length < 6) return 'Password must be at least 6 characters';
+    return null;
+  });
+
+  onMount(() => {
+    if ($userStore.isAuthenticated && $userStore.user) {
+      goto('/dashboard');
+    }
+    const storedEmail = localStorage.getItem('polycentricity_email');
+    if (storedEmail) {
+      email = storedEmail;
+    }
+  });
+
+  async function handleSubmit() {
+    error = validationError;
+    if (error) return;
+    if (!turnstileToken) {
+      error = 'Please complete the Turnstile verification';
+      return;
+    }
+
+    isLoggingIn = true;
+    try {
+      // First verify Turnstile token
+      const isTurnstileValid = await verifyTurnstile(turnstileToken);
       
-        let email = $state('');
-        let password = $state('');
-        let isLoggingIn = $state(false);
-        let error = $state('');
-        let rememberMe = $state(true);
-        let turnstileToken = $state('');
+      if (!isTurnstileValid) {
+        error = 'Turnstile verification failed. Please try again.';
+        return;
+      }
       
-        const TURNSTILE_SITE_KEY = PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
+      // Call the loginUser service function - proper way that doesn't access Gun directly
+      const user = await loginUser(email, password);
       
-        onMount(() => {
-          if ($userStore.user) {
-            goto('/dashboard');
-          }
-      
-          const storedEmail = localStorage.getItem('polycentricity_email');
-          if (storedEmail) {
-            email = storedEmail;
-          }
-        });
-      
-        $effect(() => {
-          if (isLoggingIn) {
-            console.log('Login attempt in progress...');
-          }
-        });
-      
-        $effect(() => {
-          if (error) {
-            console.warn('Login error detected:', error);
-          }
-        });
-        
-        async function verifyTurnstile(token: string) {
-          try {
-            const response = await fetch('/api/turnstile', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ token })
-            });
-            
-            const data = await response.json();
-            return data.success;
-          } catch (err) {
-            console.error('Turnstile verification error:', err);
-            return false;
-          }
+      if (user) {
+        if (rememberMe) {
+          localStorage.setItem('polycentricity_email', email);
+        } else {
+          localStorage.removeItem('polycentricity_email');
         }
-        
-        function handleTurnstileVerified(event: CustomEvent<string>) {
-          turnstileToken = event.detail;
-        }
-        
-        function handleTurnstileError(event: CustomEvent<string>) {
-          error = `Turnstile error: ${event.detail}`;
-        }
+        await goto('/dashboard');
+      } else {
+        error = 'Invalid email or password';
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      error = err.message || 'An error occurred during login';
+    } finally {
+      isLoggingIn = false;
+    }
+  }
+
+  async function verifyTurnstile(token: string) {
+    try {
+      const response = await fetch('/api/turnstile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token })
+      });
       
-        async function handleSubmit(e: Event) {
-          e.preventDefault();
-          error = '';
-      
-          if (!email.trim() || !password) {
-            error = 'Email and password are required';
-            return;
-          }
-          
-          if (!turnstileToken) {
-            error = 'Please complete the Turnstile verification';
-            return;
-          }
-      
-          isLoggingIn = true;
-          try {
-            // First verify Turnstile token
-            const isTurnstileValid = await verifyTurnstile(turnstileToken);
-            
-            if (!isTurnstileValid) {
-              error = 'Turnstile verification failed. Please try again.';
-              isLoggingIn = false;
-              return;
-            }
-            
-            const user = await loginUser(email, password);
-            if (user) {
-              console.log(`Login successful: ${user.user_id}`);
-              
-              // Update last_login timestamp
-              const gun = getGun();
-              const gunUser = getUser();
-              
-              if (gun && gunUser) {
-                const timestamp = Date.now();
-                gunUser.get("profile").get('last_login').putSigned(timestamp, (ack) => {
-                  if (ack.err) console.error("Error updating last_login:", ack.err);
-                });
-                
-                // Update in public users as well
-                gun.get("users").get(user.user_id).get('last_login').put(timestamp);
-              }
-              
-              if (rememberMe) {
-                localStorage.setItem('polycentricity_email', email);
-              } else {
-                localStorage.removeItem('polycentricity_email');
-              }
-              try {
-                await goto('/dashboard');
-              } catch (navError) {
-                console.error('Navigation error:', navError);
-                window.location.href = '/dashboard';
-              }
-            } else {
-              error = 'Invalid email or password';
-            }
-          } catch (err: any) {
-            console.error('Login error:', err);
-            error = err.message || 'An error occurred during login';
-          } finally {
-            isLoggingIn = false;
-          }
-        }
-      </script>
-      
-      <div class="container h-full mx-auto flex justify-center items-center py-8">
-        <div class="card p-4 w-full max-w-md bg-surface-100-800">
-          <header class="card-header text-center">
-            <h1 class="h2">Welcome Back</h1>
-            <p class="opacity-70">Login to continue building your eco-village</p>
-          </header>
-      
-          <section class="p-4">
-            {#if error}
-              <div class="alert variant-ghost-warning">
-                <div class="alert-message">
-                  <p class="text-sm">{error}</p>
-                </div>
-              </div>
-            {/if}
-      
-            <form onsubmit={handleSubmit} class="space-y-4" id="login-form" name="login-form">
-              <label class="label" for="email">
-                <span>Email</span>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  class="input"
-                  value={email}
-                  oninput={(e) => (email = e.currentTarget.value)}
-                  placeholder="Enter your email"
-                  autocomplete="email"
-                  required
-                />
-              </label>
-      
-              <label class="label" for="password">
-                <span>Password</span>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  class="input"
-                  value={password}
-                  oninput={(e) => (password = e.currentTarget.value)}
-                  placeholder="Enter your password"
-                  autocomplete="current-password"
-                  required
-                />
-              </label>
-              
-              <TurnstileWidget 
-                sitekey={TURNSTILE_SITE_KEY} 
-                on:verified={handleTurnstileVerified}
-                on:error={handleTurnstileError}
-              />
-      
-              <label class="flex items-center space-x-2 mb-4">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  oninput={(e) => (rememberMe = e.currentTarget.checked)}
-                  class="checkbox"
-                />
-                <span class="text-sm">Remember my email</span>
-              </label>
-      
-              <button
-                type="submit"
-                class="btn variant-filled-primary w-full"
-                disabled={isLoggingIn}
-              >
-                {isLoggingIn ? 'Logging in...' : 'Login'}
-              </button>
-            </form>
-      
-            <div class="mt-4 text-center">
-              <p>Don't have an account? <a href="/register" class="anchor">Register</a></p>
-            </div>
-          </section>
+      const data = await response.json();
+      return data.success;
+    } catch (err) {
+      console.error('Turnstile verification error:', err);
+      return false;
+    }
+  }
+
+  function handleTurnstileVerified(event: CustomEvent<string>) {
+    turnstileToken = event.detail;
+  }
+</script>
+
+<div class="container h-full mx-auto flex justify-center items-center py-8">
+  <div class="card p-4 w-full max-w-md shadow-lg bg-surface-50-950/90">
+    <header class="card-header text-center">
+      <h1 class="h2 text-primary-500-400">Welcome Back</h1>
+      <p class="opacity-70 text-sm">Login to continue building your eco-village</p>
+    </header>
+
+    <section class="p-4">
+      {#if error}
+        <div class="alert variant-ghost-error" role="alert">
+          <div class="alert-message">
+            <p class="text-sm" id="error-message">{error}</p>
+          </div>
         </div>
+      {/if}
+
+      <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4" id="login-form" name="login-form">
+        <label class="label">
+          <span>Email</span>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            class="input variant-filled"
+            bind:value={email}
+            placeholder="Enter your email"
+            autocomplete="email"
+            required
+            aria-describedby="error-message"
+          />
+        </label>
+
+        <label class="label">
+          <span>Password</span>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            class="input variant-filled"
+            bind:value={password}
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+            aria-describedby="error-message"
+          />
+        </label>
+
+        <TurnstileWidget
+          sitekey={PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY}
+          on:verified={handleTurnstileVerified}
+        />
+
+        <label class="flex items-center space-x-2 mb-4">
+          <input
+            type="checkbox"
+            bind:checked={rememberMe}
+            class="checkbox variant-filled"
+          />
+          <span class="text-sm">Remember my email</span>
+        </label>
+
+        <button
+          type="submit"
+          class="btn variant-filled-primary w-full"
+          disabled={isLoggingIn || !!validationError}
+        >
+          {#if isLoggingIn}
+            Logging in...
+          {:else}
+            Login
+          {/if}
+        </button>
+      </form>
+
+      <div class="mt-4 text-center">
+        <p class="text-sm">
+          Don't have an account? <a href="/register" class="anchor text-primary-500-400">Register</a>
+        </p>
       </div>
+    </section>
+  </div>
+</div>

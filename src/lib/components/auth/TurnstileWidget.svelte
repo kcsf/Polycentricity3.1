@@ -27,24 +27,15 @@
         // Define global callback functions
         window.onVerify = (response) => {
           token = response;
+          dispatch('verified', response);
         };
         
         window.onError = (error) => {
-          errorMessage = error.message || 'Verification failed';
+          const errorMsg = error.message || 'Verification failed';
+          errorMessage = errorMsg;
+          dispatch('error', errorMsg);
         };
       }
-    }
-  });
-  
-  $effect(() => {
-    if (token) {
-      dispatch('verified', token);
-    }
-  });
-  
-  $effect(() => {
-    if (errorMessage) {
-      dispatch('error', errorMessage);
     }
   });
 </script>
@@ -58,5 +49,5 @@
 ></div>
 
 {#if errorMessage}
-<p class="text-error-400-500 text-sm">{errorMessage}</p>
+<p class="text-error-400-500 text-sm" role="alert">{errorMessage}</p>
 {/if}
