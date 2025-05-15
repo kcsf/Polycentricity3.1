@@ -7,9 +7,11 @@ export async function sendVerificationEmail(
   magicKey: string
 ): Promise<boolean> {
   try {
-    // Build verification URL
-    // In production, this would be a full HTTPS URL
-    const verificationUrl = `http://localhost:5000/verify?userId=${userId}&magicKey=${magicKey}`;
+    // Build verification URL that works both in development and production
+    // Note: This will be called from the server during API calls, so window won't be available
+    // In a real production app, this would be an environment variable
+    const baseUrl = 'http://localhost:5000';
+    const verificationUrl = `${baseUrl}/verify?userId=${encodeURIComponent(userId)}&magicKey=${encodeURIComponent(magicKey)}`;
     
     const response = await fetch('/api/sendgrid', {
       method: 'POST',
@@ -41,7 +43,7 @@ export async function sendVerificationEmail(
     
     console.log('Verification email sent successfully');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending verification email:', error);
     return false;
   }
@@ -72,7 +74,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<boo
               <li>Building eco-villages and sustainable communities</li>
             </ul>
             <p>Get started by exploring the dashboard and joining a game.</p>
-            <p><a href="http://localhost:5000/dashboard" style="color: #4A56E2;">Go to Dashboard</a></p>
+            <p><a href="${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000'}/dashboard" style="color: #4A56E2;">Go to Dashboard</a></p>
           </div>
         `
       })
@@ -84,7 +86,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<boo
     
     console.log('Welcome email sent successfully');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending welcome email:', error);
     return false;
   }

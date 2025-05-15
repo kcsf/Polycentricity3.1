@@ -36,16 +36,16 @@
           goto('/login');
         }, 3000);
       }
-    } catch (error) {
+    } catch (error: any) {
       isVerifying = false;
       isError = true;
-      errorMessage = error.message || 'An unexpected error occurred during verification.';
+      errorMessage = typeof error === 'string' ? error : error.message || 'An unexpected error occurred during verification.';
     }
   });
 </script>
 
 <div class="container h-full mx-auto flex justify-center items-center py-8">
-  <div class="card p-4 w-full max-w-md bg-surface-100-800">
+  <div class="card p-4 w-full max-w-md bg-surface-100-800-token shadow-lg">
     <header class="card-header text-center">
       <h1 class="h2">Email Verification</h1>
     </header>
@@ -72,7 +72,7 @@
           </div>
           <p class="text-lg font-semibold">Verification Failed</p>
           <p>{errorMessage}</p>
-          <a href="/register" class="btn variant-filled-primary">Register Again</a>
+          <a href="/register" class="btn bg-primary-500-400 text-white">Register Again</a>
         </div>
       {/if}
     </section>
