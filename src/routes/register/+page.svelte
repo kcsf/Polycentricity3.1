@@ -5,6 +5,7 @@
         import { userStore } from '$lib/stores/userStore';
         import { sendVerificationEmail } from '$lib/services/emailService';
         import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
+        import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
       
         let name = $state('');
         let email = $state('');
@@ -14,7 +15,7 @@
         let turnstileToken = $state('');
         let isRegistrationComplete = $state(false);
       
-        const TURNSTILE_SITE_KEY = '<CLOUDFLARE_TURNSTILE_SITEKEY>';
+        const TURNSTILE_SITE_KEY = PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
       
         onMount(() => {
           if ($userStore.user) {

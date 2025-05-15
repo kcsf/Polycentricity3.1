@@ -4,15 +4,16 @@
         import { loginUser, getGun, getUser } from '$lib/services/authService';
         import { userStore } from '$lib/stores/userStore';
         import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
+        import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
       
-        let email = $state('bjorn@endogon.com');
-        let password = $state('admin123');
+        let email = $state('');
+        let password = $state('');
         let isLoggingIn = $state(false);
         let error = $state('');
         let rememberMe = $state(true);
         let turnstileToken = $state('');
       
-        const TURNSTILE_SITE_KEY = '<CLOUDFLARE_TURNSTILE_SITEKEY>';
+        const TURNSTILE_SITE_KEY = PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
       
         onMount(() => {
           if ($userStore.user) {

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   
-  $props({ sitekey: String });
+  // Define props
+  let { sitekey } = $props<{ sitekey: string }>();
   
   let turnstileRef;
   let token = $state('');

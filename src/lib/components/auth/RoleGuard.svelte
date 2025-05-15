@@ -3,10 +3,11 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
   
-  $props({
+  // Define props
+  let { roles, redirectTo } = $props<{
     roles: Array<'Guest' | 'Member' | 'Admin'>,
-    redirectTo: String
-  });
+    redirectTo: string
+  }>();
   
   let isAuthorized = $state(false);
   let isChecking = $state(true);
