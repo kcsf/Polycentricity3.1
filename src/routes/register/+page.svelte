@@ -71,7 +71,7 @@
     
     // Check for validation errors
     if (validationError) {
-      error = validationError;
+      error = validationError as string;
       return;
     }
     

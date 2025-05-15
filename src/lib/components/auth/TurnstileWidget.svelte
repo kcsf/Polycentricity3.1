@@ -1,27 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   
-  // Properly define interfaces for Turnstile
-  interface TurnstileRenderOptions {
-    sitekey: string;
-    callback: (token: string) => void;
-    'error-callback': (error: any) => void;
-    'expired-callback': () => void;
-    theme?: 'light' | 'dark' | 'auto';
-  }
-  
-  interface TurnstileInstance {
-    render: (container: HTMLElement, options: TurnstileRenderOptions) => string;
-    reset: (widgetId: string) => void;
-    remove: (widgetId: string) => void;
-  }
-  
-  // Define typed window interface
-  declare global {
-    interface Window {
-      turnstile?: TurnstileInstance;
-    }
-  }
+  // Import types from separate turnstile.d.ts file
 
   // Define props properly using Svelte 5 Runes syntax
   const { sitekey } = $props<{ sitekey: string }>();

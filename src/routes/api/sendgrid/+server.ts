@@ -20,8 +20,11 @@ export const POST: RequestHandler = async ({ request }) => {
     await sgMail.send(msg);
     
     return json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Email sending error:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: typeof error === 'string' ? error : error.message || 'Unknown error'
+    }, { status: 500 });
   }
 };

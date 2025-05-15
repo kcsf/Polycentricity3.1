@@ -1,0 +1,111 @@
+/home/runner/workspace/src/lib/components/auth/RoleGuard.svelte:49:3
+Warn: Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+https://svelte.dev/e/slot_element_deprecated (svelte)
+{#if isAuthorized && !isChecking}
+  <slot />
+{/if}
+
+
+/home/runner/workspace/src/lib/components/auth/TurnstileWidget.svelte:20:3
+Error: An ambient module declaration is only allowed at the top level in a file. (ts)
+  // Define typed window interface
+  declare global {
+    interface Window {
+
+
+/home/runner/workspace/src/lib/components/auth/TurnstileWidget.svelte:46:90
+Error: Property 'turnstile' does not exist on type 'Window & typeof globalThis'. (ts)
+    // Guard clauses to prevent errors
+    if (!turnstileContainer || !scriptLoaded || typeof window === 'undefined' || !window.turnstile) {
+      return;
+
+
+/home/runner/workspace/src/lib/components/auth/TurnstileWidget.svelte:52:14
+Error: Property 'turnstile' does not exist on type 'Window & typeof globalThis'. (ts)
+    if (widgetId) {
+      window.turnstile.reset(widgetId);
+    }
+
+
+/home/runner/workspace/src/lib/components/auth/TurnstileWidget.svelte:57:25
+Error: Property 'turnstile' does not exist on type 'Window & typeof globalThis'. (ts)
+      // Render widget with proper Turnstile options
+      widgetId = window.turnstile.render(turnstileContainer, {
+        sitekey: sitekey,
+
+
+/home/runner/workspace/src/lib/components/auth/TurnstileWidget.svelte:103:51
+Error: Property 'turnstile' does not exist on type 'Window & typeof globalThis'. (ts)
+    return () => {
+      if (typeof window !== 'undefined' && window.turnstile && widgetId) {
+        window.turnstile.remove(widgetId);
+
+
+/home/runner/workspace/src/lib/components/auth/TurnstileWidget.svelte:104:16
+Error: Property 'turnstile' does not exist on type 'Window & typeof globalThis'. (ts)
+      if (typeof window !== 'undefined' && window.turnstile && widgetId) {
+        window.turnstile.remove(widgetId);
+      }
+
+
+/home/runner/workspace/src/routes/api/sendgrid/+server.ts:4:34
+Error: Cannot find module '$env/static/private' or its corresponding type declarations. 
+import sgMail from '@sendgrid/mail';
+import { SENDGRID_API_KEY } from '$env/static/private';
+
+
+
+/home/runner/workspace/src/routes/api/sendgrid/+server.ts:25:42
+Error: 'error' is of type 'unknown'. 
+    console.error('Email sending error:', error);
+    return json({ success: false, error: error.message }, { status: 500 });
+  }
+
+
+/home/runner/workspace/src/routes/api/turnstile/+server.ts:3:45
+Error: Cannot find module '$env/static/private' or its corresponding type declarations. 
+import type { RequestHandler } from './$types';
+import { CLOUDFLARE_TURNSTILE_SECRET } from '$env/static/private';
+
+
+
+/home/runner/workspace/src/routes/api/turnstile/+server.ts:27:42
+Error: 'error' is of type 'unknown'. 
+    console.error('Turnstile verification error:', error);
+    return json({ success: false, error: error.message }, { status: 500 });
+  }
+
+
+/home/runner/workspace/src/routes/login/+page.svelte:6:55
+Error: Cannot find module '$env/static/public' or its corresponding type declarations. (ts)
+  import { loginUser } from '$lib/services/authService';
+  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
+  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
+
+
+/home/runner/workspace/src/routes/login/+page.svelte:43:15
+Error: Type '() => "Email and password are required" | "Invalid email format" | "Password must be at least 6 characters" | null' is not assignable to type 'string'. (ts)
+    if (validationError) {
+      error = validationError;
+      return;
+
+
+/home/runner/workspace/src/routes/register/+page.svelte:8:55
+Error: Cannot find module '$env/static/public' or its corresponding type declarations. (ts)
+  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
+  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
+
+
+
+/home/runner/workspace/src/routes/register/+page.svelte:74:15
+Error: Type '() => "All fields are required" | "Please enter a valid email address" | "Password must be at least 6 characters long" | null' is not assignable to type 'string'. (ts)
+    if (validationError) {
+      error = validationError;
+      return;
+
+
+/home/runner/workspace/src/routes/verify/+page.svelte:42:22
+Error: 'error' is of type 'unknown'. (ts)
+      isError = true;
+      errorMessage = error.message || 'An unexpected error occurred during verification.';
+    }

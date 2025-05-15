@@ -22,8 +22,11 @@ export const POST: RequestHandler = async ({ request }) => {
     } else {
       return json({ success: false, error: data['error-codes'] }, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Turnstile verification error:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: typeof error === 'string' ? error : error.message || 'Unknown error'
+    }, { status: 500 });
   }
 };
