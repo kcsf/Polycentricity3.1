@@ -88,7 +88,8 @@
 
     function goToDetails() {
         goto(`/games/${gameId}/details`);
-    }
+    }  
+    
 </script>
 
 <div class="w-full h-full flex flex-col">

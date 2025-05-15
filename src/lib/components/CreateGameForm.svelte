@@ -1,30 +1,34 @@
 <script lang="ts">
     import { createGame } from '$lib/services/gameService';
-    import type { Game } from '$lib/types';
+    import type { Game, Deck } from '$lib/types';
     import * as icons from '@lucide/svelte';
 
-    // Props for callbacks to communicate with parent
-    const { onCreated, onStatusUpdate } = $props<{
+    // Define props interface
+    interface Props {
+        decks: Deck[];
         onCreated: (gameId: string) => void;
         onStatusUpdate: (status: 'idle' | 'creating' | 'success' | 'error', message?: string) => void;
-    }>();
+    }
 
-    // Form state
+    // Declare props
+    const { decks, onCreated, onStatusUpdate }: Props = $props();
+
     let gameName = $state('');
-    let deckType = $state('eco-village');
+    let deckRef = $state(decks.length > 0 ? decks[0].deck_id : '');
     let roleAssignment = $state<"player-choice" | "random">('player-choice');
     let maxPlayers = $state<number | undefined>(undefined);
     let isCreating = $state(false);
     let error = $state('');
 
-    const predefinedDeckTypes = [
-        { value: 'eco-village', label: 'Eco-Village' },
-        { value: 'community-garden', label: 'Community Garden' }
-    ];
-
     async function handleSubmit() {
         if (!gameName.trim()) {
             error = 'Please enter a game name';
+            onStatusUpdate('error', error);
+            return;
+        }
+
+        if (!deckRef) {
+            error = 'Please select a deck';
             onStatusUpdate('error', error);
             return;
         }
@@ -36,7 +40,7 @@
 
             const game: Game | null = await createGame(
                 gameName.trim(),
-                deckType,
+                deckRef,
                 roleAssignment,
                 maxPlayers
             );
@@ -90,14 +94,18 @@
             </label>
         </div>
 
-        <!-- Deck Type -->
+        <!-- Deck Selection -->
         <div class="space-y-2 mb-4">
             <label class="label">
                 <span class="font-medium">Select Deck</span>
-                <select class="select" bind:value={deckType} disabled={isCreating}>
-                    {#each predefinedDeckTypes as type}
-                        <option value={type.value}>{type.label}</option>
-                    {/each}
+                <select class="select" bind:value={deckRef} disabled={isCreating || decks.length === 0}>
+                    {#if decks.length === 0}
+                        <option value="" disabled>No decks available</option>
+                    {:else}
+                        {#each decks as deck}
+                            <option value={deck.deck_id}>{deck.name}</option>
+                        {/each}
+                    {/if}
                 </select>
             </label>
         </div>
@@ -130,7 +138,7 @@
 
         <!-- Submit Button -->
         <div class="flex justify-end">
-            <button type="submit" class="btn variant-filled-primary" disabled={isCreating}>
+            <button type="submit" class="btn variant-filled-primary" disabled={isCreating || decks.length === 0}>
                 <icons.Plus size={18} class="mr-2" />
                 {isCreating ? 'Creating...' : 'Create Game'}
             </button>

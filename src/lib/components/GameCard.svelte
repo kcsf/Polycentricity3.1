@@ -2,7 +2,9 @@
     import { goto } from '$app/navigation';
     import { userStore, setError } from '$lib/stores/userStore';
     import { joinGame, leaveGame } from '$lib/services/gameService';
-    import type { Game } from '$lib/types';
+    import { userGamesStore, setUserGames } from '$lib/stores/gameStore';
+    import { getSet, getField, nodes } from '$lib/services/gunService';
+    import type { Game, Actor } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import {
       Calendar,
@@ -20,53 +22,107 @@
       Settings,
       Sparkles
     } from '@lucide/svelte';
-  
-    const { game, showActions = true, isUserGame = false } = $props<{ 
-        game: Game; 
-        showActions?: boolean;
-        // This prop can be passed from the dashboard to indicate the user is definitely in this game
-        isUserGame?: boolean;  
+
+    const { game, showActions = true, isUserGame = false } = $props<{
+      game: Game;
+      showActions?: boolean;
+      isUserGame?: boolean;
     }>();
-  
+
     let isJoining = $state(false);
     let isLeaving = $state(false);
     let actionError = $state('');
+    let userActors = $state<string[]>([]);
+    let gameActors = $state<string[]>([]);
+    let isInPlayerActorMap = $state(false);
+    let hasActorInGame = $state(false);
 
-    // Computed properties
-    const playerCount = $derived(Object.keys(game.players || {}).length);
+   // Count actors from game.actors_ref, mirroring the original structure
+    const playerCount = $derived(Object.keys(game.actors_ref || {}).length);
     const isFull = $derived(game.max_players && playerCount >= game.max_players);
-    
-    // The dashboard considers a user to be in a game if:
-    // 1. User is the creator, OR
-    // 2. User is in the players map, OR 
-    // 3. The game is in the user's games_ref set (this is checked in the dashboard but not here)
-    // 4. The user has an actor in this game (this is checked in the dashboard but not here)
-    
-    // We'll check conditions 1 and 2 here
-    const isCreator = $derived($userStore.user && game.creator_ref === $userStore.user.user_id);
-    const isInPlayersList = $derived($userStore.user && game.players && 
-        ($userStore.user.user_id in game.players));
-    
-    // We can determine if the user is in the game in two ways:
-    // 1. From direct checks of isCreator or isInPlayersList
-    // 2. From the isUserGame prop that may be passed from the dashboard
-    const isUserInGame = $derived(isCreator || isInPlayersList || isUserGame);
-    const canJoin = $derived(!isUserInGame && !isFull && game.status === GameStatus.ACTIVE);
-    
-    // Add debug logging after the values are calculated
+
+    // Simplify isCreator to avoid TypeScript warning
+    const isCreator = $derived(
+      Boolean($userStore.user && game.creator_ref === $userStore.user.user_id)
+    );
+    const isInPlayersList = $derived(
+      Boolean($userStore.user && game.players?.[$userStore.user.user_id] === true)
+    );
+
+    // Fetch user’s actors and check game association
+    async function fetchUserGameStatus() {
+      if (!$userStore.user) {
+        isInPlayerActorMap = false;
+        hasActorInGame = false;
+        return;
+      }
+
+      const userId = $userStore.user.user_id;
+
+      try {
+        // Load user’s actor IDs
+        const actorRefs = await getSet(`${nodes.users}/${userId}`, "actors_ref");
+        userActors = actorRefs.map(ref =>
+          ref.includes("/") ? ref.split("/").pop()! : ref
+        ).filter(id => id);
+        console.log(`[GameCard] User ${userId} actors:`, userActors);
+
+        // Load player_actor_map and check for non-null entry
+        const pamRaw = (await getField<Record<string, string | null>>(
+          `${nodes.games}/${game.game_id}`,
+          "player_actor_map"
+        )) || {};
+        isInPlayerActorMap = pamRaw[userId] != null;
+        console.log(
+          `[GameCard] Game ${game.game_id} - isInPlayerActorMap: ${isInPlayerActorMap}`
+        );
+
+        // Load game’s actors_ref and check for user’s actors
+        const gameActorRefs = await getSet(`${nodes.games}/${game.game_id}`, "actors_ref");
+        const gameActorIds = gameActorRefs.map(ref =>
+          ref.includes("/") ? ref.split("/").pop()! : ref
+        ).filter(id => id);
+        gameActors = gameActorIds;
+        hasActorInGame = userActors.some(aid => gameActorIds.includes(aid));
+        console.log(
+          `[GameCard] Game ${game.game_id} - hasActorInGame: ${hasActorInGame}`
+        );
+      } catch (err) {
+        console.error(
+          `[GameCard] Error fetching user game status for ${game.game_id}:`,
+          err
+        );
+        isInPlayerActorMap = false;
+        hasActorInGame = false;
+      }
+    }
+
+    // Run async fetch when user or game changes
     $effect(() => {
-        if ($userStore.user) {
-            console.log(`[GameCard] Game ${game.game_id} - User ID: ${$userStore.user.user_id}`);
-            console.log(`[GameCard] Game ${game.game_id} - isCreator: ${isCreator}`);
-            console.log(`[GameCard] Game ${game.game_id} - isInPlayersList: ${isInPlayersList}`);
-            console.log(`[GameCard] Game ${game.game_id} - isUserInGame: ${isUserInGame}`);
-        }
+      if ($userStore.user && game.game_id) {
+        fetchUserGameStatus();
+      }
     });
+
+    // Explicitly evaluate derived values as booleans
+    const isUserInGame = $derived(
+      isCreator ||
+      isInPlayersList ||
+      isInPlayerActorMap ||
+      hasActorInGame ||
+      isUserGame
+    );
+
+    const canJoin = $derived(
+      !isUserInGame && !isFull && game.status === GameStatus.ACTIVE
+    );
+
     const roleAssignmentDisplay = $derived(
       game.role_assignment_type
         ? (game.role_assignment_type === 'player-choice' ? 'Player Choice' : 'Random')
         : 'Random'
     );
+
     const deckTypeDisplay = $derived(
       ({
         'eco-village': 'Eco-Village',
@@ -74,6 +130,7 @@
         custom: 'Custom Deck'
       } as Record<string, string>)[game.deck_type] || game.deck_type
     );
+
     const createdDate = $derived(
       new Date(game.created_at).toLocaleDateString('en-US', {
         month: 'short',
@@ -81,7 +138,7 @@
         year: 'numeric'
       })
     );
-  
+
     function getStatusBadgeVariant(status: GameStatus): string {
       switch (status) {
         case GameStatus.CREATED:
@@ -98,7 +155,7 @@
           return 'bg-blue-500/20 text-blue-500';
       }
     }
-  
+
     const statusIcons: Record<GameStatus, typeof Sparkles> = {
       [GameStatus.CREATED]: Sparkles,
       [GameStatus.SETUP]: Settings,
@@ -106,7 +163,7 @@
       [GameStatus.PAUSED]: Pause,
       [GameStatus.COMPLETED]: CheckCircle
     };
-  
+
     function getDaysSinceCreation(): string {
       const now = new Date();
       const created = new Date(game.created_at);
@@ -116,110 +173,113 @@
       if (diffDays === 1) return 'Yesterday';
       return `${diffDays} days ago`;
     }
-  
+
     async function enterGame() {
-        console.log(`[GameCard] Entering game with gameId: ${game.game_id}`);
-        if (!game.game_id) {
-            console.error(`[GameCard] gameId is undefined for game:`, game);
-            actionError = 'Invalid game ID. Please try again.';
-            setError(actionError);
-            goto('/games');
-            return;
-        }
-        try {
-            await goto(`/games/${game.game_id}`);
-        } catch (err) {
-            console.error('Error navigating to game:', err);
-            actionError = 'Failed to navigate to game. Please try again.';
-            setError(actionError);
-        }
+      console.log(`[GameCard] Entering game with gameId: ${game.game_id}`);
+      if (!game.game_id) {
+        console.error(`[GameCard] gameId is undefined for game:`, game);
+        actionError = 'Invalid game ID. Please try again.';
+        setError(actionError);
+        goto('/games');
+        return;
+      }
+      try {
+        await goto(`/games/${game.game_id}`);
+      } catch (err) {
+        console.error('Error navigating to game:', err);
+        actionError = 'Failed to navigate to game. Please try again.';
+        setError(actionError);
+      }
     }
-  
+
     async function handleJoinGame() {
-        console.log(`[GameCard] Joining game with gameId: ${game.game_id}`);
-        if (!game.game_id) {
-            console.error(`[GameCard] gameId is undefined for game:`, game);
-            actionError = 'Invalid game ID. Please try again.';
-            setError(actionError);
-            goto('/games');
-            return;
+      console.log(`[GameCard] Joining game with gameId: ${game.game_id}`);
+      if (!game.game_id) {
+        console.error(`[GameCard] gameId is undefined for game:`, game);
+        actionError = 'Invalid game ID. Please try again.';
+        setError(actionError);
+        goto('/games');
+        return;
+      }
+      if (!$userStore.user) {
+        await goto('/login');
+        return;
+      }
+
+      try {
+        isJoining = true;
+        actionError = '';
+        const success = await joinGame(game.game_id);
+        if (success) {
+          await goto(`/games/${game.game_id}/details`);
+        } else {
+          actionError = 'Failed to join game. Please try again.';
+          setError(actionError);
         }
-        if (!$userStore.user) {
-            await goto('/login');
-            return;
-        }
-  
-        try {
-            isJoining = true;
-            actionError = '';
-            const success = await joinGame(game.game_id);
-            if (success) {
-                await goto(`/games/${game.game_id}/details`);
-            } else {
-                actionError = 'Failed to join game. Please try again.';
-                setError(actionError);
-            }
-        } catch (err) {
-            console.error('Error joining game:', err);
-            actionError = 'Failed to join game. Please try again.';
-            setError(actionError);
-        } finally {
-            isJoining = false;
-        }
+      } catch (err) {
+        console.error('Error joining game:', err);
+        actionError = 'Failed to join game. Please try again.';
+        setError(actionError);
+      } finally {
+        isJoining = false;
+      }
     }
-  
+
     async function handleLeaveGame() {
-        console.log(`[GameCard] Leaving game with gameId: ${game.game_id}`);
-        if (!game.game_id) {
-            console.error(`[GameCard] gameId is undefined for game:`, game);
-            actionError = 'Invalid game ID. Please try again.';
-            setError(actionError);
-            goto('/games');
-            return;
+      console.log(`[GameCard] Leaving game with gameId: ${game.game_id}`);
+      if (!game.game_id) {
+        console.error(`[GameCard] gameId is undefined for game:`, game);
+        actionError = 'Invalid game ID. Please try again.';
+        setError(actionError);
+        return;
+      }
+      if (!$userStore.user) {
+        actionError = 'Please log in to leave the game.';
+        setError(actionError);
+        await goto('/login');
+        return;
+      }
+
+      try {
+        isLeaving = true;
+        actionError = '';
+        const success = await leaveGame(game.game_id);
+        if (success) {
+          const updated = $userGamesStore.filter(g => g.game_id !== game.game_id);
+          setUserGames(updated);
+          await goto('/dashboard');
+        } else {
+          actionError = 'Failed to leave game. Please try again.';
+          setError(actionError);
         }
-        if (!$userStore.user) {
-            await goto('/login');
-            return;
-        }
-  
-        try {
-            isLeaving = true;
-            actionError = '';
-            const success = await leaveGame(game.game_id);
-            if (success) {
-                window.location.reload(); // Reload for fresh data
-            } else {
-                actionError = 'Failed to leave game. Please try again.';
-                setError(actionError);
-            }
-        } catch (err) {
-            console.error('Error leaving game:', err);
-            actionError = 'Failed to leave game. Please try again.';
-            setError(actionError);
-        } finally {
-            isLeaving = false;
-        }
+      } catch (err) {
+        console.error('Error leaving game:', err);
+        actionError = 'Failed to leave game. Please try again.';
+        setError(actionError);
+      } finally {
+        isLeaving = false;
+      }
     }
 
     async function handleViewDetails() {
-        console.log(`[GameCard] Viewing details for gameId: ${game.game_id}`);
-        if (!game.game_id) {
-            console.error(`[GameCard] gameId is undefined for game:`, game);
-            actionError = 'Invalid game ID. Please try again.';
-            setError(actionError);
-            goto('/games');
-            return;
-        }
-        try {
-            await goto(`/games/${game.game_id}/details`);
-        } catch (err) {
-            console.error('Error navigating to game details:', err);
-            actionError = 'Failed to navigate to game details. Please try again.';
-            setError(actionError);
-        }
+      console.log(`[GameCard] Viewing details for gameId: ${game.game_id}`);
+      if (!game.game_id) {
+        console.error(`[GameCard] gameId is undefined for game:`, game);
+        actionError = 'Invalid game ID. Please try again.';
+        setError(actionError);
+        goto('/games');
+        return;
+      }
+      try {
+        await goto(`/games/${game.game_id}/details`);
+      } catch (err) {
+        console.error('Error navigating to game details:', err);
+        actionError = 'Failed to navigate to game details. Please try again.';
+        setError(actionError);
+      }
     }
 </script>
-  
+
 <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col h-full">
     <!-- Game Banner & Header -->
     <div class="relative bg-gray-100 dark:bg-gray-700 p-5 border-b border-gray-200 dark:border-gray-600">
@@ -236,8 +296,6 @@
                     <Pause size={14} class="mr-1" />
                 {:else if game.status === GameStatus.COMPLETED}
                     <CheckCircle size={14} class="mr-1" />
-                {:else}
-                    <Sparkles size={14} class="mr-1" />
                 {/if}
                 {game.status}
             </span>
@@ -248,10 +306,10 @@
                 </span>
             {/if}
         </div>
-  
+
         <!-- Game Title -->
         <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 pr-16">{game.name}</h3>
-  
+
         <!-- Date & Players Info -->
         <div class="flex flex-wrap justify-between items-center mt-3 text-xs text-gray-600 dark:text-gray-400">
             <div class="flex items-center">
@@ -270,7 +328,7 @@
             </div>
         </div>
     </div>
-  
+
     <!-- Game Details Section -->
     <div class="p-5 flex-grow flex flex-col">
         <!-- Game Properties -->
@@ -290,7 +348,7 @@
                 </div>
             </div>
         </div>
-  
+
         <!-- Game Description -->
         {#if game.description}
             <div class="mb-4">
@@ -298,10 +356,10 @@
                 <p class="text-sm text-gray-700 dark:text-gray-300">{game.description}</p>
             </div>
         {/if}
-  
+
         <!-- Spacer -->
         <div class="flex-grow"></div>
-  
+
         <!-- Action Buttons -->
         {#if showActions}
             <div class="flex flex-col sm:flex-row gap-2 mt-3">
@@ -367,7 +425,7 @@
             </div>
         {/if}
     </div>
-  
+
     {#if actionError}
         <div class="p-3 bg-red-500/10 border-t border-red-500/20 text-red-500 text-sm text-center">
             {actionError}

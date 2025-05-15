@@ -1,14 +1,37 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { userStore } from '$lib/stores/userStore';
-    import type { User } from '$lib/types';
+    import { getCollection, nodes } from '$lib/services/gunService'; // Added nodes import
+    import type { User, Deck } from '$lib/types';
     import CreateGameForm from '$lib/components/CreateGameForm.svelte';
     import * as icons from '@lucide/svelte';
+
+    // Define props interface for CreateGameForm
+    interface CreateGameFormProps {
+        decks: Deck[];
+        onCreated: (gameId: string) => void;
+        onStatusUpdate: (status: 'idle' | 'creating' | 'success' | 'error', message?: string) => void;
+    }
 
     // State variables
     let isLoading = $state(false);
     let errorMessage = $state('');
     let successMessage = $state('');
+    let decks = $state<Deck[]>([]);
+
+    // Load available decks
+    $effect(() => {
+        const loadDecks = async () => {
+            try {
+                decks = await getCollection<Deck>(nodes.decks);
+                console.log(`[CreateGamePage] Loaded ${decks.length} decks:`, decks);
+            } catch (err) {
+                console.error('[CreateGamePage] Error loading decks:', err);
+                errorMessage = 'Failed to load decks. Please try again.';
+            }
+        };
+        loadDecks();
+    });
 
     // Mock user for development if userStore is empty
     const currentUser = $derived<User | null>(
@@ -68,14 +91,17 @@
                     Create a new game session where players can collaborate to build an eco-village or other sustainable projects.
                 </p>
                 <h4 class="h4 text-base text-tertiary-500">Available Decks:</h4>
-                <ul class="list-disc list-inside space-y-1 text-sm text-surface-300">
-                    <li>
-                        <strong>Eco-Village:</strong> Build a self-sufficient community focused on sustainability
-                    </li>
-                    <li>
-                        <strong>Community Garden:</strong> Collaborate on an urban agriculture project
-                    </li>
-                </ul>
+                {#if decks.length > 0}
+                    <ul class="list-disc list-inside space-y-1 text-sm text-surface-300">
+                        {#each decks as deck}
+                            <li>
+                                <strong>{deck.name}:</strong> {deck.description || 'No description available'}
+                            </li>
+                        {/each}
+                    </ul>
+                {:else}
+                    <p class="text-sm text-warning-500">No decks available. Please create a deck first.</p>
+                {/if}
                 <p class="text-sm text-surface-300">
                     After creating your game, you'll be able to:
                 </p>
@@ -111,7 +137,7 @@
                 </div>
             {/if}
 
-            <CreateGameForm onCreated={handleCreated} onStatusUpdate={handleStatusUpdate} />
+            <CreateGameForm decks={decks} onCreated={handleCreated} onStatusUpdate={handleStatusUpdate} />
         </div>
     </div>
 </div>

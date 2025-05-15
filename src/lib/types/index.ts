@@ -101,13 +101,15 @@ export interface Game {
     actors_ref: Record<string, boolean>; // e.g., { actor_1: true }
     agreements_ref: Record<string, boolean>; // e.g., { ag_1: true }
     chat_rooms_ref: Record<string, boolean>; // e.g., { chat_g_456: true }
+    _isUserCreated?: boolean; // Add for tracking if user is the creator
+    _isPlaceholder?: boolean; // Add for tracking placeholder games
 }
 
 export interface Actor {
     actor_id: string; // e.g., 'actor_1'
     user_ref: string | null; // e.g., 'u_838' or null if unassigned
     games_ref: Record<string, boolean>; // Games this Actor has joined, e.g., { g_456: true, g_789: true }
-    cards_by_game: Record<string, string>; // Card assignment per Game, e.g., { g_456: 'card_1', g_789: 'card_4' }
+    cards_by_game: Record<string, string | null>; // Card assignment per Game, e.g., { g_456: 'card_1', g_789: 'card_4' }
     actor_type: "National Identity" | "Sovereign Identity";
     custom_name?: string; // e.g., 'Jobu'
     status: "active" | "inactive";
@@ -117,7 +119,7 @@ export interface Actor {
 }
 
 export interface ActorWithCard extends Actor {
-    cards_by_game: Record<string, string>;
+    cards_by_game: Record<string, string | null>;
     /** Card assigned in this game */
     card?: CardWithPosition;
     /** Optional stored layout */

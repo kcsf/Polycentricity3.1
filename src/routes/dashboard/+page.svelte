@@ -3,9 +3,9 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
   import { userGamesStore, setUserGames } from '$lib/stores/gameStore';
-  import { getAllGames, getGame } from '$lib/services/gameService';
-  import { getCollection, get, getSet, nodes } from '$lib/services/gunService';
-  import type { Actor, Game, Card } from '$lib/types';
+  import { getAllGames } from '$lib/services/gameService';
+  import { getCollection, get, getSet, getField, nodes } from '$lib/services/gunService';
+  import type { Actor, Game } from '$lib/types';
   import * as icons from '@lucide/svelte';
   import UserCard from '$lib/components/UserCard.svelte';
   import GameCard from '$lib/components/GameCard.svelte';
@@ -22,140 +22,98 @@
   let cardsOwnedCount = $state(0);
 
   // derive stores for metrics display
-  const gamesCreated = derived(userGamesStore, (gs) => {
-    return gs.filter(g => g.creator_ref === $userStore.user?.user_id).length;
-  });
+  const gamesCreated = derived(userGamesStore, gs =>
+    gs.filter(g => g._isUserCreated === true).length
+  );
+  const gamesJoined = derived(userGamesStore, gs =>
+    gs.filter(g => !g._isPlaceholder).length
+  );
 
-  const gamesJoined = derived(userGamesStore, (gs) => {
-    return gs.length;
-  });
-
-  /**
-   * Enhanced function to fetch user's actors with optimal performance
-   * Uses Gun's reference sets to get actors connected to the user
-   */
+  // fetch user's actors
   async function fetchUserActors(): Promise<Actor[]> {
     if (!$userStore.user) return [];
     const userId = $userStore.user.user_id;
-    
     try {
-      // First check if user has actors_ref set
       const actorRefs = await getSet(`${nodes.users}/${userId}`, "actors_ref");
-      console.log(`[Dashboard] Found ${actorRefs.length} actor references for user ${userId}`);
-      
-      // If user has actor references, fetch those specific actors
       if (actorRefs.length > 0) {
         const userActors = await Promise.all(
-          actorRefs.map(async (ref) => {
-            // Extract actor ID from reference path
-            const actorId = ref.includes('/') ? ref.split('/').pop()! : ref;
+          actorRefs.map(async ref => {
+            const actorId = ref.split('/').pop()!;
             return await get<Actor>(`${nodes.actors}/${actorId}`);
           })
         );
-        // Filter out any nulls from failed fetches
-        return userActors.filter((actor): actor is Actor => actor !== null);
+        return userActors.filter((a): a is Actor => !!a);
       }
-      
-      // Fallback: query all actors and filter by user reference
       const allActors = await getCollection<Actor>(nodes.actors);
-      return allActors.filter(actor => actor.user_ref === userId);
-    } catch (error) {
-      console.error('[Dashboard] Error fetching user actors:', error);
+      return allActors.filter(a => a.user_ref === userId);
+    } catch {
       return [];
     }
   }
 
-  /**
-   * Enhanced function to fetch user's games with proper player references
-   * Uses both creator_ref and players map for accurate game listing
-   */
-  async function fetchUserGames(): Promise<Game[]> {
+  // fetch user's games (now accepts the `actors` array to detect actor‐joins)
+  async function fetchUserGames(actors: Actor[]): Promise<Game[]> {
     if (!$userStore.user) return [];
     const userId = $userStore.user.user_id;
-    
-    try {
-      // Get all games for evaluation
-      const allGames = await getAllGames();
-      console.log(`[Dashboard] Found ${allGames.length} total games`);
-      
-      // First check user's games_ref set if available
-      const gameRefs = await getSet(`${nodes.users}/${userId}`, "games_ref");
-      console.log(`[Dashboard] Found ${gameRefs.length} game references for user ${userId}`);
-      
-      // Return games where:
-      // 1. User is the creator, OR
-      // 2. User is in the players map, OR
-      // 3. Game is in the user's games_ref set, OR
-      // 4. User has an actor in this game
-      const userGames = allGames.filter(game => 
-        game.creator_ref === userId || 
-        (game.players && game.players[userId]) ||
-        gameRefs.some(ref => {
-          const gameId = ref.includes('/') ? ref.split('/').pop()! : ref;
-          return gameId === game.game_id;
-        }) ||
-        actors.some(a => a.games_ref?.[game.game_id])
-      );
-      
-      console.log(`[Dashboard] Filtered to ${userGames.length} user games`);
-      return userGames;
-    } catch (error) {
-      console.error('[Dashboard] Error fetching user games:', error);
-      return [];
-    }
+    const allGames = await getAllGames();
+
+    // load their game‐refs
+    const gameRefsRaw = await getSet(`${nodes.users}/${userId}`, "games_ref");
+    const gameRefIds = gameRefsRaw.map(r => r.split('/').pop()!).filter(id => !!id);
+
+    const candidateGames = await Promise.all(
+      allGames.map(async game => {
+        const isCreator = game.creator_ref === userId;
+        const isPlayer = game.players?.[userId] === true;
+        const isInRefs = gameRefIds.includes(game.game_id);
+
+        // did they join via an actor?
+        const hasActorInGame = actors.some(a => a.games_ref?.[game.game_id]);
+
+        // did they join via the player_actor_map?
+        const pamRaw = (await getField<Record<string, any>>(
+          `${nodes.games}/${game.game_id}`,
+          "player_actor_map"
+        )) || {};
+        const isInPam = pamRaw[userId] != null;
+
+        return {
+          ...game,
+          _isUserCreated: isCreator,
+          _included: isCreator || isPlayer || isInRefs || isInPam || hasActorInGame,
+        };
+      })
+    );
+
+    return candidateGames.filter(g => g._included);
   }
-  
-  /**
-   * Enhanced function to calculate accurate card ownership count
-   * Checks both direct card_ref and cards_by_game map
-   */
+
+  // calculate cards owned
   async function calculateCardsOwned(userActors: Actor[]): Promise<number> {
     try {
-      // Count cards owned directly through card_ref
-      const directCardRefs = 0;
-      
-      // Get cards from cards_by_game maps
-      const cardsFromMap = await Promise.all(
-        userActors.map(async (actor) => {
-          if (!actor.cards_by_game) return 0;
-          // Count valid card references
-          const cardIds = Object.values(actor.cards_by_game).filter(id => !!id);
-          return cardIds.length;
+      const counts = await Promise.all(
+        userActors.map(a => {
+          const m = a.cards_by_game || {};
+          return Object.values(m).filter(id => !!id).length;
         })
       );
-      
-      const totalCardsFromMap = cardsFromMap.reduce((sum, count) => sum + count, 0);
-      const total = Math.max(directCardRefs, totalCardsFromMap);
-      
-      console.log(`[Dashboard] Found ${total} cards owned by user's actors`);
-      return total;
-    } catch (error) {
-      console.error('[Dashboard] Error calculating cards owned:', error);
+      return counts.reduce((sum, x) => sum + x, 0);
+    } catch {
       return 0;
     }
   }
 
-  // load everything in parallel with enhanced relationship detection
+  // load everything
   async function loadDashboard() {
     if (!$userStore.user) return;
     isLoading = true;
-
     try {
-      // First load actors to establish relationships
       actors = await fetchUserActors();
-      console.log(`[Dashboard] Loaded ${actors.length} actors for user ${$userStore.user.user_id}`);
-      
-      // Then load games using enhanced detection with actor relationships
-      const userGames = await fetchUserGames();
-      console.log(`[Dashboard] Loaded ${userGames.length} games for user ${$userStore.user.user_id}`);
-      
-      // Calculate cards owned for metrics display
+      const userGames = await fetchUserGames(actors);
       cardsOwnedCount = await calculateCardsOwned(actors);
-      
-      // Update game store
       setUserGames(userGames);
-    } catch (error) {
-      console.error('[Dashboard] Error loading dashboard:', error);
+    } catch (e) {
+      console.error('[Dashboard] load error', e);
     } finally {
       isLoading = false;
     }
@@ -170,9 +128,7 @@
     }
   });
 
-  onMount(() => {
-    /* nothing to clean up */
-  });
+  onMount(() => { /* no-op */ });
 
   function openProfileUpdateModal() {
     profileModalOpen = true;
@@ -183,6 +139,8 @@
     actorEditModalOpen = true;
   }
 </script>
+
+
 
 <div class="container mx-auto px-4 py-6">
   <!-- Profile header with stats -->
@@ -299,7 +257,7 @@
             {#each $userGamesStore as game (game.game_id)}
               <!-- Since games in userGamesStore are already filtered for user membership, 
                    pass isUserGame=true to force "Enter Game" button -->
-              <GameCard {game} isUserGame={true} />
+                <GameCard {game} showActions={true} />
             {/each}
           </div>
         {/if}
