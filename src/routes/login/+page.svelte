@@ -109,7 +109,7 @@
 </script>
 
 <div class="container h-full mx-auto flex justify-center items-center py-8">
-  <div class="card p-4 w-full max-w-md shadow-lg bg-surface-50-950/90">
+  <div class="card p-4 w-full max-w-md shadow-lg bg-surface-50-950-50/90">
     <header class="card-header text-center">
       <h1 class="h2 text-primary-500-400">Welcome Back</h1>
       <p class="opacity-70 text-sm">Login to continue building your eco-village</p>
@@ -117,7 +117,7 @@
 
     <section class="p-4">
       {#if error}
-        <div class="alert variant-ghost-error" role="alert">
+        <div class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400" role="alert">
           <div class="alert-message">
             <p class="text-sm" id="error-message">{error}</p>
           </div>
@@ -131,7 +131,7 @@
             id="email"
             name="email"
             type="email"
-            class="input variant-filled"
+            class="input bg-surface-200-700-token border border-surface-300-600"
             bind:value={email}
             placeholder="Enter your email"
             autocomplete="email"
@@ -146,7 +146,7 @@
             id="password"
             name="password"
             type="password"
-            class="input variant-filled"
+            class="input bg-surface-200-700-token border border-surface-300-600"
             bind:value={password}
             placeholder="Enter your password"
             autocomplete="current-password"
@@ -163,7 +163,7 @@
           <input
             type="checkbox"
             bind:checked={rememberMe}
-            class="checkbox variant-filled"
+            class="checkbox bg-primary-500-400/40 border border-primary-500-400"
           />
           <span class="text-sm">Remember my email</span>
         </label>

@@ -12,6 +12,7 @@
   let widgetId = $state<string | null>(null);
   let errorMessage = $state<string>('');
   let scriptLoaded = $state<boolean>(false);
+  let isDevelopment = $state<boolean>(import.meta.env.DEV);
   
   // Event dispatcher for component communication
   const dispatch = createEventDispatcher<{
@@ -90,7 +91,23 @@
 </script>
 
 <!-- Use proper TailwindCSS classes for styling -->
-<div class="flex justify-center py-2 relative" aria-live="polite">
+<div class="flex flex-col items-center py-2 relative" aria-live="polite">
+  {#if isDevelopment}
+    <div class="mb-2">
+      <button 
+        type="button" 
+        class="btn bg-primary-500-400 text-white"
+        onclick={() => {
+          console.log('Development mode: Mock verify Turnstile');
+          dispatch('verified', 'dev-mock-token-' + Math.random().toString(36).substring(2, 10));
+        }}
+      >
+        Verify (Development Mode)
+      </button>
+      <p class="text-xs text-center mt-1 opacity-70">Development Environment: Click to mock verification</p>
+    </div>
+  {/if}
+  
   <div class="turnstile-container" bind:this={turnstileContainer}></div>
 </div>
 

@@ -51,6 +51,11 @@
 
 {#if isChecking}
   <div class="flex justify-center items-center min-h-screen">
-    <div class="spinner-border h-10 w-10" role="status" aria-hidden="true"></div>
+    <div class="card p-4 bg-surface-900-100 text-center">
+      <div class="flex items-center justify-center gap-4">
+        <div class="spinner-border h-10 w-10" role="status" aria-hidden="true"></div>
+        <p>Checking authorization...</p>
+      </div>
+    </div>
   </div>
 {/if}
