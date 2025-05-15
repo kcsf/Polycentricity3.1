@@ -45,7 +45,7 @@
 </script>
 
 <div class="container h-full mx-auto flex justify-center items-center py-8">
-  <div class="card p-4 w-full max-w-md bg-surface-100-800-token shadow-lg">
+  <div class="card p-4 w-full max-w-md bg-surface-100-800 shadow-lg">
     <header class="card-header text-center">
       <h1 class="h2">Email Verification</h1>
     </header>

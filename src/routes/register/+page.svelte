@@ -24,8 +24,9 @@
     return null;
   });
   
-  // Hide validation function in the UI
-  const displayValidationError = $state<string | null>(null);
+  // Use a function to get the current validation error
+  // This avoids direct assignment to a constant in $effect
+  let displayValidationError = $state<string | null>(null);
   
   $effect(() => {
     displayValidationError = validationError;
@@ -78,8 +79,8 @@
     error = null;
     
     // Check for validation errors
-    if (validationError !== null) {
-      error = validationError;
+    if (displayValidationError !== null) {
+      error = displayValidationError;
       return;
     }
     
