@@ -1,10 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
+  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
   
-  // Import types from separate turnstile.d.ts file
-
   // Define props properly using Svelte 5 Runes syntax
-  const { sitekey } = $props<{ sitekey: string }>();
+  // Allow optional override of the sitekey, but default to environment variable
+  const props = $props<{ sitekey?: string }>();
+  const sitekey = props.sitekey || PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
   
   // UI state
   let turnstileContainer: HTMLDivElement;

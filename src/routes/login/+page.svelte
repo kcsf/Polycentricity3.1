@@ -154,7 +154,6 @@
         </label>
 
         <TurnstileWidget
-          sitekey={PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY}
           on:verified={handleTurnstileVerified}
         />
 
