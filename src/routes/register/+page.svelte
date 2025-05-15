@@ -52,12 +52,22 @@
   }
 
   async function handleSubmit() {
-    error = validationError;
-    if (error) return;
+    // Clear previous errors
+    error = null;
+    
+    // Check for validation errors
+    if (validationError) {
+      error = validationError;
+      return;
+    }
+    
+    // Ensure turnstile verification has been completed
     if (!turnstileToken) {
       error = 'Please complete the Turnstile verification';
       return;
     }
+    
+    console.log("Registration form submitted with token:", turnstileToken);
 
     isRegistering = true;
     
@@ -176,7 +186,7 @@
           <button
             type="submit"
             class="btn variant-filled-primary w-full"
-            disabled={isRegistering || !!validationError}
+            disabled={isRegistering}
           >
             {#if isRegistering}
               Creating Account...

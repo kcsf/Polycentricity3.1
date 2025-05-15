@@ -35,15 +35,23 @@
   });
 
   async function handleSubmit() {
+    // Clear previous errors
+    error = null;
+
     // Check for validation errors
-    error = validationError;
-    if (error) return;
+    if (validationError) {
+      error = validationError;
+      return;
+    }
     
     // Ensure turnstile verification has been completed
+    // This should be set by the TurnstileWidget when verification completes
     if (!turnstileToken) {
       error = 'Please complete the Turnstile verification';
       return;
     }
+    
+    console.log("Form submitted with token:", turnstileToken);
 
     isLoggingIn = true;
     try {
@@ -164,7 +172,7 @@
         <button
           type="submit"
           class="btn variant-filled-primary w-full"
-          disabled={isLoggingIn || !!validationError}
+          disabled={isLoggingIn}
         >
           {#if isLoggingIn}
             Logging in...

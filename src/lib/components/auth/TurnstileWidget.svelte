@@ -4,67 +4,85 @@
   // Define props
   let { sitekey } = $props<{ sitekey: string }>();
   
-  let turnstileRef;
+  let turnstileContainer;
+  let widgetId = $state<string | null>(null);
   let token = $state('');
   let errorMessage = $state('');
+  let scriptLoaded = $state(false);
   
   const dispatch = createEventDispatcher<{
     verified: string;
     error: string;
   }>();
   
-  // Since we need to access the window object and define global functions
-  // It's safer to do this in onMount
+  function renderTurnstile() {
+    if (!turnstileContainer || !scriptLoaded || typeof window === 'undefined' || !(window as any).turnstile) {
+      return;
+    }
+    
+    if (widgetId) {
+      // Reset if needed
+      (window as any).turnstile?.reset(widgetId);
+    }
+    
+    try {
+      console.log('Rendering Turnstile with sitekey:', sitekey);
+      widgetId = (window as any).turnstile.render(turnstileContainer, {
+        sitekey: sitekey,
+        callback: function(token: string) {
+          console.log('Turnstile verification successful');
+          dispatch('verified', token);
+        },
+        'error-callback': function(error: any) {
+          console.error('Turnstile error:', error);
+          errorMessage = typeof error === 'string' ? error : 'Verification failed';
+          dispatch('error', errorMessage);
+        },
+        'expired-callback': function() {
+          console.warn('Turnstile verification expired');
+          errorMessage = 'Verification expired, please try again';
+          dispatch('error', errorMessage);
+        }
+      });
+    } catch (err) {
+      console.error('Error rendering Turnstile:', err);
+      errorMessage = 'Error initializing verification widget';
+      dispatch('error', errorMessage);
+    }
+  }
+  
   onMount(() => {
-    // Define global callback functions for Turnstile
+    // Load Turnstile script if not already loaded
     if (typeof window !== 'undefined') {
-      // Add type declarations to window object
-      (window as any).onTurnstileVerify = (token: string) => {
-        dispatch('verified', token);
-      };
+      const existingScript = document.getElementById('cloudflare-turnstile-script');
       
-      (window as any).onTurnstileError = (error: any) => {
-        const errorMsg = typeof error === 'string' ? error : 
-                       error?.message || 'Verification failed';
-        errorMessage = errorMsg;
-        dispatch('error', errorMsg);
-      };
-      
-      (window as any).onTurnstileExpired = () => {
-        errorMessage = 'Verification expired, please try again';
-        dispatch('error', 'Verification expired, please try again');
-      };
-      
-      // Load Turnstile script if not already loaded
-      if (!document.getElementById('cloudflare-turnstile-script')) {
+      if (!existingScript) {
         const script = document.createElement('script');
         script.id = 'cloudflare-turnstile-script';
-        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
         script.async = true;
         script.defer = true;
+        script.onload = () => {
+          scriptLoaded = true;
+          renderTurnstile();
+        };
         document.head.appendChild(script);
+      } else {
+        scriptLoaded = true;
+        renderTurnstile();
       }
     }
     
     return () => {
       // Clean up when component is destroyed
-      if (typeof window !== 'undefined') {
-        delete (window as any).onTurnstileVerify;
-        delete (window as any).onTurnstileError;
-        delete (window as any).onTurnstileExpired;
+      if (typeof window !== 'undefined' && (window as any).turnstile && widgetId) {
+        (window as any).turnstile.remove(widgetId);
       }
     };
   });
 </script>
 
-<div 
-  class="cf-turnstile relative my-4" 
-  data-sitekey={sitekey} 
-  data-callback="onTurnstileVerify" 
-  data-error-callback="onTurnstileError"
-  data-expired-callback="onTurnstileExpired"
-  bind:this={turnstileRef}
-></div>
+<div class="turnstile-container relative my-4" bind:this={turnstileContainer}></div>
 
 {#if errorMessage}
 <p class="text-error-400-500 text-sm" role="alert">{errorMessage}</p>
