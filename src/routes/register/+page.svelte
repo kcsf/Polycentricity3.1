@@ -23,6 +23,13 @@
     if (password.length < 6) return 'Password must be at least 6 characters long';
     return null;
   });
+  
+  // Hide validation function in the UI
+  const displayValidationError = $state<string | null>(null);
+  
+  $effect(() => {
+    displayValidationError = validationError;
+  });
 
   onMount(() => {
     // Check if user is already authenticated
@@ -71,8 +78,8 @@
     error = null;
     
     // Check for validation errors
-    if (validationError) {
-      error = validationError as string;
+    if (validationError !== null) {
+      error = validationError;
       return;
     }
     

@@ -21,6 +21,13 @@
     return null;
   });
 
+  // Hide validation function in the UI
+  const displayValidationError = $state<string | null>(null);
+  
+  $effect(() => {
+    displayValidationError = validationError;
+  });
+
   onMount(() => {
     // Check if user is already authenticated
     if ($userStore.isAuthenticated && $userStore.user) {
@@ -39,8 +46,8 @@
     error = null;
 
     // Check for validation errors
-    if (validationError) {
-      error = validationError as string;
+    if (displayValidationError !== null) {
+      error = displayValidationError;
       return;
     }
     

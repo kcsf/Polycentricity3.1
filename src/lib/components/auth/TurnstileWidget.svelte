@@ -25,18 +25,18 @@
    */
   function renderTurnstile(): void {
     // Guard clauses to prevent errors
-    if (!turnstileContainer || !scriptLoaded || typeof window === 'undefined' || !window.turnstile) {
+    if (!turnstileContainer || !scriptLoaded || typeof window === 'undefined' || !window?.turnstile) {
       return;
     }
     
     // Reset widget if it already exists
     if (widgetId) {
-      window.turnstile.reset(widgetId);
+      window?.turnstile?.reset(widgetId);
     }
     
     try {
       // Render widget with proper Turnstile options
-      widgetId = window.turnstile.render(turnstileContainer, {
+      widgetId = window?.turnstile?.render(turnstileContainer, {
         sitekey: sitekey,
         callback: (token: string) => {
           console.log('Turnstile verification successful, dispatching token');
@@ -83,8 +83,8 @@
     
     // Cleanup function that properly removes the widget
     return () => {
-      if (typeof window !== 'undefined' && window.turnstile && widgetId) {
-        window.turnstile.remove(widgetId);
+      if (typeof window !== 'undefined' && window?.turnstile && widgetId) {
+        window?.turnstile?.remove(widgetId);
       }
     };
   });
