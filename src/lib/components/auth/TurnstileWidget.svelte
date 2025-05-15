@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   
   // Define props
   let { sitekey } = $props<{ sitekey: string }>();
@@ -13,8 +13,28 @@
     error: string;
   }>();
   
-  $effect(() => {
+  // Since we need to access the window object and define global functions
+  // It's safer to do this in onMount
+  onMount(() => {
+    // Define global callback functions for Turnstile
     if (typeof window !== 'undefined') {
+      // Add type declarations to window object
+      (window as any).onTurnstileVerify = (token: string) => {
+        dispatch('verified', token);
+      };
+      
+      (window as any).onTurnstileError = (error: any) => {
+        const errorMsg = typeof error === 'string' ? error : 
+                       error?.message || 'Verification failed';
+        errorMessage = errorMsg;
+        dispatch('error', errorMsg);
+      };
+      
+      (window as any).onTurnstileExpired = () => {
+        errorMessage = 'Verification expired, please try again';
+        dispatch('error', 'Verification expired, please try again');
+      };
+      
       // Load Turnstile script if not already loaded
       if (!document.getElementById('cloudflare-turnstile-script')) {
         const script = document.createElement('script');
@@ -23,28 +43,26 @@
         script.async = true;
         script.defer = true;
         document.head.appendChild(script);
-        
-        // Define global callback functions
-        window.onVerify = (response) => {
-          token = response;
-          dispatch('verified', response);
-        };
-        
-        window.onError = (error) => {
-          const errorMsg = error.message || 'Verification failed';
-          errorMessage = errorMsg;
-          dispatch('error', errorMsg);
-        };
       }
     }
+    
+    return () => {
+      // Clean up when component is destroyed
+      if (typeof window !== 'undefined') {
+        delete (window as any).onTurnstileVerify;
+        delete (window as any).onTurnstileError;
+        delete (window as any).onTurnstileExpired;
+      }
+    };
   });
 </script>
 
 <div 
   class="cf-turnstile relative my-4" 
   data-sitekey={sitekey} 
-  data-callback="onVerify" 
-  data-error-callback="onError" 
+  data-callback="onTurnstileVerify" 
+  data-error-callback="onTurnstileError"
+  data-expired-callback="onTurnstileExpired"
   bind:this={turnstileRef}
 ></div>
 

@@ -22,9 +22,12 @@
   });
 
   onMount(() => {
+    // Check if user is already authenticated
     if ($userStore.isAuthenticated && $userStore.user) {
       goto('/dashboard');
     }
+    
+    // Load saved email if available
     const storedEmail = localStorage.getItem('polycentricity_email');
     if (storedEmail) {
       email = storedEmail;
@@ -32,8 +35,11 @@
   });
 
   async function handleSubmit() {
+    // Check for validation errors
     error = validationError;
     if (error) return;
+    
+    // Ensure turnstile verification has been completed
     if (!turnstileToken) {
       error = 'Please complete the Turnstile verification';
       return;
@@ -41,11 +47,12 @@
 
     isLoggingIn = true;
     try {
-      // First verify Turnstile token
+      // Verify Turnstile token server-side
       const isTurnstileValid = await verifyTurnstile(turnstileToken);
       
       if (!isTurnstileValid) {
         error = 'Turnstile verification failed. Please try again.';
+        isLoggingIn = false;
         return;
       }
       
