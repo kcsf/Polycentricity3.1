@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { CLOUDFLARE_TURNSTILE_SECRET } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const { token } = await request.json();
-    const TURNSTILE_SECRET = '<CLOUDFLARE_TURNSTILE_SECRET>';
     
     const formData = new FormData();
-    formData.append('secret', TURNSTILE_SECRET);
+    formData.append('secret', CLOUDFLARE_TURNSTILE_SECRET);
     formData.append('response', token);
     
     const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {

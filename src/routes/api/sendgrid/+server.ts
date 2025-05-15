@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import sgMail from '@sendgrid/mail';
+import { SENDGRID_API_KEY } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const SENDGRID_API_KEY = '<SENDGRID_API_KEY>';
     sgMail.setApiKey(SENDGRID_API_KEY);
     
     const { to, subject, text, html } = await request.json();
