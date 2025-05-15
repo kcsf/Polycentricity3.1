@@ -25,6 +25,7 @@ export interface User {
     pub?: string; // SEA public key (reserved)
     role: "Guest" | "Member" | "Admin";
     magic_key?: string; // Optional authentication key
+    expires_at?: number;
     created_at: number;
     last_login?: number;
     games_ref?: Record<string, boolean>;
