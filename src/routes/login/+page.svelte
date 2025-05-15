@@ -102,6 +102,8 @@
   }
 
   function handleTurnstileVerified(event: CustomEvent<string>): void {
+    // Handle the turnstile verification event
+    console.log('Turnstile verification received');
     turnstileToken = event.detail;
   }
 </script>

@@ -38,6 +38,7 @@
       widgetId = window.turnstile.render(turnstileContainer, {
         sitekey: sitekey,
         callback: (token: string) => {
+          console.log('Turnstile verification successful, dispatching token');
           dispatch('verified', token);
         },
         'error-callback': (error: any) => {

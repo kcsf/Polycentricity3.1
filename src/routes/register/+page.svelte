@@ -59,6 +59,7 @@
    * @param event CustomEvent with token as detail
    */
   function handleTurnstileVerified(event: CustomEvent<string>): void {
+    console.log('Register page received Turnstile token');
     turnstileToken = event.detail;
   }
 
@@ -192,7 +193,6 @@
           </label>
           
           <TurnstileWidget 
-            sitekey={PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY} 
             on:verified={handleTurnstileVerified}
           />
   
