@@ -7,6 +7,7 @@ import {
   getGun,
   subscribe,
   nodes,
+  putSigned,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
@@ -52,7 +53,9 @@ async function write(path: string, key: string, data: any): Promise<void> {
   const gun = getGun();
   if (!gun) throw new Error("[gameService] Gun not initialized");
   if (data === undefined) {
-    console.warn(`[gameService] Skipping write for undefined/null data at ${path}/${key}`);
+    console.warn(
+      `[gameService] Skipping write for undefined/null data at ${path}/${key}`,
+    );
     return;
   }
   await new Promise<void>((resolve) => {
@@ -128,42 +131,71 @@ async function deleteKey(path: string, key: string): Promise<void> {
 // Game flows (fixed)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Update User Role
+export async function updateUserRole(userId: string, role: User["role"]) {
+  const soul = `${nodes.users}/${userId}`;
+  const user = await get<User>(soul);
+  if (!user) throw new Error("User not found");
+  await putSigned(soul, { ...user, role, updated_at: Date.now() });
+}
+
 export async function getAllGames(): Promise<Game[]> {
   const games = await getCollection<Game>(nodes.games);
   const gamesWithResolvedRefs = await Promise.all(
     games.map(async (game) => {
       // Resolve actors_ref (Record<string, boolean>)
-      const actorRefs = await getSet(`${nodes.games}/${game.game_id}`, "actors_ref");
+      const actorRefs = await getSet(
+        `${nodes.games}/${game.game_id}`,
+        "actors_ref",
+      );
       // Filter out "#" and clean duplicates (e.g., "actors/actor_1" -> "actor_1")
       const cleanedActorRefs = actorRefs
-        .filter(id => id !== "#" && !id.startsWith("#"))
-        .map(id => id.includes("/") ? id.split("/").pop()! : id);
-      const actorsRefMap = Object.fromEntries(cleanedActorRefs.map(id => [id, true]));
+        .filter((id) => id !== "#" && !id.startsWith("#"))
+        .map((id) => (id.includes("/") ? id.split("/").pop()! : id));
+      const actorsRefMap = Object.fromEntries(
+        cleanedActorRefs.map((id) => [id, true]),
+      );
 
       // Resolve creator_ref (string)
-      const creatorRefs = await getSet(`${nodes.games}/${game.game_id}`, "creator_ref");
+      const creatorRefs = await getSet(
+        `${nodes.games}/${game.game_id}`,
+        "creator_ref",
+      );
       const creatorRef = creatorRefs[0]?.split("/").pop() || "";
 
       // Resolve deck_ref (string)
-      const deckRefs = await getSet(`${nodes.games}/${game.game_id}`, "deck_ref");
+      const deckRefs = await getSet(
+        `${nodes.games}/${game.game_id}`,
+        "deck_ref",
+      );
       const deckRef = deckRefs[0]?.split("/").pop() || "";
 
       // Resolve player_actor_map (Record<string, string | null>)
-      const playerActorMapRaw = (await getField<Record<string, string | null>>(
-        `${nodes.games}/${game.game_id}`,
-        "player_actor_map"
-      )) || {};
+      const playerActorMapRaw =
+        (await getField<Record<string, string | null>>(
+          `${nodes.games}/${game.game_id}`,
+          "player_actor_map",
+        )) || {};
       // Remove "#" key and clean invalid entries
       const playerActorMap = Object.fromEntries(
-        Object.entries(playerActorMapRaw)
-          .filter(([key]) => key !== "#" && !key.startsWith("#") && key !== "actors/null")
+        Object.entries(playerActorMapRaw).filter(
+          ([key]) =>
+            key !== "#" && !key.startsWith("#") && key !== "actors/null",
+        ),
       );
 
       // Resolve players (Record<string, boolean>)
-      const playerRefs = await getSet(`${nodes.games}/${game.game_id}`, "players");
+      const playerRefs = await getSet(
+        `${nodes.games}/${game.game_id}`,
+        "players",
+      );
       // Filter out "#"
-      const cleanedPlayerRefs = playerRefs.filter(id => id !== "#" && !id.startsWith("#"));
-      const playersMap = Object.fromEntries(cleanedPlayerRefs.map(id => [id, true]));
+      const cleanedPlayerRefs = playerRefs.filter(
+        (id) => id !== "#" && !id.startsWith("#"),
+      );
+      const playersMap = Object.fromEntries(
+        cleanedPlayerRefs.map((id) => [id, true]),
+      );
 
       return {
         ...game,
@@ -171,9 +203,9 @@ export async function getAllGames(): Promise<Game[]> {
         creator_ref: creatorRef,
         deck_ref: deckRef,
         player_actor_map: playerActorMap,
-        players: playersMap
+        players: playersMap,
       };
-    })
+    }),
   );
   console.log("[getAllGames] Returned games:", gamesWithResolvedRefs);
   return gamesWithResolvedRefs;
@@ -191,13 +223,20 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
   return () => sub.off();
 }
 
-export function subscribeToGame(gameId: string, callback: (g: Game) => void): () => void {
+export function subscribeToGame(
+  gameId: string,
+  callback: (g: Game) => void,
+): () => void {
   return subscribe<Game>(`${nodes.games}/${gameId}`, async (data) => {
     if (data) {
       // Resolve players (Record<string, boolean>)
       const playerRefs = await getSet(`${nodes.games}/${gameId}`, "players");
-      const cleanedPlayerRefs = playerRefs.filter(id => id !== "#" && !id.startsWith("#"));
-      const playersMap = Object.fromEntries(cleanedPlayerRefs.map(id => [id, true]));
+      const cleanedPlayerRefs = playerRefs.filter(
+        (id) => id !== "#" && !id.startsWith("#"),
+      );
+      const playersMap = Object.fromEntries(
+        cleanedPlayerRefs.map((id) => [id, true]),
+      );
       callback({ ...data, game_id: gameId, players: playersMap });
     }
   });
@@ -327,7 +366,7 @@ export async function joinGame(gameId: string): Promise<boolean> {
   await createRelationship(
     `${nodes.users}/${user.user_id}`,
     "games_ref",
-    `${nodes.games}/${gameId}`
+    `${nodes.games}/${gameId}`,
   );
 
   return true;
@@ -347,48 +386,76 @@ export async function leaveGame(gameId: string): Promise<boolean> {
 
   try {
     // 1️⃣ Read player_actor_map to see if they joined with an actor
-    const pam = (await getField<Record<string, string>>(
-      `${nodes.games}/${gameId}`,
-      "player_actor_map"
-    )) || {};
+    const pam =
+      (await getField<Record<string, string>>(
+        `${nodes.games}/${gameId}`,
+        "player_actor_map",
+      )) || {};
     const actorId = pam[user.user_id];
 
     // 2️⃣ Remove user pointers (simple & full-path)
     await Promise.all([
-      deleteKey(`${nodes.games}/${gameId}/players`,         user.user_id),
-      deleteKey(`${nodes.games}/${gameId}/players`,         `${nodes.users}/${user.user_id}`),
+      deleteKey(`${nodes.games}/${gameId}/players`, user.user_id),
+      deleteKey(
+        `${nodes.games}/${gameId}/players`,
+        `${nodes.users}/${user.user_id}`,
+      ),
 
       deleteKey(`${nodes.games}/${gameId}/player_actor_map`, user.user_id),
 
-      deleteKey(`${nodes.users}/${user.user_id}/games_ref`,  gameId),
-      deleteKey(`${nodes.users}/${user.user_id}/games_ref`,  `${nodes.games}/${gameId}`),
+      deleteKey(`${nodes.users}/${user.user_id}/games_ref`, gameId),
+      deleteKey(
+        `${nodes.users}/${user.user_id}/games_ref`,
+        `${nodes.games}/${gameId}`,
+      ),
     ]);
 
     // 3️⃣ If they had an actor in this game, clean up those refs too
     if (actorId) {
       await Promise.all([
-        deleteKey(`${nodes.games}/${gameId}/player_actor_map`, `${nodes.actors}/${actorId}`),
+        deleteKey(
+          `${nodes.games}/${gameId}/player_actor_map`,
+          `${nodes.actors}/${actorId}`,
+        ),
 
-        deleteKey(`${nodes.games}/${gameId}/actors_ref`,      actorId),
-        deleteKey(`${nodes.games}/${gameId}/actors_ref`,      `${nodes.actors}/${actorId}`),
+        deleteKey(`${nodes.games}/${gameId}/actors_ref`, actorId),
+        deleteKey(
+          `${nodes.games}/${gameId}/actors_ref`,
+          `${nodes.actors}/${actorId}`,
+        ),
 
-        deleteKey(`${nodes.actors}/${actorId}/games_ref`,     gameId),
-        deleteKey(`${nodes.actors}/${actorId}/games_ref`,     `${nodes.games}/${gameId}`),
+        deleteKey(`${nodes.actors}/${actorId}/games_ref`, gameId),
+        deleteKey(
+          `${nodes.actors}/${actorId}/games_ref`,
+          `${nodes.games}/${gameId}`,
+        ),
 
         deleteKey(`${nodes.actors}/${actorId}/cards_by_game`, gameId),
-        deleteKey(`${nodes.actors}/${actorId}/cards_by_game`, `${nodes.games}/${gameId}`),
+        deleteKey(
+          `${nodes.actors}/${actorId}/cards_by_game`,
+          `${nodes.games}/${gameId}`,
+        ),
       ]);
     }
 
     // 4️⃣ Self-test logs (optional)
     const playersAfter = await getField(`${nodes.games}/${gameId}`, "players");
     console.log("🏷 players map now:", playersAfter);
-    const pamAfter = await getField(`${nodes.games}/${gameId}`, "player_actor_map");
+    const pamAfter = await getField(
+      `${nodes.games}/${gameId}`,
+      "player_actor_map",
+    );
     console.log("🏷 player_actor_map now:", pamAfter);
-    const myGamesAfter = await getField(`${nodes.users}/${user.user_id}`, "games_ref");
+    const myGamesAfter = await getField(
+      `${nodes.users}/${user.user_id}`,
+      "games_ref",
+    );
     console.log("🏷 my games_ref now:", myGamesAfter);
     if (actorId) {
-      const actorsRefAfter = await getField(`${nodes.games}/${gameId}`, "actors_ref");
+      const actorsRefAfter = await getField(
+        `${nodes.games}/${gameId}`,
+        "actors_ref",
+      );
       console.log("🏷 actors_ref now:", actorsRefAfter);
     }
 
@@ -438,7 +505,7 @@ export async function createActor(
     status: "active",
     created_at: now,
     updated_at: now,
-    games_ref: { [gameId]: true }, 
+    games_ref: { [gameId]: true },
     cards_by_game: { [gameId]: cardId },
     agreements_ref: {},
   };
@@ -481,7 +548,7 @@ export async function createActor(
 export async function joinWithActor(
   gameId: string,
   actorId: string,
-  cardId?: string
+  cardId?: string,
 ): Promise<Actor | null> {
   const user = getCurrentUser();
   if (!user) return null;
@@ -506,10 +573,11 @@ export async function joinWithActor(
   ]);
 
   // 4️⃣ Load existing cards_by_game map
-  const existingCards = (await getField<Record<string, string | null>>(
-    `${nodes.actors}/${actorId}`,
-    "cards_by_game"
-  )) || {};
+  const existingCards =
+    (await getField<Record<string, string | null>>(
+      `${nodes.actors}/${actorId}`,
+      "cards_by_game",
+    )) || {};
 
   // 5️⃣ Update cards_by_game with cardId or null
   const cardsByGame = { ...existingCards, [gameId]: cardId || null };
@@ -520,19 +588,19 @@ export async function joinWithActor(
     createRelationship(
       `${nodes.games}/${gameId}`,
       "actors_ref",
-      `${nodes.actors}/${actorId}`
+      `${nodes.actors}/${actorId}`,
     ),
     createRelationship(
       `${nodes.actors}/${actorId}`,
       "games_ref",
-      `${nodes.games}/${gameId}`
+      `${nodes.games}/${gameId}`,
     ),
     ...(cardId
       ? [
           createRelationship(
             `${nodes.actors}/${actorId}`,
             "cards_by_game",
-            `${nodes.cards}/${cardId}`
+            `${nodes.cards}/${cardId}`,
           ),
         ]
       : []),
@@ -891,7 +959,9 @@ export interface GameContext {
   deckName: string;
 }
 
-export async function getGameContext(gameId: string): Promise<GameContext | null> {
+export async function getGameContext(
+  gameId: string,
+): Promise<GameContext | null> {
   try {
     // 1️⃣ Load the base game
     const game = await get<Game>(`${nodes.games}/${gameId}`);
@@ -899,8 +969,12 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
 
     // Resolve players (Record<string, boolean>)
     const playerRefs = await getSet(`${nodes.games}/${gameId}`, "players");
-    const cleanedPlayerRefs = playerRefs.filter(id => id !== "#" && !id.startsWith("#"));
-    const playersMap = Object.fromEntries(cleanedPlayerRefs.map(id => [id, true]));
+    const cleanedPlayerRefs = playerRefs.filter(
+      (id) => id !== "#" && !id.startsWith("#"),
+    );
+    const playersMap = Object.fromEntries(
+      cleanedPlayerRefs.map((id) => [id, true]),
+    );
 
     // Update game with resolved players
     const gameWithPlayers = { ...game, players: playersMap };
@@ -910,7 +984,9 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
     const deckId = deckRefs[0]?.split("/").pop();
     const [deck, deckCardIds] = await Promise.all([
       deckId ? get<Deck>(`${nodes.decks}/${deckId}`) : Promise.resolve(null),
-      deckId ? getSet(`${nodes.decks}/${deckId}`, "cards_ref") : Promise.resolve([]),
+      deckId
+        ? getSet(`${nodes.decks}/${deckId}`, "cards_ref")
+        : Promise.resolve([]),
     ]);
     const totalCards = deckCardIds.length;
 
@@ -928,7 +1004,10 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
       actorIds.map(async (aid) => {
         const [a, cardsByGame] = await Promise.all([
           get<Actor>(`${nodes.actors}/${aid}`),
-          getField<Record<string, string>>(`${nodes.actors}/${aid}`, "cards_by_game"),
+          getField<Record<string, string>>(
+            `${nodes.actors}/${aid}`,
+            "cards_by_game",
+          ),
         ]);
         if (!a) return null;
 
@@ -940,8 +1019,14 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
           usedSet.add(cardId);
           const raw = await get<Card>(`${nodes.cards}/${cardId}`);
           if (raw) {
-            const valueRefs = await getSet(`${nodes.cards}/${cardId}`, "values_ref");
-            const capRefs = await getSet(`${nodes.cards}/${cardId}`, "capabilities_ref");
+            const valueRefs = await getSet(
+              `${nodes.cards}/${cardId}`,
+              "values_ref",
+            );
+            const capRefs = await getSet(
+              `${nodes.cards}/${cardId}`,
+              "capabilities_ref",
+            );
             const valueIds = valueRefs
               .map((p) => p.split("/").pop()!)
               .filter((id) => !id.startsWith("#") && !id.startsWith("_"));
@@ -982,7 +1067,10 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
           if (!raw) return null;
 
           const valueRefs = await getSet(`${nodes.cards}/${id}`, "values_ref");
-          const capRefs = await getSet(`${nodes.cards}/${id}`, "capabilities_ref");
+          const capRefs = await getSet(
+            `${nodes.cards}/${id}`,
+            "capabilities_ref",
+          );
           const valueIds = valueRefs
             .map((p) => p.split("/").pop()!)
             .filter((i) => !i.startsWith("#") && !i.startsWith("_"));
@@ -1003,7 +1091,9 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
           };
         }),
     );
-    const availableCards = rawAvail.filter((c) => c != null) as CardWithPosition[];
+    const availableCards = rawAvail.filter(
+      (c) => c != null,
+    ) as CardWithPosition[];
 
     // 6️⃣ Fetch and fully resolve all agreements for this game
     const rawAgs = await getCollection<Agreement>(nodes.agreements);
@@ -1011,10 +1101,11 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-          const partiesRef = (await getField<Record<string, { "#": string }>>(
-            `${nodes.agreements}/${ag.agreement_id}`,
-            "parties",
-          )) ?? {};
+          const partiesRef =
+            (await getField<Record<string, { "#": string }>>(
+              `${nodes.agreements}/${ag.agreement_id}`,
+              "parties",
+            )) ?? {};
 
           const partyItems: PartyItem[] = await Promise.all(
             Object.keys(partiesRef).map(async (actorId) => {
@@ -1022,7 +1113,10 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
                 card_ref: string;
                 obligation: string;
                 benefit: string;
-              }>(`${nodes.agreements}/${ag.agreement_id}/parties`, actorId)) ?? {
+              }>(
+                `${nodes.agreements}/${ag.agreement_id}/parties`,
+                actorId,
+              )) ?? {
                 card_ref: "",
                 obligation: "",
                 benefit: "",
@@ -1030,7 +1124,9 @@ export async function getGameContext(gameId: string): Promise<GameContext | null
 
               const actor = actors.find((a) => a.actor_id === actorId);
               if (!actor?.card) {
-                console.warn(`Agreement ${ag.agreement_id} actor ${actorId} has no card`);
+                console.warn(
+                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
+                );
                 return null;
               }
 
