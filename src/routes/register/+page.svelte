@@ -128,7 +128,7 @@
 </script>
 
 <div class="container h-full mx-auto flex justify-center items-center py-8">
-  <div class="card p-4 w-full max-w-md shadow-lg bg-surface-50-950/90">
+  <div class="card p-4 w-full max-w-md shadow-lg bg-surface-50-950-50/90">
     <header class="card-header text-center">
       <h1 class="h2 text-primary-500-400">Create Account</h1>
       <p class="opacity-70 text-sm">Join Polycentricity3 and start building eco-villages</p>
@@ -136,19 +136,19 @@
 
     <section class="p-4">
       {#if isRegistrationComplete}
-        <div class="alert variant-filled-success" role="alert">
+        <div class="alert bg-success-500-400/20 border border-success-500-400 text-success-500-400" role="alert">
           <div class="alert-message">
-            <h3 class="h4">Registration Successful!</h3>
+            <h3 class="font-bold">Registration Successful!</h3>
             <p>A verification email has been sent to {email}. Please check your inbox and click the verification link to activate your account.</p>
           </div>
         </div>
         
         <div class="mt-4 text-center">
-          <a href="/login" class="btn variant-filled-primary">Proceed to Login</a>
+          <a href="/login" class="btn bg-primary-500-400 text-white">Proceed to Login</a>
         </div>
       {:else}
         {#if error}
-          <div class="alert variant-ghost-error" role="alert">
+          <div class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400" role="alert">
             <div class="alert-message">
               <p class="text-sm" id="error-message">{error}</p>
             </div>
@@ -160,7 +160,7 @@
             <span>Name</span>
             <input
               type="text"
-              class="input variant-filled"
+              class="input bg-surface-200-700-token border border-surface-300-600"
               bind:value={name}
               placeholder="Enter your name"
               required
@@ -172,7 +172,7 @@
             <span>Email</span>
             <input
               type="email"
-              class="input variant-filled"
+              class="input bg-surface-200-700-token border border-surface-300-600"
               bind:value={email}
               placeholder="Enter your email"
               required
@@ -184,7 +184,7 @@
             <span>Password</span>
             <input
               type="password"
-              class="input variant-filled"
+              class="input bg-surface-200-700-token border border-surface-300-600"
               bind:value={password}
               placeholder="Create a password"
               required
@@ -198,7 +198,7 @@
   
           <button
             type="submit"
-            class="btn variant-filled-primary w-full"
+            class="btn bg-primary-500-400 text-white w-full"
             disabled={isRegistering}
           >
             {#if isRegistering}

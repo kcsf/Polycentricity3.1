@@ -170,7 +170,7 @@
 
         <button
           type="submit"
-          class="btn variant-filled-primary w-full"
+          class="btn bg-primary-500-400 text-white w-full"
           disabled={isLoggingIn}
         >
           {#if isLoggingIn}
