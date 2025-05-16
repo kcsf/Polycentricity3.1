@@ -111,20 +111,47 @@ export async function verifyUser(
   magicKey: string
 ): Promise<boolean> {
   try {
+    console.log('[authService] verifyUser called with userId:', userId);
+    
+    // Get a reference to Gun database
+    const gun = getGun();
+    if (!gun) throw new Error('Gun not initialized');
+    
+    // Construct the soul path
     const soul = `${nodes.users}/${userId}`;
+    console.log('[authService] Looking up user at soul path:', soul);
+    
+    // Attempt to retrieve the user
     const stored = await get<User>(soul);
-    if (!stored) throw new Error('User not found');
+    console.log('[authService] Retrieved user data:', stored);
+    
+    if (!stored) {
+      console.error('[authService] User not found at path:', soul);
+      throw new Error('User not found');
+    }
+    
     if (!stored.magic_key || !stored.expires_at) {
+      console.error('[authService] No verification token found for user:', userId);
       throw new Error('No verification token on record');
     }
+    
+    console.log('[authService] Comparing magicKey:', {
+      provided: magicKey,
+      stored: stored.magic_key
+    });
+    
     if (stored.magic_key !== magicKey) {
+      console.error('[authService] Magic key mismatch');
       throw new Error('Invalid verification token');
     }
+    
     if (Date.now() > stored.expires_at) {
+      console.error('[authService] Token expired at:', new Date(stored.expires_at).toISOString());
       throw new Error('Verification token expired');
     }
 
     // Delegate to gameService for audit/logging/etc.
+    console.log('[authService] Promoting user to Member role');
     await updateUserRole(userId, 'Member');
 
     return true;

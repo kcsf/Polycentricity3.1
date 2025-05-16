@@ -11,8 +11,13 @@
   
   onMount(async () => {
     const url = new URL(window.location.href);
-    const userId = url.searchParams.get('userId');
-    const magicKey = url.searchParams.get('magicKey');
+    
+    // Get and properly decode URL parameters
+    let userId = url.searchParams.get('userId');
+    let magicKey = url.searchParams.get('magicKey');
+    
+    // Log parameters for debugging
+    console.log('Verification attempt with userId:', userId, 'magicKey:', magicKey);
     
     if (!userId || !magicKey) {
       isVerifying = false;
@@ -22,6 +27,12 @@
     }
     
     try {
+      // Ensure parameters are properly decoded
+      userId = decodeURIComponent(userId);
+      magicKey = decodeURIComponent(magicKey);
+      
+      // Attempt to verify the user
+      console.log('Attempting to verify user with ID:', userId);
       const success = await verifyUser(userId, magicKey);
       
       isVerifying = false;
@@ -37,6 +48,7 @@
         }, 3000);
       }
     } catch (error: any) {
+      console.error('Verification error details:', error);
       isVerifying = false;
       isError = true;
       errorMessage = typeof error === 'string' ? error : error.message || 'An unexpected error occurred during verification.';
