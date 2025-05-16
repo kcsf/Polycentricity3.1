@@ -17,19 +17,11 @@
   let isRegistrationComplete = $state(false);
 
   // Client-side validation with proper Svelte 5 Runes syntax
-  const validationError = $derived(() => {
+  const getValidationError = $derived(() => {
     if (!name.trim() || !email.trim() || !password) return 'All fields are required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address';
     if (password.length < 6) return 'Password must be at least 6 characters long';
     return null;
-  });
-  
-  // Use a function to get the current validation error
-  // This avoids direct assignment to a constant in $effect
-  let displayValidationError = $state<string | null>(null);
-  
-  $effect(() => {
-    displayValidationError = validationError;
   });
 
   onMount(() => {
@@ -79,8 +71,9 @@
     error = null;
     
     // Check for validation errors
-    if (displayValidationError !== null) {
-      error = displayValidationError;
+    const validation = getValidationError();
+    if (validation !== null) {
+      error = validation;
       return;
     }
     

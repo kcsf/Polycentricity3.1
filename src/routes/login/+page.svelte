@@ -14,19 +14,19 @@
   let error = $state<string | null>(null);
 
   // Client-side validation with proper Svelte 5 Runes syntax
-  const validationError = $derived(() => {
-    if (!email.trim() || !password) return 'Email and password are required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format';
-    if (password.length < 6) return 'Password must be at least 6 characters';
-    return null;
-  });
+  const getValidationError = $derived(() => {
+     if (!email.trim() || !password) return 'Email and password are required';
+     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format';
+     if (password.length < 6) return 'Password must be at least 6 characters';
+     return null;
+   });
 
   // Use a function to get the current validation error
   // This avoids direct assignment to a constant in $effect
   let displayValidationError = $state<string | null>(null);
   
   $effect(() => {
-    displayValidationError = validationError;
+    displayValidationError = getValidationError();
   });
 
   onMount(() => {
@@ -43,53 +43,54 @@
   });
 
   async function handleSubmit() {
-    // Clear previous errors
-    error = null;
+  // Clear any prior error
+  error = null;
 
-    // Check for validation errors
-    if (displayValidationError !== null) {
-      error = displayValidationError;
-      return;
-    }
-    
-    // Ensure turnstile verification has been completed
-    if (!turnstileToken) {
-      error = 'Please complete the Turnstile verification';
-      return;
-    }
-
-    isLoggingIn = true;
-    
-    try {
-      // Verify Turnstile token server-side
-      const isTurnstileValid = await verifyTurnstile(turnstileToken);
-      
-      if (!isTurnstileValid) {
-        error = 'Turnstile verification failed. Please try again.';
-        return;
-      }
-      
-      // Call the loginUser service function (properly using the auth service)
-      const user = await loginUser(email, password);
-      
-      if (user) {
-        // Save email preference if 'remember me' is checked
-        if (rememberMe) {
-          localStorage.setItem('polycentricity_email', email);
-        } else {
-          localStorage.removeItem('polycentricity_email');
-        }
-        await goto('/dashboard');
-      } else {
-        error = 'Invalid email or password';
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      error = typeof err === 'string' ? err : err.message || 'An error occurred during login';
-    } finally {
-      isLoggingIn = false;
-    }
+  // 1️⃣ Run validation (call the derived getter)
+  const validation = getValidationError();
+  if (validation) {
+    error = validation;
+    return;
   }
+
+  // 2️⃣ Ensure Turnstile has been completed
+  if (!turnstileToken) {
+    error = 'Please complete the Turnstile verification';
+    return;
+  }
+
+  // 3️⃣ All set—begin login
+  isLoggingIn = true;
+
+  try {
+    // Verify the Turnstile token on the server
+    const isTurnstileValid = await verifyTurnstile(turnstileToken!);
+    if (!isTurnstileValid) {
+      error = 'Turnstile verification failed. Please try again.';
+      return;
+    }
+
+    // Attempt login
+    const user = await loginUser(email, password);
+    if (user) {
+      // Save or clear remembered email
+      if (rememberMe) {
+        localStorage.setItem('polycentricity_email', email);
+      } else {
+        localStorage.removeItem('polycentricity_email');
+      }
+      await goto('/dashboard');
+    } else {
+      error = 'Invalid email or password';
+    }
+  } catch (err: any) {
+    console.error('Login error:', err);
+    error = typeof err === 'string' ? err : err.message ?? 'An error occurred during login';
+  } finally {
+    isLoggingIn = false;
+  }
+}
+
 
   async function verifyTurnstile(token: string): Promise<boolean> {
     try {
