@@ -46,7 +46,9 @@
 </script>
 
 {#if isAuthorized && !isChecking}
-  <slot />
+  <div>
+    <slot></slot>
+  </div>
 {/if}
 
 {#if isChecking}
