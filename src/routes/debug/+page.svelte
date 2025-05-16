@@ -1,280 +1,223 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getGun, get, nodes } from '$lib/services/gunService';
-  
+  import { getGun, getUser, get, put, putSigned, nodes } from '$lib/services/gunService';
+  import type { User } from '$lib/types';
+
   let email = $state('admin@ecovalence.com');
   let results = $state<any>({});
   let isLoading = $state(false);
   let errorMessage = $state('');
-  
+
   async function searchUser() {
     try {
       isLoading = true;
       errorMessage = '';
       results = {};
-      
+
       console.log('Searching for user with email:', email);
       const gun = getGun();
-      
-      if (!gun) {
-        errorMessage = 'Gun not initialized';
-        return;
-      }
-      
-      // Search for user in Gun's alias system
-      const aliasPromise = new Promise<any>((resolve) => {
+      if (!gun) throw new Error('Gun not initialized');
+
+      // Alias lookup (SEA stores as "~@email")
+      const alias = await new Promise<any>(resolve => {
         const timeout = setTimeout(() => resolve(null), 3000);
-        gun.get(`~@${email}`).once((alias) => {
+        gun.get(`~@${email}`).once(a => {
           clearTimeout(timeout);
-          resolve(alias);
+          resolve(a);
         });
       });
-      
-      const alias = await aliasPromise;
       results.alias = alias;
       console.log('Alias result:', alias);
-      
+
+      // Extract & normalize pubKey
+      let pubKey: string | undefined;
       if (alias) {
-        // Extract the public key - Gun.js stores it differently than we expect
-        let pubKey;
         if (typeof alias === 'string' && alias.startsWith('~')) {
           pubKey = alias.substring(1);
-        } else if (alias.pub) {
+        } else if (typeof alias === 'object' && alias.pub) {
           pubKey = alias.pub;
-        } else if (alias && typeof alias === 'object') {
-          // Look for a key that starts with ~
-          const keys = Object.keys(alias);
-          const pubKeyCandidate = keys.find(k => k.startsWith('~'));
-          if (pubKeyCandidate) {
-            pubKey = pubKeyCandidate;
-          }
-        }
-          
-        results.pubKey = pubKey;
-        console.log('Public key:', pubKey);
-        
-        if (pubKey) {
-          // Check if user exists in our users collection
-          const userPath = `${nodes.users}/${pubKey}`;
-          results.userPath = userPath;
-          
-          const userDataPromise = new Promise<any>((resolve) => {
-            const timeout = setTimeout(() => resolve(null), 3000);
-            gun.get(userPath).once((userData) => {
-              clearTimeout(timeout);
-              resolve(userData);
-            });
-          });
-          
-          const userData = await userDataPromise;
-          results.userData = userData;
-          console.log('User data:', userData);
+        } else {
+          const k = Object.keys(alias).find(k => k.startsWith('~'));
+          if (k) pubKey = k.slice(1);
         }
       }
-    } catch (error) {
-      console.error('Error searching for user:', error);
-      errorMessage = error instanceof Error ? error.message : String(error);
+      results.pubKey = pubKey;
+      console.log('Public key:', pubKey);
+
+      // Read user record via shared get()
+      if (pubKey) {
+        const soul = `${nodes.users}/${pubKey}`;
+        results.userPath = soul;
+        const userData = await get(soul);
+        results.userData = userData;
+        console.log('User data:', userData);
+      }
+    } catch (e) {
+      console.error('Error searching for user:', e);
+      errorMessage = e instanceof Error ? e.message : String(e);
     } finally {
       isLoading = false;
     }
   }
-  
+
   async function fixUserRecord() {
     try {
       isLoading = true;
       errorMessage = '';
       results.fixResult = null;
-      
-      const gun = getGun();
-      if (!gun) {
-        errorMessage = 'Gun not initialized';
-        isLoading = false;
-        return;
-      }
-      
-      // We already have the public key from the search, so we can use it directly
+
       const pubKey = results.pubKey;
-      
       if (!pubKey) {
-        errorMessage = 'Public key not found. Please search for the user first.';
-        isLoading = false;
-        return;
+        throw new Error('Public key not found. Search first.');
       }
-      
-      console.log('Fixing user record with public key:', pubKey);
-      
-      // Normalize the pubKey - remove ~ if it exists
-      const normalizedPubKey = pubKey.startsWith('~') ? pubKey.substring(1) : pubKey;
-      
-      // Create a minimal user record with Guest role
+
+      // Build minimal user record
       const now = Date.now();
-      const magic_key = Math.random().toString(36).substring(2);
-      const expires_at = now + 24 * 60 * 60 * 1000;
-      
       const newUser = {
-        user_id: normalizedPubKey,
-        pub: normalizedPubKey,
-        name: email.split('@')[0], // Use part before @ as name
+        user_id:    pubKey,
+        pub:        pubKey,
+        name:       email.split('@')[0],
         email,
-        role: 'Guest',
+        role:       'Guest' as const,
         created_at: now,
-        magic_key,
-        expires_at,
-        games_ref: {}
-      };
-      
+        magic_key:  Math.random().toString(36).slice(2),
+        expires_at: now + 24 * 60 * 60 * 1000,
+        games_ref:  {}
+      } as User;
+
       console.log('Creating user record:', newUser);
-      
-      // Construct the user path
-      const userPath = `${nodes.users}/${normalizedPubKey}`;
-      console.log('User path:', userPath);
-      
-      try {
-        // Use a simple timeout for the put operation
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            console.log('Put operation timed out, assuming success');
-            resolve(null);
-          }, 3000);
-          
-          gun.get(userPath).put(newUser, (ack) => {
-            clearTimeout(timeout);
-            if (ack.err) {
-              console.error('Failed to save user:', ack.err);
-              reject(new Error(ack.err));
-            } else {
-              console.log('Successfully saved user record');
-              resolve(ack);
-            }
-          });
-        });
-        
-        results.fixResult = 'User record created successfully';
-        results.createdUser = newUser;
-        console.log('Update complete, refreshing data');
-      } catch (putError) {
-        console.error('Error during put operation:', putError);
-        errorMessage = String(putError);
-      }
-      
-      // Force a refresh of the page state
-      isLoading = false;
-      
-      // Refresh the search results after a short delay
-      setTimeout(() => searchUser(), 500);
-    } catch (error) {
-      console.error('Error fixing user record:', error);
-      errorMessage = error instanceof Error ? error.message : String(error);
+      await putSigned(`${nodes.users}/${pubKey}`, newUser);
+
+      results.fixResult = 'User record created successfully';
+      console.log(results.fixResult);
+
+      // Refresh
+      await searchUser();
+    } catch (e) {
+      console.error('Error fixing user record:', e);
+      errorMessage = e instanceof Error ? e.message : String(e);
+    } finally {
       isLoading = false;
     }
   }
-  
+
   async function removeUserFromAuth() {
     try {
       isLoading = true;
       errorMessage = '';
       results.removeResult = null;
-      
-      const gun = getGun();
-      if (!gun) {
-        errorMessage = 'Gun not initialized';
-        isLoading = false;
-        return;
-      }
-      
-      // We need to use both the user record and auth record
+
       const pubKey = results.pubKey;
-      
-      if (!pubKey) {
-        errorMessage = 'Public key not found. Please search for the user first.';
-        isLoading = false;
-        return;
+      if (!pubKey) throw new Error('Public key not found. Search first.');
+
+      const gun = getGun();
+      const gunUser = getUser();
+      if (!gun || !gunUser) throw new Error('Gun or SEA user not initialized');
+
+      // 1) Remove SEA alias pointer(s) by unsetting the public‐graph set entry
+      const aliasSoul = `~@${email}`;
+      console.log('Removing alias set membership at:', aliasSoul);
+
+      // read the raw alias node to discover each member soul
+      const rawAlias: any = await new Promise(resolve => {
+        const t = setTimeout(() => resolve(null), 3000);
+        gun.get(aliasSoul).once(a => {
+          clearTimeout(t);
+          resolve(a);
+        });
+      });
+
+      if (rawAlias) {
+        // every key except "_" is a pointer node soul (e.g. "~d-…")
+        const memberSouls = Object.keys(rawAlias).filter(k => k !== '_');
+        console.log('Alias members to unset:', memberSouls);
+
+        // unset each member by passing the chain gun.get(memberSoul)
+        for (const memberSoul of memberSouls) {
+          await new Promise<void>(resolve => {
+            const t = setTimeout(() => {
+              console.warn(`Timed out unsetting alias member ${memberSoul}`);
+              resolve();
+            }, 3000);
+            gun.get(aliasSoul)
+               .unset( gun.get(memberSoul) )
+               .once(ack => {
+                 clearTimeout(t);
+                 // ack here is just the node value; for unset you don't get an err field
+                 console.log(`Alias member ${memberSoul} unset`);
+                 resolve();
+               });
+          });
+        }
+      } else {
+        console.log('No alias node found to delete');
       }
-      
-      // Normalize the pubKey - remove ~ if it exists
-      const normalizedPubKey = pubKey.startsWith('~') ? pubKey.substring(1) : pubKey;
-      
-      console.log('Removing user with public key:', pubKey);
-      
-      // Remove the alias entry
-      try {
-        await new Promise((resolve) => {
-          const timeout = setTimeout(() => {
-            console.log('Remove alias operation timed out, continuing');
-            resolve(null);
+
+
+      // 3) Null‐out every field on the public user record
+      const userSoul = `${nodes.users}/${pubKey}`;
+      console.log('Reading user record for deletion:', userSoul);
+      const existing = await get(userSoul);
+      if (existing) {
+        const deletePayload: Record<string, null> = {};
+        for (const field of Object.keys(existing)) {
+          deletePayload[field] = null;
+        }
+        console.log('Deleting user record fields:', Object.keys(deletePayload));
+        await new Promise<void>(resolve => {
+          const t = setTimeout(() => {
+            console.warn('Timed out nulling user fields');
+            resolve();
           }, 3000);
-          
-          gun.get(`~@${email}`).put(null, (ack) => {
-            clearTimeout(timeout);
-            if (ack.err) {
-              console.warn('Warning removing alias:', ack.err);
-            } else {
-              console.log('Successfully removed alias');
-            }
-            resolve(ack);
+          gun.get(userSoul).put(deletePayload, (ack?: any) => {
+            clearTimeout(t);
+            console.log(
+              ack?.err
+                ? `Error nulling user fields: ${ack.err}`
+                : 'User record fields nulled'
+            );
+            resolve();
           });
         });
-      } catch (aliasError) {
-        console.warn('Error removing alias:', aliasError);
+      } else {
+        console.log('No public user record found to delete');
       }
-      
-      // Remove the user record
-      try {
-        await new Promise((resolve) => {
-          const timeout = setTimeout(() => {
-            console.log('Remove user operation timed out, continuing');
-            resolve(null);
-          }, 3000);
-          
-          // Remove the user node
-          const userPath = `${nodes.users}/${normalizedPubKey}`;
-          gun.get(userPath).put(null, (ack) => {
-            clearTimeout(timeout);
-            if (ack.err) {
-              console.warn('Warning removing user record:', ack.err);
-            } else {
-              console.log('Successfully removed user record');
-            }
-            resolve(ack);
-          });
-        });
-        
-        results.removeResult = 'User records have been removed. For complete removal, you may need to clear the Gun.js data and restart the application.';
-        console.log('User removal complete');
-      } catch (userError) {
-        console.warn('Error removing user:', userError);
-      }
-      
-      // Force a refresh of the page state
-      isLoading = false;
-      
-      // Refresh the search results to show the result
-      setTimeout(() => searchUser(), 500);
-    } catch (error) {
-      console.error('Error removing user:', error);
-      errorMessage = error instanceof Error ? error.message : String(error);
+
+      // 4) Finally, clear the SEA session locally
+      gunUser.leave();
+      console.log('SEA session cleared');
+
+      results.removeResult = 'Alias + user record deleted; session cleared';
+      console.log(results.removeResult);
+
+      // 5) Refresh to confirm deletion
+      await searchUser();
+    } catch (e) {
+      console.error('Error removing user:', e);
+      errorMessage = e instanceof Error ? e.message : String(e);
+    } finally {
       isLoading = false;
     }
   }
-  
-  onMount(() => {
-    searchUser();
-  });
+
+
+
+  onMount(searchUser);
 </script>
 
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">User Database Debug</h1>
-  
+
   <div class="card p-4 bg-surface-100-800 mb-4">
     <div class="flex space-x-2">
-      <input 
-        type="text" 
-        bind:value={email} 
-        placeholder="Enter email address" 
+      <input
+        type="text"
+        bind:value={email}
+        placeholder="Enter email address"
         class="input p-2 border border-surface-300-600 bg-surface-200-700 w-full"
       />
-      <button 
-        onclick={searchUser} 
+      <button
+        onclick={searchUser}
         class="btn bg-primary-500-400 text-white"
         disabled={isLoading}
       >
@@ -282,48 +225,49 @@
       </button>
     </div>
   </div>
-  
+
   {#if errorMessage}
     <div class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400 p-4 mb-4">
       {errorMessage}
     </div>
   {/if}
-  
+
   <div class="card p-4 bg-surface-100-800 mb-4">
     <h2 class="text-xl font-semibold mb-2">Search Results</h2>
-    
     <div class="space-y-4">
       <div>
         <h3 class="font-semibold">Alias Record:</h3>
-        <pre class="bg-surface-200-700 p-2 rounded">{JSON.stringify(results.alias, null, 2) || 'null'}</pre>
+        <pre class="bg-surface-200-700 p-2 rounded">
+{JSON.stringify(results.alias, null, 2) ?? 'null'}
+        </pre>
       </div>
-      
+
       {#if results.pubKey}
         <div>
           <h3 class="font-semibold">Public Key:</h3>
           <pre class="bg-surface-200-700 p-2 rounded">{results.pubKey}</pre>
         </div>
       {/if}
-      
+
       {#if results.userPath}
         <div>
           <h3 class="font-semibold">User Path:</h3>
           <pre class="bg-surface-200-700 p-2 rounded">{results.userPath}</pre>
         </div>
       {/if}
-      
+
       <div>
         <h3 class="font-semibold">User Data:</h3>
-        <pre class="bg-surface-200-700 p-2 rounded">{JSON.stringify(results.userData, null, 2) || 'null'}</pre>
+        <pre class="bg-surface-200-700 p-2 rounded">
+{JSON.stringify(results.userData, null, 2) ?? 'null'}
+        </pre>
       </div>
-      
+
       {#if results.alias && !results.userData}
         <div class="alert bg-warning-500-400/20 border border-warning-500-400 text-warning-500-400 p-4">
-          <p>User exists in Gun's authentication system but not in the application's user collection.</p>
-          <p>This is causing the "User already created!" error during registration, but "User not found" during verification.</p>
-          
-          <button 
-            onclick={fixUserRecord} 
+          <p>User exists in Gun's auth system but not in your users collection.</p>
+          <button
+            onclick={fixUserRecord}
             class="btn bg-warning-500-400 text-white mt-2"
             disabled={isLoading}
           >
@@ -331,26 +275,24 @@
           </button>
         </div>
       {/if}
-      
+
       {#if results.fixResult}
         <div class="alert bg-success-500-400/20 border border-success-500-400 text-success-500-400 p-4">
           {results.fixResult}
         </div>
       {/if}
-      
+
       {#if results.removeResult}
         <div class="alert bg-success-500-400/20 border border-success-500-400 text-success-500-400 p-4">
           {results.removeResult}
         </div>
       {/if}
-      
+
       {#if results.pubKey && (results.userData || results.alias)}
         <div class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400 p-4 mt-4">
           <p>Remove this user from the database completely.</p>
-          <p class="text-sm">This will attempt to remove both the authentication record and user record.</p>
-          
-          <button 
-            onclick={removeUserFromAuth} 
+          <button
+            onclick={removeUserFromAuth}
             class="btn bg-error-500-400 text-white mt-2"
             disabled={isLoading}
           >
