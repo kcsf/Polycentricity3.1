@@ -35,10 +35,20 @@
       console.log('Alias result:', alias);
       
       if (alias) {
-        // Extract the public key
-        const pubKey = typeof alias === 'string' && alias.startsWith('~') 
-          ? alias.substring(1) 
-          : alias.pub || alias;
+        // Extract the public key - Gun.js stores it differently than we expect
+        let pubKey;
+        if (typeof alias === 'string' && alias.startsWith('~')) {
+          pubKey = alias.substring(1);
+        } else if (alias.pub) {
+          pubKey = alias.pub;
+        } else if (alias && typeof alias === 'object') {
+          // Look for a key that starts with ~
+          const keys = Object.keys(alias);
+          const pubKeyCandidate = keys.find(k => k.startsWith('~'));
+          if (pubKeyCandidate) {
+            pubKey = pubKeyCandidate;
+          }
+        }
           
         results.pubKey = pubKey;
         console.log('Public key:', pubKey);
@@ -73,6 +83,7 @@
     try {
       isLoading = true;
       errorMessage = '';
+      results.fixResult = null;
       
       const gun = getGun();
       if (!gun) {
@@ -80,31 +91,18 @@
         return;
       }
       
-      // First find the user's public key
-      const aliasPromise = new Promise<any>((resolve) => {
-        const timeout = setTimeout(() => resolve(null), 3000);
-        gun.get(`~@${email}`).once((alias) => {
-          clearTimeout(timeout);
-          resolve(alias);
-        });
-      });
+      // We already have the public key from the search, so we can use it directly
+      const pubKey = results.pubKey;
       
-      const alias = await aliasPromise;
-      
-      if (!alias) {
-        errorMessage = 'User alias not found';
-        return;
-      }
-      
-      // Extract the public key
-      const pubKey = typeof alias === 'string' && alias.startsWith('~') 
-        ? alias.substring(1) 
-        : alias.pub || alias;
-        
       if (!pubKey) {
-        errorMessage = 'Could not determine user public key';
+        errorMessage = 'Public key not found. Please search for the user first.';
         return;
       }
+      
+      console.log('Fixing user record with public key:', pubKey);
+      
+      // Normalize the pubKey - remove ~ if it exists
+      const normalizedPubKey = pubKey.startsWith('~') ? pubKey.substring(1) : pubKey;
       
       // Create a minimal user record with Guest role
       const now = Date.now();
@@ -112,8 +110,8 @@
       const expires_at = now + 24 * 60 * 60 * 1000;
       
       const newUser = {
-        user_id: pubKey,
-        pub: pubKey,
+        user_id: normalizedPubKey,
+        pub: normalizedPubKey,
         name: email.split('@')[0], // Use part before @ as name
         email,
         role: 'Guest',
@@ -123,18 +121,32 @@
         games_ref: {}
       };
       
-      const userPath = `${nodes.users}/${pubKey}`;
+      console.log('Creating user record:', newUser);
       
-      // Create the user record
-      gun.get(userPath).put(newUser, (ack) => {
-        if (ack.err) {
-          errorMessage = `Failed to save user: ${ack.err}`;
-        } else {
-          results.fixResult = 'User record created successfully';
-          // Refresh the search results
-          setTimeout(() => searchUser(), 1000);
-        }
+      // Construct the user path
+      const userPath = `${nodes.users}/${normalizedPubKey}`;
+      console.log('User path:', userPath);
+      
+      // Create the user record using put method
+      const putPromise = new Promise<any>((resolve, reject) => {
+        gun.get(userPath).put(newUser, (ack) => {
+          if (ack.err) {
+            console.error('Failed to save user:', ack.err);
+            reject(ack.err);
+          } else {
+            console.log('Successfully saved user record');
+            resolve(ack);
+          }
+        });
       });
+      
+      await putPromise;
+      
+      results.fixResult = 'User record created successfully';
+      results.createdUser = newUser;
+      
+      // Refresh the search results after a short delay
+      setTimeout(() => searchUser(), 1000);
     } catch (error) {
       console.error('Error fixing user record:', error);
       errorMessage = error instanceof Error ? error.message : String(error);
