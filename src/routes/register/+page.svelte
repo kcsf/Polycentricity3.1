@@ -16,12 +16,21 @@
   let turnstileToken = $state<string | null>(null);
   let isRegistrationComplete = $state(false);
 
-  // Client-side validation with proper Svelte 5 Runes syntax
-  const getValidationError = $derived(() => {
+ // Client-side validation with proper Svelte 5 Runes syntax
+ const validationError = $derived(() => {
     if (!name.trim() || !email.trim() || !password) return 'All fields are required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address';
     if (password.length < 6) return 'Password must be at least 6 characters long';
     return null;
+  });
+
+  // Use a state variable to hold the current validation error
+  let displayValidationError = $state<
+    'All fields are required' | 'Please enter a valid email address' | 'Password must be at least 6 characters long' | null
+  >(null);
+
+  $effect(() => {
+    displayValidationError = validationError(); // Call the function to get the value
   });
 
   onMount(() => {
@@ -45,22 +54,13 @@
         },
         body: JSON.stringify({ token })
       });
-      
+
       const data = await response.json();
       return !!data.success;
     } catch (err) {
       console.error('Turnstile verification error:', err);
       return false;
     }
-  }
-  
-  /**
-   * Handle Turnstile verification event
-   * @param event CustomEvent with token as detail
-   */
-  function handleTurnstileVerified(event: CustomEvent<string>): void {
-    console.log('Register page received Turnstile token');
-    turnstileToken = event.detail;
   }
 
   /**
@@ -69,14 +69,13 @@
   async function handleSubmit(): Promise<void> {
     // Clear previous errors
     error = null;
-    
+
     // Check for validation errors
-    const validation = getValidationError();
-    if (validation !== null) {
-      error = validation;
+    if (displayValidationError !== null) {
+      error = displayValidationError;
       return;
     }
-    
+
     // Ensure turnstile verification has been completed
     if (!turnstileToken) {
       error = 'Please complete the Turnstile verification';
@@ -84,30 +83,30 @@
     }
 
     isRegistering = true;
-    
+
     try {
       // First verify Turnstile token server-side
       const isTurnstileValid = await verifyTurnstile(turnstileToken);
-      
+
       if (!isTurnstileValid) {
         error = 'Turnstile verification failed. Please try again.';
         return;
       }
-    
+
       // Next check if the user already exists
       const userExists = await userExistsByEmail(email);
       if (userExists) {
         error = 'This email is already registered. Please try using a different email.';
         return;
       }
-      
+
       // Register the user through the auth service
       const user = await registerUser(name, email, password);
-      
+
       if (user) {
         // Send verification email
         await sendVerificationEmail(email, user.user_id, user.magic_key || '');
-        
+
         // Show registration complete message
         isRegistrationComplete = true;
       } else {
@@ -115,7 +114,7 @@
       }
     } catch (err: any) {
       console.error('Registration error:', err);
-      
+
       // Handle special case for duplicate users
       if (typeof err === 'string' && err.includes('User already created')) {
         error = 'This email is already registered in the database. Please try using a different email.';
@@ -137,15 +136,18 @@
 
     <section class="p-4">
       {#if isRegistrationComplete}
-        <div class="alert bg-success-500-400/20 border border-success-500-400 text-success-500-400" role="alert">
-          <div class="alert-message">
-            <h3 class="font-bold">Registration Successful!</h3>
-            <p>A verification email has been sent to {email}. Please check your inbox and click the verification link to activate your account.</p>
+        <div class="card p-6 bg-surface-100-800 border border-success-500-400 shadow-lg" role="alert">
+          <h2 class="h3 text-center text-success-600-300 mb-4">Registration Successful!</h2>
+          <p class="text-center mb-4">
+            A verification email has been sent to <span class="font-semibold">{email}</span>. 
+            Please check your inbox and click the verification link to activate your account.
+          </p>
+          
+          <div class="flex justify-center mt-6">
+            <a href="/login" class="btn bg-primary-500-400 text-white hover:bg-primary-600-300 transition-colors">
+              Proceed to Login
+            </a>
           </div>
-        </div>
-        
-        <div class="mt-4 text-center">
-          <a href="/login" class="btn bg-primary-500-400 text-white">Proceed to Login</a>
         </div>
       {:else}
         {#if error}
@@ -155,7 +157,7 @@
             </div>
           </div>
         {/if}
-  
+
         <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
           <label class="label">
             <span>Name</span>
@@ -168,7 +170,7 @@
               aria-describedby="error-message"
             />
           </label>
-  
+
           <label class="label">
             <span>Email</span>
             <input
@@ -180,7 +182,7 @@
               aria-describedby="error-message"
             />
           </label>
-  
+
           <label class="label">
             <span>Password</span>
             <input
@@ -192,11 +194,17 @@
               aria-describedby="error-message"
             />
           </label>
-          
-          <TurnstileWidget 
-            on:verified={handleTurnstileVerified}
+
+          <TurnstileWidget
+            onVerified={(token: string) => {
+              console.log('Turnstile verification received');
+              turnstileToken = token;
+            }}
+            onError={(msg: string) => {
+              error = msg;
+            }}
           />
-  
+
           <button
             type="submit"
             class="btn bg-primary-500-400 text-white w-full"
@@ -209,7 +217,7 @@
             {/if}
           </button>
         </form>
-  
+
         <div class="mt-4 text-center">
           <p class="text-sm">
             Already have an account? <a href="/login" class="anchor text-primary-500-400">Login</a>

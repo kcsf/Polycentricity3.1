@@ -165,8 +165,14 @@
         </label>
 
         <TurnstileWidget
-          on:verified={handleTurnstileVerified}
-        />
+  onVerified={(token: string) => {
+    console.log('Turnstile verification received');
+    turnstileToken = token;
+  }}
+  onError={(msg: string) => {
+    error = msg;
+  }}
+/>
 
         <label class="flex items-center space-x-2 mb-4">
           <input

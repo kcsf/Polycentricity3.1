@@ -1,10 +1,13 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
 
   // Props via Runes
-  const props = $props<{ sitekey?: string }>();
-  const sitekey = props.sitekey || PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
+  let { sitekey = PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY, onVerified, onError } = $props<{
+    sitekey?: string;
+    onVerified?: (token: string) => void;
+    onError?: (msg: string) => void;
+  }>();
 
   // Local reactive state
   let turnstileContainer: HTMLDivElement;
@@ -12,12 +15,6 @@
   let errorMessage = $state<string>('');
   let scriptLoaded = $state(false);
   const isDev = import.meta.env.DEV;
-
-  // Dispatch “verified” & “error” events
-  const dispatch = createEventDispatcher<{
-    verified: string;
-    error: string;
-  }>();
 
   // Renders or resets the Turnstile widget
   function renderTurnstile(): void {
@@ -38,24 +35,24 @@
       widgetId = window.turnstile.render(turnstileContainer, {
         sitekey,
         callback: (token: string) => {
-          dispatch('verified', token);
+          onVerified?.(token);
         },
         'error-callback': (err: any) => {
           const msg = typeof err === 'string' ? err : 'Verification failed';
           errorMessage = msg;
-          dispatch('error', msg);
+          onError?.(msg);
         },
         'expired-callback': () => {
           const msg = 'Verification expired, please try again';
           errorMessage = msg;
-          dispatch('error', msg);
+          onError?.(msg);
         },
         theme: 'auto'
       });
     } catch {
       const msg = 'Error initializing verification widget';
       errorMessage = msg;
-      dispatch('error', msg);
+      onError?.(msg);
     }
   }
 
@@ -95,8 +92,7 @@
         type="button"
         class="btn bg-primary-500-400 text-white"
         onclick={() =>
-          dispatch('verified', 'dev-mock-' + Math.random().toString(36).slice(2, 10))
-        }
+          onVerified?.('dev-mock-' + Math.random().toString(36).slice(2, 10))}
       >
         Verify (Dev)
       </button>
