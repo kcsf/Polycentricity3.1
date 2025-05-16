@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { updateUserToAdmin } from '$lib/services/authService';
+  import { updateUserRole } from '$lib/services/gameService';
   import { ShieldCheck, UserCog, CheckCircle, XCircle } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   
@@ -37,19 +37,36 @@
       isUpdating = true;
       updateResult(null);
       
-      const success = await updateUserToAdmin(adminEmail);
-      
-      if (success) {
-        updateResult({
-          success: true,
-          message: `Successfully updated ${adminEmail} to Admin role`
+      // First we need to find the user ID from the email
+      const gun = window.gun;
+      const user = await new Promise<any>((resolve) => {
+        gun.get(`~${adminEmail}`).once((data) => {
+          if (data && data.pub) {
+            // Look up the user profile from the public key
+            gun.user(data.pub).get('profile').once((profile) => {
+              resolve(profile ? { ...profile, pub: data.pub } : null);
+            });
+          } else {
+            resolve(null);
+          }
         });
-      } else {
+      });
+      
+      if (!user || !user.user_id) {
         updateResult({
           success: false,
-          message: `User with email ${adminEmail} not found or update failed`
+          message: `User with email ${adminEmail} not found`
         });
+        return;
       }
+      
+      // Now update the user's role to Admin
+      await updateUserRole(user.user_id, 'Admin');
+      
+      updateResult({
+        success: true,
+        message: `Successfully updated ${adminEmail} to Admin role`
+      });
     } catch (error) {
       console.error('Error updating user to admin:', error);
       updateResult({

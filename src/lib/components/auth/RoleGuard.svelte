@@ -46,7 +46,7 @@
 </script>
 
 {#if isAuthorized && !isChecking}
-  <slot />
+  {@render $$slots.default?.()} 
 {/if}
 
 {#if isChecking}
