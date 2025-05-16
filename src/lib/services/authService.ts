@@ -53,25 +53,73 @@ export async function registerUser(
   password: string
 ): Promise<User | null> {
   try {
+    console.log('[authService] Starting registration for:', email);
+    
     const gunUser = getUser();
-    if (!gunUser) throw new Error('Gun user not initialized');
-
+    if (!gunUser) {
+      console.error('[authService] Gun user not initialized');
+      throw new Error('Gun user not initialized');
+    }
+    
+    console.log('[authService] Creating user account with Gun...');
+    
     // SEA create/auth
-    await new Promise((res, rej) =>
-      gunUser.create(email, password, (ack: any) => (ack.err ? rej(ack.err) : res(ack)))
-    );
-    await new Promise((res, rej) =>
-      gunUser.auth(email, password, (ack: any) => (ack.err ? rej(ack.err) : res(ack)))
-    );
+    try {
+      await new Promise((res, rej) =>
+        gunUser.create(email, password, (ack: any) => {
+          console.log('[authService] Gun create response:', ack);
+          if (ack.err) {
+            console.error('[authService] Gun create error:', ack.err);
+            rej(ack.err);
+          } else {
+            console.log('[authService] Gun create success');
+            res(ack);
+          }
+        })
+      );
+    } catch (createErr) {
+      console.error('[authService] Failed to create user:', createErr);
+      throw createErr;
+    }
+    
+    console.log('[authService] Authenticating new user...');
+    
+    try {
+      await new Promise((res, rej) =>
+        gunUser.auth(email, password, (ack: any) => {
+          console.log('[authService] Gun auth response:', ack);
+          if (ack.err) {
+            console.error('[authService] Gun auth error:', ack.err);
+            rej(ack.err);
+          } else {
+            console.log('[authService] Gun auth success');
+            res(ack);
+          }
+        })
+      );
+    } catch (authErr) {
+      console.error('[authService] Failed to authenticate user:', authErr);
+      throw authErr;
+    }
 
+    console.log('[authService] Getting SEA data...');
     const sea = gunUser._?.sea;
+    console.log('[authService] SEA data:', sea);
+    
     const user_id = sea?.pub;
-    if (!user_id) throw new Error('No authenticated user');
+    if (!user_id) {
+      console.error('[authService] No authenticated user (missing pub key)');
+      throw new Error('No authenticated user');
+    }
+    
+    console.log('[authService] User authenticated with ID:', user_id);
 
     const now = Date.now();
     const magic_key = generateId();
     const expires_at = now + 24 * 60 * 60 * 1000;
     const role = email === BJORN_EMAIL ? 'Admin' : 'Guest';
+    
+    console.log('[authService] Creating user record with role:', role);
 
     const newUser: User = {
       user_id,
@@ -84,8 +132,26 @@ export async function registerUser(
       expires_at,
       games_ref:  {}
     };
-
-    await putSigned(`${nodes.users}/${user_id}`, newUser);
+    
+    const userPath = `${nodes.users}/${user_id}`;
+    console.log('[authService] Saving user to path:', userPath);
+    console.log('[authService] User data:', newUser);
+    
+    try {
+      await putSigned(userPath, newUser);
+      console.log('[authService] Successfully saved user data');
+      
+      // Verify the user was saved by reading it back
+      const savedUser = await get<User>(userPath);
+      console.log('[authService] Verification - Read back user data:', savedUser);
+      
+      if (!savedUser) {
+        console.error('[authService] Failed to verify user was saved');
+      }
+    } catch (saveErr) {
+      console.error('[authService] Error saving user data:', saveErr);
+      throw saveErr;
+    }
 
     userStore.update((s) => ({
       ...s,
@@ -94,7 +160,8 @@ export async function registerUser(
       isLoading:       false,
       lastError:       null
     }));
-
+    
+    console.log('[authService] Registration complete, returning new user');
     return newUser;
   } catch (err: any) {
     console.error('[authService] registerUser error:', err);
