@@ -7,7 +7,9 @@ import {
   getGun,
   subscribe,
   nodes,
+  put,
   putSigned,
+  setField,
 } from "./gunService";
 import { getCurrentUser } from "./authService";
 import { currentGameStore } from "../stores/gameStore";
@@ -134,9 +136,14 @@ async function deleteKey(path: string, key: string): Promise<void> {
 // Update User Role
 export async function updateUserRole(userId: string, role: User["role"]) {
   const soul = `${nodes.users}/${userId}`;
-  const user = await get<User>(soul);
-  if (!user) throw new Error("User not found");
-  await putSigned(soul, { ...user, role, updated_at: Date.now() });
+  const existing = await get<User>(soul);
+  if (!existing) throw new Error("User not found");
+  // full-object rewrite:
+  await put(soul, { ...existing, role, updated_at: Date.now() });
+  // —or— only update the full object:
+  // await put(soul, { ...existing, role, updated_at: Date.now() });
+  // await setField(soul, "role", role);
+  // await setField(soul, "updated_at", Date.now());
 }
 
 export async function getAllGames(): Promise<Game[]> {
