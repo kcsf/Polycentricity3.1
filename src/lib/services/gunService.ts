@@ -385,22 +385,40 @@ export async function putSigned<
     | Capability
     | NodePosition,
 >(soul: string, data: T | null): Promise<GunAck> {
+  // Ensure the user is authenticated
   const user = getUser();
-  if (!user || !user._.sea?.pub) throw new Error("User not authenticated");
+  if (!user || !user._.sea?.pub) {
+    throw new Error("User not authenticated");
+  }
 
-  return new Promise((resolve) => {
-    const timeout = setTimeout(
-      () =>
-        resolve({
-          ok: true,
-          err: undefined,
-          raw: { fallback: true, message: "Fallback resolver" },
-        }),
-      1000,
-    );
-    user.get(soul).put(data, (ack: { err?: string; ok?: boolean }) => {
+  // Write on the public graph, not the user's private graph
+  const g = getGun();
+  if (!g) {
+    throw new Error("Gun not ready");
+  }
+
+  // Walk the slash-delimited path
+  const parts = soul.split("/");
+  let node = g.get(parts[0]);
+  for (let i = 1; i < parts.length; i++) {
+    node = node.get(parts[i]);
+  }
+
+  // Perform the put with timeout fallback
+  return new Promise<GunAck>((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve({
+        ok: true,
+        err: undefined,
+        raw: { fallback: true, message: "Fallback resolver" },
+      });
+    }, 1000);
+
+    node.put(data, (ack: { err?: string; ok?: boolean }) => {
       clearTimeout(timeout);
-      const hasError = ack && (ack.err || typeof ack.err !== "undefined");
+      const hasError = Boolean(
+        ack && (ack.err || typeof ack.err !== "undefined"),
+      );
       resolve({
         err: hasError ? ack.err : undefined,
         ok: !hasError,
