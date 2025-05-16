@@ -12,8 +12,8 @@
  * - Uses consistent ID prefixes (u_, g_, actor_, card_, ag_, chat_, msg_, value_, cap_)
  */
 
-import * as d3 from 'd3';
-import type { SimulationNodeDatum } from 'd3';
+import * as d3 from "d3";
+import type { SimulationNodeDatum } from "d3";
 
 // Core Schema Types
 // -----------------------------------------------
@@ -182,12 +182,12 @@ export interface Agreement {
 export interface AgreementWithPosition extends Agreement {
     /** for layout */
     position: { x: number; y: number };
-  
+
     /** for your D3 code */
     partyItems?: PartyItem[];
     obligations?: ObligationItem[];
     benefits?: BenefitItem[];
-  }
+}
 
 export interface NodePosition {
     node_id: string; // e.g., 'card_1', 'ag_1', or 'actor_1'
@@ -244,30 +244,30 @@ export interface CardWithPosition extends Card {
     actor_id?: string;
     _valueNames?: string[];
     _capabilityNames?: string[];
-  }
-  
-  export interface ObligationItem {
+}
+
+export interface ObligationItem {
     id: string;
     fromActorId: string;
     toActorId?: string;
     text: string;
-  }
-  
-  export interface BenefitItem {
+}
+
+export interface BenefitItem {
     id: string;
     fromActorId: string;
     toActorId?: string;
     text: string;
-  }
-  
-  export interface PartyItem {
+}
+
+export interface PartyItem {
     actorId: string;
     card: CardWithPosition;
     obligation: string;
     benefit: string;
-  }
-      
-  export interface SubItem {
+}
+
+export interface SubItem {
     id: string;
     label: string;
     angle: number;
@@ -278,12 +278,12 @@ export interface CardWithPosition extends Card {
     categoryColor: string;
     index: number;
     totalItems: number;
-  }
-  
-  export interface D3Node extends SimulationNodeDatum {
+}
+
+export interface D3Node extends SimulationNodeDatum {
     id: string;
     name: string;
-    type: 'actor' | 'agreement' | 'subnode';
+    type: "actor" | "agreement" | "subnode";
     data: CardWithPosition | AgreementWithPosition | null;
     x: number;
     y: number;
@@ -294,17 +294,25 @@ export interface CardWithPosition extends Card {
     active?: boolean;
     _valueNames?: string[];
     _capabilityNames?: string[];
-  }
-  
-  export interface D3Link {
+}
+
+export interface D3Link {
     source: D3Node | string;
     target: D3Node | string;
     type?: "obligation" | "benefit" | "subnode";
     id?: string;
     angle?: number; // Angle for multi-party agreement links
-}  
-  export interface D3NodeWithRelationships extends D3Node {
+}
+export interface D3NodeWithRelationships extends D3Node {
     sourceCard?: D3Node;
     targetCard?: D3Node;
-  }
-  
+}
+
+/**
+ * GunAck interface for Gun.js acknowledgment messages
+ */
+export interface GunAck {
+    err?: string;
+    ok: boolean;
+    raw?: any; // Original ack for debugging
+}

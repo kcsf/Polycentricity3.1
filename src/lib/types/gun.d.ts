@@ -5,6 +5,7 @@ declare global {
     off(): void;
   }
 }
+
 declare module 'gun' {
   interface IGunInstance<TNode = any> {
     get: (key: string) => IGunChain<TNode>;
@@ -30,14 +31,16 @@ declare module 'gun' {
     create: (alias: string, pass: string, cb: (ack: any) => void) => void;
     auth: (alias: string, pass: string, cb: (ack: any) => void) => void;
     leave: () => void;
+    delete: (alias: string, password: string, cb?: (ack: { err?: string; ok?: boolean }) => void) => this;
   }
 
   interface IGunChain<TNode> {
-    get: (key: string) => IGunChain<TNode>;
+    get: (key: string): IGunChain<TNode>;
     put: (data: any, cb?: (ack: any) => void) => void;
     on: (cb: (data: any) => void) => { off: () => void };
     once: (cb: (data: any, key: string) => void) => void;
     map: () => IGunChain<TNode>;
     set: (data: any, cb?: (ack: any) => void) => void;
+    unset: (data: any, cb?: (ack: any) => void) => void;
   }
 }

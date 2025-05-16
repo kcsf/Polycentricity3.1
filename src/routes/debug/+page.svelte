@@ -1,12 +1,42 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { getGun, getUser, get, put, putSigned, nodes } from '$lib/services/gunService';
-  import type { User } from '$lib/types';
+  import { getGun, getUser, get, put, putSigned, nodes, getSet } from '$lib/services/gunService';
+  import { deleteSeaUser, loginUser, getCurrentUser } from '$lib/services/authService';
+  import type { User, GunAck } from '$lib/types';
 
   let email = $state('admin@ecovalence.com');
+  let password = $state('');
+  let loginEmail = $state('');
+  let loginPassword = $state('');
   let results = $state<any>({});
   let isLoading = $state(false);
   let errorMessage = $state('');
+  let loginMessage = $state('');
+  let currentUser = $state<User | null>(null);
+
+  $effect(() => {
+    currentUser = getCurrentUser();
+    searchUser();
+  });
+
+  async function login() {
+    try {
+      isLoading = true;
+      errorMessage = '';
+      loginMessage = '';
+      const user = await loginUser(loginEmail, loginPassword);
+      if (user) {
+        loginMessage = `Logged in as ${user.email}`;
+        currentUser = user;
+      } else {
+        loginMessage = 'Login failed. Please check your credentials.';
+      }
+    } catch (e) {
+      console.error('Login error:', e);
+      loginMessage = e instanceof Error ? e.message : String(e);
+    } finally {
+      isLoading = false;
+    }
+  }
 
   async function searchUser() {
     try {
@@ -18,10 +48,10 @@
       const gun = getGun();
       if (!gun) throw new Error('Gun not initialized');
 
-      // Alias lookup (SEA stores as "~@email")
-      const alias = await new Promise<any>(resolve => {
-        const timeout = setTimeout(() => resolve(null), 3000);
-        gun.get(`~@${email}`).once(a => {
+      const aliasSoul = `~@${email}`;
+      const alias = await new Promise<any>((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 500);
+        gun.get(aliasSoul).once((a) => {
           clearTimeout(timeout);
           resolve(a);
         });
@@ -29,26 +59,32 @@
       results.alias = alias;
       console.log('Alias result:', alias);
 
-      // Extract & normalize pubKey
       let pubKey: string | undefined;
-      if (alias) {
-        if (typeof alias === 'string' && alias.startsWith('~')) {
-          pubKey = alias.substring(1);
-        } else if (typeof alias === 'object' && alias.pub) {
-          pubKey = alias.pub;
-        } else {
-          const k = Object.keys(alias).find(k => k.startsWith('~'));
-          if (k) pubKey = k.slice(1);
-        }
+      if (alias && typeof alias === 'object') {
+        const k = Object.keys(alias).find((k) => k.startsWith('~'));
+        if (k) pubKey = k.slice(1);
       }
       results.pubKey = pubKey;
       console.log('Public key:', pubKey);
 
-      // Read user record via shared get()
+      let credentialData: any = null;
+      if (pubKey) {
+        const credentialSoul = `~${pubKey}`;
+        credentialData = await new Promise<any>((resolve) => {
+          const timeout = setTimeout(() => resolve(null), 500);
+          gun.get(credentialSoul).once((data) => {
+            clearTimeout(timeout);
+            resolve(data);
+          });
+        });
+        results.credentialData = credentialData;
+        console.log('Credential data:', credentialData);
+      }
+
       if (pubKey) {
         const soul = `${nodes.users}/${pubKey}`;
         results.userPath = soul;
-        const userData = await get(soul);
+        const userData = await get<User>(soul);
         results.userData = userData;
         console.log('User data:', userData);
       }
@@ -71,27 +107,25 @@
         throw new Error('Public key not found. Search first.');
       }
 
-      // Build minimal user record
       const now = Date.now();
-      const newUser = {
-        user_id:    pubKey,
-        pub:        pubKey,
-        name:       email.split('@')[0],
+      const newUser: User = {
+        user_id: pubKey,
+        pub: pubKey,
+        name: email.split('@')[0],
         email,
-        role:       'Guest' as const,
+        role: 'Guest',
         created_at: now,
-        magic_key:  Math.random().toString(36).slice(2),
-        expires_at: now + 24 * 60 * 60 * 1000,
-        games_ref:  {}
-      } as User;
+        magic_key: Math.random().toString(36).slice(2),
+        games_ref: {},
+      };
 
       console.log('Creating user record:', newUser);
-      await putSigned(`${nodes.users}/${pubKey}`, newUser);
+      const ack = await putSigned(`${nodes.users}/${pubKey}`, newUser);
+      if (!ack.ok) throw new Error(`Failed to create user record: ${ack.err}`);
 
       results.fixResult = 'User record created successfully';
       console.log(results.fixResult);
 
-      // Refresh
       await searchUser();
     } catch (e) {
       console.error('Error fixing user record:', e);
@@ -108,89 +142,44 @@
       results.removeResult = null;
 
       const pubKey = results.pubKey;
-      if (!pubKey) throw new Error('Public key not found. Search first.');
-
-      const gun = getGun();
-      const gunUser = getUser();
-      if (!gun || !gunUser) throw new Error('Gun or SEA user not initialized');
-
-      // 1) Remove SEA alias pointer(s) by unsetting the public‐graph set entry
-      const aliasSoul = `~@${email}`;
-      console.log('Removing alias set membership at:', aliasSoul);
-
-      // read the raw alias node to discover each member soul
-      const rawAlias: any = await new Promise(resolve => {
-        const t = setTimeout(() => resolve(null), 3000);
-        gun.get(aliasSoul).once(a => {
-          clearTimeout(t);
-          resolve(a);
-        });
-      });
-
-      if (rawAlias) {
-        // every key except "_" is a pointer node soul (e.g. "~d-…")
-        const memberSouls = Object.keys(rawAlias).filter(k => k !== '_');
-        console.log('Alias members to unset:', memberSouls);
-
-        // unset each member by passing the chain gun.get(memberSoul)
-        for (const memberSoul of memberSouls) {
-          await new Promise<void>(resolve => {
-            const t = setTimeout(() => {
-              console.warn(`Timed out unsetting alias member ${memberSoul}`);
-              resolve();
-            }, 3000);
-            gun.get(aliasSoul)
-               .unset( gun.get(memberSoul) )
-               .once(ack => {
-                 clearTimeout(t);
-                 // ack here is just the node value; for unset you don't get an err field
-                 console.log(`Alias member ${memberSoul} unset`);
-                 resolve();
-               });
-          });
-        }
-      } else {
-        console.log('No alias node found to delete');
+      if (!pubKey) {
+        errorMessage = 'Public key not found. Please search for the user first.';
+        return;
+      }
+      if (!password.trim()) {
+        errorMessage = 'Please enter a password to delete the user.';
+        return;
       }
 
-
-      // 3) Null‐out every field on the public user record
-      const userSoul = `${nodes.users}/${pubKey}`;
-      console.log('Reading user record for deletion:', userSoul);
-      const existing = await get(userSoul);
-      if (existing) {
-        const deletePayload: Record<string, null> = {};
-        for (const field of Object.keys(existing)) {
-          deletePayload[field] = null;
+      const ack = await deleteSeaUser(pubKey, email, password);
+      if (!ack.ok) {
+        if (ack.err?.includes('Authentication failed') || ack.err?.includes('Account not same')) {
+          errorMessage = 'Invalid email or password. Please verify credentials.';
+        } else if (ack.err?.includes('Signature did not match') || ack.err?.includes('Unverified data')) {
+          errorMessage = 'Authentication error: Credentials could not be verified.';
+        } else if (ack.err?.includes('Failed to nullify SEA alias')) {
+          errorMessage = 'Failed to remove SEA alias. The user may still exist in the auth system.';
+        } else {
+          errorMessage = `Failed to delete user: ${ack.err}`;
         }
-        console.log('Deleting user record fields:', Object.keys(deletePayload));
-        await new Promise<void>(resolve => {
-          const t = setTimeout(() => {
-            console.warn('Timed out nulling user fields');
-            resolve();
-          }, 3000);
-          gun.get(userSoul).put(deletePayload, (ack?: any) => {
-            clearTimeout(t);
-            console.log(
-              ack?.err
-                ? `Error nulling user fields: ${ack.err}`
-                : 'User record fields nulled'
-            );
-            resolve();
-          });
-        });
-      } else {
-        console.log('No public user record found to delete');
+        return;
       }
 
-      // 4) Finally, clear the SEA session locally
-      gunUser.leave();
-      console.log('SEA session cleared');
-
-      results.removeResult = 'Alias + user record deleted; session cleared';
+      results.removeResult = 'User deleted from SEA and database; session cleared';
       console.log(results.removeResult);
 
-      // 5) Refresh to confirm deletion
+      const aliasSoul = `~@${email}`;
+      const gun = getGun();
+      if (!gun) throw new Error('Gun not initialized');
+      const aliasCheck = await new Promise<any>((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 500);
+        gun.get(aliasSoul).once((data: any) => {
+          clearTimeout(timeout);
+          resolve(data);
+        });
+      });
+      console.log('Post-deletion alias check:', aliasCheck);
+
       await searchUser();
     } catch (e) {
       console.error('Error removing user:', e);
@@ -199,23 +188,62 @@
       isLoading = false;
     }
   }
-
-
-
-  onMount(searchUser);
 </script>
 
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">User Database Debug</h1>
 
   <div class="card p-4 bg-surface-100-800 mb-4">
-    <div class="flex space-x-2">
+    <h2 class="text-xl font-semibold mb-2">Login</h2>
+    <div class="flex flex-col space-y-2">
       <input
         type="text"
-        bind:value={email}
+        bind:value={loginEmail}
         placeholder="Enter email address"
         class="input p-2 border border-surface-300-600 bg-surface-200-700 w-full"
       />
+      <input
+        type="password"
+        bind:value={loginPassword}
+        placeholder="Enter password"
+        class="input p-2 border border-surface-300-600 bg-surface-200-700 w-full"
+      />
+      <button
+        onclick={login}
+        class="btn bg-primary-500-400 text-white"
+        disabled={isLoading || !loginEmail.trim() || !loginPassword.trim()}
+      >
+        {isLoading ? 'Logging in...' : 'Login'}
+      </button>
+      {#if loginMessage}
+        <p class="text-sm {loginMessage.includes('failed') ? 'text-error-500-400' : 'text-success-500-400'}">
+          {loginMessage}
+        </p>
+      {/if}
+      {#if currentUser}
+        <p class="text-sm text-success-500-400">Current user: {currentUser.email} ({currentUser.role})</p>
+      {/if}
+    </div>
+  </div>
+
+  <div class="card p-4 bg-surface-100-800 mb-4">
+    <h2 class="text-xl font-semibold mb-2">User Search and Deletion</h2>
+    <div class="flex flex-col space-y-2">
+      <input
+        type="text"
+        bind:value={email}
+        placeholder="Enter email address to search"
+        class="input p-2 border border-surface-300-600 bg-surface-200-700 w-full"
+      />
+      <input
+        type="password"
+        bind:value={password}
+        placeholder="Enter password (required for deletion)"
+        class="input p-2 border border-surface-300-600 bg-surface-200-700 w-full"
+      />
+      {#if !password.trim() && results.pubKey}
+        <p class="text-error-500-400 text-sm">Password is required to delete the user.</p>
+      {/if}
       <button
         onclick={searchUser}
         class="btn bg-primary-500-400 text-white"
@@ -236,9 +264,9 @@
     <h2 class="text-xl font-semibold mb-2">Search Results</h2>
     <div class="space-y-4">
       <div>
-        <h3 class="font-semibold">Alias Record:</h3>
+        <h3 class="font-semibold">Alias Record (~@{email}):</h3>
         <pre class="bg-surface-200-700 p-2 rounded">
-{JSON.stringify(results.alias, null, 2) ?? 'null'}
+          {JSON.stringify(results.alias, null, 2) ?? 'null'}
         </pre>
       </div>
 
@@ -246,6 +274,15 @@
         <div>
           <h3 class="font-semibold">Public Key:</h3>
           <pre class="bg-surface-200-700 p-2 rounded">{results.pubKey}</pre>
+        </div>
+      {/if}
+
+      {#if results.credentialData}
+        <div>
+          <h3 class="font-semibold">SEA Credential Data (~{results.pubKey}):</h3>
+          <pre class="bg-surface-200-700 p-2 rounded">
+            {JSON.stringify(results.credentialData, null, 2) ?? 'null'}
+          </pre>
         </div>
       {/if}
 
@@ -259,7 +296,7 @@
       <div>
         <h3 class="font-semibold">User Data:</h3>
         <pre class="bg-surface-200-700 p-2 rounded">
-{JSON.stringify(results.userData, null, 2) ?? 'null'}
+          {JSON.stringify(results.userData, null, 2) ?? 'null'}
         </pre>
       </div>
 
@@ -288,13 +325,13 @@
         </div>
       {/if}
 
-      {#if results.pubKey && (results.userData || results.alias)}
+      {#if results.pubKey && (results.userData || results.alias || results.credentialData)}
         <div class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400 p-4 mt-4">
           <p>Remove this user from the database completely.</p>
           <button
             onclick={removeUserFromAuth}
             class="btn bg-error-500-400 text-white mt-2"
-            disabled={isLoading}
+            disabled={isLoading || !password.trim()}
           >
             {isLoading ? 'Removing...' : 'Remove User'}
           </button>
