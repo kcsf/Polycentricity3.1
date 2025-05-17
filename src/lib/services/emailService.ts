@@ -7,10 +7,24 @@ export async function sendVerificationEmail(
   magicKey: string
 ): Promise<boolean> {
   try {
-    // Build verification URL that works both in development and production
-    // Note: This will be called from the server during API calls, so window won't be available
-    // In a real production app, this would be an environment variable
-    const baseUrl = 'http://localhost:5000';
+    // Get the base URL by checking different environments
+    let baseUrl = '';
+    
+    // First try window.location if we're in the browser
+    if (typeof window !== 'undefined' && window.location) {
+      const { protocol, host } = window.location;
+      baseUrl = `${protocol}//${host}`;
+    } 
+    // Try to detect Replit environment
+    else if (typeof process !== 'undefined' && process.env && process.env.REPL_ID) {
+      // Use Replit's domain structure
+      baseUrl = `https://${process.env.REPL_ID}.id.repl.co`;
+    } 
+    // Fallback for local development
+    else {
+      baseUrl = 'http://localhost:5000';
+    }
+    
     const verificationUrl = `${baseUrl}/verify?userId=${encodeURIComponent(userId)}&magicKey=${encodeURIComponent(magicKey)}`;
     
     const response = await fetch('/api/sendgrid', {

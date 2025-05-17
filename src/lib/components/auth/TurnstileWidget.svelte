@@ -1,6 +1,27 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
+  
+  // Import the environment variable safely with a fallback
+  let PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY = '1x00000000000000000000AA'; // Default test key
+  
+  // Try to import from environment if available
+  try {
+    const env = import.meta.env || {};
+    if (env.PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY) {
+      PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY = env.PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
+    } else {
+      // Try to import from SvelteKit env module if available
+      import('$env/static/public').then(module => {
+        if (module.PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY) {
+          PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY = module.PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY;
+        }
+      }).catch(() => {
+        console.log('Using development Turnstile key');
+      });
+    }
+  } catch (error) {
+    console.log('Using development Turnstile key');
+  }
 
   // Props via Runes
   let { sitekey = PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY, onVerified, onError } = $props<{

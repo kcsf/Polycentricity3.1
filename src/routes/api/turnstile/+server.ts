@@ -1,6 +1,26 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { CLOUDFLARE_TURNSTILE_SECRET } from '$env/static/private';
+
+// Get the Turnstile secret with a fallback for development
+let CLOUDFLARE_TURNSTILE_SECRET = '';
+
+// Try to get from process.env first (for cases where environment variables are set differently)
+if (typeof process !== 'undefined' && process.env && process.env.CLOUDFLARE_TURNSTILE_SECRET) {
+  CLOUDFLARE_TURNSTILE_SECRET = process.env.CLOUDFLARE_TURNSTILE_SECRET;
+} else {
+  // Then try importing from SvelteKit's env module
+  try {
+    import('$env/static/private').then(module => {
+      if (module.CLOUDFLARE_TURNSTILE_SECRET) {
+        CLOUDFLARE_TURNSTILE_SECRET = module.CLOUDFLARE_TURNSTILE_SECRET;
+      }
+    }).catch(() => {
+      console.log('No Turnstile secret found in environment, using development mode');
+    });
+  } catch (error) {
+    // Will use development/Replit mode fallback
+  }
+}
 
 // Development mode detection - expanded to include Replit environment
 const isDevelopmentOrReplit = 
