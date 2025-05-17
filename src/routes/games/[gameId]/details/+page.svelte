@@ -76,6 +76,7 @@
         
         try {
           const ctx: GameContext | null = await getGameContext(gameId);
+          console.log('[GameDetailsPage] Full GameContext:', ctx);
     
           if (!ctx) {
             errorMessage = 'Game not found';

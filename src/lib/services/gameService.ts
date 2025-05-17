@@ -1018,6 +1018,11 @@ export async function getGameContext(
         ]);
         if (!a) return null;
 
+        console.log(
+          `[getGameContext] Actor ${aid} cards_by_game:`,
+          cardsByGame,
+        );
+
         const actorMap = cardsByGame || {};
         const cardId = actorMap[gameId];
         let card: CardWithPosition | undefined;
