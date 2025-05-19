@@ -10,17 +10,71 @@
  ***************************************************************************************/
 
 import { getGun, nodes } from "./gunService";
-import type { IGunInstance } from "gun";
+import type { IGunInstance, IGunChain } from "gun";
 
-/** Helper to wait between Gun operations */
+/**
+ * Helper to create an edge (relationship) via Gun.js’s .set()
+ * Resolves true on success or after a 500 ms fallback.
+ */
+export async function createEdge(
+  fromPath: string,
+  fromKey: string,
+  toPath: string,
+  toKey: string,
+): Promise<boolean> {
+  const gun = getGun() as IGunInstance | undefined;
+  if (!gun) {
+    console.error(
+      `[sampleData] Gun not initialized, cannot create edge ${fromPath}/${fromKey} → ${toPath}/${toKey}`,
+    );
+    return false;
+  }
+
+  const fromNode = gun.get(fromPath).get(fromKey);
+  const toNode = gun.get(toPath).get(toKey);
+  let done = false;
+
+  return new Promise<boolean>((resolve) => {
+    // 1) issue the .set()
+    fromNode.set(toNode, (ack: any) => {
+      if (done) return;
+      done = true;
+      if (ack?.err) {
+        console.error(
+          `[sampleData] Error creating edge ${fromPath}/${fromKey} → ${toPath}/${toKey}:`,
+          ack.err,
+        );
+        resolve(false);
+      } else {
+        console.log(
+          `[sampleData] Created edge ${fromPath}/${fromKey} → ${toPath}/${toKey}`,
+        );
+        resolve(true);
+      }
+    });
+
+    // 2) fallback in case no ack ever arrives
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        console.warn(
+          `[sampleData] Fallback timeout for edge ${fromPath}/${fromKey} → ${toPath}/${toKey}, assuming success`,
+        );
+        resolve(true);
+      }
+    }, 500);
+  });
+}
+
+/**
+ * Helper to wait between Gun operations
+ */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Simplified write: fires a put() and resolves on the ack or a short timeout.
- * This will write all your boolean‐map *_ref fields (and everything else) 
- * as plain `{ id: true }` maps under the hood—no pointer `.set()`.
+ * Simplified write: fires a put() and resolves on the ack or a short timeout
  */
 export async function write(
   path: string,
@@ -29,10 +83,13 @@ export async function write(
 ): Promise<boolean> {
   const gun = getGun() as IGunInstance | undefined;
   if (!gun) {
-    console.error(`[sampleData] Gun not initialized, cannot write ${path}/${key}`);
+    console.error(
+      `[sampleData] Gun not initialized, cannot write ${path}/${key}`,
+    );
     return false;
   }
 
+  // deepClean: remove undefined, "_" metadata, and any "#"/":" pointers
   function deepClean(obj: any): any {
     if (obj === null || typeof obj !== "object") return obj;
     const out: Record<string, any> = {};
@@ -55,6 +112,7 @@ export async function write(
   let done = false;
 
   return new Promise<boolean>((resolve) => {
+    // 1) Fire the put
     node.put(cleanData, (ack: any) => {
       if (done) return;
       done = true;
@@ -67,25 +125,30 @@ export async function write(
       }
     });
 
+    // 2) Fallback in case ack never arrives
     setTimeout(() => {
       if (!done) {
         done = true;
-        console.warn(`[sampleData] Fallback timeout for ${path}/${key}, assuming success`);
+        console.warn(
+          `[sampleData] Fallback timeout for ${path}/${key}, assuming success`,
+        );
         resolve(true);
       }
     }, 500);
   });
 }
 
-/** Batch‐save a collection of items via plain `write()` */
+/**
+ * Batch save a collection of items
+ */
 async function saveBatch<T extends { [key: string]: any }>(
   nodePath: string,
   items: T[],
   idField: keyof T,
 ): Promise<boolean> {
   for (const item of items) {
-    const ok = await write(nodePath, String(item[idField]), item);
-    if (!ok) {
+    const success = await write(nodePath, String(item[idField]), item);
+    if (!success) {
       console.error(`[sampleData] Failed to save ${nodePath}/${item[idField]}`);
       return false;
     }
@@ -94,14 +157,17 @@ async function saveBatch<T extends { [key: string]: any }>(
   return true;
 }
 
-/** Initialize sample data (no pointer‐edges at all) */
+/**
+ * Initialize sample data following the schema in GunSchema.md
+ */
 export async function initializeSampleData() {
-  console.log("[seed] Initializing sample data…");
+  console.log("[seed] Initializing sample data according to GunSchema.md...");
   const gun = getGun();
   if (!gun) {
     console.error("[seed] Gun not initialized");
     return { success: false, message: "Gun not initialized" };
   }
+
   const now = Date.now();
 
   // 1. Users
@@ -795,7 +861,65 @@ export async function initializeSampleData() {
   }
   console.log("[seed] Saved node positions");
 
-  // 10. Remove Create edges using .set()
+  // 10. Create edges using .set()
+  console.log("[seed] Creating edges...");
+  // Game ↔ Actors
+  for (const a of actors) {
+    await createEdge(
+      `${nodes.games}/${game.game_id}`,
+      "actors_ref",
+      nodes.actors,
+      a.actor_id,
+    );
+    await createEdge(
+      `${nodes.actors}/${a.actor_id}`,
+      "games_ref",
+      nodes.games,
+      game.game_id,
+    );
+  }
+  // Game ↔ Agreements
+  for (const ag of agreements) {
+    await createEdge(
+      `${nodes.games}/${game.game_id}`,
+      "agreements_ref",
+      nodes.agreements,
+      ag.agreement_id,
+    );
+  }
+  // User ↔ Actor
+  for (const a of actors) {
+    await createEdge(
+      `${nodes.users}/${a.user_ref}`,
+      "actors_ref",
+      nodes.actors,
+      a.actor_id,
+    );
+  }
+  // User ↔ Games
+  for (const u of users) {
+    await createEdge(
+      `${nodes.users}/${u.user_id}`,
+      "games_ref",
+      nodes.games,
+      game.game_id,
+    );
+  }
+  // Game ↔ Creator
+  await createEdge(
+    `${nodes.games}/${game.game_id}`,
+    "creator_ref",
+    nodes.users,
+    game.creator_ref,
+  );
+  // Game ↔ Deck
+  await createEdge(
+    `${nodes.games}/${game.game_id}`,
+    "deck_ref",
+    nodes.decks,
+    deck.deck_id,
+  );
+  console.log("[seed] Created edges");
 
   console.log("[seed] Sample data initialization complete!");
   return { success: true, message: "Sample data initialized" };

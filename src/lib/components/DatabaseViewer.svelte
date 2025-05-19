@@ -58,19 +58,19 @@
     }, 2);
   }
 
-  const commonKeys = $state<string[]>([ // [doc_6]
-  'cards',
-  'actors',
-  'values',
-  'capabilities',
-  'decks',
-  'games',
-  'users',
-  'chat_rooms',
-  'chat_messages', 
-  'agreements',
-  'node_positions'
-]);
+  const commonKeys = $state<string[]>([
+    'cards',
+    'actors',
+    'values',
+    'capabilities',
+    'decks',
+    'games',
+    'users',
+    'chat_rooms',
+    'chat_messages', 
+    'agreements',
+    'node_positions'
+  ]);
 
   async function fetchDeepData(): Promise<string> {
     if (!openLoaded) throw new Error('open.js not loaded');
@@ -83,11 +83,56 @@
         gunRef = gunRef.get(segment);
       });
 
-      return new Promise<string>((resolve) => {
-        (gunRef as any).open((data: unknown) => {
-          resolve(data ? safeStringify(data) : 'No data');
+      return new Promise<string>((resolve, reject) => {
+        const data: Record<string, any> = {};
+        let pending = 0;
+        let completed = false;
+
+        const complete = () => {
+          if (completed || pending > 0) return;
+          completed = true;
           (gunRef as any).off();
+          resolve(data ? safeStringify(data) : 'No data');
+        };
+
+        (gunRef as any).open((nodeData: any, key: string) => {
+          if (nodeData && key && key !== '_') {
+            pending++;
+            data[key] = nodeData;
+            // Recursively fetch nested references
+            const refs = ['values_ref', 'capabilities_ref', 'decks_ref', 'agreements_ref'];
+            Promise.all(refs.map(ref => new Promise<void>(res => {
+              if (nodeData[ref] && typeof nodeData[ref] === 'object') {
+                const refKeys = Object.keys(nodeData[ref]);
+                let refPending = refKeys.length;
+                if (refPending === 0) res();
+                refKeys.forEach(refKey => {
+                  const refPath = ref === 'values_ref' ? 'values' : ref === 'capabilities_ref' ? 'capabilities' : ref === 'decks_ref' ? 'decks' : 'agreements';
+                  gun.get(refPath).get(refKey).open((refData: any) => {
+                    if (refData) {
+                      data[key][ref][refKey] = refData;
+                    }
+                    refPending--;
+                    if (refPending === 0) res();
+                  });
+                });
+              } else {
+                res();
+              }
+            }))).then(() => {
+              pending--;
+              complete();
+            });
+          }
         });
+
+        setTimeout(() => {
+          if (!completed) {
+            completed = true;
+            (gunRef as any).off();
+            resolve(data ? safeStringify(data) : 'No data');
+          }
+        }, 5000); // 5s timeout
       });
     } catch (e) {
       throw new Error(`Deep fetch error: ${e instanceof Error ? e.message : String(e)}`);
@@ -110,7 +155,7 @@
             nodes[key] = data;
           }
         });
-        setTimeout(resolve, 1000);
+        setTimeout(resolve, 2000); // Increased to 2000ms
       });
       return safeStringify(nodes);
     } catch (e) {

@@ -77,6 +77,36 @@ function cleanData<T>(data: any): T | null {
   return cleaned as T;
 }
 
+/**  
+ * Read a “ref” field and return a boolean map, whether it was written
+ * as a plain { id:true } map or as a Gun.set() pointer‐edge.  
+ */
+export async function getRefMap(
+  path: string,
+  field: string
+): Promise<Record<string,boolean>> {
+  const mapPart = (await getField<Record<string,any>>(path, field)) || {};
+  const result = new Set<string>(
+    Object.entries(mapPart)
+      .filter(([_k,v]) => v === true)
+      .map(([k]) => k)
+  );
+
+  // also collect any live set‐edges
+  const gun = getGun();
+  if (gun) {
+    await new Promise<void>(resolve => {
+      gun.get(path).get(field).map().once((v:any, k:string) => {
+        if (k && v) result.add(k);
+      });
+      setTimeout(resolve, 100);
+    });
+  }
+
+  return Object.fromEntries(Array.from(result).map(id=>[id,true]));
+}
+
+
 /**
  * Put data into Gun at a specific soul location
  * @param soul - Node path (e.g., 'games/g_456')
@@ -520,3 +550,34 @@ export const nodes = {
   chat_messages: "chat_messages", // Base path, append /<game_id>/<message_id>
   node_positions: "node_positions", // Base path, append /<game_id>/<node_id>
 };
+
+/**
+ * Fetch a map (Record<string, string>) from a sub-node
+ * @param soul - Base node path (e.g., 'actors/actor_1')
+ * @param field - Sub-node field (e.g., 'cards_by_game')
+ * @returns Promise resolving to the map or empty object
+ */
+export async function getMap(
+  soul: string,
+  field: string,
+): Promise<Record<string, string>> {
+  const g = getGun();
+  if (!g) throw new Error("Gun not ready");
+
+  return new Promise((resolve) => {
+    const map: Record<string, string> = {};
+    g.get(soul)
+      .get(field)
+      .map()
+      .once((data: any, key: string) => {
+        if (key && key !== "_" && data !== undefined && data !== null) {
+          map[key] = String(data); // Ensure value is a string
+          console.log(`[getMap] ${soul}/${field} - ${key}: ${data}`);
+        }
+      });
+    setTimeout(() => {
+      console.log(`[getMap] Resolved ${soul}/${field}:`, map);
+      resolve(map);
+    }, 1000); // Timeout to ensure data collection
+  });
+}

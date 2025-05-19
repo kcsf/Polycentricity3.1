@@ -1,4 +1,3 @@
-// Card utility functions - separated to avoid circular dependencies
 import { getGun, getCollection, nodes } from './gunService';
 import type { Card } from '$lib/types';
 
@@ -9,43 +8,37 @@ import type { Card } from '$lib/types';
  */
 export async function generateSequentialCardId(): Promise<string> {
   const gun = getGun();
-  if (!gun) {
-    throw new Error("Gun not initialized");
-  }
+  if (!gun) throw new Error("Gun not initialized");
 
-  // Collect only the card IDs whose value is an object
-  const existingIds: string[] = [];
+  // 1) fetch the raw map of everything under /cards
+  let snapshot: Record<string, unknown> | null = null;
   await new Promise<void>((resolve) => {
-    gun
-      .get(nodes.cards)
-      .map()
-      .once((val: unknown, id: string) => {
-        // Filter out Gun metadata and any primitive leaf (e.g. created_at)
-        if (
-          id !== "_" &&
-          id !== "#" &&
-          val !== null &&
-          typeof val === "object"
-        ) {
-          existingIds.push(id);
-        }
-      });
-    // Give Gun a moment to fetch
-    setTimeout(resolve, 500);
+    gun.get(nodes.cards).once((data) => {
+      // data might be null (empty); or an object whose keys are all the card-IDs
+      if (data && typeof data === "object") snapshot = data as Record<string, unknown>;
+      resolve();
+    });
+    // in case once() never fires
+    setTimeout(resolve, 1000);
   });
 
-  // Parse out numeric parts of IDs like "card_7" → 7
-  const numbers = existingIds
+  // 2) extract valid IDs
+  const existingIds = snapshot
+    ? Object.keys(snapshot).filter(
+        (k) => k !== "_" && !k.startsWith("#") && !k.startsWith(":")
+      )
+    : [];
+
+  // 3) parse numbers and pick next
+  const max = existingIds
     .map((id) => {
-      const parts = id.split("_");
-      const n = parseInt(parts[1], 10);
+      const n = parseInt(id.split("_")[1] || "", 10);
       return isNaN(n) ? 0 : n;
     })
-    .filter((n) => n > 0);
+    .reduce((a, b) => Math.max(a, b), 0);
 
-  const max = numbers.length ? Math.max(...numbers) : 0;
   const next = max + 1;
-  console.log(`[generateSequentialCardId] Found max card number: ${max}, generating card_${next}`);
+  console.log(`[generateSequentialCardId] Next is card_${next}`);
   return `card_${next}`;
 }
 

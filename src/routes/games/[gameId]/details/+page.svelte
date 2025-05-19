@@ -51,7 +51,7 @@
         cardTitle: actor.card?.role_title ?? 'Unknown Card'
       }));
       
-      console.log('[DetailsPage] Actors in game:', actors);
+      console.log('[DetailsPage] Actors in game:', $state.snapshot(actors));
 
       if ($userStore.user) {
         const userId = $userStore.user.user_id;
