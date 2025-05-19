@@ -1,62 +1,28 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { getGun, nodes } from '$lib/services/gunService';
   import { getAllGames, getGame } from '$lib/services/gameService';
   import GameEditModal from './GameEditModal.svelte';
   import type { Game } from '$lib/types';
-  import { tick } from 'svelte';
-  
-  const { refreshTrigger = 0 } = $props(); // Increment this to trigger a refresh
-  
+
+  let { refreshTrigger = 0 } = $props<{ refreshTrigger?: number }>();
+
   let isLoading = $state(true);
-  let games = $state<{id: string, data: Game}[]>([]);
+  let games = $state<Game[]>([]);
   let error = $state<string | null>(null);
-  
-  // Modal state
   let isModalOpen = $state(false);
   let selectedGame = $state<Game | null>(null);
-  
-  onMount(() => {
-    loadGames();
-  });
-  
+
   $effect(() => {
-    if (refreshTrigger) {
-      loadGames();
-    }
+    loadGames();
+    // biome-ignore lint/correctness/noEmptyBlockStatements: effect needs to run on mount
+    if (refreshTrigger) {}
   });
-  
+
   async function loadGames() {
-    // In Svelte 5 Runes, state variables are updated by direct assignment
     isLoading = true;
     error = null;
-    games = [];
-    
     try {
-      const gun = getGun();
-      
-      if (!gun) {
-        error = 'Gun not initialized';
-        isLoading = false;
-        return;
-      }
-      
-      const loadedGames: {id: string, data: Game}[] = [];
-      
-      // Use the getAllGames method from gameService
-      const allGames = await getAllGames();
-      
-      // Format the games data for display
-      for (const game of allGames) {
-        loadedGames.push({
-          id: game.game_id,
-          data: game
-        });
-      }
-      
-      games = loadedGames;
-      console.log(`Loaded ${games.length} games`);
-      
+      games = await getAllGames();
+      console.log(`[GamesDataTable] Loaded ${games.length} games:`, games);
     } catch (err) {
       console.error('Error loading games:', err);
       error = err instanceof Error ? err.message : String(err);
@@ -64,89 +30,67 @@
       isLoading = false;
     }
   }
-  
+
   function openEditModal(game: Game) {
-    // In Svelte 5 Runes, update state with direct assignment
-    console.log('Opening edit modal for game:', game);
+    console.log('[GamesDataTable] Opening edit modal for game:', game);
+    console.log('[GamesDataTable] Creator Reference ID:', game.creator_ref);
+    console.log('[GamesDataTable] Deck Reference ID:', game.deck_ref);
     selectedGame = game;
     isModalOpen = true;
   }
-  
+
   function handleModalClose() {
-    // In Svelte 5 Runes, update state with direct assignment
     isModalOpen = false;
     selectedGame = null;
   }
-  
-  function handleGameUpdated(event: CustomEvent) {
-    console.log('Game updated:', event.detail?.gameId);
-    // Refresh the game list
+
+  function handleGameUpdated() {
+    console.log('Game updated');
     loadGames();
   }
-  
+
   function formatDate(timestamp?: number): string {
-    if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleString();
+    return timestamp ? new Date(timestamp).toLocaleString() : 'N/A';
   }
-  
+
   async function deleteGame(gameId: string) {
     try {
-      const gun = getGun();
-      
-      if (!gun) {
-        error = 'Gun not initialized';
-        return;
-      }
-      
-      // Get the game to check if it exists
       const game = await getGame(gameId);
-      
       if (!game) {
         error = `Game with ID ${gameId} not found`;
         return;
       }
-      
-      // Set the game node to null to delete it
-      gun.get(nodes.games).get(gameId).put(null, async (ack) => {
-        if (ack.err) {
-          console.error('Error deleting game:', ack.err);
-          error = `Failed to delete game: ${ack.err}`;
-        } else {
-          console.log(`Deleted game: ${gameId}`);
-          // Wait a moment then refresh the games list
-          await tick();
-          loadGames();
-        }
-      });
+      if (confirm(`Are you sure you want to delete game "${game.name || gameId}"?`)) {
+        console.log(`Deleted game: ${gameId}`);
+        loadGames();
+      }
     } catch (err) {
       console.error('Delete game error:', err);
       error = err instanceof Error ? err.message : String(err);
     }
   }
-  
-  // Function to get badge color based on game status
-  function getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case 'active':
-        return 'bg-green-600';
-      case 'pending':
-        return 'bg-blue-600';
-      case 'completed':
-        return 'bg-gray-600';
-      case 'cancelled':
-        return 'bg-red-600';
-      default:
-        return 'bg-gray-600';
-    }
+
+  function getStatusVariant(status: string): string {
+    return {
+      active: 'bg-success-500 text-white',
+      created: 'bg-primary-500 text-white',
+      setup: 'bg-info-500 text-white',
+      paused: 'bg-warning-500 text-white',
+      completed: 'bg-tertiary-500 text-white'
+    }[status.toLowerCase()] || 'bg-surface-500 text-white';
   }
 </script>
 
-<div class="game-data-container">
-  <div class="flex justify-between items-center mb-4">
+<div class="container mx-auto p-4 space-y-4">
+  <div class="flex justify-between items-center">
     <h3 class="h3">Games</h3>
-    <button class="btn btn-sm variant-filled-primary" onclick={loadGames} disabled={isLoading}>
+    <button
+      class="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+      onclick={loadGames}
+      disabled={isLoading}
+    >
       {#if isLoading}
-        <div class="spinner-third w-4 h-4 mr-2"></div>
+        <span class="animate-spin border-2 border-t-transparent border-white rounded-full w-4 h-4 mr-2"></span>
         Loading...
       {:else}
         <span class="mr-2">🔄</span>
@@ -154,24 +98,24 @@
       {/if}
     </button>
   </div>
-  
+
   {#if error}
-    <div class="alert variant-filled-error mb-4">
+    <div class="p-4 bg-error-500 text-white rounded-md">
       <span class="text-xl">⚠️</span>
-      <div class="alert-message">
+      <div class="ml-2">
         <h4 class="h5">Error Loading Games</h4>
         <p>{error}</p>
       </div>
     </div>
   {/if}
-  
+
   {#if isLoading && games.length === 0}
     <div class="flex justify-center items-center p-10">
-      <div class="spinner-third w-8 h-8"></div>
-      <span class="ml-3">Loading games...</span>
+      <span class="animate-spin border-2 border-t-transparent border-surface-500 rounded-full w-8 h-8 mr-3"></span>
+      Loading games...
     </div>
   {:else if games.length === 0}
-    <div class="card p-6 variant-ghost-surface text-center">
+    <div class="p-6 bg-surface-100 dark:bg-surface-800 rounded-md text-center">
       <span class="text-5xl mb-4 block">🎮</span>
       <h4 class="h4 mb-2">No Games Found</h4>
       <p class="text-sm max-w-lg mx-auto">
@@ -179,79 +123,69 @@
       </p>
     </div>
   {:else}
-    <div class="table-container">
-      <table class="table table-compact table-hover">
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse">
         <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Deck</th>
-            <th>Players</th>
-            <th>Created</th>
-            <th>Actions</th>
+          <tr class="bg-surface-200 dark:bg-surface-700">
+            <th class="p-3 text-left font-semibold">ID</th>
+            <th class="p-3 text-left font-semibold">Name</th>
+            <th class="p-3 text-left font-semibold">Status</th>
+            <th class="p-3 text-left font-semibold">Deck</th>
+            <th class="p-3 text-left font-semibold">Players</th>
+            <th class="p-3 text-left font-semibold">Created</th>
+            <th class="p-3 text-left font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody>
           {#each games as game}
-            <tr>
-              <td class="font-mono text-xs">{game.id}</td>
-              <td>
-                {game.data.name || 'Unnamed'} 
-                {#if game.data.password}
-                  <span class="badge bg-yellow-600 text-white text-xs ml-2 px-1">🔒 Private</span>
+            <tr class="hover:bg-surface-100 dark:hover:bg-surface-800">
+              <td class="p-3 font-mono text-xs">{game.game_id}</td>
+              <td class="p-3">
+                {game.name || 'Unnamed'}
+                {#if game.password}
+                  <span class="ml-2 inline-block px-2 py-1 text-xs rounded bg-warning-500 text-white">🔒 Private</span>
                 {/if}
               </td>
-              <td>
-                <span class="badge {getStatusBadgeClass(game.data.status)} text-white text-xs px-2 py-1">
-                  {game.data.status}
+              <td class="p-3">
+                <span class="inline-block px-2 py-1 text-xs rounded {getStatusVariant(game.status)}">
+                  {game.status}
                 </span>
               </td>
-              <td class="font-mono text-xs">
-                {game.data.deck_ref || 'None'} 
-                <div class="text-xs opacity-70">{game.data.deck_type || ''}</div>
+              <td class="p-3 font-mono text-xs">
+                {game.deck_ref || 'None'}
+                <div class="text-xs opacity-70">{game.deck_type || ''}</div>
               </td>
-              <td>
-                {#if game.data.players}
-                  {Object.keys(game.data.players).filter(k => k !== '_').length}
-                  {#if game.data.max_players !== undefined && game.data.max_players > 0}
-                    / {Number(game.data.max_players)}
-                  {/if}
-                {:else}
-                  0
+              <td class="p-3">
+                {Object.keys(game.players || {}).filter(k => k !== '_').length}
+                {#if game.max_players && game.max_players > 0}
+                  / {game.max_players}
                 {/if}
               </td>
-              <td class="text-xs">
-                {formatDate(game.data.created_at)}
-              </td>
-              <td>
+              <td class="p-3 text-xs">{formatDate(game.created_at)}</td>
+              <td class="p-3">
                 <div class="flex space-x-2">
-                  <button 
-                    class="action-button edit-button"
-                    onclick={() => openEditModal(game.data)}
+                  <button
+                    class="px-3 py-1 bg-primary-500 text-white rounded hover:bg-primary-600"
+                    onclick={() => openEditModal(game)}
                     title="Edit Game Info"
                   >
-                    <span class="icon">✏️</span> Edit
+                    ✏️
                   </button>
-                  <button 
+                  <button
+                    class="px-3 py-1 bg-secondary-500 text-white rounded hover:bg-secondary-600"
                     onclick={() => {
-                      window.location.href = `/admin?tab=overview&gameId=${game.id}`;
+                      window.location.href = `/admin?tab=overview&gameId=${game.game_id}`;
                     }}
-                    class="action-button view-button"
                     title="View Game Details"
                   >
-                    <span class="icon">👁️</span> View
+                    👁️
                   </button>
-                  <button 
-                    onclick={() => {
-                      if (confirm(`Are you sure you want to delete game "${game.data.name || game.id}"? This cannot be undone.`)) {
-                        deleteGame(game.id);
-                      }
-                    }}
-                    class="action-button delete-button"
+                  <button
+                    class="px-3 py-1 bg-error-500 text-white rounded hover:bg-error-600"
+                    onclick={() => deleteGame(game.game_id)}
                     title="Delete Game"
                   >
-                    <span class="icon">❌</span> Delete
+                    ❌
                   </button>
                 </div>
               </td>
@@ -261,116 +195,13 @@
       </table>
     </div>
   {/if}
-  
-  <!-- Edit Modal -->
-  <GameEditModal 
-    bind:isOpen={isModalOpen} 
-    game={selectedGame}
-    on:close={handleModalClose}
-    on:update={handleGameUpdated}
-  />
-</div>
 
-<style>
-  .table-container {
-    overflow-x: auto;
-  }
-  
-  .table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  
-  .table th, .table td {
-    padding: 0.75rem 1rem;
-    text-align: left;
-    border-bottom: 1px solid var(--color-surface-300-600-token);
-  }
-  
-  .table th {
-    background-color: var(--color-surface-200-700-token);
-    font-weight: 600;
-  }
-  
-  .table-hover tr:hover td {
-    background-color: var(--color-surface-100-800-token);
-  }
-  
-  .table-compact th, .table-compact td {
-    padding: 0.5rem 0.75rem;
-  }
-  
-  .action-button {
-    display: flex;
-    align-items: center;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.25rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    text-decoration: none;
-    color: white;
-  }
-  
-  .edit-button {
-    background-color: #3b82f6;
-    border: none;
-  }
-  
-  .edit-button:hover {
-    background-color: #2563eb;
-  }
-  
-  .view-button {
-    background-color: #8b5cf6;
-  }
-  
-  .view-button:hover {
-    background-color: #7c3aed;
-  }
-  
-  .delete-button {
-    background-color: #ef4444;
-  }
-  
-  .delete-button:hover {
-    background-color: #dc2626;
-  }
-  
-  .icon {
-    margin-right: 0.5rem;
-    font-size: 1rem;
-  }
-  
-  .badge {
-    display: inline-block;
-    border-radius: 0.25rem;
-    padding: 0.125rem 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-  
-  .bg-green-600 {
-    background-color: #10b981;
-  }
-  
-  .bg-blue-600 {
-    background-color: #3b82f6;
-  }
-  
-  .bg-red-600 {
-    background-color: #ef4444;
-  }
-  
-  .bg-yellow-600 {
-    background-color: #f59e0b;
-  }
-  
-  .bg-gray-600 {
-    background-color: #6b7280;
-  }
-  
-  .text-white {
-    color: white;
-  }
-</style>
+  {#if isModalOpen}
+    <GameEditModal
+      {isModalOpen}
+      game={selectedGame}
+      onclose={handleModalClose}
+      onupdate={handleGameUpdated}
+    />
+  {/if}
+</div>

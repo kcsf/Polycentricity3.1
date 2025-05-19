@@ -1,6 +1,21 @@
-<script>
+<script lang="ts">
   import DatabaseViewer from '$lib/components/DatabaseViewer.svelte';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import { getGun } from '$lib/services/gunService';
+
+  onMount(() => {
+    if (import.meta.env.DEV) {
+      const gun = getGun();
+      if (gun) {
+        // window.gun is already typed via your gun.d.ts
+        window.gun = gun;
+        console.log('🎯 Gun instance is now on window.gun', window.gun);
+      } else {
+        console.warn('Gun instance not initialized yet');
+      }
+    }
+  });
 </script>
 
 <div class="container mx-auto p-4">

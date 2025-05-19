@@ -486,16 +486,18 @@ export async function deleteNode(soul: string): Promise<GunAck> {
 }
 
 /**
- * Create a relationship (edge) between two nodes
+ * Create a relationship (edge) between two nodes, optionally with metadata.
  * @param fromSoul - Source node path (e.g., 'games/g_456')
- * @param field - Edge field (e.g., 'actors_ref')
+ * @param field - Edge field (e.g., 'actors_ref' or 'ref_set')
  * @param toSoul - Target node path (e.g., 'actors/actor_1')
+ * @param meta - Optional metadata to store on the edge (e.g. { role: 'creator' })
  * @returns Promise resolving to GunAck
  */
 export async function createRelationship(
   fromSoul: string,
   field: string,
   toSoul: string,
+  meta?: Record<string, any>,
 ): Promise<GunAck> {
   const g = getGun();
   if (!g) throw new Error("Gun not ready");
@@ -510,11 +512,16 @@ export async function createRelationship(
         }),
       1000,
     );
+
+    const edgeValue = meta
+      ? { "#": toSoul, ...meta }
+      : g.get(toSoul);
+
     g.get(fromSoul)
       .get(field)
-      .set(g.get(toSoul), (ack: { err?: string; ok?: boolean }) => {
+      .set(edgeValue, (ack: { err?: string; ok?: boolean }) => {
         clearTimeout(timeout);
-        const hasError = ack && (ack.err || typeof ack.err !== "undefined");
+        const hasError = ack && typeof ack.err !== "undefined";
         resolve({
           err: hasError ? ack.err : undefined,
           ok: !hasError,
@@ -523,6 +530,7 @@ export async function createRelationship(
       });
   });
 }
+
 
 /**
  * Generate a unique ID for Gun nodes

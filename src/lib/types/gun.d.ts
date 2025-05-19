@@ -1,8 +1,11 @@
+// src/lib/types/gun.d.ts
+
+import type { IGunInstance, IGunChain } from 'gun';
+
 declare global {
-  interface IGunChain<T> {
-    get(key: string): IGunChain<T>;
-    open(cb: (data: T) => void): void;
-    off(): void;
+  interface Window {
+    /** your singleton Gun instance, mounted in +page.svelte via window.gun = getGun() */
+    gun: IGunInstance<any>;
   }
 }
 
@@ -15,7 +18,6 @@ declare module 'gun' {
     map: () => IGunChain<TNode>;
     user: () => IGunUserInstance;
   }
-
   interface IGunUserInstance {
     _: {
       sea?: {
@@ -34,13 +36,18 @@ declare module 'gun' {
     delete: (alias: string, password: string, cb?: (ack: { err?: string; ok?: boolean }) => void) => this;
   }
 
-  interface IGunChain<TNode> {
-    get: (key: string): IGunChain<TNode>;
-    put: (data: any, cb?: (ack: any) => void) => void;
-    on: (cb: (data: any) => void) => { off: () => void };
-    once: (cb: (data: any, key: string) => void) => void;
-    map: () => IGunChain<TNode>;
-    set: (data: any, cb?: (ack: any) => void) => void;
-    unset: (data: any, cb?: (ack: any) => void) => void;
+  /**
+   * A Gun chain node, used for get()/map()/set() etc.
+   */
+  interface IGunChain<TNode = any> {
+    get(key: string): IGunChain<TNode>;
+    put(data: any, cb?: (ack: any) => void): void;
+    on(cb: (data: any) => void): { off: () => void };
+    once(cb: (data: any, key: string) => void): void;
+    map(): IGunChain<TNode>;
+    set(data: any, cb?: (ack: any) => void): void;
+    unset(data: any, cb?: (ack: any) => void): void;
   }
 }
+
+export {};

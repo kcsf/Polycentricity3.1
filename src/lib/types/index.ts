@@ -104,6 +104,7 @@ export interface Game {
     chat_rooms_ref: Record<string, boolean>; // e.g., { chat_g_456: true }
     _isUserCreated?: boolean; // Add for tracking if user is the creator
     _isPlaceholder?: boolean; // Add for tracking placeholder games
+    ref_set?: Record<string, string>;
 }
 
 export interface Actor {

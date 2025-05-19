@@ -3,21 +3,22 @@
  * Gun.js database setup for Polycentricity3, following Vite/SvelteKit recommendations
  * Based on https://github.com/amark/gun/wiki/Vite
  *
- * Initializes a single Gun instance with Radisk for IndexedDB storage, guarded for SSR safety
+ * Initializes a single Gun instance with localStorage for persistence, guarded for SSR safety
  *
  * Features:
  * - Browser-only initialization to prevent SSR errors
  * - Silent mode to reduce console noise
- * - Storage limits to prevent IndexedDB bloat
+ * - Storage limits to prevent localStorage bloat
  * - Prepares for peer relays
  */
 
 import { browser } from "$app/environment";
 import Gun from "gun";
-import "gun/lib/radix";
-import "gun/lib/radisk";
-import "gun/lib/store";
-import "gun/lib/rindexed";
+// we no longer import Radisk or Rindexed:
+// import "gun/lib/radix";
+// import "gun/lib/radisk";
+// import "gun/lib/store";
+// import "gun/lib/rindexed";
 import "gun/sea";
 import "gun/lib/unset.js";
 
@@ -30,20 +31,20 @@ if (browser) {
   }
 
   const gunOptions = {
-    localStorage: false, // Disable local storage, use IndexedDB via Radisk
-    radisk: true, // Enable Radisk for persistent storage
-    silent: true, // Reduce debug logs
-    quiet: true, // Additional silencing for SEA
-    super: true, // More silence
-    axe: false, // Disable network announcements
-    multicast: false, // Disable multicast (local network discovery)
-    opt: { store: { max: 100 * 1024 * 1024 } }, // 100MB in bytes
-    peers: [], // Placeholder for future peer relays
+    peers: [],            // placeholder for future peer relays
+    localStorage: true,   // ← use built-in localStorage, no Radisk
+    silent: true,         // reduce Gun logs
+    quiet: true,          // reduce SEA logs
+    super: true,          // extra silence
+    axe: false,           // disable local network announcements
+    multicast: false,     // disable multicast
+    // if you need a size cap, you can still use opt.store for localStorage
+    opt: { store: { max: 10 * 1024 * 1024 } }, // e.g. 10MB
   };
 
   db = Gun(gunOptions);
 
-  // Set a debug node to verify initialization, using schema-aligned path
+  // Debug node to verify initialization
   db.get("users/debug").put({
     status: `Initialized at ${new Date().toISOString()}`,
     viteCompatible: true,

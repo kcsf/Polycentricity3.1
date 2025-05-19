@@ -2,29 +2,30 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
-  
-  // Define props
-  let { roles, redirectTo } = $props<{
-    roles: Array<'Guest' | 'Member' | 'Admin'>,
-    redirectTo: string
+
+  // Define props with children
+  let { roles, redirectTo, children } = $props<{
+    roles: Array<'Guest' | 'Member' | 'Admin'>;
+    redirectTo: string;
+    children?: () => void; // Optional children snippet
   }>();
-  
+
   let isAuthorized = $state(false);
   let isChecking = $state(true);
-  
+
   onMount(() => {
     checkAuthorization();
   });
-  
+
   $effect(() => {
     if ($userStore.isAuthenticated !== undefined) {
       checkAuthorization();
     }
   });
-  
+
   function checkAuthorization() {
     isChecking = true;
-    
+
     // Not authenticated at all
     if (!$userStore.isAuthenticated || !$userStore.user) {
       isChecking = false;
@@ -32,7 +33,7 @@
       goto(redirectTo);
       return;
     }
-    
+
     // Check if user role is in allowed roles
     if (roles.includes($userStore.user.role as any)) {
       isChecking = false;
@@ -47,7 +48,7 @@
 
 {#if isAuthorized && !isChecking}
   <div>
-    <slot></slot>
+    {@render children?.()}
   </div>
 {/if}
 

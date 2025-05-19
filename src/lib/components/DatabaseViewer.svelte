@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import gun from '$lib/services/gun-db';
+  import { getGun } from '$lib/services/gunService';
 
   // State management
   let rootKey = $state<string>('cards');
@@ -16,6 +17,7 @@
   onMount(() => {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/gun/lib/open.js';
+    
     script.async = true;
     
     const loadTimeout = setTimeout(() => {
