@@ -4,10 +4,9 @@
     import { page } from '$app/stores';
     import {
         getGameContext,
-        subscribeToGame,
-        type GameContext
+        subscribeToGame,   
     } from '$lib/services/gameService';
-    import type { Game, ActorWithCard, CardWithPosition } from '$lib/types';
+    import type { Game, ActorWithCard, CardWithPosition, GameContext } from '$lib/types';
     import { GameStatus } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import ActorSelector from '$lib/components/game/ActorSelector.svelte';
