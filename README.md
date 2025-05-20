@@ -120,5 +120,5 @@ npm run dev -- --host 0.0.0.0 --port 5000
 
 ## Development Notes
 
-- Admin login: 
+- Admin login: bjorn@endogon.com
 - Current development focus: Agreement system and proper database schema redesign
