@@ -1,119 +1,102 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import { userStore } from '$lib/stores/userStore';
-  import { loginUser } from '$lib/services/authService';
-  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from '$env/static/public';
-  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
+  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
+  import { userStore } from "$lib/stores/userStore";
+  import { loginUser } from "$lib/services/authService";
+  import TurnstileWidget from "$lib/components/auth/TurnstileWidget.svelte";
+  import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from "$env/static/public";
 
-  let email = $state('bjorn@endogon.com');
-  let password = $state('admin123');
+  // ─── State (Svelte 5 Runes) ──────────────────────────────────────────────
+  let email = $state("bjorn@endogon.com");
+  let password = $state("admin123");
   let rememberMe = $state(true);
   let turnstileToken = $state<string | null>(null);
   let isLoggingIn = $state(false);
   let error = $state<string | null>(null);
 
-  // Client-side validation with proper Svelte 5 Runes syntax
+  // Derived client-side validation
   const getValidationError = $derived(() => {
-     if (!email.trim() || !password) return 'Email and password are required';
-     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format';
-     if (password.length < 6) return 'Password must be at least 6 characters';
-     return null;
-   });
+    if (!email.trim() || !password) return "Email and password are required";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return "Invalid email format";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    return null;
+  });
 
-  // Use a function to get the current validation error
-  // This avoids direct assignment to a constant in $effect
+  // Mirror validation into a displayable var
   let displayValidationError = $state<string | null>(null);
-  
   $effect(() => {
     displayValidationError = getValidationError();
   });
 
+  // ─── Lifecycle ─────────────────────────────────────────────────────────
   onMount(() => {
-    // Check if user is already authenticated
     if ($userStore.isAuthenticated && $userStore.user) {
-      goto('/dashboard');
+      goto("/dashboard");
     }
-    
-    // Load saved email if available
-    const storedEmail = localStorage.getItem('polycentricity_email');
-    if (storedEmail) {
-      email = storedEmail;
-    }
+    const saved = localStorage.getItem("polycentricity_email");
+    if (saved) email = saved;
   });
 
+  // ─── Handlers ──────────────────────────────────────────────────────────
+  function handleTurnstileVerified(token: string) {
+    turnstileToken = token;
+    error = null;
+  }
+  function handleTurnstileError(msg: string) {
+    error = msg;
+    turnstileToken = null;
+  }
+
   async function handleSubmit() {
-  // Clear any prior error
-  error = null;
-
-  // 1️⃣ Run validation (call the derived getter)
-  const validation = getValidationError();
-  if (validation) {
-    error = validation;
-    return;
-  }
-
-  // 2️⃣ Ensure Turnstile has been completed
-  if (!turnstileToken) {
-    error = 'Please complete the Turnstile verification';
-    return;
-  }
-
-  // 3️⃣ All set—begin login
-  isLoggingIn = true;
-
-  try {
-    // Verify the Turnstile token on the server
-    const isTurnstileValid = await verifyTurnstile(turnstileToken!);
-    if (!isTurnstileValid) {
-      error = 'Turnstile verification failed. Please try again.';
+    // reset
+    error = null;
+    const validation = getValidationError();
+    if (validation) {
+      error = validation;
+      return;
+    }
+    if (!turnstileToken) {
+      error = "Please complete the Turnstile verification";
       return;
     }
 
-    // Attempt login
-    const user = await loginUser(email, password);
-    if (user) {
-      // Save or clear remembered email
-      if (rememberMe) {
-        localStorage.setItem('polycentricity_email', email);
-      } else {
-        localStorage.removeItem('polycentricity_email');
-      }
-      await goto('/dashboard');
-    } else {
-      error = 'Invalid email or password';
-    }
-  } catch (err: any) {
-    console.error('Login error:', err);
-    error = typeof err === 'string' ? err : err.message ?? 'An error occurred during login';
-  } finally {
-    isLoggingIn = false;
-  }
-}
-
-
-  async function verifyTurnstile(token: string): Promise<boolean> {
+    isLoggingIn = true;
     try {
-      const response = await fetch('/api/turnstile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token })
+      // 1️⃣ verify token on your server
+      const resp = await fetch("/api/turnstile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken }),
       });
-      
-      const data = await response.json();
-      return !!data.success;
-    } catch (err) {
-      console.error('Turnstile verification error:', err);
-      return false;
-    }
-  }
+      const data = await resp.json();
+      if (!data.success) {
+        error = "Turnstile verification failed. Please try again.";
+        turnstileToken = null;
+        return;
+      }
 
-  function handleTurnstileVerified(event: CustomEvent<string>): void {
-    // Handle the turnstile verification event
-    console.log('Turnstile verification received');
-    turnstileToken = event.detail;
+      // 2️⃣ proceed with login
+      const user = await loginUser(email, password);
+      if (user) {
+        if (rememberMe) {
+          localStorage.setItem("polycentricity_email", email);
+        } else {
+          localStorage.removeItem("polycentricity_email");
+        }
+        await goto("/dashboard");
+      } else {
+        error = "Invalid email or password";
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      error =
+        typeof err === "string"
+          ? err
+          : (err.message ?? "An error occurred during login");
+    } finally {
+      isLoggingIn = false;
+    }
   }
 </script>
 
@@ -121,19 +104,32 @@
   <div class="card p-4 w-full max-w-md shadow-lg bg-surface-50-950-50/90">
     <header class="card-header text-center">
       <h1 class="h2 text-primary-500-400">Welcome Back</h1>
-      <p class="opacity-70 text-sm">Login to continue building your eco-village</p>
+      <p class="opacity-70 text-sm">
+        Login to continue building your eco-village
+      </p>
     </header>
 
     <section class="p-4">
       {#if error}
-        <div class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400" role="alert">
+        <div
+          class="alert bg-error-500-400/20 border border-error-500-400 text-error-500-400"
+          role="alert"
+        >
           <div class="alert-message">
             <p class="text-sm" id="error-message">{error}</p>
           </div>
         </div>
       {/if}
 
-      <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4" id="login-form" name="login-form">
+      <form
+        onsubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        class="space-y-4"
+        id="login-form"
+        name="login-form"
+      >
         <label class="label">
           <span>Email</span>
           <input
@@ -165,14 +161,9 @@
         </label>
 
         <TurnstileWidget
-  onVerified={(token: string) => {
-    console.log('Turnstile verification received');
-    turnstileToken = token;
-  }}
-  onError={(msg: string) => {
-    error = msg;
-  }}
-/>
+          onVerified={handleTurnstileVerified}
+          onError={handleTurnstileError}
+        />
 
         <label class="flex items-center space-x-2 mb-4">
           <input
@@ -198,7 +189,10 @@
 
       <div class="mt-4 text-center">
         <p class="text-sm">
-          Don't have an account? <a href="/register" class="anchor text-primary-500-400">Register</a>
+          Don't have an account? <a
+            href="/register"
+            class="anchor text-primary-500-400">Register</a
+          >
         </p>
       </div>
     </section>

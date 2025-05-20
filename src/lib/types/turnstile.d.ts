@@ -1,42 +1,38 @@
-/**
- * Type definitions for Cloudflare Turnstile
- */
+// src/turnstile.d.ts
+export {};
 
 interface TurnstileRenderOptions {
   sitekey: string;
-  callback: (token: string) => void;
-  "error-callback": (error: any) => void;
-  "expired-callback": () => void;
+  callback?: (token: string) => void;
+  "error-callback"?: (error: any) => void;
+  "expired-callback"?: () => void;
   theme?: "light" | "dark" | "auto";
-}
-
-interface TurnstileInstance {
-  render: (container: HTMLElement, options: TurnstileRenderOptions) => string;
-  reset: (widgetId: string) => void;
-  remove: (widgetId: string) => void;
 }
 
 declare global {
   interface Window {
-    turnstile?: TurnstileInstance;
+    /**
+     * Cloudflare Turnstile API
+     */
+    turnstile?: {
+      /**
+       * Render the widget into a container (element or its id).
+       * Returns a widgetId string.
+       */
+      render(
+        container: HTMLElement | string,
+        options: TurnstileRenderOptions,
+      ): string;
+
+      /**
+       * Reset the given widget instance (or all if widgetId omitted).
+       */
+      reset(widgetId?: string): void;
+
+      /**
+       * Remove the given widget instance.
+       */
+      remove(widgetId: string): void;
+    };
   }
-}
-
-interface Turnstile {
-  render: (
-    container: HTMLElement | string,
-    options: {
-      sitekey: string;
-      callback?: (token: string) => void;
-      "error-callback"?: (error: any) => void;
-      "expired-callback"?: () => void;
-      theme?: "light" | "dark" | "auto";
-    },
-  ) => string;
-  reset: (widgetId: string) => void;
-  remove: (widgetId: string) => void;
-}
-
-interface Window {
-  turnstile: Turnstile;
 }

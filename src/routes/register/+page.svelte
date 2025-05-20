@@ -40,27 +40,15 @@
     }
   });
 
-  /**
-   * Verify Turnstile token with the server
-   * @param token The Turnstile token to verify
-   * @returns Promise<boolean> indicating if verification succeeded
-   */
-  async function verifyTurnstile(token: string): Promise<boolean> {
-    try {
-      const response = await fetch('/api/turnstile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token })
-      });
-
-      const data = await response.json();
-      return !!data.success;
-    } catch (err) {
-      console.error('Turnstile verification error:', err);
-      return false;
-    }
+  // ─── Handlers ──────────────────────────────────────────────────────────
+  function handleTurnstileVerified(token: string) {
+    turnstileToken = token;
+    error = null;
+  }
+  
+  function handleTurnstileError(msg: string) {
+    error = msg;
+    turnstileToken = null;
   }
 
   /**
@@ -85,11 +73,16 @@
     isRegistering = true;
 
     try {
-      // First verify Turnstile token server-side
-      const isTurnstileValid = await verifyTurnstile(turnstileToken);
-
-      if (!isTurnstileValid) {
-        error = 'Turnstile verification failed. Please try again.';
+      // 1️⃣ verify token on your server
+      const resp = await fetch("/api/turnstile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+      const data = await resp.json();
+      if (!data.success) {
+        error = "Turnstile verification failed. Please try again.";
+        turnstileToken = null;
         return;
       }
 
