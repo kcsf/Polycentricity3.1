@@ -1,3 +1,3 @@
 // This ensures the SPA setup
-export const prerender = true;
+export const prerender = false;
 export const ssr = false;
