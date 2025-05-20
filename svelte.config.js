@@ -1,4 +1,4 @@
-import adapter from "@sveltejs/adapter-static";
+import vercel from "@sveltejs/adapter-vercel";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -6,12 +6,15 @@ const config = {
         preprocess: [vitePreprocess({})],
         compilerOptions: { runes: true },
         kit: {
-                adapter: adapter({
-                        pages: "build",
-                        assets: "build",
-                        fallback: "index.html",
-                        precompress: false,
-                        strict: true,
+                adapter: vercel({
+                        // Serverless function runtime
+                        runtime: 'nodejs18.x',
+                        
+                        // For external API services like Turnstile and SendGrid
+                        external: ['@sendgrid/mail'],
+                        
+                        // Enables handling of dynamic routes
+                        split: false
                 }),
                 alias: {
                         $lib: "./src/lib",
