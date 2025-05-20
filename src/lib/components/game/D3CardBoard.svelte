@@ -1,37 +1,31 @@
 <script lang="ts">
-  import type { SvelteComponent } from 'svelte';
+  import { mount } from 'svelte';
   import * as d3 from 'd3';
-  import { iconStore, loadIcons } from '$lib/stores/iconStore';
-  import {
-    getGameContext,
-    subscribeToGame,
-  } from '$lib/services/gameService';
+  import { getIconComponent } from '$lib/utils/iconUtils';
+  import { getGameContext, subscribeToGame } from '$lib/services/gameService';
   import type {
     Card,
     ActorWithCard,
     D3Node,
     D3Link,
     CardWithPosition,
-    AgreementWithPosition,
+    AgreementWithPosition
   } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
-  import {
-    createCardIcon,
-    initializeD3Graph,
-    addDonutRings,
-  } from '$lib/utils/d3index';
+  import { initializeD3Graph, addDonutRings } from '$lib/utils/d3index';
 
-  const { gameId, activeActorId = undefined } = $props<{
+  interface Props {
     gameId: string;
     activeActorId?: string;
-  }>();
+  }
+  // Provide Props type to $props
+  const { gameId, activeActorId = undefined } = $props();
 
   // UI state
   let svgElement = $state<SVGSVGElement | null>(null);
   let width = $state(800);
   let height = $state(600);
-  let simulation = $state<d3.Simulation<D3Node, undefined> | null>(null);
-  // note: nodeElements is a group <g> selection, not the SVG root
+  let simulation = $state<d3.Simulation<D3Node, D3Link> | null>(null);
   let nodeElements = $state<d3.Selection<SVGGElement, D3Node, SVGGElement, unknown> | null>(null);
   let cardsWithPosition = $state<CardWithPosition[]>([]);
   let agreements = $state<AgreementWithPosition[]>([]);
@@ -50,6 +44,7 @@
     }
   });
 
+  // Fetch and partition game data
   async function loadGameData(): Promise<{
     cards: CardWithPosition[];
     agreements: AgreementWithPosition[];
@@ -66,30 +61,36 @@
       .map(a => ({
         ...a.card!,
         actor_id: a.actor_id,
-        position: a.position || { x: Math.random() * width, y: Math.random() * height },
+        position: a.position ?? { x: Math.random() * width, y: Math.random() * height }
       }));
 
     const availableWithPos = (ctx.availableCards || []).map(c => ({
       ...c,
-      position: { x: Math.random() * width, y: Math.random() * height },
+      position: { x: Math.random() * width, y: Math.random() * height }
     }));
 
     return {
-      cards: [...assigned, ...availableWithPos],
+      cards: [
+        ...assigned, 
+        ...availableWithPos
+      ],
       agreements: ctx.agreements || [],
-      actors: ctx.actors || [],
+      actors: ctx.actors || []
     };
   }
 
+  // Initialize D3 graph and mount icons
   async function initializeVisualization() {
     console.log('[D3CardBoard] Initializing');
     if (!svgElement) return;
 
+    // 1️⃣ Load data
     const { cards, agreements: loadedAgreements, actors: loadedActors } = await loadGameData();
-    cardsWithPosition = cards;
+    cardsWithPosition = cards.filter(c => c.actor_id);
     agreements = loadedAgreements;
     actors = loadedActors;
 
+    // 2️⃣ Track active card
     if (activeActorId) {
       const actor = actors.find(a => a.actor_id === activeActorId);
       if (actor?.card) activeCardId = actor.card.card_id;
@@ -102,6 +103,7 @@
 
     if (!cardsWithPosition.length) return;
 
+    // 3️⃣ Build graph
     const graphState = initializeD3Graph(
       svgElement,
       cardsWithPosition,
@@ -110,54 +112,57 @@
       height,
       activeCardId,
       node => (selectedNode = node),
-      actorCardMap,
+      actorCardMap
     );
-
     simulation = graphState.simulation;
     nodeElements = graphState.nodeElements;
 
-    // use the same type signature as in donutRings.ts
-    if (nodeElements) addDonutRings(nodeElements as unknown as d3.Selection<SVGElement, D3Node, SVGSVGElement, unknown>, activeCardId);
+    // 4️⃣ Add donut rings
+    if (nodeElements) {
+      addDonutRings(
+        nodeElements as unknown as d3.Selection<SVGElement, D3Node, SVGSVGElement, unknown>,
+        activeCardId
+      );
+    }
 
-    const iconNames = cardsWithPosition
-      .map(c => c.icon || 'user')
-      .filter((v, i, a) => a.indexOf(v) === i);
-    await loadIcons(iconNames);
-
+    // 5️⃣ Mount icons inside each actor node
     if (nodeElements) {
       nodeElements.each(function (node: D3Node) {
-        if (node.type === 'actor') {
-          const centerGroup = d3
-            .select(this)
-            .append('g')
-            .attr('class', 'center-group center-icon-container');
+        if (node.type !== 'actor') return;
 
-          const iconContainer = document.createElement('div');
-          iconContainer.className = 'icon-container';
-          const card = node.data as Card;
-          if (!card) return;
+        const centerGroup = d3
+          .select(this)
+          .append('g')
+          .attr('class', 'center-group center-icon-container');
 
-          const iconName = card.icon || 'user';
-          const isActive = node.id === activeCardId;
-          const iconSize = isActive ? 36 : 24;
+        const card = node.data as Card;
+        if (!card) return;
 
-          createCardIcon(iconName, iconSize, iconContainer, card.role_title || 'Card');
+        const isActive = node.id === activeCardId;
+        const iconSize = isActive ? 36 : 24;
 
-          const foreignObj = centerGroup
-            .append('foreignObject')
-            .attr('width', iconSize)
-            .attr('height', iconSize)
-            .attr('x', -iconSize / 2)
-            .attr('y', -iconSize / 2)
-            .attr('class', 'card-icon-container')
-            .style('pointer-events', 'none')
-            .style('overflow', 'visible');
+        // Create centered <foreignObject>
+        const fo = centerGroup
+          .append('foreignObject')
+          .attr('width', iconSize)
+          .attr('height', iconSize)
+          .attr('x', -iconSize / 2)
+          .attr('y', -iconSize / 2)
+          .attr('class', 'card-icon-container')
+          .style('pointer-events', 'none')
+          .style('overflow', 'visible')
+          .node() as SVGForeignObjectElement;
 
-          foreignObj.node()?.appendChild(iconContainer);
-        }
+        // Mount with mount()
+        const container = document.createElement('div');
+        container.className = 'icon-container';
+        const Icon = getIconComponent(card.icon);
+        mount(Icon, { target: container, props: { size: iconSize, stroke: '#555555' } });
+        fo.appendChild(container);
       });
     }
 
+    // 6️⃣ Subscribe to updates
     subscribeToGameData();
     console.log('[D3CardBoard] Render complete');
   }
@@ -177,10 +182,11 @@
           last = Date.now();
           initializeVisualization();
         }, 500);
-      }),
+      })
     );
   }
 
+  // Kick off on mount & clean up on destroy
   $effect(() => {
     setTimeout(initializeVisualization, 300);
     return () => {

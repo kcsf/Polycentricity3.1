@@ -84,7 +84,7 @@
           </div>
           <p class="text-lg font-semibold">Verification Failed</p>
           <p>{errorMessage}</p>
-          <a href="/register" class="btn bg-primary-500-400 text-white">Register Again</a>
+          <a href="/register" class="btn bg-primary-500 text-white">Register Again</a>
         </div>
       {/if}
     </section>

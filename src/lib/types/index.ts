@@ -14,6 +14,7 @@
 
 import * as d3 from "d3";
 import type { SimulationNodeDatum } from "d3";
+import type { Component } from 'svelte';
 
 // Core Schema Types
 // -----------------------------------------------
@@ -231,8 +232,10 @@ export interface GameContext {
     totalCards: number;
     usedCards: number;
     availableCards: CardWithPosition[];
+    availableCardsCount: number;
     actors: ActorWithCard[];
     agreements: AgreementWithPosition[];
+    deckName: string;
 }
 
 // -------------------------------------------------------------------

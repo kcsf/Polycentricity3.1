@@ -172,7 +172,7 @@
     <div class="mb-2 text-center">
       <button
         type="button"
-        class="btn bg-primary-500-400 text-white"
+        class="btn bg-primary-500 text-white"
         onclick={() => handleDevVerification()}
       >
         Verify (Dev)

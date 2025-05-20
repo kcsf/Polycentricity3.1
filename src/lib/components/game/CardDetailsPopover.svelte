@@ -2,8 +2,12 @@
   import type { Agreement, D3Node, CardWithPosition, AgreementWithPosition, PartyItem } from '$lib/types';
 
   // Props
-  const props = $props<{ node: D3Node; cards: CardWithPosition[]; onClose: () => void }>();
-  const { node, cards, onClose } = props;  
+
+  let { node, cards, onClose } = $props<{
+    node: D3Node;
+    cards: CardWithPosition[];
+    onClose: () => void;
+  }>();
 
   // Shape for each party row
   let partyItems = $state<PartyItem[]>([]);
@@ -32,8 +36,8 @@
     setTimeout(() => {
       isVisible = true;
       log('Popover visible for', node.name);
-      log('Node data:', JSON.stringify(node.data, null, 2));
-      log('Node type:', node.type);
+      //log('Node data:', JSON.stringify(node.data, null, 2));
+      //log('Node type:', node.type);
     }, 10);
 
     // Add global click listener to close popover when clicking outside

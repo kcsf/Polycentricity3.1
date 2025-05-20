@@ -2,9 +2,6 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/userStore';
   import { onMount } from 'svelte';
-  import { getGun, nodes } from '$lib/services/gunService';
-  import { loadIcons } from '$lib/stores/iconStore';
-  import type { Card } from '$lib/types';
   import { 
     Leaf, 
     Globe, 
@@ -12,55 +9,6 @@
     Sparkles, 
     Check 
   } from '@lucide/svelte';
-
-  let iconNames = $state<string[]>([]);
-  let loaded = $state(false);
-
-  onMount(async () => {
-    try {
-      const gun = getGun();
-      if (!gun) return;
-
-      await new Promise<void>((resolve) => {
-        try {
-          // Use explicit error handling and type checking to prevent Gun.js internal errors
-          gun
-            .get(nodes.cards)
-            .map()
-            .once((cardData, cardId: string) => {
-              try {
-                // Add strict type checking to prevent issues with malformed data
-                if (cardId && 
-                    cardId !== '_' && 
-                    cardData && 
-                    typeof cardData === 'object' && 
-                    !Array.isArray(cardData) &&
-                    cardData.icon &&
-                    typeof cardData.icon === 'string') {
-                  iconNames = [...iconNames, cardData.icon];
-                }
-              } catch (innerError) {
-                console.error(`Error processing card ${cardId}:`, innerError);
-                console.log('Problem data:', JSON.stringify(cardData));
-              }
-            });
-        } catch (gunError) {
-          console.error('Error in Gun map() query:', gunError);
-        }
-        setTimeout(resolve, 1000);
-      });
-
-      const uniqueIconNames = [...new Set(iconNames)];
-      await loadIcons(uniqueIconNames);
-      
-      // Set loaded state for animation
-      setTimeout(() => {
-        loaded = true;
-      }, 100);
-    } catch (error) {
-      console.error('Error loading icons:', error);
-    }
-  });
 </script>
 
 <div class="min-h-screen w-screen flex flex-col bg-linear-to-br from-surface-50-950 to-surface-200-800 -mx-4 md:-mx-8">

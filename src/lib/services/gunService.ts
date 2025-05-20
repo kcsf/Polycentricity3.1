@@ -308,7 +308,7 @@ export async function getCollection<
     g.get(soul)
       .map()
       .once((data: T | undefined, key: string) => {
-        console.log(`[getCollection] key: ${key}, data:`, data);
+        //console.log(`[getCollection] key: ${key}, data:`, data);
         if (key && key !== "_" && data) {
           const cleanedData = cleanData<T>({ ...data, id: key });
           if (cleanedData) {
@@ -580,11 +580,11 @@ export async function getMap(
       .once((data: any, key: string) => {
         if (key && key !== "_" && data !== undefined && data !== null) {
           map[key] = String(data); // Ensure value is a string
-          console.log(`[getMap] ${soul}/${field} - ${key}: ${data}`);
+          //console.log(`[getMap] ${soul}/${field} - ${key}: ${data}`);
         }
       });
     setTimeout(() => {
-      console.log(`[getMap] Resolved ${soul}/${field}:`, map);
+      //console.log(`[getMap] Resolved ${soul}/${field}:`, map);
       resolve(map);
     }, 1000); // Timeout to ensure data collection
   });

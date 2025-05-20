@@ -144,7 +144,7 @@
           </p>
           
           <div class="flex justify-center mt-6">
-            <a href="/login" class="btn bg-primary-500-400 text-white hover:bg-primary-600-300 transition-colors">
+            <a href="/login" class="btn bg-primary-500 text-white hover:bg-primary-600-300 transition-colors">
               Proceed to Login
             </a>
           </div>
@@ -207,7 +207,7 @@
 
           <button
             type="submit"
-            class="btn bg-primary-500-400 text-white w-full"
+            class="btn bg-primary-500 text-white w-full"
             disabled={isRegistering}
           >
             {#if isRegistering}

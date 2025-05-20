@@ -31,6 +31,7 @@ import type {
   Value,
   Capability,
   PartyItem,
+  GameContext,
 } from "$lib/types";
 import { GameStatus, AgreementStatus } from "$lib/types";
 
@@ -954,17 +955,6 @@ export async function updateCard(
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk-fetch for Game Details page
 // ─────────────────────────────────────────────────────────────────────────────
-export interface GameContext {
-  game: Game;
-  actors: ActorWithCard[];
-  totalCards: number;
-  usedCards: number;
-  availableCards: CardWithPosition[];
-  availableCardsCount: number;
-  agreements: AgreementWithPosition[];
-  deckName: string;
-}
-
 export async function getGameContext(
   gameId: string
 ): Promise<GameContext | null> {
@@ -1141,7 +1131,7 @@ export async function getGameContext(
     const deckRec = await get<Deck>(`${nodes.decks}/${deckId}`);
     const deckName = deckRec?.name ?? rawGame.deck_type;
 
-    return {
+    const result: GameContext = {
       game:                gameWithPlayers,
       actors,
       totalCards,
@@ -1151,6 +1141,16 @@ export async function getGameContext(
       agreements,
       deckName,
     };
+    // dev-only log
+    if (import.meta.env.DEV) {
+      console.log(
+        `[gameService] getGameContext full context for ${gameId}:`,
+        result
+      );
+    } 
+
+    return result;
+
   } catch (e) {
     console.error(`[gameService] getGameContext error for ${gameId}:`, e);
     return null;

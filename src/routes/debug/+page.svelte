@@ -210,7 +210,7 @@
       />
       <button
         onclick={login}
-        class="btn bg-primary-500-400 text-white"
+        class="btn bg-primary-500 text-white"
         disabled={isLoading || !loginEmail.trim() || !loginPassword.trim()}
       >
         {isLoading ? 'Logging in...' : 'Login'}
