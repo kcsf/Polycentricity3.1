@@ -8,7 +8,7 @@ const config = {
         kit: {
                 adapter: vercel({
                         // Serverless function runtime
-                        runtime: 'nodejs18.x',
+                        runtime: 'nodejs20.x',
                         
                         // For external API services like Turnstile and SendGrid
                         external: ['@sendgrid/mail'],
