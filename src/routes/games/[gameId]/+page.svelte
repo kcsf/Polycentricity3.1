@@ -1,4 +1,5 @@
 <script lang="ts">
+    export const prerender = false;
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import { userStore } from '$lib/stores/userStore';
