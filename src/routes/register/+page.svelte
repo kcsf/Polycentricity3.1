@@ -189,13 +189,8 @@
           </label>
 
           <TurnstileWidget
-            onVerified={(token: string) => {
-              console.log('Turnstile verification received');
-              turnstileToken = token;
-            }}
-            onError={(msg: string) => {
-              error = msg;
-            }}
+            onVerified={handleTurnstileVerified}
+            onError={handleTurnstileError}
           />
 
           <button
