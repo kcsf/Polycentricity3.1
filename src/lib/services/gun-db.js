@@ -31,7 +31,7 @@ if (browser) {
   }
 
   const gunOptions = {
-    peers: ['https://gun-relay1.endogon.com:8765/gun'],            // placeholder for future peer relays
+    peers: ['wss://gun-relay1.endogon.com/gun'],            // placeholder for future peer relays
     localStorage: true,   // ← use built-in localStorage, no Radisk
     silent: true,         // reduce Gun logs
     quiet: true,          // reduce SEA logs
