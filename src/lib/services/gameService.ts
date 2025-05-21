@@ -540,8 +540,17 @@ export async function createActor(
   const existing = await getCollection<Actor>(nodes.actors);
   let max = 0;
   for (const a of existing) {
-    const m = a.actor_id.match(/^actor_(\d+)$/);
-    if (m) max = Math.max(max, +m[1]);
+    // guard against undefined actor_id; fallback to Gun’s raw key (`a.id`)
+    const idStr = typeof a.actor_id === "string"
+      ? a.actor_id
+      : // @ts-ignore
+        a.id;
+    if (!idStr) continue;
+    const m = idStr.match(/^actor_(\d+)$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
   }
   const actorId = `actor_${max + 1}`;
   const now = Date.now();
@@ -571,6 +580,7 @@ export async function createActor(
 
   return actorData;
 }
+
 
 // --- Join game with existing actor ------------------
 export async function joinWithActor(
