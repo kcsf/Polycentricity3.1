@@ -63,7 +63,7 @@
 <div class="flex flex-col min-h-screen">
   <Header {toggleTheme} />
   <main class="flex-grow" class:isHomePage>
-    <div class="{isHomePage ? 'w-full p-0 m-0' : 'container mx-auto p-4'}">
+    <div class="{isHomePage ? 'w-full p-0 m-0' : 'container mx-auto p-0'}">
       {@render children()}
     </div>
   </main>
