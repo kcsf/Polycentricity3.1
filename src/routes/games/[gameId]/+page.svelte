@@ -22,6 +22,25 @@
     let playerRole = $state<ActorWithCard | null>(null);
     let gameContext = $state<GameContext | null>(null);
 
+    // Check if gameContext has complete data (not just empty Gun.js references)
+    function hasCompleteData(gameContext: GameContext): boolean {
+        if (!gameContext) return false;
+        
+        // Check if agreements have populated partyItems (not empty arrays)
+        const hasAgreements = gameContext.agreements?.some(agreement => 
+            agreement.partyItems && 
+            agreement.partyItems.length > 0 &&
+            agreement.partyItems.some(party => party.actorId)
+        );
+        
+        // Check if actors have their card data loaded
+        const hasActorCards = gameContext.actors?.some(actor => 
+            actor.card && actor.card.role_title
+        );
+        
+        return hasAgreements || hasActorCards; // At least one type of data is complete
+    }
+
     // Load game data using gameContext
     $effect(() => {
         loadGameData();
@@ -116,7 +135,7 @@
                 </a>
             </div>
         </div>
-    {:else if game && playerRole && gameContext}
+    {:else if game && playerRole && gameContext && hasCompleteData(gameContext)}
         <!-- Game Page Content with Layout -->
         <GamePageLayout {game} {gameId} {playerRole} {gameContext} actors={gameContext.actors} />
     {:else if game}
