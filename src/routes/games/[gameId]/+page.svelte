@@ -68,24 +68,24 @@
     }
 
     // Subscribe to game updates
-    let unsubscribe = $state<(() => void) | null>(null);
+    //let unsubscribe = $state<(() => void) | null>(null);
     
-    $effect(() => {
-        if (gameId) {
+    //$effect(() => {
+    //if (gameId) {
             // Subscribe to real-time game updates
-            unsubscribe = subscribeToGame(gameId, (updatedGame) => {
-                if (updatedGame) {
-                    console.log(`[GamePage] Received game update for ${gameId}`);
-                    game = updatedGame;
-                }
-            });
-        }
+    //unsubscribe = subscribeToGame(gameId, (updatedGame) => {
+    //if (updatedGame) {
+    //console.log(`[GamePage] Received game update for ${gameId}`);
+    //game = updatedGame;
+    //}
+    //});
+    //}
         
         // Cleanup subscription on unmount
-        return () => {
-            if (unsubscribe) unsubscribe();
-        };
-    });
+//        return () => {
+    //if (unsubscribe) unsubscribe();
+    //};
+    //});
 
     function goToDetails() {
         goto(`/games/${gameId}/details`);
