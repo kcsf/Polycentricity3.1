@@ -50,10 +50,11 @@
     let leftExpanded = $state(false);
     let rightExpanded = $state(false);
     let searchQuery = $state('');
-    let gameInfoExpanded = $state(true);
-    let yourRoleExpanded = $state(true);
-    let playersExpanded = $state(true);
-    let chatExpanded = $state(true);
+    let gameInfoExpanded = $state(false);
+    let agreementsExpanded = $state(false);
+    let yourRoleExpanded = $state(false);
+    let playersExpanded = $state(false);
+    let chatExpanded = $state(false);
 
     function handleSearch() {
         alert(`Search functionality coming soon. You searched for: ${searchQuery}`);
@@ -123,6 +124,55 @@
                             <div class="text-sm font-bold">{game.deck_type || 'Standard'}</div>
                         </div>
                     </div>
+                </div>
+            {/if}
+            
+            <!-- Agreements Section -->
+            <button 
+                class="flex items-center gap-3 p-3 hover:bg-primary-500/20 transition-colors {agreementsExpanded ? 'bg-primary-500/20' : ''}" 
+                onclick={() => agreementsExpanded = !agreementsExpanded}
+            >
+                <div class="flex-shrink-0">
+                    <icons.FileText class="w-5 h-5" />
+                </div>
+                {#if leftExpanded}
+                    <span class="text-sm font-medium">Agreements</span>
+                {/if}
+            </button>
+            
+            {#if agreementsExpanded}
+                <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
+                    {#if gameContext?.agreements && playerRole}
+                        {@const playerAgreements = gameContext.agreements.filter(agreement => 
+                            agreement.parties && agreement.parties.includes(playerRole.actor_id)
+                        )}
+                        
+                        {#if playerAgreements.length > 0}
+                            {#each playerAgreements as agreement}
+                                <div class="card p-3 bg-surface-200-800 border border-surface-300-600">
+                                    <div class="flex flex-col space-y-1">
+                                        <h4 class="text-sm font-semibold text-surface-900-50 truncate">
+                                            {agreement.title || 'Untitled Agreement'}
+                                        </h4>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-surface-700-300">Status:</span>
+                                            <span class="badge preset-filled-{agreement.status === 'active' ? 'success' : agreement.status === 'pending' ? 'warning' : 'surface'}-500 text-xs px-2 py-0.5">
+                                                {agreement.status || 'Unknown'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/each}
+                        {:else}
+                            <div class="card p-3 bg-surface-200-800 text-center">
+                                <p class="text-xs text-surface-600-400">No agreements involving your actor yet.</p>
+                            </div>
+                        {/if}
+                    {:else}
+                        <div class="card p-3 bg-surface-200-800 text-center">
+                            <p class="text-xs text-surface-600-400">Loading agreements...</p>
+                        </div>
+                    {/if}
                 </div>
             {/if}
             
@@ -266,7 +316,7 @@
         </div>
         
         <!-- New Agreement Button - Positioned to avoid sidebar overlap -->
-        <div class="absolute top-4 {!rightExpanded ? 'right-20' : 'right-72'} z-10">
+        <div class="absolute top-4 {!rightExpanded ? 'right-20' : 'right-10'} z-10">
             <button 
                 class="btn preset-filled-primary-500 flex items-center gap-2 shadow-lg"
                 onclick={() => agreementModal?.openModal()}
