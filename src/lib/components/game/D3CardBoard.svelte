@@ -2,24 +2,26 @@
   import { mount } from 'svelte';
   import * as d3 from 'd3';
   import { getIconComponent } from '$lib/utils/iconUtils';
-  import { getGameContext, subscribeToGame } from '$lib/services/gameService';
+  import { getGameContext } from '$lib/services/gameService';
   import type {
     Card,
     ActorWithCard,
     D3Node,
     D3Link,
     CardWithPosition,
-    AgreementWithPosition
+    AgreementWithPosition,
+    GameContext
   } from '$lib/types';
   import CardDetailsPopover from './CardDetailsPopover.svelte';
   import { initializeD3Graph, addDonutRings } from '$lib/utils/d3index';
 
   interface Props {
     gameId: string;
+    gameContext: GameContext;
     activeActorId?: string;
   }
   // Provide Props type to $props
-  const { gameId, activeActorId = undefined } = $props();
+  const { gameId, gameContext, activeActorId = undefined } = $props();
 
   // UI state
   let svgElement = $state<SVGSVGElement | null>(null);
