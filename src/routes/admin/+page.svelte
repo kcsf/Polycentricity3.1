@@ -68,6 +68,11 @@
   let cleanupSuccess = $state<boolean>(false);
   let cleanupResult = $state<{ success: boolean; removed: number; error?: string } | null>(null);
   let currentUser = $state<any>(null);
+  
+  // Bulk selection state for agreements
+  let selectedAgreements = $state<Set<string>>(new Set());
+  let isSelectAllAgreements = $state<boolean>(false);
+  let isBulkDeleting = $state<boolean>(false);
 
   // Load graph visualization
   function loadGraphVisualization() {
