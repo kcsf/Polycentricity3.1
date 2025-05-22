@@ -266,7 +266,7 @@
         </div>
         
         <!-- New Agreement Button - Positioned to avoid sidebar overlap -->
-        <div class="absolute top-4 {!rightExpanded ? 'right-20' : 'right-80'} z-10">
+        <div class="absolute top-4 {!rightExpanded ? 'right-20' : 'right-72'} z-10">
             <button 
                 class="btn preset-filled-primary-500 flex items-center gap-2 shadow-lg"
                 onclick={() => agreementModal?.openModal()}
