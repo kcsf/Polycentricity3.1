@@ -316,7 +316,7 @@ export async function getCollection<
           }
         }
       });
-    setTimeout(() => resolve(results), 1000);
+    setTimeout(() => resolve(results), 2000);
   });
 }
 

@@ -12,100 +12,76 @@
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
     import GamePageLayout from './GamePageLayout.svelte';
 
-    // Get gameId from URL parameters
     const gameId = $page.params.gameId;
-    
-    // State variables using Svelte 5 $state
-    let isLoading = $state(true);
-    let error = $state('');
-    let game = $state<Game | null>(null);
-    let playerRole = $state<ActorWithCard | null>(null);
+
+    let isLoading   = $state(true);
+    let error       = $state('');
+    let game        = $state<Game | null>(null);
+    let playerRole  = $state<ActorWithCard | null>(null);
     let gameContext = $state<GameContext | null>(null);
 
-    // Check if gameContext has essential data loaded
-    function hasCompleteData(gameContext: GameContext): boolean {
-        if (!gameContext) return false;
-        
-        // Basic requirement: we need the game and actors array
-        const hasBasicData = gameContext.game && gameContext.actors && gameContext.actors.length > 0;
-        
-        // At least some actors should have their card data
-        const hasActorCards = gameContext.actors?.some(actor => 
-            actor.card && actor.card.card_id
-        );
-        
-        return hasBasicData && hasActorCards;
+    function hasCompleteData(ctx: GameContext): boolean {
+        return !!ctx.game
+            && ctx.actors?.length > 0
+            && ctx.actors.some(a => a.card?.card_id);
     }
-
-    // Load game data using gameContext
-    $effect(() => {
-        loadGameData();
-    });
 
     async function loadGameData() {
         console.log(`[GamePage] Loading game data for ${gameId}`);
         try {
             isLoading = true;
-            error = '';
-            
-            // Use getGameContext to efficiently load all game data
-            gameContext = await getGameContext(gameId);
-            
-            if (!gameContext) {
-                throw new Error(`Failed to load game context for game ${gameId}`);
+            error     = '';
+            const ctx = await getGameContext(gameId);
+            if (!ctx) throw new Error(`Failed to load context for ${gameId}`);
+            gameContext = ctx;
+            game        = ctx.game;
+
+            if ($userStore.user && ctx.actors) {
+                const uid = $userStore.user.user_id;
+                const actor = ctx.actors.find(a => a.user_ref === uid);
+                if (actor) playerRole = actor;
             }
-            
-            game = gameContext.game;
-            console.log(`[GamePage] Loaded game: ${game.name}`);
-            
-            // Find player role if user is logged in
-            if ($userStore.user) {
-                const userId = $userStore.user.user_id;
-                
-                // Try to find an actor for this user
-                if (gameContext.actors) {
-                    const userActor = gameContext.actors.find(actor => actor.user_ref === userId);
-                    if (userActor) {
-                        playerRole = userActor;
-                        console.log(`[GamePage] Found player role: ${playerRole.actor_id}`);
-                    }
-                }
-            }
-            
-            // No more mock player roles - we only use authentic data
-            
-        } catch (err) {
+        } catch (err: any) {
             console.error('[GamePage] Error loading game:', err);
-            error = err instanceof Error ? err.message : 'Failed to load game';
+            error = err.message || 'Failed to load game';
         } finally {
             isLoading = false;
         }
     }
 
-    // Subscribe to game updates
-    //let unsubscribe = $state<(() => void) | null>(null);
-    
-    //$effect(() => {
-    //if (gameId) {
-            // Subscribe to real-time game updates
-    //unsubscribe = subscribeToGame(gameId, (updatedGame) => {
-    //if (updatedGame) {
-    //console.log(`[GamePage] Received game update for ${gameId}`);
-    //game = updatedGame;
-    //}
-    //});
-    //}
-        
-        // Cleanup subscription on unmount
-//        return () => {
-    //if (unsubscribe) unsubscribe();
-    //};
-    //});
+    // 1) Prime Gun (no-op subscribe) then bulk-load context
+    $effect(() => {
+        const unsubscribePrime = subscribeToGame(
+            gameId,
+            (updatedGame: Game) => {
+                game = updatedGame;
+            }
+        );
+        const timer = setTimeout(loadGameData, 100);
+
+        return () => {
+            clearTimeout(timer);
+            unsubscribePrime();
+        };
+    });
+
+    // 2) Once we have context, subscribe only to the root Game field
+    $effect(() => {
+        if (!gameContext) return;
+        const ctx = gameContext; // narrowed non-null
+        const unsubscribe = subscribeToGame(
+            gameId,
+            (updatedGame: Game) => {
+                game = updatedGame;
+                ctx.game = updatedGame;
+            }
+        );
+        return () => unsubscribe();
+    });
 
     function goToDetails() {
         goto(`/games/${gameId}/details`);
-    }  
-    
+    }
 </script>
 
 <div class="w-full h-full flex flex-col">
@@ -172,7 +148,8 @@
             <!-- Main Game Board Section without Layout -->
             <div class="flex-1 flex-grow relative overflow-hidden">
                 {#if gameContext}
-                    <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
+
+                <D3CardBoard {gameId} {gameContext} activeActorId={playerRole?.actor_id} />
                 {/if}
             </div>
         </div>

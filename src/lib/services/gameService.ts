@@ -181,23 +181,28 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
  */
 export function subscribeToGame(
   gameId: string,
-  callback: (g: Game) => void,
+  onGame: (g: Game) => void
 ): () => void {
-  return subscribe<Game>(`${nodes.games}/${gameId}`, async (data) => {
-    if (!data) return;
+  const gun = getGun();
+  if (!gun) return () => {};
 
-    // Re‐load players boolean map
-    const playersMap = await readMapOrSet(
-      `${nodes.games}/${gameId}`,
-      "players",
-    );
+  // Point at games/<gameId>/game
+  const gameNode = gun.get(`${nodes.games}/${gameId}`).get("game");
 
-    callback({
-      ...data,
-      game_id: gameId,
-      players: playersMap,
-    });
-  });
+  // Handler casts partial data into Game
+  const handler = (raw: Partial<Game> | undefined) => {
+    if (!raw) return;
+    // raw may be missing fields—fill in game_id explicitly
+    onGame({ ...raw as Game, game_id: gameId });
+  };
+
+  // Subscribe
+  gameNode.on(handler);
+
+  // Unsubscribe by off(handler)
+  return () => {
+    gameNode.off(handler);
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1080,7 +1085,7 @@ export async function getGameContext(
     const rawGame = await get<Game>(`${nodes.games}/${gameId}`);
     if (!rawGame) return null;
 
-    // 2️⃣ parallel fetch of all boolean‐maps & nested refs
+    // 2️⃣ parallel fetch of boolean‐maps & nested refs
     const [
       playersMap,
       actorRefMap,
@@ -1118,15 +1123,18 @@ export async function getGameContext(
     const deckId = rawGame.deck_ref;
     const totalCards = Object.keys(deckCardMap).length;
 
-    // 4️⃣ fetch all cards in one go, then partition
-    const allCards = (await getCollection<Card>(nodes.cards)).filter(
-      (c) => !!deckCardMap[c.card_id],
-    ); // only this deck
+    // 4️⃣ fetch only this deck’s cards
+    const deckCardIds = Object.keys(deckCardMap);
+    const deckCards = (
+      await Promise.all(
+        deckCardIds.map((cardId) => get<Card>(`${nodes.cards}/${cardId}`)),
+      )
+    ).filter((c): c is Card => Boolean(c));
 
+    // 5️⃣ resolve each actor + their assigned card
     const usedSet = new Set<string>();
     const actors: ActorWithCard[] = [];
 
-    // 5️⃣ resolve each actor + their assigned card
     await Promise.all(
       Object.keys(actorRefMap).map(async (aid) => {
         const [actor, cardsByGame] = await Promise.all([
@@ -1140,9 +1148,8 @@ export async function getGameContext(
 
         if (cardId) {
           usedSet.add(cardId);
-          const rawCard = allCards.find((c) => c.card_id === cardId);
+          const rawCard = deckCards.find((c) => c.card_id === cardId);
           if (rawCard) {
-            // get nested refs & look up names via your caches
             const [valMap, capMap] = await Promise.all([
               getRefMap(`${nodes.cards}/${cardId}`, "values_ref"),
               getRefMap(`${nodes.cards}/${cardId}`, "capabilities_ref"),
@@ -1171,7 +1178,7 @@ export async function getGameContext(
 
     // 6️⃣ the leftover “available” cards
     const availableCards: CardWithPosition[] = await Promise.all(
-      allCards
+      deckCards
         .filter((c) => !usedSet.has(c.card_id))
         .map(async (rawCard) => {
           const [valMap, capMap] = await Promise.all([
@@ -1191,57 +1198,59 @@ export async function getGameContext(
         }),
     );
 
-    // 7️⃣ agreements for this game
-    const rawAgs = await getCollection<Agreement>(nodes.agreements);
-    const agreements: AgreementWithPosition[] = await Promise.all(
-      rawAgs
-        .filter((ag) => ag.game_ref === gameId)
-        .map(async (ag) => {
-          const partiesRef =
+    // 7️⃣ agreements for this game — now correctly fetch obligation & benefit
+    const agreementIds = Object.keys(agreementRefMap);
+    const agreements: AgreementWithPosition[] = (
+      await Promise.all(
+        agreementIds.map(async (agId) => {
+          const ag = await get<Agreement>(`${nodes.agreements}/${agId}`);
+          if (!ag || ag.game_ref !== gameId) return null;
+
+          // 🔑 fetch just the child‐keys under "parties"
+          const partiesMap =
             (await getField<Record<string, { "#": string }>>(
-              `${nodes.agreements}/${ag.agreement_id}`,
+              `${nodes.agreements}/${agId}`,
               "parties",
-            )) ?? {};
+            )) || {};
 
-          const partyItems: PartyItem[] = await Promise.all(
-            Object.keys(partiesRef).map(async (actorId) => {
-              const pd = (await getField<{
-                card_ref: string;
-                obligation: string;
-                benefit: string;
-              }>(
-                `${nodes.agreements}/${ag.agreement_id}/parties`,
-                actorId,
-              )) ?? {
-                card_ref: "",
-                obligation: "",
-                benefit: "",
-              };
-
-              const actor = actors.find((a) => a.actor_id === actorId);
-              if (!actor?.card) {
-                console.warn(
-                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
+          // for each actor key, fetch the actual pd object with getField
+          const partyItems: PartyItem[] = (
+            await Promise.all(
+              Object.keys(partiesMap).map(async (actorId) => {
+                const pd = await getField<{
+                  card_ref: string;
+                  obligation: string;
+                  benefit: string;
+                }>(
+                  `${nodes.agreements}/${agId}/parties`,
+                  actorId,
                 );
-                return null;
-              }
-
-              return {
-                actorId,
-                card: actor.card,
-                obligation: pd.obligation,
-                benefit: pd.benefit,
-              } as PartyItem;
-            }),
-          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+                if (!pd) return null;
+                const actor = actors.find((a) => a.actor_id === actorId);
+                if (!actor?.card) {
+                  console.warn(
+                    `Agreement ${agId} actor ${actorId} has no card`,
+                  );
+                  return null;
+                }
+                return {
+                  actorId,
+                  card: actor.card,
+                  obligation: pd.obligation,
+                  benefit: pd.benefit,
+                } as PartyItem;
+              }),
+            )
+          ).filter((x): x is PartyItem => Boolean(x));
 
           return {
             ...ag,
             partyItems,
             position: randomPos(),
-          };
+          } as AgreementWithPosition;
         }),
-    );
+      )
+    ).filter((x): x is AgreementWithPosition => Boolean(x));
 
     // 8️⃣ deck display name
     const deckRec = await get<Deck>(`${nodes.decks}/${deckId}`);
@@ -1257,7 +1266,8 @@ export async function getGameContext(
       agreements,
       deckName,
     };
-    // dev-only log
+
+    // dev‐only log
     if (import.meta.env.DEV) {
       console.log(
         `[gameService] getGameContext full context for ${gameId}:`,
@@ -1271,3 +1281,7 @@ export async function getGameContext(
     return null;
   }
 }
+
+
+
+
