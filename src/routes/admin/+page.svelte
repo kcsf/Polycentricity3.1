@@ -357,6 +357,82 @@
     }
   }
 
+  // Bulk selection functions for agreements
+  function toggleAgreementSelection(agreementId: string) {
+    const newSelected = new Set(selectedAgreements);
+    if (newSelected.has(agreementId)) {
+      newSelected.delete(agreementId);
+    } else {
+      newSelected.add(agreementId);
+    }
+    selectedAgreements = newSelected;
+    
+    // Update select all checkbox state
+    const agreementsNodeType = databaseNodes.find(n => n.type === 'agreements');
+    if (agreementsNodeType) {
+      isSelectAllAgreements = newSelected.size === agreementsNodeType.nodes.length;
+    }
+  }
+
+  function toggleSelectAllAgreements() {
+    const agreementsNodeType = databaseNodes.find(n => n.type === 'agreements');
+    if (!agreementsNodeType) return;
+    
+    if (isSelectAllAgreements) {
+      selectedAgreements = new Set();
+      isSelectAllAgreements = false;
+    } else {
+      selectedAgreements = new Set(agreementsNodeType.nodes.map(n => n.id));
+      isSelectAllAgreements = true;
+    }
+  }
+
+  async function handleBulkDeleteAgreements() {
+    if (selectedAgreements.size === 0) return;
+    
+    const selectedCount = selectedAgreements.size;
+    if (!confirm(`Are you sure you want to delete ${selectedCount} selected agreement${selectedCount > 1 ? 's' : ''}? This cannot be undone.`)) {
+      return;
+    }
+    
+    isBulkDeleting = true;
+    let deletedCount = 0;
+    let failedCount = 0;
+    
+    try {
+      for (const agreementId of selectedAgreements) {
+        try {
+          const success = await deleteAgreement(agreementId);
+          if (success) {
+            deletedCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (err) {
+          console.error(`Failed to delete agreement ${agreementId}:`, err);
+          failedCount++;
+        }
+      }
+      
+      // Clear selection and refresh
+      selectedAgreements = new Set();
+      isSelectAllAgreements = false;
+      await tick();
+      fetchDatabaseStats();
+      
+      if (failedCount === 0) {
+        console.log(`Successfully deleted ${deletedCount} agreement${deletedCount > 1 ? 's' : ''}`);
+      } else {
+        error = `Deleted ${deletedCount} agreement${deletedCount > 1 ? 's' : ''}, failed to delete ${failedCount}`;
+      }
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      isBulkDeleting = false;
+    }
+  }
+
   // Tab handling
   function handleTabChange(tab: string) {
     activeTab = tab;
@@ -783,10 +859,46 @@
                       <p class="text-surface-500">No {nodeType.type} nodes found</p>
                     </div>
                   {:else}
+                    <!-- Bulk actions for agreements -->
+                    {#if nodeType.type === 'agreements' && selectedAgreements.size > 0}
+                      <div class="flex items-center justify-between mb-4 p-3 bg-warning-100-800 border border-warning-300-600 rounded-container-token">
+                        <div class="flex items-center space-x-2">
+                          <icons.CheckSquare class="text-warning-700-300" />
+                          <span class="text-sm font-medium text-warning-800-200">
+                            {selectedAgreements.size} agreement{selectedAgreements.size > 1 ? 's' : ''} selected
+                          </span>
+                        </div>
+                        <button 
+                          class="btn preset-filled-error-500 btn-sm"
+                          onclick={handleBulkDeleteAgreements}
+                          disabled={isBulkDeleting}
+                        >
+                          {#if isBulkDeleting}
+                            <icons.Loader2 class="animate-spin" />
+                            Deleting...
+                          {:else}
+                            <icons.Trash2 />
+                            Delete Selected
+                          {/if}
+                        </button>
+                      </div>
+                    {/if}
+                    
                     <div class="table-container">
                       <table class="table table-compact table-hover table-interactive">
                         <thead>
                           <tr>
+                            {#if nodeType.type === 'agreements'}
+                              <th class="w-12">
+                                <input 
+                                  type="checkbox" 
+                                  class="checkbox"
+                                  bind:checked={isSelectAllAgreements}
+                                  onchange={toggleSelectAllAgreements}
+                                  title="Select all agreements"
+                                />
+                              </th>
+                            {/if}
                             <th>ID</th>
                             <th>Properties</th>
                             <th>Created</th>
@@ -796,6 +908,16 @@
                         <tbody>
                           {#each nodeType.nodes as node}
                             <tr>
+                              {#if nodeType.type === 'agreements'}
+                                <td class="w-12">
+                                  <input 
+                                    type="checkbox" 
+                                    class="checkbox"
+                                    checked={selectedAgreements.has(node.id)}
+                                    onchange={() => toggleAgreementSelection(node.id)}
+                                  />
+                                </td>
+                              {/if}
                               <td class="font-mono text-xs">{node.id.substring(0, 12)}...</td>
                               <td>
                                 <div class="max-h-32 overflow-y-auto text-xs">
