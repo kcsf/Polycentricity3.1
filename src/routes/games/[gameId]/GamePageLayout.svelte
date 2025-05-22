@@ -49,29 +49,10 @@
     // State
     let leftExpanded = $state(false);
     let rightExpanded = $state(false);
-    let currentZoom = $state(1);
-    let searchQuery = $state('');
     let gameInfoExpanded = $state(true);
     let yourRoleExpanded = $state(true);
     let playersExpanded = $state(true);
     let chatExpanded = $state(true);
-
-    // Zoom controls
-    function zoomIn() {
-        currentZoom = Math.min(currentZoom + 0.2, 2);
-    }
-
-    function zoomOut() {
-        currentZoom = Math.max(currentZoom - 0.2, 0.5);
-    }
-
-    function resetZoom() {
-        currentZoom = 1;
-    }
-
-    function handleSearch() {
-        alert(`Search functionality coming soon. You searched for: ${searchQuery}`);
-    }
 
     function toggleLeftSidebar() {
         leftExpanded = !leftExpanded;
@@ -260,54 +241,10 @@
             </button>
         {/if}
         
-        <!-- Top Controls -->
-        <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex justify-center">
-            <div class="relative flex max-w-md">
-                <input 
-                    type="text" 
-                    bind:value={searchQuery}
-                    placeholder="Search nodes..." 
-                    class="input pl-4 pr-3 py-2 w-full h-10 rounded-l-md shadow-md border border-surface-300-700"
-                />
-                <button 
-                    class="btn variant-filled-primary rounded-l-none px-3"
-                    onclick={handleSearch}
-                    aria-label="Search"
-                >
-                    <icons.Search size={20} />
-                </button>
-            </div>
-        </div>
-        
-        <!-- Zoom Controls -->
-        <div class="absolute top-4 {!rightExpanded ? 'right-20' : 'right-4'} z-10 flex items-center space-x-1">
+        <!-- New Agreement Button - Moved to top header -->
+        <div class="absolute top-4 right-4 z-10">
             <button 
-                class="btn variant-filled-surface p-2 !rounded-md"
-                onclick={zoomOut} 
-                aria-label="Zoom out"
-            >
-                <icons.ZoomOut size={18} />
-            </button>
-            <button 
-                class="btn variant-filled-surface p-2 !rounded-md"
-                onclick={resetZoom} 
-                aria-label="Reset zoom"
-            >
-                <icons.Maximize size={18} />
-            </button>
-            <button 
-                class="btn variant-filled-surface p-2 !rounded-md"
-                onclick={zoomIn} 
-                aria-label="Zoom in"
-            >
-                <icons.ZoomIn size={18} />
-            </button>
-        </div>
-        
-        <!-- New Agreement Button -->
-        <div class="absolute top-14 {!rightExpanded ? 'right-4' : 'right-4'} z-10">
-            <button 
-                class="btn variant-filled-primary"
+                class="btn preset-filled-primary-500 flex items-center gap-2 shadow-lg"
                 onclick={() => agreementModal?.openModal()}
             >
                 <icons.Plus size={18} class="mr-2" />
