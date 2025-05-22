@@ -334,17 +334,20 @@
 
   // Delete agreement using gameService function
   async function handleDeleteAgreement(agreementId: string) {
+    console.log("[admin] ▶ handleDeleteAgreement", agreementId);
     try {
       const success = await deleteAgreement(agreementId);
+      console.log("[admin] ← deleteAgreement returned:", success);
       if (success) {
-        console.log(`Successfully deleted agreement: ${agreementId}`);
+        console.log(`[admin] ✅ Agreement deleted: ${agreementId}`);
         await tick();
         fetchDatabaseStats();
       } else {
+        console.warn(`[admin] ❌ deleteAgreement failed: ${agreementId}`);
         error = `Failed to delete agreement: ${agreementId}`;
       }
     } catch (err) {
-      console.error(`Delete agreement error:`, err);
+      console.error("[admin] ❌ deleteAgreement threw:", err);
       error = err instanceof Error ? err.message : String(err);
     }
   }
