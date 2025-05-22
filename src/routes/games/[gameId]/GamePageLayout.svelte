@@ -147,7 +147,7 @@
                         {@const playerAgreements = gameContext.agreements.filter(agreement => {
                             // Check if partyItems exists and contains the actor
                             if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
-                                return agreement.partyItems.some(party => party.actor_id === playerRole.actor_id);
+                                return agreement.partyItems.some(party => party.actorId === playerRole.actor_id);
                             }
                             // Fallback: check if parties is an array and contains the actor
                             if (Array.isArray(agreement.parties)) {
