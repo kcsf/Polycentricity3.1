@@ -13,10 +13,11 @@
     import { onMount, onDestroy } from 'svelte';
 
    // Props
-   const { game, gameId, playerRole, content, actors } = $props<{
+   const { game, gameId, playerRole, gameContext, content, actors } = $props<{
     game: Game;
     gameId: string;
     playerRole: ActorWithCard;
+    gameContext: GameContext;
     content?: typeof SvelteComponent<any>;
     actors: ActorWithCard[];
   }>();
@@ -143,9 +144,29 @@
             {#if agreementsExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
                     {#if gameContext?.agreements && playerRole}
-                        {@const playerAgreements = gameContext.agreements.filter(agreement => 
-                            agreement.parties && agreement.parties.includes(playerRole.actor_id)
-                        )}
+                        {@const playerAgreements = gameContext.agreements.filter(agreement => {
+                            console.log(`[GamePageLayout] Checking agreement ${agreement.title}:`, {
+                                agreement_id: agreement.agreement_id,
+                                parties: agreement.parties,
+                                partyItems: agreement.partyItems,
+                                playerActorId: playerRole.actor_id
+                            });
+                            
+                            // Check if partyItems exists and contains the actor
+                            if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
+                                const found = agreement.partyItems.some(party => party.actor_id === playerRole.actor_id);
+                                console.log(`[GamePageLayout] Found in partyItems:`, found);
+                                return found;
+                            }
+                            // Fallback: check if parties is an array and contains the actor
+                            if (Array.isArray(agreement.parties)) {
+                                const found = agreement.parties.includes(playerRole.actor_id);
+                                console.log(`[GamePageLayout] Found in parties array:`, found);
+                                return found;
+                            }
+                            console.log(`[GamePageLayout] No matching structure found`);
+                            return false;
+                        })}
                         
                         {#if playerAgreements.length > 0}
                             {#each playerAgreements as agreement}
