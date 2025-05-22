@@ -35,7 +35,6 @@
   let actorCardMap = $state(new Map<string, string>());
   let selectedNode = $state<D3Node | null>(null);
   let activeCardId = $state<string | null>(null);
-  let unsubscribe = $state<(() => void)[]>([]);
 
   // Resize observer
   $effect(() => {
@@ -52,9 +51,9 @@
     agreements: AgreementWithPosition[];
     actors: ActorWithCard[];
   }> {
-    const ctx = await getGameContext(gameId);
+    const ctx = gameContext;
     if (!ctx) {
-      console.error('[D3CardBoard] No context returned');
+      console.error('[D3CardBoard] No context provided');
       return { cards: [], agreements: [], actors: [] };
     }
 
@@ -164,29 +163,10 @@
       });
     }
 
-    // 6️⃣ Subscribe to updates
-    subscribeToGameData();
     console.log('[D3CardBoard] Render complete');
   }
 
-  function subscribeToGameData() {
-    unsubscribe.forEach(fn => fn());
-    unsubscribe = [];
-    let last = Date.now();
-    let timer: number | null = null;
 
-    unsubscribe.push(
-      subscribeToGame(gameId, () => {
-        const now = Date.now();
-        if (now - last < 5000) return;
-        if (timer) clearTimeout(timer);
-        timer = window.setTimeout(() => {
-          last = Date.now();
-          initializeVisualization();
-        }, 500);
-      })
-    );
-  }
 
   // Kick off on mount & clean up on destroy
   $effect(() => {

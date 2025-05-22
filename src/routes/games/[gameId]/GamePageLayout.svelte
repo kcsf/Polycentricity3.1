@@ -145,26 +145,14 @@
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
                     {#if gameContext?.agreements && playerRole}
                         {@const playerAgreements = gameContext.agreements.filter(agreement => {
-                            console.log(`[GamePageLayout] Checking agreement ${agreement.title}:`, {
-                                agreement_id: agreement.agreement_id,
-                                parties: agreement.parties,
-                                partyItems: agreement.partyItems,
-                                playerActorId: playerRole.actor_id
-                            });
-                            
                             // Check if partyItems exists and contains the actor
                             if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
-                                const found = agreement.partyItems.some(party => party.actor_id === playerRole.actor_id);
-                                console.log(`[GamePageLayout] Found in partyItems:`, found);
-                                return found;
+                                return agreement.partyItems.some(party => party.actor_id === playerRole.actor_id);
                             }
                             // Fallback: check if parties is an array and contains the actor
                             if (Array.isArray(agreement.parties)) {
-                                const found = agreement.parties.includes(playerRole.actor_id);
-                                console.log(`[GamePageLayout] Found in parties array:`, found);
-                                return found;
+                                return agreement.parties.includes(playerRole.actor_id);
                             }
-                            console.log(`[GamePageLayout] No matching structure found`);
                             return false;
                         })}
                         
@@ -349,7 +337,7 @@
         
         <!-- D3 Visualization -->
         <div class="w-full h-full pt-20">
-            <D3CardBoard {gameId} activeActorId={playerRole?.actor_id} />
+            <D3CardBoard {gameId} {gameContext} activeActorId={playerRole?.actor_id} />
         </div>
     </div>
 
