@@ -9,7 +9,7 @@
  * - Browser-only initialization to prevent SSR errors
  * - Silent mode to reduce console noise
  * - Storage limits to prevent localStorage bloat
- * - Prepares for peer relays
+ * - Peer relays moved to .env for development
  */
 
 import { browser } from "$app/environment";
@@ -21,6 +21,7 @@ import Gun from "gun";
 // import "gun/lib/rindexed";
 import "gun/sea";
 import "gun/lib/unset.js";
+import { env } from "$env/dynamic/public";
 
 /** @type {any} */
 let db;
@@ -30,14 +31,21 @@ if (browser) {
     window.Gun.log.once = () => {};
   }
 
+  // Split GUN_PEERS if it exists and contains commas, otherwise use as-is or empty array
+  const peers = env.GUN_PEERS
+    ? env.GUN_PEERS.includes(",")
+      ? env.GUN_PEERS.split(",")
+      : [env.GUN_PEERS]
+    : [];
+
   const gunOptions = {
-    peers: ['wss://gun-relay1.endogon.com/gun'],            // placeholder for future peer relays
-    localStorage: true,   // ← use built-in localStorage, no Radisk
-    silent: true,         // reduce Gun logs
-    quiet: true,          // reduce SEA logs
-    super: true,          // extra silence
-    axe: false,           // disable local network announcements
-    multicast: false,     // disable multicast
+    peers, // placeholder for future peer relays
+    localStorage: true, // ← use built-in localStorage, no Radisk
+    silent: true, // reduce Gun logs
+    quiet: true, // reduce SEA logs
+    super: true, // extra silence
+    axe: false, // disable local network announcements
+    multicast: false, // disable multicast
     // if you need a size cap, you can still use opt.store for localStorage
     opt: { store: { max: 10 * 1024 * 1024 } }, // e.g. 10MB
   };
