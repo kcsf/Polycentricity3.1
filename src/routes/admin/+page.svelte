@@ -15,6 +15,7 @@
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
+  import { deleteAgreement } from '$lib/services/gameService';
 
   // Define interfaces for type safety
   interface NodeData {
@@ -327,6 +328,23 @@
       });
     } catch (err) {
       console.error(`Delete ${nodeType} node error:`, err);
+      error = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  // Delete agreement using gameService function
+  async function handleDeleteAgreement(agreementId: string) {
+    try {
+      const success = await deleteAgreement(agreementId);
+      if (success) {
+        console.log(`Successfully deleted agreement: ${agreementId}`);
+        await tick();
+        fetchDatabaseStats();
+      } else {
+        error = `Failed to delete agreement: ${agreementId}`;
+      }
+    } catch (err) {
+      console.error(`Delete agreement error:`, err);
       error = err instanceof Error ? err.message : String(err);
     }
   }
@@ -801,7 +819,11 @@
                                   class="delete-button"
                                   onclick={() => {
                                     if (confirm(`Are you sure you want to delete this ${nodeType.type.slice(0, -1)} with ID "${node.id}"? This cannot be undone.`)) {
-                                      deleteNode(nodeType.type, node.id);
+                                      if (nodeType.type === 'agreements') {
+                                        handleDeleteAgreement(node.id);
+                                      } else {
+                                        deleteNode(nodeType.type, node.id);
+                                      }
                                     }
                                   }}
                                   title="Delete {nodeType.type.slice(0, -1)}"
