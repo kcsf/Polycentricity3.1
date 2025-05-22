@@ -173,7 +173,6 @@
     setTimeout(initializeVisualization, 300);
     return () => {
       simulation?.stop();
-      unsubscribe.forEach(fn => fn());
     };
   });
 </script>
