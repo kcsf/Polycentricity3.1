@@ -7,8 +7,8 @@
   import { PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY } from "$env/static/public";
 
   // ─── State (Svelte 5 Runes) ──────────────────────────────────────────────
-  let email = $state("bjorn@endogon.com");
-  let password = $state("admin123");
+  let email = $state('');
+  let password = $state('');
   let rememberMe = $state(true);
   let turnstileToken = $state<string | null>(null);
   let isLoggingIn = $state(false);
