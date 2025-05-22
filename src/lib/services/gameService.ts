@@ -366,7 +366,7 @@ export async function createGame(
     write(`${nodes.games}/${gameId}`, "players", { [user.user_id]: true }),
     write(`${nodes.games}/${gameId}`, "player_actor_map", {}),
     write(`${nodes.games}/${gameId}`, "actors_ref", {}),
-    write(`${nodes.games}/${gameId}`, "agreements_ref", {}),
+    // write(`${nodes.games}/${gameId}`, "agreements_ref", {}),
     write(`${nodes.games}/${gameId}`, "chat_rooms_ref", {}),
   ]);
 
@@ -412,12 +412,12 @@ export async function joinGame(gameId: string): Promise<boolean> {
   const playersMap = { ...(game.players || {}), [user.user_id]: true };
   await write(`${nodes.games}/${gameId}`, "players", playersMap);
 
-  // 2️⃣ Create pointer-edge for user-games_ref only
-  await createRelationship(
-    `${nodes.users}/${user.user_id}`,
-    "games_ref",
-    `${nodes.games}/${gameId}`,
-  );
+  // 2️⃣ Create pointer-edge for user-games_ref only ((Don't do this it conflicts with maps, create new key for each, ie. ref_set))
+  // await createRelationship(
+  //   `${nodes.users}/${user.user_id}`,
+  //   "games_ref",
+  //   `${nodes.games}/${gameId}`,
+  // );
 
   return true;
 }
@@ -652,7 +652,9 @@ export async function createAgreement(
   if (!user) return null;
 
   // 1️⃣ Next ag_<n>
-  const existing = await getCollection<Agreement>(nodes.agreements);
+  const existingRaw = await getCollection<Agreement>(nodes.agreements);
+  // filter out any entries without a string agreement_id
+  const existing = existingRaw.filter(a => typeof a.agreement_id === 'string');
   let max = 0;
   for (const ag of existing) {
     const m = ag.agreement_id.match(/^ag_(\d+)$/);
@@ -713,34 +715,34 @@ export async function createAgreement(
     write(`${nodes.agreements}/${agreementId}`, "votes", votes),
   ]);
 
-  // 6️⃣ Wire up your edges
+  // 6️⃣ Wire up your edges  ((Don't do this it conflicts with maps, create new key for each, ie. ref_set))
   await Promise.all([
     createRelationship(
       `${nodes.games}/${gameId}`,
       "agreements_ref",
       `${nodes.agreements}/${agreementId}`,
     ),
-    createRelationship(
-      `${nodes.users}/${user.user_id}`,
-      "agreements_ref",
-      `${nodes.agreements}/${agreementId}`,
-    ),
-    // actors → agreement
-    ...Object.keys(partiesRecord).map((aid) =>
-      createRelationship(
-        `${nodes.actors}/${aid}`,
-        "agreements_ref",
-        `${nodes.agreements}/${agreementId}`,
-      ),
-    ),
-    // cards → agreement
-    ...Object.values(partiesRecord).map((p) =>
-      createRelationship(
-        `${nodes.cards}/${p.card_ref}`,
-        "agreements_ref",
-        `${nodes.agreements}/${agreementId}`,
-      ),
-    ),
+    // createRelationship(
+    //   `${nodes.users}/${user.user_id}`,
+    //   "agreements_ref",
+    //   `${nodes.agreements}/${agreementId}`,
+    // ),
+    // // actors → agreement
+    // ...Object.keys(partiesRecord).map((aid) =>
+    //   createRelationship(
+    //     `${nodes.actors}/${aid}`,
+    //     "agreements_ref",
+    //     `${nodes.agreements}/${agreementId}`,
+    //   ),
+    // ),
+    // // cards → agreement
+    // ...Object.values(partiesRecord).map((p) =>
+    //   createRelationship(
+    //     `${nodes.cards}/${p.card_ref}`,
+    //     "agreements_ref",
+    //     `${nodes.agreements}/${agreementId}`,
+    //   ),
+    // ),
   ]);
 
   // 7️⃣ Return for UI
@@ -764,6 +766,67 @@ export async function updateAgreement(
       write(`${nodes.agreements}/${agreementId}`, k, v),
     ),
   );
+  return true;
+}
+
+/**
+ * Remove an agreement and all its relationships.
+ */
+export async function deleteAgreement(
+  agreementId: string
+): Promise<boolean> {
+  // 1️⃣ Load the agreement
+  const agr = await get<Agreement>(`${nodes.agreements}/${agreementId}`);
+  if (!agr) return false;
+  const gameId = agr.game_ref;
+  const creatorId = agr.creator_ref;
+  const parties = agr.parties; // Record<actorId, { card_ref; … }>
+
+  // 2️⃣ Remove all pointer-edges
+  const gun = getGun();
+  if (!gun) throw new Error("[gameService] Gun not initialized");
+
+  await Promise.all([
+    // game → agreement
+    new Promise<void>((res) =>
+      gun
+        .get(`${nodes.games}/${gameId}`)
+        .get("agreements_ref")
+        .unset(gun.get(`${nodes.agreements}/${agreementId}`), () => res())
+    ),
+
+    // user → agreement
+    new Promise<void>((res) =>
+      gun
+        .get(`${nodes.users}/${creatorId}`)
+        .get("agreements_ref")
+        .unset(gun.get(`${nodes.agreements}/${agreementId}`), () => res())
+    ),
+
+    // each actor → agreement
+    ...Object.keys(parties).map((actorId) =>
+      new Promise<void>((res) =>
+        gun
+          .get(`${nodes.actors}/${actorId}`)
+          .get("agreements_ref")
+          .unset(gun.get(`${nodes.agreements}/${agreementId}`), () => res())
+      )
+    ),
+
+    // each card → agreement
+    ...Object.values(parties).map(({ card_ref }) =>
+      new Promise<void>((res) =>
+        gun
+          .get(`${nodes.cards}/${card_ref}`)
+          .get("agreements_ref")
+          .unset(gun.get(`${nodes.agreements}/${agreementId}`), () => res())
+      )
+    ),
+  ]);
+
+  // 3️⃣ Delete the agreement node (and its nested maps) entirely
+  await put(`${nodes.agreements}/${agreementId}`, null);
+
   return true;
 }
 
@@ -907,19 +970,19 @@ export async function createCard(
     write(`${nodes.cards}/${cardId}`, "decks_ref", { [deckId]: true }),
   ]);
 
-  // 5️⃣ pointer‐edges deck<→>card
-  await Promise.all([
-    createRelationship(
-      `${nodes.decks}/${deckId}`,
-      "cards_ref",
-      `${nodes.cards}/${cardId}`,
-    ),
-    createRelationship(
-      `${nodes.cards}/${cardId}`,
-      "decks_ref",
-      `${nodes.decks}/${deckId}`,
-    ),
-  ]);
+  // 5️⃣ pointer‐edges deck<→>card ((Don't do this it conflicts with maps, create new key for each, ie. ref_set))
+  // await Promise.all([
+  //   createRelationship(
+  //     `${nodes.decks}/${deckId}`,
+  //     "cards_ref",
+  //     `${nodes.cards}/${cardId}`,
+  //   ),
+  //   createRelationship(
+  //     `${nodes.cards}/${cardId}`,
+  //     "decks_ref",
+  //     `${nodes.decks}/${deckId}`,
+  //   ),
+  // ]);
 
   // 6️⃣ return full Card
   return {
