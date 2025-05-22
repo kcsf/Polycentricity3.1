@@ -79,6 +79,23 @@
         return `${diffInDays} days`;
     }
 
+    // Check if agreement data is fully loaded with all nested fields
+    function hasCompleteAgreementData(agreements: any[]): boolean {
+        if (!agreements || agreements.length === 0) return false;
+        
+        // Check if any agreement has populated partyItems with complete data
+        return agreements.some(agreement => 
+            agreement.partyItems && 
+            Array.isArray(agreement.partyItems) && 
+            agreement.partyItems.length > 0 &&
+            // Check if partyItems have their nested fields populated (not just actorId)
+            agreement.partyItems.some(party => 
+                party.actorId && 
+                (party.benefit !== undefined || party.obligation !== undefined)
+            )
+        );
+    }
+
 </script>
 
 <div class="game-page-layout flex h-[calc(100vh-var(--app-bar-height,64px))] bg-surface-100-900 overflow-hidden">
@@ -143,7 +160,7 @@
             
             {#if agreementsExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
-                    {#if gameContext?.agreements && playerRole}
+                    {#if gameContext?.agreements && playerRole && hasCompleteAgreementData(gameContext.agreements)}
                         {@const playerAgreements = gameContext.agreements.filter(agreement => {
                             // Check if partyItems exists and contains the actor
                             if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
