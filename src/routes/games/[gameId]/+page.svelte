@@ -103,12 +103,13 @@
         }
     }
 
-    // 4) Smart subscription that only reacts to meaningful agreement changes
+    // 4) Smart subscription for both existing and new agreements
     $effect(() => {
         if (!gameContext) return;
         
         let isSubscribed = true;
         let agreementStates = new Map();
+        let knownAgreementIds = new Set(gameContext.agreements.map(a => a.agreement_id));
         
         // Track only status and key fields (ignore node_positions)
         gameContext.agreements.forEach(agreement => {
@@ -124,9 +125,28 @@
         import('$lib/services/gun-db.js').then(({ default: gun }) => {
             if (!gun || !isSubscribed) return;
             
-            console.log('[GamePage] Setting up smart agreement subscriptions');
+            console.log('[GamePage] Setting up dual subscriptions: existing agreements + new agreement detection');
             
+            // 1) Watch for new agreements being added to the game
+            gun.get('games').get(gameId).get('agreements_ref').on(async (agreementsRef) => {
+                if (agreementsRef && isSubscribed && typeof agreementsRef === 'object') {
+                    const currentIds = new Set(Object.keys(agreementsRef).filter(key => key !== '#' && agreementsRef[key] === true));
+                    
+                    // Check if new agreements were added
+                    const newAgreements = [...currentIds].filter(id => !knownAgreementIds.has(id));
+                    if (newAgreements.length > 0) {
+                        console.log(`[GamePage] New agreements detected: ${newAgreements.join(', ')}`);
+                        knownAgreementIds = currentIds;
+                        await refreshGameContext();
+                        return; // Skip individual monitoring setup this round
+                    }
+                }
+            });
+            
+            // 2) Monitor existing agreements for status changes (with debouncing)
             gameContext.agreements.forEach(agreement => {
+                let debounceTimer;
+                
                 gun.get('agreements').get(agreement.agreement_id).on(async (data) => {
                     if (data && isSubscribed) {
                         const keyData = {
@@ -139,9 +159,13 @@
                         const previousState = agreementStates.get(agreement.agreement_id);
                         
                         if (newState !== previousState) {
-                            console.log(`[GamePage] Meaningful change detected in ${agreement.agreement_id}`);
-                            agreementStates.set(agreement.agreement_id, newState);
-                            await refreshGameContext();
+                            // Debounce rapid changes
+                            clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(async () => {
+                                console.log(`[GamePage] Status change detected in ${agreement.agreement_id}`);
+                                agreementStates.set(agreement.agreement_id, newState);
+                                await refreshGameContext();
+                            }, 500); // 0.5 second debounce
                         }
                     }
                 });
