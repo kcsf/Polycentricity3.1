@@ -65,7 +65,7 @@
         };
     });
 
-    // 2) Once we have context, subscribe to Game changes and refresh context when needed
+    // 2) Subscribe to Game changes
     $effect(() => {
         if (!gameContext) return;
         
@@ -88,6 +88,26 @@
             }
         );
         return () => unsubscribe();
+    });
+
+    // 3) Subscribe to agreements changes using gameService subscription
+    $effect(() => {
+        if (!gameContext) return;
+        
+        // Use a simple timer to periodically refresh context for agreement changes
+        const intervalId = setInterval(async () => {
+            try {
+                const freshContext = await getGameContext(gameId);
+                if (freshContext && freshContext.agreements.length !== gameContext.agreements.length) {
+                    console.log(`[GamePage] Detected agreement changes, refreshing context`);
+                    gameContext = freshContext;
+                }
+            } catch (err) {
+                console.error('[GamePage] Error refreshing context:', err);
+            }
+        }, 2000); // Check every 2 seconds
+        
+        return () => clearInterval(intervalId);
     });
 
     function goToDetails() {
