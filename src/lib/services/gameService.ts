@@ -784,7 +784,9 @@ export async function createAgreement(
     created_at: now,
     updated_at: now,
   };
+  console.log(`[createAgreement] Creating agreement ${agreementId} for game ${gameId}:`, root);
   await write(nodes.agreements, agreementId, root);
+  console.log(`[createAgreement] Agreement ${agreementId} written to database`);
 
   // 5️⃣ Seed ONLY these minimal maps
   await Promise.all([
