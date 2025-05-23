@@ -4,6 +4,7 @@
     import * as icons from '@lucide/svelte';
     import { userStore } from '$lib/stores/userStore';
     import { subscribeToLastActive } from '$lib/services/userService';
+    import { updateAgreement } from '$lib/services/gameService';
     import type { Game, ActorWithCard } from '$lib/types';
     import ChatBox from '$lib/components/ChatBox.svelte';
     import PlayersList from '$lib/components/game/PlayersList.svelte';
@@ -77,6 +78,16 @@
         const now = Date.now();
         const diffInDays = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
         return `${diffInDays} days`;
+    }
+
+    // Handle agreement status change
+    async function handleStatusChange(agreementId: string, newStatus: string) {
+        try {
+            await updateAgreement(agreementId, { status: newStatus });
+            console.log(`[GamePageLayout] Updated agreement ${agreementId} status to: ${newStatus}`);
+        } catch (error) {
+            console.error(`[GamePageLayout] Failed to update agreement status:`, error);
+        }
     }
 
 
@@ -167,9 +178,17 @@
                                         </h4>
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs text-surface-700-300">Status:</span>
-                                            <span class="badge preset-filled-{agreement.status === 'active' ? 'success' : agreement.status === 'pending' ? 'warning' : 'surface'}-500 text-xs px-2 py-0.5">
-                                                {agreement.status || 'Unknown'}
-                                            </span>
+                                            <select 
+                                                class="select text-xs px-2 py-1 bg-surface-300-700 border border-surface-400-600 rounded"
+                                                value={agreement.status || 'proposed'}
+                                                onchange={(e) => handleStatusChange(agreement.agreement_id, e.target.value)}
+                                            >
+                                                <option value="proposed">proposed</option>
+                                                <option value="active">active</option>
+                                                <option value="pending">pending</option>
+                                                <option value="rejected">rejected</option>
+                                                <option value="completed">completed</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
