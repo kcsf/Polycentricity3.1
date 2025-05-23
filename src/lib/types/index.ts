@@ -16,6 +16,24 @@ import * as d3 from "d3";
 import type { SimulationNodeDatum } from "d3";
 import type { Component } from 'svelte';
 
+// Enums
+// -----------------------------------------------
+
+export enum GameStatus {
+    CREATED = "created",
+    SETUP = "setup", 
+    ACTIVE = "active",
+    PAUSED = "paused",
+    COMPLETED = "completed"
+}
+
+export enum AgreementStatus {
+    PROPOSED = "proposed",
+    ACCEPTED = "accepted", 
+    REJECTED = "rejected",
+    COMPLETED = "completed"
+}
+
 // Core Schema Types
 // -----------------------------------------------
 
@@ -205,20 +223,7 @@ export interface Pager<T> {
     nextCursor?: string;
 }
 
-export enum GameStatus {
-    CREATED = "created",
-    SETUP = "setup",
-    ACTIVE = "active",
-    PAUSED = "paused",
-    COMPLETED = "completed",
-}
 
-export enum AgreementStatus {
-    PROPOSED = "proposed",
-    ACCEPTED = "accepted",
-    REJECTED = "rejected",
-    COMPLETED = "completed",
-}
 
 export interface UserSession {
     user: User | null;

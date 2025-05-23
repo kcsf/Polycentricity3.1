@@ -172,20 +172,33 @@
                         {#if playerAgreements.length > 0}
                             {#each playerAgreements as agreement}
                                 <div class="card p-3 bg-surface-200-800 border border-surface-300-600">
-                                    <div class="flex flex-col space-y-1">
+                                    <div class="flex flex-col space-y-2">
                                         <h4 class="text-sm font-semibold text-surface-900-50 truncate">
                                             {agreement.title || 'Untitled Agreement'}
                                         </h4>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs text-surface-700-300">Status:</span>
+                                        
+                                        <!-- Party names in small text -->
+                                        {#if agreement.partyItems && Array.isArray(agreement.partyItems)}
+                                            {@const otherParties = agreement.partyItems.filter((party) => party.actorId !== playerRole.actor_id)}
+                                            {#if otherParties.length > 0}
+                                                <div class="text-xs text-surface-600-400">
+                                                    with: {otherParties.map(party => {
+                                                        const actor = gameContext.actors.find(a => a.actor_id === party.actorId);
+                                                        return actor?.custom_name || actor?.card?.role_title || party.actorId;
+                                                    }).join(', ')}
+                                                </div>
+                                            {/if}
+                                        {/if}
+                                        
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-surface-700-300 flex-shrink-0">Status:</span>
                                             <select 
-                                                class="select text-xs px-2 py-1 bg-surface-300-700 border border-surface-400-600 rounded"
+                                                class="select text-xs px-2 py-1 bg-surface-300-700 border border-surface-400-600 rounded flex-1 min-w-0 max-w-[120px]"
                                                 value={agreement.status || 'proposed'}
                                                 onchange={(e) => handleStatusChange(agreement.agreement_id, (e.target as HTMLSelectElement).value)}
                                             >
                                                 <option value="proposed">proposed</option>
-                                                <option value="active">active</option>
-                                                <option value="pending">pending</option>
+                                                <option value="accepted">accepted</option>
                                                 <option value="rejected">rejected</option>
                                                 <option value="completed">completed</option>
                                             </select>
