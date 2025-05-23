@@ -727,9 +727,21 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // 1️⃣ Next ag_<n> - check ALL keys in agreements node, not just non-null entries
-  const agreementsMap = await getRefMap(nodes.agreements, "");
-  const allKeys = Object.keys(agreementsMap);
+  // 1️⃣ Next ag_<n> - get all agreements and extract their IDs
+  const gun = getGun();
+  if (!gun) throw new Error("Gun not available");
+  
+  // Get all keys in the agreements collection
+  const allKeys: string[] = [];
+  await new Promise<void>((resolve) => {
+    gun.get(nodes.agreements).map().on((data: any, key: string) => {
+      if (key && key !== "#" && !key.startsWith("#")) {
+        allKeys.push(key);
+      }
+    });
+    setTimeout(resolve, 100); // Give it time to collect keys
+  });
+  
   console.log(`[createAgreement] All existing agreement keys:`, allKeys);
   
   let max = 0;
