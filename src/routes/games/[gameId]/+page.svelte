@@ -103,33 +103,44 @@
         }
     }
 
-    // 4) CLEAN START: Only monitor individual agreement status changes
+    // 4) Smart agreement monitoring with proper change detection
     $effect(() => {
         if (!gameContext) return;
         
         let isSubscribed = true;
+        let agreementStates = new Map();
+        
+        // Initialize baseline states
+        gameContext.agreements.forEach(agreement => {
+            const baseline = `${agreement.status}|${agreement.title}|${agreement.description}`;
+            agreementStates.set(agreement.agreement_id, baseline);
+        });
         
         import('$lib/services/gun-db.js').then(({ default: gun }) => {
             if (!gun || !isSubscribed) return;
             
-            console.log('[GamePage] Setting up CLEAN individual agreement monitoring');
+            console.log('[GamePage] Setting up smart agreement monitoring with change detection');
             
-            // Just monitor existing agreements - no "new agreement" detection for now
             gameContext.agreements.forEach(agreement => {
-                console.log(`[GamePage] Setting up subscription for ${agreement.agreement_id}`);
+                let debounceTimer;
                 
                 gun.get('agreements').get(agreement.agreement_id).on(async (data) => {
                     if (data && isSubscribed) {
-                        console.log(`[GamePage] Raw Gun data received for ${agreement.agreement_id}:`, data);
-                        console.log(`[GamePage] Keys in data:`, Object.keys(data));
+                        // Create signature of meaningful fields
+                        const currentState = `${data.status}|${data.title}|${data.description}`;
+                        const previousState = agreementStates.get(agreement.agreement_id);
                         
-                        // Check if this looks like a meaningful change (not just positions)
-                        if (data.status || data.title || data.description) {
-                            console.log(`[GamePage] Meaningful data detected in ${agreement.agreement_id}, refreshing...`);
-                            await refreshGameContext();
-                        } else {
-                            console.log(`[GamePage] Ignoring non-meaningful change in ${agreement.agreement_id}`);
+                        if (currentState !== previousState) {
+                            console.log(`[GamePage] Real change detected in ${agreement.agreement_id}: ${previousState} → ${currentState}`);
+                            
+                            // Debounce to prevent rapid refreshes
+                            clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(async () => {
+                                agreementStates.set(agreement.agreement_id, currentState);
+                                await refreshGameContext();
+                            }, 300);
                         }
+                        // Silently ignore metadata-only changes
                     }
                 });
             });
