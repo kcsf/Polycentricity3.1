@@ -94,9 +94,9 @@
 
     // 4) Smart agreement monitoring for status changes
     $effect(() => {
-        if (!gameContext) return;
+        if (!gameContext?.agreements) return;
         let isSubscribed = true;
-        let agreementStates = new Map();
+        let agreementStates = new Map<string, string>();
         gameContext.agreements.forEach(agreement => {
             const baseline = `${agreement.status}|${agreement.title}|${agreement.summary ?? ''}`;
             agreementStates.set(agreement.agreement_id, baseline);
@@ -106,7 +106,7 @@
             console.log('[GamePage] Setting up smart agreement monitoring with change detection');
             gameContext.agreements.forEach(agreement => {
                 let debounceTimer: NodeJS.Timeout | undefined;
-                gun.get('agreements').get(agreement.agreement_id).on(async (data) => {
+                gun.get('agreements').get(agreement.agreement_id).on(async (data: any) => {
                     if (data && isSubscribed) {
                         const currentState = `${data.status}|${data.title}|${data.summary ?? ''}`;
                         const previousState = agreementStates.get(agreement.agreement_id);
