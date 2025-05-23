@@ -39,7 +39,7 @@ if (browser) {
     : [];
 
   const gunOptions = {
-    peers, // placeholder for future peer relays
+    //peers, // placeholder for future peer relays
     localStorage: true, // ← use built-in localStorage, no Radisk
     silent: true, // reduce Gun logs
     quiet: true, // reduce SEA logs

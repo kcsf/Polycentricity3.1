@@ -3,10 +3,7 @@
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import { userStore } from '$lib/stores/userStore';
-    import { 
-        getGameContext, 
-        subscribeToGame
-    } from '$lib/services/gameService';
+    import { getGameContext, subscribeToGame } from '$lib/services/gameService';
     import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
@@ -14,27 +11,27 @@
 
     const gameId = $page.params.gameId;
 
-    let isLoading   = $state(true);
-    let error       = $state('');
-    let game        = $state<Game | null>(null);
-    let playerRole  = $state<ActorWithCard | null>(null);
+    let isLoading = $state(true);
+    let error = $state('');
+    let game = $state<Game | null>(null);
+    let playerRole = $state<ActorWithCard | null>(null);
     let gameContext = $state<GameContext | null>(null);
+    let knownAgreements = $state(new Set<string>());
 
     function hasCompleteData(ctx: GameContext): boolean {
-        return !!ctx.game
-            && ctx.actors?.length > 0
-            && ctx.actors.some(a => a.card?.card_id);
+        return !!ctx.game && ctx.actors?.length > 0 && ctx.actors.some(a => a.card?.card_id);
     }
 
     async function loadGameData() {
         console.log(`[GamePage] Loading game data for ${gameId}`);
         try {
             isLoading = true;
-            error     = '';
+            error = '';
             const ctx = await getGameContext(gameId);
             if (!ctx) throw new Error(`Failed to load context for ${gameId}`);
             gameContext = ctx;
-            game        = ctx.game;
+            game = ctx.game;
+            knownAgreements = new Set(ctx.agreements.map(a => a.agreement_id));
 
             if ($userStore.user && ctx.actors) {
                 const uid = $userStore.user.user_id;
@@ -49,16 +46,12 @@
         }
     }
 
-    // 1) Prime Gun (no-op subscribe) then bulk-load context
+    // 1) Prime Gun and bulk-load context
     $effect(() => {
-        const unsubscribePrime = subscribeToGame(
-            gameId,
-            (updatedGame: Game) => {
-                game = updatedGame;
-            }
-        );
+        const unsubscribePrime = subscribeToGame(gameId, (updatedGame: Game) => {
+            game = updatedGame;
+        });
         const timer = setTimeout(loadGameData, 100);
-
         return () => {
             clearTimeout(timer);
             unsubscribePrime();
@@ -68,86 +61,101 @@
     // 2) Subscribe to Game changes
     $effect(() => {
         if (!gameContext) return;
-        
-        const unsubscribe = subscribeToGame(
-            gameId,
-            async (updatedGame: Game) => {
-                console.log('[GamePage] Game updated, refreshing context');
-                game = updatedGame;
-                
-                // Re-fetch full context to get latest agreements
-                try {
-                    const freshContext = await getGameContext(gameId);
-                    if (freshContext) {
-                        gameContext = freshContext;
-                        console.log(`[GamePage] Setting gameContext with ${freshContext.agreements.length} agreements`);
-                    }
-                } catch (err) {
-                    console.error('[GamePage] Error refreshing context:', err);
+        const unsubscribe = subscribeToGame(gameId, async (updatedGame: Game) => {
+            console.log('[GamePage] Game updated, refreshing context');
+            game = updatedGame;
+            try {
+                const freshContext = await getGameContext(gameId);
+                if (freshContext) {
+                    gameContext = freshContext;
+                    freshContext.agreements.forEach(a => knownAgreements.add(a.agreement_id));
+                    console.log(`[GamePage] Setting gameContext with ${freshContext.agreements.length} agreements`);
                 }
+            } catch (err) {
+                console.error('[GamePage] Error refreshing context:', err);
             }
-        );
+        });
         return () => unsubscribe();
     });
 
-    // 3) Manual refresh function for when agreements are created/updated
+    // 3) Manual refresh function
     async function refreshGameContext() {
         try {
             const freshContext = await getGameContext(gameId);
             if (freshContext) {
                 console.log('[GamePage] Manually refreshing game context');
                 gameContext = freshContext;
+                freshContext.agreements.forEach(a => knownAgreements.add(a.agreement_id));
             }
         } catch (err) {
             console.error('[GamePage] Error refreshing context:', err);
         }
     }
 
-    // 4) Smart agreement monitoring with proper change detection
+    // 4) Smart agreement monitoring for status changes
     $effect(() => {
         if (!gameContext) return;
-        
         let isSubscribed = true;
         let agreementStates = new Map();
-        
-        // Initialize baseline states
         gameContext.agreements.forEach(agreement => {
-            const baseline = `${agreement.status}|${agreement.title}|${agreement.description}`;
+            const baseline = `${agreement.status}|${agreement.title}|${agreement.summary ?? ''}`;
             agreementStates.set(agreement.agreement_id, baseline);
         });
-        
         import('$lib/services/gun-db.js').then(({ default: gun }) => {
             if (!gun || !isSubscribed) return;
-            
             console.log('[GamePage] Setting up smart agreement monitoring with change detection');
-            
             gameContext.agreements.forEach(agreement => {
-                let debounceTimer;
-                
+                let debounceTimer: NodeJS.Timeout | undefined;
                 gun.get('agreements').get(agreement.agreement_id).on(async (data) => {
                     if (data && isSubscribed) {
-                        // Create signature of meaningful fields
-                        const currentState = `${data.status}|${data.title}|${data.description}`;
+                        const currentState = `${data.status}|${data.title}|${data.summary ?? ''}`;
                         const previousState = agreementStates.get(agreement.agreement_id);
-                        
                         if (currentState !== previousState) {
                             console.log(`[GamePage] Real change detected in ${agreement.agreement_id}: ${previousState} → ${currentState}`);
-                            
-                            // Debounce to prevent rapid refreshes
                             clearTimeout(debounceTimer);
                             debounceTimer = setTimeout(async () => {
                                 agreementStates.set(agreement.agreement_id, currentState);
                                 await refreshGameContext();
                             }, 300);
                         }
-                        // Silently ignore metadata-only changes
                     }
-                });
+                }, { change: true });
             });
         });
-        
         return () => {
             isSubscribed = false;
+        };
+    });
+
+    // 5) Monitor agreements_ref for new agreements
+    $effect(() => {
+        if (!gameContext) return;
+        let isSubscribed = true;
+        let debounceTimer: NodeJS.Timeout | undefined;
+
+        import('$lib/services/gun-db.js').then(({ default: gun }) => {
+            if (!gun || !isSubscribed) return;
+            console.log('[GamePage] Setting up agreements_ref monitoring');
+
+            gun.get('games').get(gameId).get('agreements_ref').map().on(async (data, agreementId) => {
+                if (!data || !isSubscribed || !agreementId.match(/^ag_\d+$/) || knownAgreements.has(agreementId)) return;
+
+                // Verify agreement exists and is valid
+                const agreement = await gun.get('agreements').get(agreementId).then();
+                if (agreement && agreement.game_ref === gameId && agreement.parties) {
+                    console.log('[GamePage] Valid new agreement detected:', agreementId);
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(async () => {
+                        knownAgreements.add(agreementId);
+                        await refreshGameContext();
+                    }, 500);
+                }
+            }, { change: true });
+        });
+
+        return () => {
+            isSubscribed = false;
+            clearTimeout(debounceTimer);
         };
     });
 

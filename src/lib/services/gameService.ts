@@ -729,18 +729,18 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // 1️⃣ Next ag_<n>
+  // ─── 1️⃣ Generate a random 5‐digit ID ─────────────────────────────────────────
   const existingRaw = await getCollection<Agreement>(nodes.agreements);
-  // filter out any entries without a string agreement_id
-  const existing = existingRaw.filter(
-    (a) => typeof a.agreement_id === "string",
-  );
-  let max = 0;
-  for (const ag of existing) {
-    const m = ag.agreement_id.match(/^ag_(\d+)$/);
-    if (m) max = Math.max(max, +m[1]);
-  }
-  const agreementId = `ag_${max + 1}`;
+  const existing = existingRaw.filter((a) => a && a.agreement_id); // Filter out null
+  const usedIds = new Set(existing.map((a) => a.agreement_id));
+
+  let agreementId: string;
+  do {
+    // random between 10000 and 99999
+    const num = Math.floor(Math.random() * 90000) + 10000;
+    agreementId = `ag_${num}`;
+  } while (usedIds.has(agreementId));
+
   const now = Date.now();
 
   // 2️⃣ Build minimal partiesRecord
@@ -758,12 +758,23 @@ export async function createAgreement(
       "cards_by_game",
     );
     const cardRef = map?.[gameId];
-    if (!cardRef) continue;
+    if (!cardRef) {
+      console.warn(`[gameService] Actor ${aid} has no card for game ${gameId}`);
+      continue;
+    }
     partiesRecord[aid] = {
       card_ref: cardRef,
       obligation: terms[aid]?.obligations.join("; ") ?? "",
       benefit: terms[aid]?.benefits.join("; ") ?? "",
     };
+  }
+
+  // Skip if no valid parties
+  if (Object.keys(partiesRecord).length === 0) {
+    console.error(
+      `[gameService] No valid parties for agreement ${agreementId}`,
+    );
+    return null;
   }
 
   // 3️⃣ Minimal cards_ref & votes
@@ -774,8 +785,8 @@ export async function createAgreement(
     Object.keys(partiesRecord).map((aid) => [aid, "pending"] as const),
   );
 
-  // 4️⃣ Shallow root write
-  const root: Omit<Agreement, "parties" | "cards_ref" | "votes"> = {
+  // 4️⃣ Build complete agreement object
+  const agreementData: Agreement = {
     agreement_id: agreementId,
     game_ref: gameId,
     creator_ref: user.user_id,
@@ -783,54 +794,68 @@ export async function createAgreement(
     summary: description,
     type: "asymmetric",
     status: AgreementStatus.PROPOSED,
-    created_at: now,
-    updated_at: now,
-  };
-  await write(nodes.agreements, agreementId, root);
-
-  // 5️⃣ Seed ONLY these minimal maps
-  await Promise.all([
-    write(`${nodes.agreements}/${agreementId}`, "cards_ref", cards_ref),
-    write(`${nodes.agreements}/${agreementId}`, "parties", partiesRecord),
-    write(`${nodes.agreements}/${agreementId}`, "votes", votes),
-  ]);
-
-  // 6️⃣ Wire up your edges  ((Don't do this it conflicts with maps, create new key for each, ie. ref_set))
-  await Promise.all([
-    createRelationship(
-      `${nodes.games}/${gameId}`,
-      "agreements_ref",
-      `${nodes.agreements}/${agreementId}`,
-    ),
-    // createRelationship(
-    //   `${nodes.users}/${user.user_id}`,
-    //   "agreements_ref",
-    //   `${nodes.agreements}/${agreementId}`,
-    // ),
-    // // actors → agreement
-    // ...Object.keys(partiesRecord).map((aid) =>
-    //   createRelationship(
-    //     `${nodes.actors}/${aid}`,
-    //     "agreements_ref",
-    //     `${nodes.agreements}/${agreementId}`,
-    //   ),
-    // ),
-    // // cards → agreement
-    // ...Object.values(partiesRecord).map((p) =>
-    //   createRelationship(
-    //     `${nodes.cards}/${p.card_ref}`,
-    //     "agreements_ref",
-    //     `${nodes.agreements}/${agreementId}`,
-    //   ),
-    // ),
-  ]);
-
-  // 7️⃣ Return for UI
-  return {
-    ...root,
     parties: partiesRecord,
     cards_ref,
     votes,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // 5️⃣ Write agreement atomically
+  await write(nodes.agreements, agreementId, agreementData);
+
+  // 6️⃣ Write simple boolean map to agreements_ref
+  const agreementsRefPath = `${nodes.games}/${gameId}/agreements_ref`;
+  const currentAgreementsRef =
+    (await getField<Record<string, boolean>>(agreementsRefPath)) || {};
+  currentAgreementsRef[agreementId] = true;
+  await write(agreementsRefPath, "", currentAgreementsRef);
+
+  // 7️⃣ Keep commented-out createRelationship calls
+  // await Promise.all([
+  //   createRelationship(
+  //     `${nodes.games}/${gameId}`,
+  //     "agreements_ref",
+  //     `${nodes.agreements}/${agreementId}`,
+  //   ),
+  //   createRelationship(
+  //     `${nodes.users}/${user.user_id}`,
+  //     "agreements_ref",
+  //     `${nodes.agreements}/${agreementId}`,
+  //   ),
+  //   // actors → agreement
+  //   ...Object.keys(partiesRecord).map((aid) =>
+  //     createRelationship(
+  //       `${nodes.actors}/${aid}`,
+  //       "agreements_ref",
+  //       `${nodes.agreements}/${agreementId}`,
+  //     ),
+  //   ),
+  //   // cards → agreement
+  //   ...Object.values(partiesRecord).map((p) =>
+  //     createRelationship(
+  //       `${nodes.cards}/${p.card_ref}`,
+  //       "agreements_ref",
+  //       `${nodes.agreements}/${agreementId}`,
+  //     ),
+  //   ),
+  // ]);
+
+  // 8️⃣ Verify write
+  const savedAgreement = await get<Agreement>(
+    `${nodes.agreements}/${agreementId}`,
+  );
+  if (!savedAgreement || !savedAgreement.parties) {
+    console.error(
+      `[gameService] Failed to save agreement ${agreementId}:`,
+      savedAgreement,
+    );
+    return null;
+  }
+
+  // 9️⃣ Return for UI
+  return {
+    ...savedAgreement,
     position: randomPos(),
   };
 }
