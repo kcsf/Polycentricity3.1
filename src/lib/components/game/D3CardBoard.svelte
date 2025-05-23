@@ -169,23 +169,21 @@
   }
 
 
-  // Kick off visualization on mount AND whenever gameContext changes
+
+  // Initialize on mount
   $effect(() => {
-    // if for some reason the prop isn’t set yet, bail
-    if (!gameContext) return;
-
-    // stop any existing force simulation
-    simulation?.stop();
-
-    // debounce to let layout settle
-    const handle = setTimeout(() => {
-      initializeVisualization();
-    }, 300);
-
+    setTimeout(initializeVisualization, 300);
     return () => {
-      clearTimeout(handle);
       simulation?.stop();
     };
+  });
+
+  // React to gameContext changes (including agreement status updates)
+  $effect(() => {
+    if (gameContext && svgElement) {
+      console.log('[D3CardBoard] gameContext updated, re-rendering visualization');
+      initializeVisualization();
+    }
   });
 </script>
 

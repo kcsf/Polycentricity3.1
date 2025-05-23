@@ -7,7 +7,6 @@
         getGameContext, 
         subscribeToGame
     } from '$lib/services/gameService';
-    import { subscribe, nodes } from '$lib/services/gunService';
     import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
@@ -20,7 +19,6 @@
     let game        = $state<Game | null>(null);
     let playerRole  = $state<ActorWithCard | null>(null);
     let gameContext = $state<GameContext | null>(null);
-    let unsubAgRefs: () => void;
 
     function hasCompleteData(ctx: GameContext): boolean {
         return !!ctx.game
@@ -35,8 +33,6 @@
             error     = '';
             const ctx = await getGameContext(gameId);
             if (!ctx) throw new Error(`Failed to load context for ${gameId}`);
-            
-            console.log(`[GamePage] Setting gameContext with ${ctx.agreements?.length || 0} agreements`);
             gameContext = ctx;
             game        = ctx.game;
 
@@ -69,26 +65,30 @@
         };
     });
 
-  // 2) Subscribe to root Game updates and re-assign context to trigger reactivity
-  $effect(() => {
-    if (!gameContext) return;
-
-    // capture the existing context object
-    const ctx = gameContext;
-
-    const unsubscribe = subscribeToGame(gameId, (updatedGame: Game) => {
-      // update the local game
-      game = updatedGame;
-
-      // replace the entire context object so Svelte sees a new value
-      gameContext = {
-        ...ctx,
-        game: updatedGame
-      };
+    // 2) Once we have context, subscribe to Game changes and refresh context when needed
+    $effect(() => {
+        if (!gameContext) return;
+        
+        const unsubscribe = subscribeToGame(
+            gameId,
+            async (updatedGame: Game) => {
+                console.log('[GamePage] Game updated, refreshing context');
+                game = updatedGame;
+                
+                // Re-fetch full context to get latest agreements
+                try {
+                    const freshContext = await getGameContext(gameId);
+                    if (freshContext) {
+                        gameContext = freshContext;
+                        console.log(`[GamePage] Setting gameContext with ${freshContext.agreements.length} agreements`);
+                    }
+                } catch (err) {
+                    console.error('[GamePage] Error refreshing context:', err);
+                }
+            }
+        );
+        return () => unsubscribe();
     });
-
-    return () => unsubscribe();
-  });  
 
     function goToDetails() {
         goto(`/games/${gameId}/details`);

@@ -176,32 +176,34 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
 
 /**
  * Listen for changes to a single Game by ID.
- * If `changeOnly` is true, you’ll get only deltas.
+ * When the root Game changes, re‐resolve its `players` map and emit
+ * an enriched Game object to `callback`.
  */
 export function subscribeToGame(
   gameId: string,
-  callback: (g: Game) => void,
-  changeOnly: boolean = false
+  onGame: (g: Game) => void
 ): () => void {
-  return subscribe<Game>(
-    `${nodes.games}/${gameId}`,
-    async (data) => {
-      if (!data) return;
-      // Re-load players boolean map
-      const playersMap = await readMapOrSet(
-        `${nodes.games}/${gameId}`,
-        "players"
-      );
-      callback({
-        ...data,
-        game_id: gameId,
-        players: playersMap,
-      });
-    },
-    changeOnly
-  );
-}
+  const gun = getGun();
+  if (!gun) return () => {};
 
+  // Point at games/<gameId>/game
+  const gameNode = gun.get(`${nodes.games}/${gameId}`).get("game");
+
+  // Handler casts partial data into Game
+  const handler = (raw: Partial<Game> | undefined) => {
+    if (!raw) return;
+    // raw may be missing fields—fill in game_id explicitly
+    onGame({ ...raw as Game, game_id: gameId });
+  };
+
+  // Subscribe
+  gameNode.on(handler);
+
+  // Unsubscribe by off(handler)
+  return () => {
+    gameNode.off(handler);
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Game flows (fixed)
@@ -522,7 +524,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   }
 }
 
-// ─────────────────────────────────────────e��─────────_��─────────────────────────
+// ───────────────────────────────────────────────────_��─────────────────────────
 // Actor flows
 // ────────────────────────────────────────────────���────────────────────────────
 export async function createActor(
@@ -727,31 +729,18 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // 1️⃣ Next ag_<n> - check for existing IDs by testing directly
-  const gun = getGun();
-  if (!gun) throw new Error("Gun not available");
-  
-  // Check for existing agreement IDs by testing a reasonable range
-  const existingIds: number[] = [];
-  for (let i = 1; i <= 50; i++) {
-    const testId = `ag_${i}`;
-    const data = await new Promise<any>((resolve) => {
-      gun.get(nodes.agreements).get(testId).once((val: any) => {
-        resolve(val);
-      });
-      setTimeout(() => resolve(undefined), 50); // Timeout if no response
-    });
-    
-    if (data !== undefined) { // null or actual data both count as "exists"
-      existingIds.push(i);
-      console.log(`[createAgreement] Found existing ag_${i}:`, data ? 'with data' : 'null');
-    }
+  // 1️⃣ Next ag_<n>
+  const existingRaw = await getCollection<Agreement>(nodes.agreements);
+  // filter out any entries without a string agreement_id
+  const existing = existingRaw.filter(
+    (a) => typeof a.agreement_id === "string",
+  );
+  let max = 0;
+  for (const ag of existing) {
+    const m = ag.agreement_id.match(/^ag_(\d+)$/);
+    if (m) max = Math.max(max, +m[1]);
   }
-  
-  const max = existingIds.length > 0 ? Math.max(...existingIds) : 0;
   const agreementId = `ag_${max + 1}`;
-  console.log(`[createAgreement] Existing IDs:`, existingIds);
-  console.log(`[createAgreement] Next agreement ID will be: ${agreementId}`);
   const now = Date.now();
 
   // 2️⃣ Build minimal partiesRecord
@@ -797,9 +786,7 @@ export async function createAgreement(
     created_at: now,
     updated_at: now,
   };
-  console.log(`[createAgreement] Creating agreement ${agreementId} for game ${gameId}:`, root);
   await write(nodes.agreements, agreementId, root);
-  console.log(`[createAgreement] Agreement ${agreementId} written to database`);
 
   // 5️⃣ Seed ONLY these minimal maps
   await Promise.all([
@@ -859,7 +846,6 @@ export async function updateAgreement(
       write(`${nodes.agreements}/${agreementId}`, k, v),
     ),
   );
-  console.log("[gameService] updateAgreement:", updateData);
   return true;
 }
 
@@ -1284,16 +1270,16 @@ export async function getGameContext(
     );
 
     // 7️⃣ agreements for this game — now correctly fetch obligation & benefit
-    const rawAgs = await getCollection<Agreement>(nodes.agreements);
+  const rawAgs = await getCollection<Agreement>(nodes.agreements);
     const agreements: AgreementWithPosition[] = await Promise.all(
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-          const partiesRef =
-            (await getRefMap(
-              `${nodes.agreements}/${ag.agreement_id}`,
-              "parties",
-            )) ?? {};
+const partiesRef =
+  (await getRefMap(
+    `${nodes.agreements}/${ag.agreement_id}`,
+    "parties"
+  )) ?? {};
 
           const partyItems: PartyItem[] = await Promise.all(
             Object.keys(partiesRef).map(async (actorId) => {
@@ -1325,7 +1311,7 @@ export async function getGameContext(
                 benefit: pd.benefit,
               } as PartyItem;
             }),
-          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));          
 
           return {
             ...ag,
@@ -1370,3 +1356,7 @@ export async function getGameContext(
     return null;
   }
 }
+
+
+
+

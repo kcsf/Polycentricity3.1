@@ -189,12 +189,9 @@ export async function get<
 }
 
 /**
- * Subscribe to real-time updates from a Gun node,
- * optionally in “change only” (delta) mode.
- *
- * @param soul - Node path (e.g. 'games/g_456')
- * @param cb - Called with cleaned data or null on delete
- * @param changeOnly - If true, you get only the diff, not the full object
+ * Subscribe to real-time updates from a Gun node
+ * @param soul - Node path (e.g., 'games/g_456')
+ * @param cb - Callback with typed data
  * @returns Unsubscribe function
  */
 export function subscribe<
@@ -210,22 +207,14 @@ export function subscribe<
     | Value
     | Capability
     | NodePosition,
->(
-  soul: string,
-  cb: (data: T | null) => void,
-  changeOnly: boolean = false
-): () => void {
+>(soul: string, cb: (data: T | null) => void): () => void {
   const g = getGun();
   if (!g) return () => {};
 
-  // Note: raw is typed as `any` so TypeScript won’t complain about GunDataNode<T>
-  const sub = g
-    .get(soul)
-    .on((raw: any) => {
-      const cleaned: T | null = raw ? cleanData<T>(raw) : null;
-      cb(cleaned);
-    }, changeOnly);
-
+  const sub = g.get(soul).on((data: T | undefined) => {
+    const cleanedData = cleanData<T>(data);
+    cb(cleanedData);
+  });
   return () => sub.off();
 }
 
