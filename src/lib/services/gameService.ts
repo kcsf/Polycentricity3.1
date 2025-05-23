@@ -638,6 +638,77 @@ export async function joinWithActor(
   };
 }
 
+/**
+ * Remove an actor and all its relationships.
+ */
+export async function deleteActor(actorId: string): Promise<boolean> {
+  console.log(`[gameService] ▶ deleteActor(${actorId})`);
+
+  // 1️⃣ Load the root actor
+  const act = await get<Actor>(`${nodes.actors}/${actorId}`);
+  if (!act) {
+    console.warn(`[gameService] Actor not found: ${actorId}`);
+    return false;
+  }
+
+  // 2️⃣ Load nested maps
+  const gamesMap =
+    (await getField<Record<string, boolean>>(
+      `${nodes.actors}/${actorId}`,
+      "games_ref",
+    )) || {};
+  const cardsMap =
+    (await getField<Record<string, string | null>>(
+      `${nodes.actors}/${actorId}`,
+      "cards_by_game",
+    )) || {};
+  const userId = act.user_ref || "";
+
+  console.log("[gameService] fetched actor:", act);
+  console.log("[gameService] loaded gamesMap:", gamesMap);
+  console.log("[gameService] loaded cardsMap:", cardsMap);
+
+  // 3️⃣ Remove nested‐map entries and any set‐edges
+  console.log("[gameService] unsetting edges...");
+  await Promise.all([
+    // For each game this actor sat in:
+    ...Object.keys(gamesMap).flatMap((gameId) => [
+      // remove from game.players→actors_ref
+      deleteKey(`${nodes.games}/${gameId}/actors_ref`, actorId),
+      deleteKey(
+        `${nodes.games}/${gameId}/actors_ref`,
+        `${nodes.actors}/${actorId}`,
+      ),
+      // remove from game.player_actor_map
+      deleteKey(`${nodes.games}/${gameId}/player_actor_map`, userId),
+      deleteKey(
+        `${nodes.games}/${gameId}/player_actor_map`,
+        `${nodes.actors}/${actorId}`,
+      ),
+      // cleanup any set‐based edges (if you ever wired them)
+      removeEdges(`${nodes.games}/${gameId}`, "actors_ref"),
+      removeEdges(`${nodes.games}/${gameId}`, "player_actor_map"),
+    ]),
+    // cleanup from the actor node itself
+    removeEdges(`${nodes.actors}/${actorId}`, "agreements_ref"),
+    // cleanup from the user node (if you ever wired a set‐edge)
+    removeEdges(`${nodes.users}/${userId}`, "actors_ref"),
+  ]);
+
+  console.log("[gameService] all edges removed, deleting node");
+
+  // 4️⃣ Delete the actor node and its nested maps
+  await write(nodes.actors, actorId, null);
+  await Promise.all([
+    write(`${nodes.actors}/${actorId}`, "games_ref", null),
+    write(`${nodes.actors}/${actorId}`, "cards_by_game", null),
+    write(`${nodes.actors}/${actorId}`, "agreements_ref", null),
+  ]);
+
+  console.log(`[gameService] ✅ deleteActor complete for ${actorId}`);
+  return true;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Agreement flows (updated)
 // ─────────────────────────────────────────────────────────────────────────────
