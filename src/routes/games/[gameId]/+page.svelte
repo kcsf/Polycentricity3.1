@@ -49,30 +49,34 @@
         }
     }
 
-    // Load initial data and set up reactive subscription
+    // 1) Prime Gun (no-op subscribe) then bulk-load context
     $effect(() => {
-        console.log(`[GamePage] Setting up subscribeToGame for ${gameId}`);
-        
-        // Initial load
-        const timer = setTimeout(loadGameData, 100);
-        
-        // Set up subscription for ongoing changes
-        const unsubscribe = subscribeToGame(
+        const unsubscribePrime = subscribeToGame(
             gameId,
             (updatedGame: Game) => {
-                console.log(`[GamePage] subscribeToGame callback fired! Game:`, updatedGame.name);
                 game = updatedGame;
-                // Reload full gameContext to pick up agreement changes
-                console.log(`[GamePage] Triggering loadGameData from subscription`);
-                loadGameData();
             }
         );
+        const timer = setTimeout(loadGameData, 100);
 
         return () => {
             clearTimeout(timer);
-            console.log(`[GamePage] Unsubscribing from game ${gameId}`);
-            unsubscribe();
+            unsubscribePrime();
         };
+    });
+
+    // 2) Once we have context, subscribe only to the root Game field
+    $effect(() => {
+        if (!gameContext) return;
+        const ctx = gameContext; // narrowed non-null
+        const unsubscribe = subscribeToGame(
+            gameId,
+            (updatedGame: Game) => {
+                game = updatedGame;
+                ctx.game = updatedGame;
+            }
+        );
+        return () => unsubscribe();
     });
 
     function goToDetails() {

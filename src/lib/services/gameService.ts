@@ -176,12 +176,12 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
 
 /**
  * Listen for changes to a single Game by ID.
- * When the root Game changes or any of its agreements change, re‐resolve its `players` map and emit
+ * When the root Game changes, re‐resolve its `players` map and emit
  * an enriched Game object to `callback`.
  */
 export function subscribeToGame(
   gameId: string,
-  onGame: (g: Game) => void,
+  onGame: (g: Game) => void
 ): () => void {
   const gun = getGun();
   if (!gun) return () => {};
@@ -192,32 +192,16 @@ export function subscribeToGame(
   // Handler casts partial data into Game
   const handler = (raw: Partial<Game> | undefined) => {
     if (!raw) return;
-    console.log(`[subscribeToGame] Game callback fired for ${gameId}`);
     // raw may be missing fields—fill in game_id explicitly
-    onGame({ ...(raw as Game), game_id: gameId });
+    onGame({ ...raw as Game, game_id: gameId });
   };
 
-  // Subscribe to game changes
+  // Subscribe
   gameNode.on(handler);
-
-  // Also watch for agreement changes by subscribing to all agreements node
-  const agreementsNode = gun.get(nodes.agreements);
-  const agreementHandler = (data: any, agreementId: string) => {
-    if (data && agreementId) {
-      console.log(
-        `[subscribeToGame] Agreement ${agreementId} changed, triggering game refresh`,
-      );
-      // Trigger the main handler to refresh game data
-      gameNode.once(handler);
-    }
-  };
-
-  agreementsNode.on(agreementHandler);
 
   // Unsubscribe by off(handler)
   return () => {
     gameNode.off(handler);
-    agreementsNode.off(agreementHandler);
   };
 }
 
@@ -862,7 +846,6 @@ export async function updateAgreement(
       write(`${nodes.agreements}/${agreementId}`, k, v),
     ),
   );
-  console.log("[gameService] updateAgreement:", updateData);
   return true;
 }
 
@@ -1039,7 +1022,7 @@ export async function updateDeck(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Card flows
-// ──────────────────────────────────────────am�─────────────────────so�────────────
+// ────────────────────────────────────────────────────────────────so�────────────
 
 /**
  * Create a new Card with a sequential ID (card_1, card_2, …) and attach it to a deck.
@@ -1287,16 +1270,16 @@ export async function getGameContext(
     );
 
     // 7️⃣ agreements for this game — now correctly fetch obligation & benefit
-    const rawAgs = await getCollection<Agreement>(nodes.agreements);
+  const rawAgs = await getCollection<Agreement>(nodes.agreements);
     const agreements: AgreementWithPosition[] = await Promise.all(
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-          const partiesRef =
-            (await getRefMap(
-              `${nodes.agreements}/${ag.agreement_id}`,
-              "parties",
-            )) ?? {};
+const partiesRef =
+  (await getRefMap(
+    `${nodes.agreements}/${ag.agreement_id}`,
+    "parties"
+  )) ?? {};
 
           const partyItems: PartyItem[] = await Promise.all(
             Object.keys(partiesRef).map(async (actorId) => {
@@ -1328,7 +1311,7 @@ export async function getGameContext(
                 benefit: pd.benefit,
               } as PartyItem;
             }),
-          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));          
 
           return {
             ...ag,
@@ -1373,3 +1356,7 @@ export async function getGameContext(
     return null;
   }
 }
+
+
+
+
