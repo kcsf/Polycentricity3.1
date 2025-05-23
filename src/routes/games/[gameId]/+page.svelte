@@ -35,6 +35,8 @@
             error     = '';
             const ctx = await getGameContext(gameId);
             if (!ctx) throw new Error(`Failed to load context for ${gameId}`);
+            
+            console.log(`[GamePage] Setting gameContext with ${ctx.agreements?.length || 0} agreements`);
             gameContext = ctx;
             game        = ctx.game;
 
