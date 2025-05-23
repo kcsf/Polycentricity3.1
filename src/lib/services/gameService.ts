@@ -805,11 +805,13 @@ export async function createAgreement(
   await write(nodes.agreements, agreementId, agreementData);
 
   // 6️⃣ Write simple boolean map to agreements_ref
-  const agreementsRefPath = `${nodes.games}/${gameId}/agreements_ref`;
-  const currentAgreementsRef =
-    (await getField<Record<string, boolean>>(agreementsRefPath)) || {};
-  currentAgreementsRef[agreementId] = true;
-  await write(agreementsRefPath, "", currentAgreementsRef);
+  const soul = `${nodes.games}/${gameId}`;
+  // read the map
+  const current =
+    (await getField<Record<string, boolean>>(soul, "agreements_ref")) || {};
+  current[agreementId] = true;
+  // write it back under the “agreements_ref” key
+  await write(soul, "agreements_ref", current);
 
   // 7️⃣ Keep commented-out createRelationship calls
   // await Promise.all([
