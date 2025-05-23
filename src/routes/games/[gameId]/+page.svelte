@@ -49,26 +49,14 @@
         }
     }
 
-    // 1) Prime Gun (no-op subscribe) then bulk-load context
+    // Load initial data and set up reactive subscription
     $effect(() => {
-        const unsubscribePrime = subscribeToGame(
-            gameId,
-            (updatedGame: Game) => {
-                game = updatedGame;
-            }
-        );
-        const timer = setTimeout(loadGameData, 100);
-
-        return () => {
-            clearTimeout(timer);
-            unsubscribePrime();
-        };
-    });
-
-    // 2) Once we have context, subscribe to game changes and reload full context
-    $effect(() => {
-        if (!gameContext) return;
         console.log(`[GamePage] Setting up subscribeToGame for ${gameId}`);
+        
+        // Initial load
+        const timer = setTimeout(loadGameData, 100);
+        
+        // Set up subscription for ongoing changes
         const unsubscribe = subscribeToGame(
             gameId,
             (updatedGame: Game) => {
@@ -79,7 +67,9 @@
                 loadGameData();
             }
         );
+
         return () => {
+            clearTimeout(timer);
             console.log(`[GamePage] Unsubscribing from game ${gameId}`);
             unsubscribe();
         };
