@@ -5,7 +5,8 @@
     import { userStore } from '$lib/stores/userStore';
     import { subscribeToLastActive } from '$lib/services/userService';
     import { updateAgreement } from '$lib/services/gameService';
-    import type { Game, ActorWithCard } from '$lib/types';
+    import type { Game, ActorWithCard, GameContext, AgreementWithPosition, PartyItem, } from '$lib/types';
+    import { AgreementStatus } from '$lib/types';
     import ChatBox from '$lib/components/ChatBox.svelte';
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
@@ -81,10 +82,14 @@
     }
 
     // Handle agreement status change
-    async function handleStatusChange(agreementId: string, newStatus: string) {
+    async function handleStatusChange(
+        agreementId: string,
+        newStatus: AgreementStatus
+        ): Promise<void> {
         try {
+            console.log(`[GamePageLayout] Updating agreement ${agreementId} status to: ${newStatus}`);
             await updateAgreement(agreementId, { status: newStatus });
-            console.log(`[GamePageLayout] Updated agreement ${agreementId} status to: ${newStatus}`);
+            console.log(`[GamePageLayout] Successfully updated agreement ${agreementId} status to: ${newStatus}`);
         } catch (error) {
             console.error(`[GamePageLayout] Failed to update agreement status:`, error);
         }
@@ -154,58 +159,75 @@
                 {/if}
             </button>
             
-            {#if agreementsExpanded}
-                <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
-                    {#if gameContext?.agreements && playerRole}
-                        {@const playerAgreements = gameContext.agreements.filter(agreement => {
-                            // Check if partyItems exists and contains the actor
-                            if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
-                                return agreement.partyItems.some(party => party.actorId === playerRole.actor_id);
-                            }
-                            // Fallback: check if parties is an array and contains the actor
-                            if (Array.isArray(agreement.parties)) {
-                                return agreement.parties.includes(playerRole.actor_id);
-                            }
-                            return false;
-                        })}
-                        
-                        {#if playerAgreements.length > 0}
-                            {#each playerAgreements as agreement}
-                                <div class="card p-3 bg-surface-200-800 border border-surface-300-600">
-                                    <div class="flex flex-col space-y-1">
-                                        <h4 class="text-sm font-semibold text-surface-900-50 truncate">
-                                            {agreement.title || 'Untitled Agreement'}
-                                        </h4>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs text-surface-700-300">Status:</span>
-                                            <select 
-                                                class="select text-xs px-2 py-1 bg-surface-300-700 border border-surface-400-600 rounded"
-                                                value={agreement.status || 'proposed'}
-                                                onchange={(e) => handleStatusChange(agreement.agreement_id, e.target.value)}
-                                            >
-                                                <option value="proposed">proposed</option>
-                                                <option value="active">active</option>
-                                                <option value="pending">pending</option>
-                                                <option value="rejected">rejected</option>
-                                                <option value="completed">completed</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            {/each}
-                        {:else}
-                            <div class="card p-3 bg-surface-200-800 text-center">
-                                <p class="text-xs text-surface-600-400">No agreements involving your actor yet.</p>
-                            </div>
-                        {/if}
-                    {:else}
-                        <div class="card p-3 bg-surface-200-800 text-center">
-                            <p class="text-xs text-surface-600-400">Loading agreements...</p>
-                        </div>
-                    {/if}
-                </div>
-            {/if}
-            
+{#if agreementsExpanded}
+  <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
+    {#if gameContext?.agreements && playerRole}
+      {@const playerAgreements = gameContext.agreements.filter(
+        (agreement: AgreementWithPosition) => {
+          // Does this agreement include your actor?
+          if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
+            return agreement.partyItems.some(
+              (party: PartyItem) => party.actorId === playerRole.actor_id
+            );
+          }
+          // Fallback if you were using an old `parties` array
+          if (Array.isArray((agreement as any).parties)) {
+            return (agreement as any).parties.includes(playerRole.actor_id);
+          }
+          return false;
+        }
+      )}
+
+      {#if playerAgreements.length > 0}
+        {#each playerAgreements as agreement: AgreementWithPosition}
+          <div class="card p-3 bg-surface-200-800 border border-surface-300-600">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="text-sm font-semibold truncate">
+                {agreement.title ?? 'Untitled Agreement'}
+              </h4>
+              <select
+                class="select text-xs px-2 py-1 bg-surface-300-700 border border-surface-400-600 rounded"
+                value={agreement.status ?? AgreementStatus.PROPOSED}
+                onchange={(e: Event) => {
+                  const sel = e.target as HTMLSelectElement | null;
+                  if (!sel) return;
+                  handleStatusChange(
+                    agreement.agreement_id,
+                    sel.value as AgreementStatus
+                  );
+                }}
+              >
+                <option value={AgreementStatus.PROPOSED}>proposed</option>
+                <option value={AgreementStatus.ACCEPTED}>accepted</option>
+                <option value={AgreementStatus.REJECTED}>rejected</option>
+                <option value={AgreementStatus.COMPLETED}>completed</option>
+              </select>
+            </div>
+
+            {#each agreement.partyItems as party: PartyItem}
+              <div class="flex justify-between text-xs py-1 border-t border-surface-300-600">
+                <span class="font-medium">{party.card.role_title}</span>
+                <span>Obligation: {party.obligation}</span>
+                <span>Benefit: {party.benefit}</span>
+              </div>
+            {/each}
+          </div>
+        {/each}
+      {:else}
+        <div class="card p-3 bg-surface-200-800 text-center">
+          <p class="text-xs text-surface-600-400">
+            No agreements involving your actor yet.
+          </p>
+        </div>
+      {/if}
+    {:else}
+      <div class="card p-3 bg-surface-200-800 text-center">
+        <p class="text-xs text-surface-600-400">Loading agreements...</p>
+      </div>
+    {/if}
+  </div>
+{/if}
+        
             <!-- Role Card Section -->
             <button 
                 class="flex items-center gap-3 p-3 hover:bg-primary-500/20 transition-colors {yourRoleExpanded ? 'bg-primary-500/20' : ''}" 
@@ -435,4 +457,3 @@
     currentActorId={playerRole.actor_id}
     bind:this={agreementModal}
 />
-
