@@ -727,33 +727,30 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // 1️⃣ Next ag_<n> - get all agreements and extract their IDs
+  // 1️⃣ Next ag_<n> - check for existing IDs by testing directly
   const gun = getGun();
   if (!gun) throw new Error("Gun not available");
   
-  // Get all keys in the agreements collection
-  const allKeys: string[] = [];
-  await new Promise<void>((resolve) => {
-    gun.get(nodes.agreements).map().on((data: any, key: string) => {
-      if (key && key !== "#" && !key.startsWith("#")) {
-        allKeys.push(key);
-      }
+  // Check for existing agreement IDs by testing a reasonable range
+  const existingIds: number[] = [];
+  for (let i = 1; i <= 50; i++) {
+    const testId = `ag_${i}`;
+    const data = await new Promise<any>((resolve) => {
+      gun.get(nodes.agreements).get(testId).once((val: any) => {
+        resolve(val);
+      });
+      setTimeout(() => resolve(undefined), 50); // Timeout if no response
     });
-    setTimeout(resolve, 100); // Give it time to collect keys
-  });
-  
-  console.log(`[createAgreement] All existing agreement keys:`, allKeys);
-  
-  let max = 0;
-  for (const key of allKeys) {
-    const m = key.match(/^ag_(\d+)$/);
-    if (m) {
-      const num = +m[1];
-      console.log(`[createAgreement] Found existing ag_${num}`);
-      max = Math.max(max, num);
+    
+    if (data !== undefined) { // null or actual data both count as "exists"
+      existingIds.push(i);
+      console.log(`[createAgreement] Found existing ag_${i}:`, data ? 'with data' : 'null');
     }
   }
+  
+  const max = existingIds.length > 0 ? Math.max(...existingIds) : 0;
   const agreementId = `ag_${max + 1}`;
+  console.log(`[createAgreement] Existing IDs:`, existingIds);
   console.log(`[createAgreement] Next agreement ID will be: ${agreementId}`);
   const now = Date.now();
 
