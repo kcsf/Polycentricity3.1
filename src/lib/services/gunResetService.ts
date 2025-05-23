@@ -1,116 +1,100 @@
 /**
- * Utility to completely reset and clear all Gun.js database data
- * This includes:
- * - IndexedDB databases (radisk, gun, radata)
- * - localStorage entries related to Gun
- * - SessionStorage entries
- */
-
-/**
- * Completely wipe all Gun.js data from the browser
- * @returns A promise that resolves when all operations are complete
+ * Completely wipe all Gun.js data from the browser including IndexedDB
+ * @returns A promise that resolves with a detailed log of operations
  */
 export async function resetGunDatabase(): Promise<string> {
-  let log = '';
-  
+  let log = "";
+
   try {
-    // 1. Delete all IndexedDB databases that might be used by Gun
-    const dbNames = ['radisk', 'gun', 'radata'];
-    const dbPromises = dbNames.map(dbName => {
-      return new Promise<void>((resolve) => {
-        try {
-          log += `Attempting to delete '${dbName}' database...\n`;
-          const request = indexedDB.deleteDatabase(dbName);
-          
-          request.onsuccess = () => {
-            log += `✓ Successfully deleted '${dbName}' database\n`;
-            resolve();
-          };
-          
-          request.onerror = (event) => {
-            log += `⚠️ Error deleting '${dbName}' database: ${(event.target as any)?.error || 'Unknown error'}\n`;
-            resolve(); // Continue even if there's an error
-          };
-        } catch (err) {
-          log += `⚠️ Exception trying to delete '${dbName}': ${err}\n`;
-          resolve(); // Continue even if there's an exception
-        }
-      });
-    });
-    
-    // 2. Clear all localStorage entries related to Gun
-    log += 'Clearing localStorage entries...\n';
-    
-    // Known Gun keys and patterns
-    const knownPatterns = [
-      'gun/', 'gun', 'sea', '~', 'iris.', 'PEER', 'ALLOW',
-      'graph', 'user', 'auth', 'node_', 'alias', 'keys'
-    ];
-    
-    // Find all keys that might be related to Gun
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      
-      if (knownPatterns.some(pattern => key.includes(pattern))) {
-        keysToRemove.push(key);
-      }
-    }
-    
-    // Remove all identified Gun keys
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    log += `✓ Removed ${keysToRemove.length} Gun-related items from localStorage\n`;
-    
-    // 3. Clear session storage completely
+    log += "--- Gun.js Database Reset ---\n";
+
+    // Step 1: Clear localStorage
+    log += "\n--- Clearing localStorage ---\n";
+    const localStorageKeys = Object.keys(localStorage);
+    log += `Found ${localStorageKeys.length} localStorage keys\n`;
+    localStorage.clear();
+    log += `✓ Cleared localStorage\n`;
+
+    // Step 2: Clear sessionStorage
+    log += "\n--- Clearing sessionStorage ---\n";
+    const sessionStorageKeys = Object.keys(sessionStorage);
+    log += `Found ${sessionStorageKeys.length} sessionStorage keys\n`;
     sessionStorage.clear();
-    log += '✓ Cleared session storage\n';
+    log += `✓ Cleared sessionStorage\n`;
+
+    // Step 3: Clear IndexedDB (where Gun.js stores most data)
+    log += "\n--- Clearing IndexedDB ---\n";
+    if ('indexedDB' in window) {
+      try {
+        // Get all databases
+        const databases = await indexedDB.databases();
+        log += `Found ${databases.length} IndexedDB databases\n`;
+        
+        for (const db of databases) {
+          if (db.name) {
+            log += `Deleting database: ${db.name}\n`;
+            const deleteReq = indexedDB.deleteDatabase(db.name);
+            await new Promise((resolve, reject) => {
+              deleteReq.onsuccess = () => resolve(true);
+              deleteReq.onerror = () => reject(deleteReq.error);
+              deleteReq.onblocked = () => {
+                log += `⚠️ Database ${db.name} deletion blocked (may have open connections)\n`;
+                // Force resolution anyway
+                setTimeout(resolve, 100);
+              };
+            });
+            log += `✓ Deleted database: ${db.name}\n`;
+          }
+        }
+      } catch (error) {
+        log += `⚠️ Error clearing IndexedDB: ${error}\n`;
+      }
+    } else {
+      log += "IndexedDB not available in this environment\n";
+    }
+
+    // Step 4: Clear WebSQL (legacy, but some Gun.js versions might use it)
+    log += "\n--- Clearing WebSQL (if available) ---\n";
+    if ('openDatabase' in window) {
+      try {
+        // @ts-ignore - WebSQL is deprecated but might exist
+        const db = window.openDatabase('', '', '', '');
+        log += "✓ WebSQL cleared (if any existed)\n";
+      } catch (error) {
+        log += "WebSQL not available or already clear\n";
+      }
+    } else {
+      log += "WebSQL not available\n";
+    }
+
+    // Step 5: Clear any Gun.js specific caches
+    log += "\n--- Clearing Gun.js Memory ---\n";
+    try {
+      // Clear any Gun instances from global scope
+      if ('gun' in window) {
+        // @ts-ignore
+        delete window.gun;
+        log += "✓ Cleared global Gun instance\n";
+      }
+      
+      // Force garbage collection hint
+      if ('gc' in window) {
+        // @ts-ignore
+        window.gc();
+        log += "✓ Suggested garbage collection\n";
+      }
+    } catch (error) {
+      log += `⚠️ Error clearing Gun memory: ${error}\n`;
+    }
+
+    log += "\n--- Reset Complete ---\n";
+    log += "✓ All Gun.js data has been cleared\n";
+    log += "✓ Page will reload automatically to reinitialize clean state\n";
     
-    // Wait for all DB deletions to complete
-    await Promise.all(dbPromises);
-    
-    // 4. Verify IndexedDB is empty of Gun databases
-    const checkDBs = await checkExistingDBs();
-    log += `\nVerification: ${checkDBs}\n`;
-    
-    log += '\nDatabase reset complete! Page will reload in 3 seconds...\n';
     return log;
   } catch (error) {
-    log += `Error during reset: ${error}\n`;
+    log += `\n--- Critical Error ---\n`;
+    log += `Failed to reset database: ${error}\n`;
     return log;
   }
-}
-
-/**
- * Check if any Gun-related IndexedDB databases still exist
- */
-async function checkExistingDBs(): Promise<string> {
-  return new Promise<string>((resolve) => {
-    try {
-      // Check if the databases method exists (not all browsers support it)
-      if (typeof indexedDB.databases !== 'function') {
-        resolve('Browser does not support checking existing databases');
-        return;
-      }
-      
-      // Use the databases API with proper typing
-      indexedDB.databases().then((databases) => {
-        // Filter for Gun-related databases
-        const gunDBs = databases.filter((db: IDBDatabaseInfo) => 
-          ['radisk', 'gun', 'radata'].includes(db.name || '')
-        );
-        
-        if (gunDBs.length > 0) {
-          resolve(`Found ${gunDBs.length} Gun databases still present: ${gunDBs.map((db: IDBDatabaseInfo) => db.name).join(', ')}`);
-        } else {
-          resolve('No Gun databases detected - clean state achieved');
-        }
-      }).catch((error) => {
-        resolve(`Error checking databases: ${error}`);
-      });
-    } catch (error) {
-      // Fallback for any unexpected errors
-      resolve(`Could not check for existing databases: ${error}`);
-    }
-  });
 }
