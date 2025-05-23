@@ -112,7 +112,7 @@
             } catch (err) {
                 console.error('[GamePage] Error checking for updates:', err);
             }
-        }, 1000); // Check every second
+        }, 3000); // Check every 3 seconds
         
         return () => clearInterval(interval);
     });

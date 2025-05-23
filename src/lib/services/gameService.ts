@@ -1344,11 +1344,11 @@ const partiesRef =
     //   );
     // }
 
-    // always log
-    console.log(
-      `[gameService] getGameContext full context for ${gameId}:`,
-      result,
-    );
+    // dev-only log (commented out to reduce noise)
+    // console.log(
+    //   `[gameService] getGameContext full context for ${gameId}:`,
+    //   result,
+    // );
 
     return result;
   } catch (e) {
