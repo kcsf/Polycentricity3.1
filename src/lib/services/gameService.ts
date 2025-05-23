@@ -727,18 +727,22 @@ export async function createAgreement(
   const user = getCurrentUser();
   if (!user) return null;
 
-  // 1️⃣ Next ag_<n>
-  const existingRaw = await getCollection<Agreement>(nodes.agreements);
-  // filter out any entries without a string agreement_id
-  const existing = existingRaw.filter(
-    (a) => typeof a.agreement_id === "string",
-  );
+  // 1️⃣ Next ag_<n> - check ALL keys in agreements node, not just non-null entries
+  const agreementsMap = await getRefMap(nodes.agreements, "");
+  const allKeys = Object.keys(agreementsMap);
+  console.log(`[createAgreement] All existing agreement keys:`, allKeys);
+  
   let max = 0;
-  for (const ag of existing) {
-    const m = ag.agreement_id.match(/^ag_(\d+)$/);
-    if (m) max = Math.max(max, +m[1]);
+  for (const key of allKeys) {
+    const m = key.match(/^ag_(\d+)$/);
+    if (m) {
+      const num = +m[1];
+      console.log(`[createAgreement] Found existing ag_${num}`);
+      max = Math.max(max, num);
+    }
   }
   const agreementId = `ag_${max + 1}`;
+  console.log(`[createAgreement] Next agreement ID will be: ${agreementId}`);
   const now = Date.now();
 
   // 2️⃣ Build minimal partiesRecord
