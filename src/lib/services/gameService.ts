@@ -176,47 +176,28 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
 
 /**
  * Listen for changes to a single Game by ID.
- * When the root Game changes or any of its agreements change, re‐resolve its `players` map and emit
+ * When the root Game changes, re‐resolve its `players` map and emit
  * an enriched Game object to `callback`.
  */
 export function subscribeToGame(
   gameId: string,
-  onGame: (g: Game) => void,
+  callback: (g: Game) => void,
 ): () => void {
-  const gun = getGun();
-  if (!gun) return () => {};
+  return subscribe<Game>(`${nodes.games}/${gameId}`, async (data) => {
+    if (!data) return;
 
-  // Point at games/<gameId>/game
-  const gameNode = gun.get(`${nodes.games}/${gameId}`).get("game");
+    // Re-load players boolean map
+    const playersMap = await readMapOrSet(
+      `${nodes.games}/${gameId}`,
+      "players",
+    );
 
-  // Handler casts partial data into Game
-  const handler = (raw: Partial<Game> | undefined) => {
-    if (!raw) return;
-    console.log(`[subscribeToGame] Game callback fired for ${gameId}`);
-    // raw may be missing fields—fill in game_id explicitly
-    onGame({ ...(raw as Game), game_id: gameId });
-  };
-
-  // Subscribe to game changes
-  gameNode.on(handler);
-
-  // Also watch for agreement changes by subscribing to all agreements node
-  const agreementsNode = gun.get(nodes.agreements);
-  const agreementHandler = (data: any, agreementId: string) => {
-    if (data && agreementId) {
-      console.log(`[subscribeToGame] Agreement ${agreementId} changed, triggering game refresh`);
-      // Trigger the main handler to refresh game data
-      gameNode.once(handler);
-    }
-  };
-  
-  agreementsNode.on(agreementHandler);
-
-  // Unsubscribe by off(handler)
-  return () => {
-    gameNode.off(handler);
-    agreementsNode.off(agreementHandler);
-  };
+    callback({
+      ...data,
+      game_id: gameId,
+      players: playersMap,
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
