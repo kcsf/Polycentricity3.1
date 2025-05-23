@@ -176,7 +176,7 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
 
 /**
  * Listen for changes to a single Game by ID.
- * When the root Game changes, re‐resolve its `players` map and emit
+ * When the root Game changes or any of its agreements change, re‐resolve its `players` map and emit
  * an enriched Game object to `callback`.
  */
 export function subscribeToGame(
@@ -188,6 +188,9 @@ export function subscribeToGame(
 
   // Point at games/<gameId>/game
   const gameNode = gun.get(`${nodes.games}/${gameId}`).get("game");
+  
+  // Point at games/<gameId>/agreements_ref to watch for agreement changes
+  const agreementsRefNode = gun.get(`${nodes.games}/${gameId}`).get("agreements_ref");
 
   // Handler casts partial data into Game
   const handler = (raw: Partial<Game> | undefined) => {
@@ -196,12 +199,20 @@ export function subscribeToGame(
     onGame({ ...(raw as Game), game_id: gameId });
   };
 
-  // Subscribe
+  // Agreement change handler - triggers game refresh when any agreement changes
+  const agreementHandler = () => {
+    // Trigger a fresh game fetch when agreements change
+    gameNode.once(handler);
+  };
+
+  // Subscribe to both game changes and agreement reference changes
   gameNode.on(handler);
+  agreementsRefNode.on(agreementHandler);
 
   // Unsubscribe by off(handler)
   return () => {
     gameNode.off(handler);
+    agreementsRefNode.off(agreementHandler);
   };
 }
 
