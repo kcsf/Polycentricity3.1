@@ -103,6 +103,56 @@
         }
     }
 
+    // 4) Smart subscription that only reacts to meaningful agreement changes
+    $effect(() => {
+        if (!gameContext) return;
+        
+        let isSubscribed = true;
+        let agreementStates = new Map();
+        
+        // Track only status and key fields (ignore node_positions)
+        gameContext.agreements.forEach(agreement => {
+            const keyData = {
+                status: agreement.status,
+                title: agreement.title,
+                description: agreement.description,
+                parties: agreement.parties
+            };
+            agreementStates.set(agreement.agreement_id, JSON.stringify(keyData));
+        });
+        
+        import('$lib/services/gun-db.js').then(({ default: gun }) => {
+            if (!gun || !isSubscribed) return;
+            
+            console.log('[GamePage] Setting up smart agreement subscriptions');
+            
+            gameContext.agreements.forEach(agreement => {
+                gun.get('agreements').get(agreement.agreement_id).on(async (data) => {
+                    if (data && isSubscribed) {
+                        const keyData = {
+                            status: data.status,
+                            title: data.title,
+                            description: data.description,
+                            parties: data.parties
+                        };
+                        const newState = JSON.stringify(keyData);
+                        const previousState = agreementStates.get(agreement.agreement_id);
+                        
+                        if (newState !== previousState) {
+                            console.log(`[GamePage] Meaningful change detected in ${agreement.agreement_id}`);
+                            agreementStates.set(agreement.agreement_id, newState);
+                            await refreshGameContext();
+                        }
+                    }
+                });
+            });
+        });
+        
+        return () => {
+            isSubscribed = false;
+        };
+    });
+
     function goToDetails() {
         goto(`/games/${gameId}/details`);
     }
