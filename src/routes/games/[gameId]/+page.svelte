@@ -65,15 +65,15 @@
         };
     });
 
-    // 2) Once we have context, subscribe only to the root Game field
+    // 2) Once we have context, subscribe to game changes and reload full context
     $effect(() => {
         if (!gameContext) return;
-        const ctx = gameContext; // narrowed non-null
         const unsubscribe = subscribeToGame(
             gameId,
             (updatedGame: Game) => {
                 game = updatedGame;
-                ctx.game = updatedGame;
+                // Reload full gameContext to pick up agreement changes
+                loadGameData();
             }
         );
         return () => unsubscribe();
