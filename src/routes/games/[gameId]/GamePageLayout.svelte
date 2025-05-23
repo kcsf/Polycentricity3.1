@@ -179,11 +179,11 @@
                                         
                                         <!-- Party names in small text -->
                                         {#if agreement.partyItems && Array.isArray(agreement.partyItems)}
-                                            {@const otherParties = agreement.partyItems.filter((party) => party.actorId !== playerRole.actor_id)}
+                                            {@const otherParties = agreement.partyItems.filter((party: any) => party.actorId !== playerRole.actor_id)}
                                             {#if otherParties.length > 0}
                                                 <div class="text-xs text-surface-600-400">
-                                                    with: {otherParties.map(party => {
-                                                        const actor = gameContext.actors.find(a => a.actor_id === party.actorId);
+                                                    with: {otherParties.map((party: any) => {
+                                                        const actor = gameContext.actors.find((a: any) => a.actor_id === party.actorId);
                                                         return actor?.custom_name || actor?.card?.role_title || party.actorId;
                                                     }).join(', ')}
                                                 </div>

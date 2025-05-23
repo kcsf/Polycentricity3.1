@@ -201,7 +201,7 @@ export function subscribeToGame(
 
   // Unsubscribe by off(handler)
   return () => {
-    gameNode.off(handler);
+    gameNode.off();
   };
 }
 

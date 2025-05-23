@@ -104,7 +104,7 @@
         import('$lib/services/gun-db.js').then(({ default: gun }) => {
             if (!gun || !isSubscribed) return;
             console.log('[GamePage] Setting up smart agreement monitoring with change detection');
-            gameContext.agreements.forEach(agreement => {
+            gameContext?.agreements.forEach(agreement => {
                 let debounceTimer: NodeJS.Timeout | undefined;
                 gun.get('agreements').get(agreement.agreement_id).on(async (data: any) => {
                     if (data && isSubscribed) {
@@ -137,7 +137,7 @@
             if (!gun || !isSubscribed) return;
             console.log('[GamePage] Setting up agreements_ref monitoring');
 
-            gun.get('games').get(gameId).get('agreements_ref').map().on(async (data, agreementId) => {
+            gun.get('games').get(gameId).get('agreements_ref').map().on(async (data: any, agreementId: string) => {
                 if (!data || !isSubscribed || !agreementId.match(/^ag_\d+$/) || knownAgreements.has(agreementId)) return;
 
                 // Verify agreement exists and is valid
