@@ -176,29 +176,32 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
 
 /**
  * Listen for changes to a single Game by ID.
- * When the root Game changes or any of its agreements change, re‐resolve its `players` map and emit
- * an enriched Game object to `callback`.
+ * If `changeOnly` is true, you’ll get only deltas.
  */
 export function subscribeToGame(
   gameId: string,
   callback: (g: Game) => void,
+  changeOnly: boolean = false
 ): () => void {
-  return subscribe<Game>(`${nodes.games}/${gameId}`, async (data) => {
-    if (!data) return;
-
-    // Re-load players boolean map
-    const playersMap = await readMapOrSet(
-      `${nodes.games}/${gameId}`,
-      "players",
-    );
-
-    callback({
-      ...data,
-      game_id: gameId,
-      players: playersMap,
-    });
-  });
+  return subscribe<Game>(
+    `${nodes.games}/${gameId}`,
+    async (data) => {
+      if (!data) return;
+      // Re-load players boolean map
+      const playersMap = await readMapOrSet(
+        `${nodes.games}/${gameId}`,
+        "players"
+      );
+      callback({
+        ...data,
+        game_id: gameId,
+        players: playersMap,
+      });
+    },
+    changeOnly
+  );
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Game flows (fixed)

@@ -7,6 +7,7 @@
         getGameContext, 
         subscribeToGame
     } from '$lib/services/gameService';
+    import { subscribe, nodes } from '$lib/services/gunService';
     import type { Game, ActorWithCard, GameContext } from '$lib/types';
     import * as icons from '@lucide/svelte';
     import D3CardBoard from '$lib/components/game/D3CardBoard.svelte';
@@ -19,6 +20,7 @@
     let game        = $state<Game | null>(null);
     let playerRole  = $state<ActorWithCard | null>(null);
     let gameContext = $state<GameContext | null>(null);
+    let unsubAgRefs: () => void;
 
     function hasCompleteData(ctx: GameContext): boolean {
         return !!ctx.game
@@ -65,19 +67,26 @@
         };
     });
 
-    // 2) Once we have context, subscribe only to the root Game field
-    $effect(() => {
-        if (!gameContext) return;
-        const ctx = gameContext; // narrowed non-null
-        const unsubscribe = subscribeToGame(
-            gameId,
-            (updatedGame: Game) => {
-                game = updatedGame;
-                ctx.game = updatedGame;
-            }
-        );
-        return () => unsubscribe();
+  // 2) Subscribe to root Game updates and re-assign context to trigger reactivity
+  $effect(() => {
+    if (!gameContext) return;
+
+    // capture the existing context object
+    const ctx = gameContext;
+
+    const unsubscribe = subscribeToGame(gameId, (updatedGame: Game) => {
+      // update the local game
+      game = updatedGame;
+
+      // replace the entire context object so Svelte sees a new value
+      gameContext = {
+        ...ctx,
+        game: updatedGame
+      };
     });
+
+    return () => unsubscribe();
+  });  
 
     function goToDetails() {
         goto(`/games/${gameId}/details`);

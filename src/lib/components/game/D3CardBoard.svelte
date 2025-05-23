@@ -169,11 +169,21 @@
   }
 
 
-
-  // Kick off on mount & clean up on destroy
+  // Kick off visualization on mount AND whenever gameContext changes
   $effect(() => {
-    setTimeout(initializeVisualization, 300);
+    // if for some reason the prop isn’t set yet, bail
+    if (!gameContext) return;
+
+    // stop any existing force simulation
+    simulation?.stop();
+
+    // debounce to let layout settle
+    const handle = setTimeout(() => {
+      initializeVisualization();
+    }, 300);
+
     return () => {
+      clearTimeout(handle);
       simulation?.stop();
     };
   });
