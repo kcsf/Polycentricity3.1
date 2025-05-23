@@ -103,14 +103,15 @@
         }
     }
 
-    // 4) Smart agreement monitoring with proper change detection
+    // 4) Dual monitoring: new agreements + status changes
     $effect(() => {
         if (!gameContext) return;
         
         let isSubscribed = true;
         let agreementStates = new Map();
+        let knownAgreementIds = new Set(gameContext.agreements.map(a => a.agreement_id));
         
-        // Initialize baseline states
+        // Initialize baseline states for existing agreements
         gameContext.agreements.forEach(agreement => {
             const baseline = `${agreement.status}|${agreement.title}|${agreement.description}`;
             agreementStates.set(agreement.agreement_id, baseline);
@@ -119,8 +120,26 @@
         import('$lib/services/gun-db.js').then(({ default: gun }) => {
             if (!gun || !isSubscribed) return;
             
-            console.log('[GamePage] Setting up smart agreement monitoring with change detection');
+            console.log('[GamePage] Setting up dual monitoring: new agreements + status changes');
             
+            // 1) Watch for new agreements (simple approach)
+            gun.get('games').get(gameId).get('agreements_ref').on(async (agreementsRef) => {
+                if (agreementsRef && isSubscribed && typeof agreementsRef === 'object') {
+                    const currentIds = new Set(Object.keys(agreementsRef).filter(key => key !== '#' && agreementsRef[key] === true));
+                    const newAgreements = [...currentIds].filter(id => !knownAgreementIds.has(id));
+                    
+                    if (newAgreements.length > 0) {
+                        console.log(`[GamePage] New agreements detected: ${newAgreements.join(', ')}`);
+                        // Update known IDs and refresh once
+                        for (const newId of newAgreements) {
+                            knownAgreementIds.add(newId);
+                        }
+                        await refreshGameContext();
+                    }
+                }
+            });
+            
+            // 2) Monitor existing agreements for status changes
             gameContext.agreements.forEach(agreement => {
                 let debounceTimer;
                 
@@ -131,7 +150,7 @@
                         const previousState = agreementStates.get(agreement.agreement_id);
                         
                         if (currentState !== previousState) {
-                            console.log(`[GamePage] Real change detected in ${agreement.agreement_id}: ${previousState} → ${currentState}`);
+                            console.log(`[GamePage] Status change in ${agreement.agreement_id}: ${previousState} → ${currentState}`);
                             
                             // Debounce to prevent rapid refreshes
                             clearTimeout(debounceTimer);
@@ -140,7 +159,6 @@
                                 await refreshGameContext();
                             }, 300);
                         }
-                        // Silently ignore metadata-only changes
                     }
                 });
             });
