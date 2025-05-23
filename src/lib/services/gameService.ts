@@ -181,7 +181,7 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
  */
 export function subscribeToGame(
   gameId: string,
-  onGame: (g: Game) => void
+  onGame: (g: Game) => void,
 ): () => void {
   const gun = getGun();
   if (!gun) return () => {};
@@ -193,7 +193,7 @@ export function subscribeToGame(
   const handler = (raw: Partial<Game> | undefined) => {
     if (!raw) return;
     // raw may be missing fields—fill in game_id explicitly
-    onGame({ ...raw as Game, game_id: gameId });
+    onGame({ ...(raw as Game), game_id: gameId });
   };
 
   // Subscribe
@@ -1270,16 +1270,16 @@ export async function getGameContext(
     );
 
     // 7️⃣ agreements for this game — now correctly fetch obligation & benefit
-  const rawAgs = await getCollection<Agreement>(nodes.agreements);
+    const rawAgs = await getCollection<Agreement>(nodes.agreements);
     const agreements: AgreementWithPosition[] = await Promise.all(
       rawAgs
         .filter((ag) => ag.game_ref === gameId)
         .map(async (ag) => {
-const partiesRef =
-  (await getRefMap(
-    `${nodes.agreements}/${ag.agreement_id}`,
-    "parties"
-  )) ?? {};
+          const partiesRef =
+            (await getRefMap(
+              `${nodes.agreements}/${ag.agreement_id}`,
+              "parties",
+            )) ?? {};
 
           const partyItems: PartyItem[] = await Promise.all(
             Object.keys(partiesRef).map(async (actorId) => {
@@ -1311,7 +1311,7 @@ const partiesRef =
                 benefit: pd.benefit,
               } as PartyItem;
             }),
-          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));          
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));
 
           return {
             ...ag,
@@ -1336,13 +1336,13 @@ const partiesRef =
       deckName,
     };
 
-    // dev‐only log
-    // if (import.meta.env.DEV) {
-    //   console.log(
-    //     `[gameService] getGameContext full context for ${gameId}:`,
-    //     result,
-    //   );
-    // }
+    //dev‐only log
+    if (import.meta.env.DEV) {
+      console.log(
+        `[gameService] getGameContext full context for ${gameId}:`,
+        result,
+      );
+    }
 
     // dev-only log (commented out to reduce noise)
     // console.log(
@@ -1356,7 +1356,3 @@ const partiesRef =
     return null;
   }
 }
-
-
-
-

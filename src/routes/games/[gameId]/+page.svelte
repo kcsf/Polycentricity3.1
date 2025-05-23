@@ -90,32 +90,18 @@
         return () => unsubscribe();
     });
 
-    // 3) Simple periodic refresh for agreement changes
-    $effect(() => {
-        if (!gameContext) return;
-        
-        const interval = setInterval(async () => {
-            try {
-                const freshContext = await getGameContext(gameId);
-                if (freshContext) {
-                    // Only update if agreements actually changed
-                    const currentCount = gameContext.agreements.length;
-                    const newCount = freshContext.agreements.length;
-                    const currentStatus = gameContext.agreements.map(a => `${a.agreement_id}:${a.status}`).sort().join(',');
-                    const newStatus = freshContext.agreements.map(a => `${a.agreement_id}:${a.status}`).sort().join(',');
-                    
-                    if (newCount !== currentCount || currentStatus !== newStatus) {
-                        console.log(`[GamePage] Agreement changes detected, updating gameContext`);
-                        gameContext = freshContext;
-                    }
-                }
-            } catch (err) {
-                console.error('[GamePage] Error checking for updates:', err);
+    // 3) Manual refresh function for when agreements are created/updated
+    async function refreshGameContext() {
+        try {
+            const freshContext = await getGameContext(gameId);
+            if (freshContext) {
+                console.log('[GamePage] Manually refreshing game context');
+                gameContext = freshContext;
             }
-        }, 3000); // Check every 3 seconds
-        
-        return () => clearInterval(interval);
-    });
+        } catch (err) {
+            console.error('[GamePage] Error refreshing context:', err);
+        }
+    }
 
     function goToDetails() {
         goto(`/games/${gameId}/details`);
