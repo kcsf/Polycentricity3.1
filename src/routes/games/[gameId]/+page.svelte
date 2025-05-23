@@ -68,15 +68,21 @@
     // 2) Once we have context, subscribe to game changes and reload full context
     $effect(() => {
         if (!gameContext) return;
+        console.log(`[GamePage] Setting up subscribeToGame for ${gameId}`);
         const unsubscribe = subscribeToGame(
             gameId,
             (updatedGame: Game) => {
+                console.log(`[GamePage] subscribeToGame callback fired! Game:`, updatedGame.name);
                 game = updatedGame;
                 // Reload full gameContext to pick up agreement changes
+                console.log(`[GamePage] Triggering loadGameData from subscription`);
                 loadGameData();
             }
         );
-        return () => unsubscribe();
+        return () => {
+            console.log(`[GamePage] Unsubscribing from game ${gameId}`);
+            unsubscribe();
+        };
     });
 
     function goToDetails() {

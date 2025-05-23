@@ -200,7 +200,8 @@ export function subscribeToGame(
   };
 
   // Agreement change handler - triggers game refresh when any agreement changes
-  const agreementHandler = () => {
+  const agreementHandler = (data: any) => {
+    console.log(`[subscribeToGame] Agreement change detected for game ${gameId}:`, data);
     // Trigger a fresh game fetch when agreements change
     gameNode.once(handler);
   };
