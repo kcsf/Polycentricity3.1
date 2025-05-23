@@ -204,12 +204,14 @@ export function subscribeToGame(
   const agreementsNode = gun.get(nodes.agreements);
   const agreementHandler = (data: any, agreementId: string) => {
     if (data && agreementId) {
-      console.log(`[subscribeToGame] Agreement ${agreementId} changed, triggering game refresh`);
+      console.log(
+        `[subscribeToGame] Agreement ${agreementId} changed, triggering game refresh`,
+      );
       // Trigger the main handler to refresh game data
       gameNode.once(handler);
     }
   };
-  
+
   agreementsNode.on(agreementHandler);
 
   // Unsubscribe by off(handler)
@@ -1037,7 +1039,7 @@ export async function updateDeck(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Card flows
-// ────────────────────────────────────────────────────────────────so�────────────
+// ──────────────────────────────────────────am�─────────────────────so�────────────
 
 /**
  * Create a new Card with a sequential ID (card_1, card_2, …) and attach it to a deck.
