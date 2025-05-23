@@ -176,7 +176,7 @@ export function subscribeToGames(callback: (g: Game) => void): () => void {
 
 /**
  * Listen for changes to a single Game by ID.
- * When the root Game changes, re‐resolve its `players` map and emit
+ * When the root Game changes or any of its agreements change, re‐resolve its `players` map and emit
  * an enriched Game object to `callback`.
  */
 export function subscribeToGame(
@@ -519,7 +519,7 @@ export async function leaveGame(gameId: string): Promise<boolean> {
   }
 }
 
-// ───────────────────────────────────────────────────_��─────────────────────────
+// ─────────────────────────────────────────e��─────────_��─────────────────────────
 // Actor flows
 // ────────────────────────────────────────────────���────────────────────────────
 export async function createActor(
