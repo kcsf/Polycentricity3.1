@@ -5,7 +5,7 @@
     import { userStore } from '$lib/stores/userStore';
     import { subscribeToLastActive } from '$lib/services/userService';
     import { updateAgreement } from '$lib/services/gameService';
-    import type { Game, ActorWithCard } from '$lib/types';
+    import type { Game, ActorWithCard, GameContext, AgreementStatus } from '$lib/types';
     import ChatBox from '$lib/components/ChatBox.svelte';
     import PlayersList from '$lib/components/game/PlayersList.svelte';
     import type { ComponentProps, SvelteComponent } from 'svelte';
@@ -83,7 +83,7 @@
     // Handle agreement status change
     async function handleStatusChange(agreementId: string, newStatus: string) {
         try {
-            await updateAgreement(agreementId, { status: newStatus });
+            await updateAgreement(agreementId, { status: newStatus as AgreementStatus });
             console.log(`[GamePageLayout] Updated agreement ${agreementId} status to: ${newStatus}`);
         } catch (error) {
             console.error(`[GamePageLayout] Failed to update agreement status:`, error);
@@ -157,10 +157,10 @@
             {#if agreementsExpanded}
                 <div class="px-4 py-2 space-y-2" transition:slide={{ duration: 200 }}>
                     {#if gameContext?.agreements && playerRole}
-                        {@const playerAgreements = gameContext.agreements.filter(agreement => {
+                        {@const playerAgreements = gameContext.agreements.filter((agreement: any) => {
                             // Check if partyItems exists and contains the actor
                             if (agreement.partyItems && Array.isArray(agreement.partyItems)) {
-                                return agreement.partyItems.some(party => party.actorId === playerRole.actor_id);
+                                return agreement.partyItems.some((party: any) => party.actorId === playerRole.actor_id);
                             }
                             // Fallback: check if parties is an array and contains the actor
                             if (Array.isArray(agreement.parties)) {
@@ -181,7 +181,7 @@
                                             <select 
                                                 class="select text-xs px-2 py-1 bg-surface-300-700 border border-surface-400-600 rounded"
                                                 value={agreement.status || 'proposed'}
-                                                onchange={(e) => handleStatusChange(agreement.agreement_id, e.target.value)}
+                                                onchange={(e) => handleStatusChange(agreement.agreement_id, (e.target as HTMLSelectElement).value)}
                                             >
                                                 <option value="proposed">proposed</option>
                                                 <option value="active">active</option>
