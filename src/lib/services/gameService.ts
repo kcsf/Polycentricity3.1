@@ -188,32 +188,34 @@ export function subscribeToGame(
 
   // Point at games/<gameId>/game
   const gameNode = gun.get(`${nodes.games}/${gameId}`).get("game");
-  
-  // Point at games/<gameId>/agreements_ref to watch for agreement changes
-  const agreementsRefNode = gun.get(`${nodes.games}/${gameId}`).get("agreements_ref");
 
   // Handler casts partial data into Game
   const handler = (raw: Partial<Game> | undefined) => {
     if (!raw) return;
+    console.log(`[subscribeToGame] Game callback fired for ${gameId}`);
     // raw may be missing fields—fill in game_id explicitly
     onGame({ ...(raw as Game), game_id: gameId });
   };
 
-  // Agreement change handler - triggers game refresh when any agreement changes
-  const agreementHandler = (data: any) => {
-    console.log(`[subscribeToGame] Agreement change detected for game ${gameId}:`, data);
-    // Trigger a fresh game fetch when agreements change
-    gameNode.once(handler);
-  };
-
-  // Subscribe to both game changes and agreement reference changes
+  // Subscribe to game changes
   gameNode.on(handler);
-  agreementsRefNode.on(agreementHandler);
+
+  // Also watch for agreement changes by subscribing to all agreements node
+  const agreementsNode = gun.get(nodes.agreements);
+  const agreementHandler = (data: any, agreementId: string) => {
+    if (data && agreementId) {
+      console.log(`[subscribeToGame] Agreement ${agreementId} changed, triggering game refresh`);
+      // Trigger the main handler to refresh game data
+      gameNode.once(handler);
+    }
+  };
+  
+  agreementsNode.on(agreementHandler);
 
   // Unsubscribe by off(handler)
   return () => {
     gameNode.off(handler);
-    agreementsRefNode.off(agreementHandler);
+    agreementsNode.off(agreementHandler);
   };
 }
 
