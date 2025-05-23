@@ -178,11 +178,18 @@
     };
   });
 
-  // React to gameContext changes (including agreement status updates)
+  // React to gameContext changes using deep comparison
+  let lastAgreementsSnapshot = $state<string>('');
+  
   $effect(() => {
     if (gameContext && svgElement) {
-      console.log('[D3CardBoard] gameContext updated, re-rendering visualization');
-      initializeVisualization();
+      // Compare agreements to detect changes
+      const currentSnapshot = JSON.stringify(gameContext.agreements);
+      if (currentSnapshot !== lastAgreementsSnapshot) {
+        console.log('[D3CardBoard] Agreements changed, re-rendering visualization');
+        lastAgreementsSnapshot = currentSnapshot;
+        initializeVisualization();
+      }
     }
   });
 </script>

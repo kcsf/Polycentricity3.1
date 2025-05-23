@@ -90,24 +90,31 @@
         return () => unsubscribe();
     });
 
-    // 3) Subscribe to agreements changes using gameService subscription
+    // 3) Simple periodic refresh for agreement changes
     $effect(() => {
         if (!gameContext) return;
         
-        // Use a simple timer to periodically refresh context for agreement changes
-        const intervalId = setInterval(async () => {
+        const interval = setInterval(async () => {
             try {
                 const freshContext = await getGameContext(gameId);
-                if (freshContext && freshContext.agreements.length !== gameContext.agreements.length) {
-                    console.log(`[GamePage] Detected agreement changes, refreshing context`);
-                    gameContext = freshContext;
+                if (freshContext) {
+                    // Only update if agreements actually changed
+                    const currentCount = gameContext.agreements.length;
+                    const newCount = freshContext.agreements.length;
+                    const currentStatus = gameContext.agreements.map(a => `${a.agreement_id}:${a.status}`).sort().join(',');
+                    const newStatus = freshContext.agreements.map(a => `${a.agreement_id}:${a.status}`).sort().join(',');
+                    
+                    if (newCount !== currentCount || currentStatus !== newStatus) {
+                        console.log(`[GamePage] Agreement changes detected, updating gameContext`);
+                        gameContext = freshContext;
+                    }
                 }
             } catch (err) {
-                console.error('[GamePage] Error refreshing context:', err);
+                console.error('[GamePage] Error checking for updates:', err);
             }
-        }, 2000); // Check every 2 seconds
+        }, 1000); // Check every second
         
-        return () => clearInterval(intervalId);
+        return () => clearInterval(interval);
     });
 
     function goToDetails() {
