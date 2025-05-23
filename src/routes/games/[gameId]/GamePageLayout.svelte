@@ -86,11 +86,6 @@
             console.log(`[GamePageLayout] Updating agreement ${agreementId} status to: ${newStatus}`);
             await updateAgreement(agreementId, { status: newStatus });
             console.log(`[GamePageLayout] Successfully updated agreement ${agreementId} status to: ${newStatus}`);
-            
-            // Give Gun.js a moment to sync the change, then reload the page to show updated status
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
         } catch (error) {
             console.error(`[GamePageLayout] Failed to update agreement status:`, error);
         }
