@@ -109,8 +109,9 @@
         </div>
     {:else if game && playerRole && gameContext && hasCompleteData(gameContext)}
         <!-- Game Page Content with Layout -->
+        
         <GamePageLayout {game} {gameId} {playerRole} {gameContext} actors={gameContext.actors} />
-    {:else if game}
+    {:else if game}  
         <!-- Game Page Content -->
         <div class="game-page-layout relative flex flex-col overflow-hidden bg-surface-100-800" style="height: calc(100vh - var(--app-bar-height, 64px))">
             <!-- Top Navigation Bar -->
@@ -148,7 +149,6 @@
             <!-- Main Game Board Section without Layout -->
             <div class="flex-1 flex-grow relative overflow-hidden">
                 {#if gameContext}
-
                 <D3CardBoard {gameId} {gameContext} activeActorId={playerRole?.actor_id} />
                 {/if}
             </div>

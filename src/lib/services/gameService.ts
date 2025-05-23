@@ -1199,58 +1199,56 @@ export async function getGameContext(
     );
 
     // 7️⃣ agreements for this game — now correctly fetch obligation & benefit
-    const agreementIds = Object.keys(agreementRefMap);
-    const agreements: AgreementWithPosition[] = (
-      await Promise.all(
-        agreementIds.map(async (agId) => {
-          const ag = await get<Agreement>(`${nodes.agreements}/${agId}`);
-          if (!ag || ag.game_ref !== gameId) return null;
+  const rawAgs = await getCollection<Agreement>(nodes.agreements);
+    const agreements: AgreementWithPosition[] = await Promise.all(
+      rawAgs
+        .filter((ag) => ag.game_ref === gameId)
+        .map(async (ag) => {
+const partiesRef =
+  (await getRefMap(
+    `${nodes.agreements}/${ag.agreement_id}`,
+    "parties"
+  )) ?? {};
 
-          // 🔑 fetch just the child‐keys under "parties"
-          const partiesMap =
-            (await getField<Record<string, { "#": string }>>(
-              `${nodes.agreements}/${agId}`,
-              "parties",
-            )) || {};
+          const partyItems: PartyItem[] = await Promise.all(
+            Object.keys(partiesRef).map(async (actorId) => {
+              const pd = (await getField<{
+                card_ref: string;
+                obligation: string;
+                benefit: string;
+              }>(
+                `${nodes.agreements}/${ag.agreement_id}/parties`,
+                actorId,
+              )) ?? {
+                card_ref: "",
+                obligation: "",
+                benefit: "",
+              };
 
-          // for each actor key, fetch the actual pd object with getField
-          const partyItems: PartyItem[] = (
-            await Promise.all(
-              Object.keys(partiesMap).map(async (actorId) => {
-                const pd = await getField<{
-                  card_ref: string;
-                  obligation: string;
-                  benefit: string;
-                }>(
-                  `${nodes.agreements}/${agId}/parties`,
-                  actorId,
+              const actor = actors.find((a) => a.actor_id === actorId);
+              if (!actor?.card) {
+                console.warn(
+                  `Agreement ${ag.agreement_id} actor ${actorId} has no card`,
                 );
-                if (!pd) return null;
-                const actor = actors.find((a) => a.actor_id === actorId);
-                if (!actor?.card) {
-                  console.warn(
-                    `Agreement ${agId} actor ${actorId} has no card`,
-                  );
-                  return null;
-                }
-                return {
-                  actorId,
-                  card: actor.card,
-                  obligation: pd.obligation,
-                  benefit: pd.benefit,
-                } as PartyItem;
-              }),
-            )
-          ).filter((x): x is PartyItem => Boolean(x));
+                return null;
+              }
+
+              return {
+                actorId,
+                card: actor.card,
+                obligation: pd.obligation,
+                benefit: pd.benefit,
+              } as PartyItem;
+            }),
+          ).then((arr) => arr.filter((x): x is PartyItem => Boolean(x)));          
 
           return {
             ...ag,
             partyItems,
             position: randomPos(),
-          } as AgreementWithPosition;
+          };
         }),
-      )
-    ).filter((x): x is AgreementWithPosition => Boolean(x));
+    );
 
     // 8️⃣ deck display name
     const deckRec = await get<Deck>(`${nodes.decks}/${deckId}`);
@@ -1268,12 +1266,18 @@ export async function getGameContext(
     };
 
     // dev‐only log
-    if (import.meta.env.DEV) {
-      console.log(
-        `[gameService] getGameContext full context for ${gameId}:`,
-        result,
-      );
-    }
+    // if (import.meta.env.DEV) {
+    //   console.log(
+    //     `[gameService] getGameContext full context for ${gameId}:`,
+    //     result,
+    //   );
+    // }
+
+    // always log
+    console.log(
+      `[gameService] getGameContext full context for ${gameId}:`,
+      result,
+    );
 
     return result;
   } catch (e) {

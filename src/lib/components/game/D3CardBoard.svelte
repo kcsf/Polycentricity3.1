@@ -36,6 +36,8 @@
   let selectedNode = $state<D3Node | null>(null);
   let activeCardId = $state<string | null>(null);
 
+  console.log("🔍 D3CardBoard received props:", { gameId, gameContext, activeActorId });
+
   // Resize observer
   $effect(() => {
     if (svgElement?.parentElement) {
@@ -58,14 +60,14 @@
     }
 
     const assigned = ctx.actors
-      .filter(a => !!a.card)
-      .map(a => ({
+      .filter((a: ActorWithCard) => !!a.card)
+      .map((a: ActorWithCard) => ({
         ...a.card!,
         actor_id: a.actor_id,
         position: a.position ?? { x: Math.random() * width, y: Math.random() * height }
       }));
 
-    const availableWithPos = (ctx.availableCards || []).map(c => ({
+    const availableWithPos = (ctx.availableCards || []).map((c: CardWithPosition) => ({
       ...c,
       position: { x: Math.random() * width, y: Math.random() * height }
     }));
