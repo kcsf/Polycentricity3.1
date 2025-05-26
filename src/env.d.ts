@@ -3,6 +3,7 @@
 declare module '$env/static/private' {
   export const SENDGRID_API_KEY: string;
   export const CLOUDFLARE_TURNSTILE_SECRET: string;
+  export const ADMIN_EMAIL: string;
 }
 
 declare module '$env/static/public' {
