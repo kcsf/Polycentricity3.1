@@ -373,13 +373,92 @@ const gameContext = await getGameContext(gameId);
 // Returns: game, actors with cards, agreements with parties, available cards, etc.
 ```
 
-### Future Edge Support
-Each node reserves a `ref_set` field for future Gun.js edge relationships:
+### ref_set: Test Implementation for Edges with Metadata
+
+The `ref_set` field implements a test pattern for Gun.js edges that can carry metadata, providing a pathway for future migration from boolean maps to true Gun.js relationships.
+
+#### Current Implementation Pattern
 ```typescript
+// In createGame function - creating edges with metadata
+await createRelationship(
+  `${nodes.games}/${gameId}`,
+  "ref_set",
+  `${nodes.users}/${user.user_id}`,
+  { role: "creator" }
+);
+await createRelationship(
+  `${nodes.games}/${gameId}`,
+  "ref_set", 
+  `${nodes.decks}/${deckRef}`,
+  { role: "deck" }
+);
+```
+
+#### createRelationship Function
+The `createRelationship` function in gunService.ts handles edge creation with optional metadata:
+```typescript
+export async function createRelationship(
+  fromSoul: string,        // Source node path: 'games/g_456'
+  field: string,           // Edge field: 'ref_set'
+  toSoul: string,          // Target node path: 'users/u_838'
+  meta?: Record<string, any> // Optional metadata: { role: "creator" }
+): Promise<GunAck>
+```
+
+#### Edge Structure with Metadata
+When metadata is provided, the edge stores both the reference and additional data:
+```typescript
+// Without metadata (simple Gun.js reference):
+gun.get(fromSoul).get(field).set(gun.get(toSoul))
+
+// With metadata (enriched reference):
+gun.get(fromSoul).get(field).set({ 
+  "#": toSoul,           // Gun.js reference pointer
+  role: "creator",       // Custom metadata
+  // ... any other metadata fields
+})
+```
+
+#### Data Structure Example
+A game's `ref_set` field contains structured edges:
+```json
 {
-  // ... other node fields
-  ref_set?: Record<string, string>; // Reserved for future Gun.js edges
+  "games": {
+    "g_456": {
+      "game_id": "g_456",
+      "name": "Eco-Village Simulation",
+      // ... other game fields
+      "ref_set": {
+        "edge_1": {
+          "#": "users/FDSF8XMx_Wjn7msT9JaRCeHTiw7PHA3pLco05Mc1OM0.xIyk5asm8NMqWA-9F368wNdkL1myrrfpcNlLoejlrP8",
+          "role": "creator"
+        },
+        "edge_2": {
+          "#": "decks/d_1", 
+          "role": "deck"
+        }
+      }
+    }
+  }
 }
 ```
 
-This allows migration to true Gun.js edges while maintaining current boolean map functionality.
+#### Benefits of ref_set Pattern
+1. **Metadata Support**: Unlike boolean maps, edges can carry semantic information
+2. **Relationship Types**: The `role` field clarifies the nature of relationships
+3. **Future Migration**: Provides a path to Gun.js edges while maintaining current functionality
+4. **Backwards Compatibility**: Coexists with existing boolean map patterns
+
+#### Migration Strategy
+The current implementation maintains both patterns:
+- **String References**: `creator_ref: "u_838"` for simple lookups
+- **Boolean Maps**: `players: { u_838: true }` for collections
+- **ref_set Edges**: `ref_set: [{ "#": "users/u_838", role: "creator" }]` for rich relationships
+
+#### Future Considerations
+- **Rename to ref_map**: Consider renaming `*_ref` boolean maps to `*_map` for clarity
+- **Expand metadata**: Add timestamps, permissions, or other relationship metadata
+- **Performance**: Test Gun.js edge performance vs boolean map performance at scale
+- **Consistency**: Gradually migrate all relationships to use `ref_set` pattern
+
+This test implementation demonstrates how Gun.js edges with metadata could replace the current boolean map system while providing richer relationship semantics.
