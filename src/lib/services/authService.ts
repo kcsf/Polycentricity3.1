@@ -14,7 +14,22 @@ import { userStore } from "$lib/stores/userStore";
 import { updateUserRole } from "./gameService";
 import type { User, GunAck } from "$lib/types";
 
-const BJORN_EMAIL = "bjorn@endogon.com";
+import { browser } from '$app/environment';
+
+// Get admin email from environment, with fallback for client-side
+function getAdminEmail(): string {
+  if (browser) {
+    // On client side, we'll use a default that can be overridden
+    return 'admin@example.com';
+  }
+  // On server side, we can access the environment variable
+  try {
+    return process.env.ADMIN_EMAIL || 'admin@example.com';
+  } catch {
+    return 'admin@example.com';
+  }
+}
+
 let lastLoginTimer: NodeJS.Timeout | null = null;
 
 /**
@@ -114,7 +129,7 @@ export async function registerUser(
     const now = Date.now();
     const magic_key = generateId();
     const expires_at = now + 24 * 60 * 60 * 1000;
-    const role = email === BJORN_EMAIL ? "Admin" : "Guest";
+    const role = email === getAdminEmail() ? "Admin" : "Guest";
 
     console.log("[authService] Creating user record with role:", role);
 

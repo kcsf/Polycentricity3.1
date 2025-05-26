@@ -4,75 +4,78 @@ A collaborative governance simulation game where players assume various roles in
 
 ## Core Technologies
 
-- **SvelteKit 5.25.9** with Runes mode for reactive state management
-- **Gun.js** for decentralized real-time data synchronization
-- **Cytoscape.js and D3.js** for interactive network visualizations
-- **TypeScript** for type safety and advanced error handling
-- **Skeleton UI** with Tailwind CSS for responsive design
+- **SvelteKit 5.28.1** with Runes mode for reactive state management
+- **Gun.js** for decentralized real-time data synchronization with advanced schema
+- **D3.js** for interactive network visualizations and force-directed layouts
+- **TypeScript** for type safety and comprehensive type definitions
+- **Skeleton UI v3** with Tailwind CSS for responsive design
+- **SendGrid** for email verification and notifications
 
 ## Project Summary
 
 Polycentricity is a digital implementation of a collaborative governance simulation game, originally conceived as a workshop paper prototype by Michael Zargham. Inspired by Zargham's vision, as detailed in his [Game Plan](https://hackmd.io/o0XyDD6tRKawnIdpRQqrmw), we built the game on a decentralized graph database (Gun.js) with augmented visualizations (D3.js and Cytoscape.js) to serve as a proof-of-concept for future decentralized governance projects. In a Web3 world where individuals strive for sovereignty, education through gameplay is essential. Polycentricity aims to remind players of the separation between spirit and material identity, emphasizing that reality is a web of consensual agreements. The game challenges the layered statutory jurisdictions filled with predatory legal systems, positing that new realities can emerge and evolve rapidly in a trustless Web3 ecosystem without reliance on traditional legal frameworks. The core mechanic revolves around a graph-based data model where each player, as an **actor** with unique roles, goals, and assets, interacts to form **agreements** defined by **obligations** and **benefits**.
 
+## Database Architecture
+
+- **Advanced Gun.js Schema**: Comprehensive data structure using boolean maps for relationships instead of Gun.js edges for simplified querying
+- **SEA Integration**: Uses SEA pubkeys as user_ids with reserved authentication fields
+- **Denormalized Structure**: Agreements embed party details for single-pass UI rendering
+- **ref_set Pattern**: Test implementation for Gun.js edges with metadata support
+- **Technical Documentation**: See [GunSchema.md](GunSchema.md) for complete schema reference
+
 ## Completed Features
 
-1. **Basic Actor System** 
-   - Implementation of actor roles with different capabilities, values, and resources
-   - Predefined deck types (eco-village, community garden) with character templates
-   - Actor assignment and role selection during game join process
+1. **Advanced Actor System** 
+   - Multi-game actor persistence with cross-game identity transfer
+   - Predefined deck types (eco-village, community garden) with rich character templates
+   - Dynamic actor-card assignment system with game-specific roles
+   - National Identity vs Sovereign Identity actor types
 
-2. **Game Creation and Management**
-   - Game creation with name, deck selection, and role assignment options
-   - Game status tracking and management
-   - Game listing/browser with filtering capabilities
-   - Admin tools for game oversight
+2. **Comprehensive Game Management**
+   - Game creation with deck selection and role assignment strategies
+   - Real-time game status tracking and lifecycle management
+   - Advanced game browser with filtering and search capabilities
+   - Multi-player support with configurable limits
 
-3. **Authentication System**
-   - User registration, login, and session management
+3. **Robust Authentication System**
+   - SEA-based user registration and session management
+   - Email verification with magic link authentication
    - Role-based access control (Guest, Member, Admin)
-   - Quick login bypass for testing (Admin)
+   - Configurable admin user setup via environment variables
 
-4. **Basic Database Structure**
-   - Gun.js implementation for decentralized data
-   - Database visualization tools for administrators
-   - Caching mechanisms for performance enhancement
+4. **Sophisticated Agreement System**
+   - Bilateral and multilateral agreement creation
+   - Obligation and benefit tracking with party-specific terms
+   - Agreement status management (proposed, accepted, rejected, completed)
+   - Visual agreement representation in network diagrams
 
-5. **Visualization Framework**
-   - D3.js implementation for displaying relationships
-   - Interactive card-based display of actors
-   - Basic UI layout with sidebar navigation and game board
+5. **Advanced Visualization Framework**
+   - D3.js force-directed network layouts for actors and agreements
+   - Interactive card positioning with persistent layout storage
+   - Real-time visualization updates with smart change detection
+   - Cork board representation with visual relationship mapping
 
-6. **Communication System**
-   - Group chat in game rooms
-   - Private messaging between actors
+6. **Real-time Communication System**
+   - Group chat in game rooms with actor-based identity
+   - Private messaging between players
+   - Message persistence and delivery tracking
 
 ## In Development
 
-1. **Agreement Formation Mechanics**
-   - Complete implementation of bilateral/multilateral agreements
-   - Agreement templates with obligation and benefit tracking
-   - Visual representation of agreements on the game board with proper connected edges
-   - Agreement lifecycle management (creation, modification, termination)
-
-2. **Cork Board Representation**
-   - Digital equivalent of the physical design with strings connecting actors and agreements
-   - Visual distinction between symmetric and asymmetric agreements
-   - Proper visualization of obligations and benefits as directional relationships
-
-3. **Gameplay Phases**
-   - Structured phases for game progression (setup, free play, debrief)
+1. **Enhanced Gameplay Mechanics**
+   - Structured game phases (setup, negotiation, reflection)
    - Time management and phase transitions
    - Facilitated gameplay experience with guided progression
 
-4. **Resource Exchange System**
-   - Implementation of rivalrous resources and their exchange
-   - Tracking of intellectual property sharing
-   - Capability utilization mechanics
+2. **Resource Exchange System**
+   - Implementation of rivalrous resource trading
+   - Intellectual property sharing mechanics
+   - Capability utilization and resource tracking
 
-5. **Reflection and Outcome Analysis**
-   - Tools for analyzing game outcomes
-   - Metrics for collaboration effectiveness
-   - Debrief functionality to discuss "did we win?"
+3. **Analytics and Reflection Tools**
+   - Game outcome analysis and metrics
+   - Collaboration effectiveness measurement
+   - Post-game debrief functionality and insights
 
 ## Extended Features
 
@@ -103,22 +106,30 @@ Polycentricity is a digital implementation of a collaborative governance simulat
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd polycentricity
+cd polycentricity3.1
 ```
 
-2. Install dependencies:
+2. Set up environment variables:
+```bash
+cp .env.example .env
+```
+Edit `.env` and set your email address for the `ADMIN_EMAIL` variable to automatically become an admin user upon registration.
+
+3. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Start the development server:
+4. Start the development server:
 ```bash
 npm run dev -- --host 0.0.0.0 --port 5000
 ```
 
-4. Open your browser and navigate to `http://localhost:5000`
+5. Open your browser and navigate to `http://localhost:5000`
 
 ## Development Notes
 
-- Admin login: bjorn@endogon.com
-- Current development focus: Agreement system and proper database schema redesign
+- **Admin Setup**: Copy `.env.example` to `.env` and add your email address to `ADMIN_EMAIL=your-email@example.com`. This will automatically make that user an admin upon creating an account.
+- **Email Features**: Set `SENDGRID_API_KEY` in `.env` for email verification functionality (optional for development)
+- **Database**: Uses Gun.js for decentralized data storage - no additional database setup required
+- **Technical Documentation**: See [GunSchema.md](GunSchema.md) for detailed database architecture
