@@ -1,7 +1,7 @@
 # Gun.js Database Schema
 
 ## Overview
-This schema defines the data structure for a Gun.js-based Polycentricity governance game. It uses lightweight, top-level nodes with boolean maps for relationships, denormalized entries for single-pass reads, and optimizations for pagination, sharding, and debounced updates. SEA-ready fields are reserved for future authentication and encryption. The model is simple and relational, ensuring a clear User-Actor-Game-Card structure.
+This schema defines the data structure for a Gun.js-based Polycentricity governance game. It uses lightweight, top-level nodes with boolean maps for relationships, denormalized entries for single-pass reads, and optimizations for pagination, sharding, and debounced updates. SEA-ready fields are reserved for future authentication and encryption. The model is simple and relational, ensuring a clear User-Actor-Game-Card structure.  *Please Note the comments on "set_ref" for future consideration.
 
 **Key Features:**
 - **Boolean Maps Instead of Edges**: Uses `*_ref` fields as boolean maps (e.g., `{ card_1: true }`) rather than Gun.js pointer edges for simplified querying.
