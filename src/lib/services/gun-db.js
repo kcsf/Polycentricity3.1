@@ -21,7 +21,7 @@ import Gun from "gun";
 // import "gun/lib/rindexed";
 import "gun/sea";
 import "gun/lib/unset.js";
-import { env } from "$env/dynamic/public";
+import { env } from '$env/dynamic/public';
 
 /** @type {any} */
 let db;
@@ -32,14 +32,14 @@ if (browser) {
   }
 
   // Split GUN_PEERS if it exists and contains commas, otherwise use as-is or empty array
-  const peers = env.GUN_PEERS
-    ? env.GUN_PEERS.includes(",")
-      ? env.GUN_PEERS.split(",")
-      : [env.GUN_PEERS]
-    : [];
+const peers = env.PUBLIC_GUN_PEERS
+  ? env.PUBLIC_GUN_PEERS.includes(",")
+    ? env.PUBLIC_GUN_PEERS.split(",")
+    : [env.PUBLIC_GUN_PEERS]
+  : undefined;
 
   const gunOptions = {
-    peers, // placeholder for future peer relays
+    ...(peers && { peers }), // Gun Peer Relays from environment variable - only include peers if defined
     localStorage: true, // ← use built-in localStorage, no Radisk
     silent: true, // reduce Gun logs
     quiet: true, // reduce SEA logs
@@ -51,6 +51,9 @@ if (browser) {
   };
 
   db = Gun(gunOptions);
+
+    // 👇 Expose for browser devtools
+  window.gun = db;
 
   // Debug node to verify initialization
   db.get("users/debug").put({
