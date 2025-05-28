@@ -1,4 +1,5 @@
 // src/lib/services/authService.ts
+import { PUBLIC_ADMIN_EMAIL } from '$env/static/public';
 import {
   getGun,
   getUser,
@@ -16,18 +17,14 @@ import type { User, GunAck } from "$lib/types";
 
 import { browser } from '$app/environment';
 
-// Get admin email from environment, with fallback for client-side
-function getAdminEmail(): string {
-  if (browser) {
-    // On client side, we'll use a default that can be overridden
-    return 'admin@example.com';
-  }
-  // On server side, we can access the environment variable
-  try {
-    return process.env.ADMIN_EMAIL || 'admin@example.com';
-  } catch {
-    return 'admin@example.com';
-  }
+/**
+ * Returns the admin email if we're in dev mode and env is set.
+ */
+function getAdminEmail(): string | null {
+  const isDev = import.meta.env.DEV;
+  console.log("[authService] [DEV MODE] isDev:", isDev);
+  //console.log("[authService] [DEV MODE] PUBLIC_ADMIN_EMAIL:", PUBLIC_ADMIN_EMAIL);
+  return isDev ? PUBLIC_ADMIN_EMAIL : null;
 }
 
 let lastLoginTimer: NodeJS.Timeout | null = null;
