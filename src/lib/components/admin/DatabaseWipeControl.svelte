@@ -4,7 +4,6 @@ Allows admins to set cutoff dates for clearing local storage of returning users
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Button, Input } from '@skeletonlabs/skeleton';
   import { getWipeCutoffDate, setWipeCutoffDate } from '$lib/services/localStorageService';
 
   let cutoffDate = $state<string>('');
@@ -108,31 +107,32 @@ Allows admins to set cutoff dates for clearing local storage of returning users
     <div class="grid grid-cols-1 gap-4">
       <div class="space-y-2">
         <label for="cutoff-date" class="label">Set New Cutoff Date</label>
-        <Input
+        <input
           id="cutoff-date"
           type="datetime-local"
           bind:value={cutoffDate}
           disabled={isLoading}
+          class="input"
         />
       </div>
       
       <div class="space-y-2 flex flex-col justify-end">
-        <Button
-          preset="filled-primary"
+        <button
+          class="btn preset-filled-primary"
           onclick={handleSetCutoffDate}
           disabled={isLoading || !cutoffDate}
         >
           {isLoading ? 'Setting...' : 'Set Cutoff Date'}
-        </Button>
+        </button>
         
         {#if currentCutoffDate}
-          <Button
-            preset="filled-warning"
+          <button
+            class="btn preset-filled-warning"
             onclick={handleClearCutoffDate}
             disabled={isLoading}
           >
             {isLoading ? 'Clearing...' : 'Clear Cutoff Date'}
-          </Button>
+          </button>
         {/if}
       </div>
     </div>
