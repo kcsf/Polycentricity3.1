@@ -86,7 +86,7 @@ Only shows for existing users with last_login before admin cutoff date
 </script>
 
 {#if showNotice}
-  <div class="fixed top-0 left-0 right-0 z-50 bg-warning-500 text-warning-50 p-4 shadow-lg">
+  <div class="fixed top-0 left-0 right-0 z-[100] bg-warning-500 text-warning-50 p-4 shadow-lg">
     <div class="container mx-auto max-w-4xl">
       <div class="flex items-start justify-between">
         <div class="flex-1">
