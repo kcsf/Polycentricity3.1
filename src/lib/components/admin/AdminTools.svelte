@@ -40,45 +40,29 @@
       const gun = window.gun;
       let foundUser = null;
       
+      console.log(`[AdminTools] Searching for user with email: ${adminEmail}`);
+      
       // Search through all users to find one with matching email
       const searchPromise = new Promise<any>((resolve) => {
-        const timeout = setTimeout(() => resolve(null), 5000);
-        let userCount = 0;
-        let checkedCount = 0;
+        const timeout = setTimeout(() => {
+          console.log('[AdminTools] Search timeout reached');
+          resolve(null);
+        }, 5000);
         
-        // First count total users
         gun.get('users').map().once((userData, userId) => {
-          if (userData) userCount++;
-        });
-        
-        // Then search through users
-        gun.get('users').map().once((userData, userId) => {
-          if (!userData) return;
+          if (!userData || userData === null) return;
           
-          checkedCount++;
+          console.log(`[AdminTools] Checking user ${userId}:`, userData.email);
           
           // Check if this user has the email we're looking for
           if (userData.email === adminEmail) {
+            console.log(`[AdminTools] Found matching user:`, userData);
             clearTimeout(timeout);
             foundUser = { ...userData, userId };
             resolve(foundUser);
             return;
           }
-          
-          // If we've checked all users and found nothing
-          if (checkedCount >= userCount) {
-            clearTimeout(timeout);
-            resolve(null);
-          }
         });
-        
-        // Fallback timeout
-        setTimeout(() => {
-          if (!foundUser) {
-            clearTimeout(timeout);
-            resolve(null);
-          }
-        }, 3000);
       });
       
       const user = await searchPromise;
@@ -91,13 +75,17 @@
         return;
       }
       
-      // Update the user's role to Admin
+      console.log(`[AdminTools] Updating user ${user.user_id} to Admin role`);
+      
+      // Update the user's role to Admin using gameService
       await updateUserRole(user.user_id, 'Admin');
       
       updateResult({
         success: true,
         message: `Successfully updated ${adminEmail} to Admin role`
       });
+      
+      console.log(`[AdminTools] Successfully updated user role`);
     } catch (error) {
       console.error('Error updating user to admin:', error);
       updateResult({
