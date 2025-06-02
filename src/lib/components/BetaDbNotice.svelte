@@ -8,7 +8,7 @@ Only shows for existing users with last_login before admin cutoff date
   import { browser } from '$app/environment';
   import { userStore } from '$lib/stores/userStore';
   import { get } from 'svelte/store';
-  import { clearUserStorageIfNeeded } from '$lib/services/localStorageService';
+  import { shouldClearUserStorage, clearUserStorageIfNeeded } from '$lib/services/localStorageService';
   
   let showNotice = $state(false);
   let isClearing = $state(false);
@@ -31,18 +31,20 @@ Only shows for existing users with last_login before admin cutoff date
     
     // Only show notice if user exists and needs storage clearing
     if (user.isAuthenticated && user.user) {
-      // Check if this user needs their storage cleared
-      const needsClearing = await clearUserStorageIfNeeded();
+      // Check if this user needs their storage cleared (without actually clearing it)
+      const needsClearing = await shouldClearUserStorage(user.user.user_id);
       showNotice = needsClearing;
       
-      // If storage was cleared, start the clearing process
+      // If storage needs clearing, start the clearing process
       if (needsClearing) {
         isClearing = true;
         // Give a moment for the UI to show the loading state
-        setTimeout(() => {
-          // The clearUserStorageIfNeeded function already handles the clearing
-          // Just finish the loading state
+        setTimeout(async () => {
+          // Actually clear the storage
+          await clearUserStorageIfNeeded();
           isClearing = false;
+          // Refresh the page after clearing
+          window.location.reload();
         }, 2000);
       }
     }

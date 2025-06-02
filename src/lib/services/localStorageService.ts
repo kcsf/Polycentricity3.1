@@ -116,9 +116,10 @@ export async function checkAndClearStorageOnInit(userId: string): Promise<boolea
 
 /**
  * Check if current user needs their storage cleared based on admin cutoff date
+ * @param userId - Current user ID to check
  * @returns Promise<boolean> - true if storage needs to be cleared
  */
-export async function clearUserStorageIfNeeded(): Promise<boolean> {
+export async function shouldClearUserStorage(userId: string): Promise<boolean> {
   try {
     // Get admin cutoff date
     const cutoffDate = await getWipeCutoffDate();
@@ -126,13 +127,30 @@ export async function clearUserStorageIfNeeded(): Promise<boolean> {
       return false; // No cutoff date set, no clearing needed
     }
 
-    // Get current user from Gun database
-    const gun = getGun();
-    if (!gun) return false;
+    // Get user's last_login from Gun database
+    const user = await get<User>(`${nodes.users}/${userId}`);
+    if (!user) {
+      return false; // User not found
+    }
 
-    // For now, we'll check localStorage for any gun-stored user data
-    // This is a simplified check - in a real implementation you'd want to
-    // get the current user ID from your auth system
+    // Check if user's last_login is before cutoff OR is null/undefined
+    const shouldClear = !user.last_login || user.last_login < cutoffDate;
+    
+    console.log(`[localStorageService] User ${userId} last_login: ${user.last_login}, cutoff: ${cutoffDate}, shouldClear: ${shouldClear}`);
+    return shouldClear;
+    
+  } catch (error) {
+    console.error('[localStorageService] Error checking if storage should be cleared:', error);
+    return false;
+  }
+}
+
+/**
+ * Actually clear the user's local storage
+ * @returns Promise<boolean> - true if storage was cleared
+ */
+export async function clearUserStorageIfNeeded(): Promise<boolean> {
+  try {
     const gunKeys = Object.keys(localStorage).filter(key => key.startsWith('gun'));
     
     if (gunKeys.length === 0) {
@@ -148,11 +166,11 @@ export async function clearUserStorageIfNeeded(): Promise<boolean> {
     localStorage.removeItem('gun/');
     localStorage.removeItem('gun');
     
-    console.log(`[localStorageService] Cleared user storage due to cutoff date: ${new Date(cutoffDate).toISOString()}`);
+    console.log(`[localStorageService] Cleared user storage`);
     return true;
     
   } catch (error) {
-    console.error('[localStorageService] Error checking storage clear:', error);
+    console.error('[localStorageService] Error clearing storage:', error);
     return false;
   }
 }
