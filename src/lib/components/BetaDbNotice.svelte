@@ -70,8 +70,8 @@ Only shows for existing users with last_login before admin cutoff date
       localStorage.removeItem('beta_db_storage_cleared');
       localStorage.setItem('beta_db_notice_seen_v1', 'true');
       showNotice = false;
-      // Redirect to login page
-      window.location.href = '/login';
+      // Redirect to register page
+      window.location.href = '/register';
     } catch (error) {
       console.error('[BetaDbNotice] Error during logout:', error);
     }
