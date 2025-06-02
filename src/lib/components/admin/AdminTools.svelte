@@ -37,19 +37,53 @@
       isUpdating = true;
       updateResult(null);
       
-      // First we need to find the user ID from the email using Gun's SEA alias system
       const gun = window.gun;
+      let foundUser = null;
       
-      // Step 1: Get the public key from the email alias
-      const aliasData = await new Promise<any>((resolve) => {
-        const timeout = setTimeout(() => resolve(null), 3000);
-        gun.get(`~@${adminEmail}`).once((alias) => {
-          clearTimeout(timeout);
-          resolve(alias);
+      // Search through all users to find one with matching email
+      const searchPromise = new Promise<any>((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 5000);
+        let userCount = 0;
+        let checkedCount = 0;
+        
+        // First count total users
+        gun.get('users').map().once((userData, userId) => {
+          if (userData) userCount++;
         });
+        
+        // Then search through users
+        gun.get('users').map().once((userData, userId) => {
+          if (!userData) return;
+          
+          checkedCount++;
+          
+          // Check if this user has the email we're looking for
+          if (userData.email === adminEmail) {
+            clearTimeout(timeout);
+            foundUser = { ...userData, userId };
+            resolve(foundUser);
+            return;
+          }
+          
+          // If we've checked all users and found nothing
+          if (checkedCount >= userCount) {
+            clearTimeout(timeout);
+            resolve(null);
+          }
+        });
+        
+        // Fallback timeout
+        setTimeout(() => {
+          if (!foundUser) {
+            clearTimeout(timeout);
+            resolve(null);
+          }
+        }, 3000);
       });
       
-      if (!aliasData || typeof aliasData !== 'string') {
+      const user = await searchPromise;
+      
+      if (!user || !user.user_id) {
         updateResult({
           success: false,
           message: `User with email ${adminEmail} not found`
@@ -57,28 +91,8 @@
         return;
       }
       
-      // Step 2: Extract the public key (remove leading ~ if present)
-      const pubKey = aliasData.startsWith('~') ? aliasData.substring(1) : aliasData;
-      
-      // Step 3: Look up the user in our users collection using their public key
-      const userData = await new Promise<any>((resolve) => {
-        const timeout = setTimeout(() => resolve(null), 3000);
-        gun.get('users').get(pubKey).once((user) => {
-          clearTimeout(timeout);
-          resolve(user);
-        });
-      });
-      
-      if (!userData || !userData.user_id) {
-        updateResult({
-          success: false,
-          message: `User profile for ${adminEmail} not found in database`
-        });
-        return;
-      }
-      
-      // Step 4: Update the user's role to Admin
-      await updateUserRole(userData.user_id, 'Admin');
+      // Update the user's role to Admin
+      await updateUserRole(user.user_id, 'Admin');
       
       updateResult({
         success: true,
