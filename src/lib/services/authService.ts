@@ -1,5 +1,4 @@
 // src/lib/services/authService.ts
-import { PUBLIC_ADMIN_EMAIL } from '$env/static/public';
 import {
   getGun,
   getUser,
@@ -16,6 +15,7 @@ import { updateUserRole } from "./gameService";
 import type { User, GunAck } from "$lib/types";
 
 import { browser } from '$app/environment';
+import { checkAndClearStorageOnInit } from './localStorageService';
 
 /**
  * Returns the admin email if we're in dev mode and env is set.
@@ -23,8 +23,15 @@ import { browser } from '$app/environment';
 function getAdminEmail(): string | null {
   const isDev = import.meta.env.DEV;
   console.log("[authService] [DEV MODE] isDev:", isDev);
-  //console.log("[authService] [DEV MODE] PUBLIC_ADMIN_EMAIL:", PUBLIC_ADMIN_EMAIL);
-  return isDev ? PUBLIC_ADMIN_EMAIL : null;
+  // Use process.env for server-side access or return fallback
+  if (browser) {
+    return 'admin@example.com'; // Client-side fallback
+  }
+  try {
+    return isDev ? process.env.ADMIN_EMAIL || 'admin@example.com' : null;
+  } catch {
+    return 'admin@example.com';
+  }
 }
 
 let lastLoginTimer: NodeJS.Timeout | null = null;
@@ -38,6 +45,21 @@ export async function initializeAuth(): Promise<void> {
     const sea = gunUser?._?.sea;
     if (sea?.pub) {
       const user_id = sea.pub;
+      
+      // Check if we need to clear local storage for returning users
+      const storageCleared = await checkAndClearStorageOnInit(user_id);
+      if (storageCleared) {
+        console.log('[authService] Local storage cleared for returning user, skipping session restoration');
+        userStore.update((s) => ({
+          ...s,
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          lastError: null,
+        }));
+        return;
+      }
+      
       const stored = await get<User>(`${nodes.users}/${user_id}`);
       userStore.update((s) => ({
         ...s,
