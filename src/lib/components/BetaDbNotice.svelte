@@ -9,9 +9,11 @@ Only shows for existing users with last_login before admin cutoff date
   import { userStore } from '$lib/stores/userStore';
   import { get } from 'svelte/store';
   import { shouldClearUserStorage, clearUserStorageIfNeeded } from '$lib/services/localStorageService';
+  import { logoutUser } from '$lib/services/authService';
   
   let showNotice = $state(false);
   let isClearing = $state(false);
+  let hasCleared = $state(false);
   let hasSeenNotice = $state(false);
   
   onMount(async () => {
@@ -26,7 +28,16 @@ Only shows for existing users with last_login before admin cutoff date
       return;
     }
     
-    // For testing/demo purposes: always show notice if cutoff date is set and in the future
+    // Check if storage was already cleared (persistent across page loads)
+    const storageCleared = localStorage.getItem('beta_db_storage_cleared') === 'true';
+    
+    if (storageCleared) {
+      showNotice = true;
+      hasCleared = true;
+      return;
+    }
+
+    // Check if cutoff date is set and in the future
     try {
       const { getWipeCutoffDate } = await import('$lib/services/localStorageService');
       const cutoffDate = await getWipeCutoffDate();
@@ -40,9 +51,10 @@ Only shows for existing users with last_login before admin cutoff date
         setTimeout(async () => {
           // Clear the storage
           await clearUserStorageIfNeeded();
+          // Mark that storage has been cleared
+          localStorage.setItem('beta_db_storage_cleared', 'true');
           isClearing = false;
-          // Refresh the page after clearing
-          window.location.reload();
+          hasCleared = true;
         }, 2000);
       }
     } catch (error) {
@@ -50,6 +62,21 @@ Only shows for existing users with last_login before admin cutoff date
     }
   });
   
+  async function confirmAndLogout() {
+    try {
+      // Log out the user
+      await logoutUser();
+      // Clear the storage cleared flag so notice doesn't show again
+      localStorage.removeItem('beta_db_storage_cleared');
+      localStorage.setItem('beta_db_notice_seen_v1', 'true');
+      showNotice = false;
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('[BetaDbNotice] Error during logout:', error);
+    }
+  }
+
   function dismissNotice() {
     showNotice = false;
     if (browser) {
@@ -72,12 +99,31 @@ Only shows for existing users with last_login before admin cutoff date
               </div>
             {/if}
           </div>
-          <p class="text-sm leading-relaxed">
-            The database schema has been updated, your local storage must be cleared. 
-            You will now be logged out and must register a new account to play.
-          </p>
+          
+          {#if hasCleared}
+            <div class="space-y-3">
+              <p class="text-sm leading-relaxed">
+                ✅ Your local storage has been cleared due to a database schema update.
+              </p>
+              <p class="text-sm leading-relaxed font-semibold">
+                You must register a new account to continue playing.
+              </p>
+              <button 
+                onclick={confirmAndLogout}
+                class="bg-warning-600 hover:bg-warning-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+              >
+                Confirm & Register New Account
+              </button>
+            </div>
+          {:else}
+            <p class="text-sm leading-relaxed">
+              The database schema has been updated, your local storage must be cleared. 
+              You will now be logged out and must register a new account to play.
+            </p>
+          {/if}
         </div>
-        {#if !isClearing}
+        
+        {#if !isClearing && !hasCleared}
           <button 
             onclick={dismissNotice}
             class="ml-4 text-warning-100 hover:text-white transition-colors"
