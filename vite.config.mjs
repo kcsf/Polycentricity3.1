@@ -18,11 +18,11 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5000,
+    port: 3000,
     strictPort: true,
     hmr: process.env.REPLIT
       ? { clientPort: parseInt(process.env.HMR_CLIENT_PORT || '443') }
-      : { protocol: 'ws', host: 'localhost', port: 5000 },
+      : { protocol: 'ws', host: 'localhost', port: 3000 },
     watch: { usePolling: true },
     cors: true,
     fs: { allow: ['.'] },
