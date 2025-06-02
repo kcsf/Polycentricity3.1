@@ -43,6 +43,7 @@ replit.nix
 .config/
 .upm/
 .local/
+.replit*
 
 # Gun.js related
 radata/
