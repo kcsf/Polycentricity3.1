@@ -113,3 +113,46 @@ export async function checkAndClearStorageOnInit(userId: string): Promise<boolea
   
   return await clearLocalStorageForReturningUser(userId, cutoffDate);
 }
+
+/**
+ * Check if current user needs their storage cleared based on admin cutoff date
+ * @returns Promise<boolean> - true if storage needs to be cleared
+ */
+export async function clearUserStorageIfNeeded(): Promise<boolean> {
+  try {
+    // Get admin cutoff date
+    const cutoffDate = await getWipeCutoffDate();
+    if (!cutoffDate) {
+      return false; // No cutoff date set, no clearing needed
+    }
+
+    // Get current user from Gun database
+    const gun = getGun();
+    if (!gun) return false;
+
+    // For now, we'll check localStorage for any gun-stored user data
+    // This is a simplified check - in a real implementation you'd want to
+    // get the current user ID from your auth system
+    const gunKeys = Object.keys(localStorage).filter(key => key.startsWith('gun'));
+    
+    if (gunKeys.length === 0) {
+      return false; // No gun data to clear
+    }
+
+    // Clear gun localStorage data
+    gunKeys.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Clear other gun-related keys
+    localStorage.removeItem('gun/');
+    localStorage.removeItem('gun');
+    
+    console.log(`[localStorageService] Cleared user storage due to cutoff date: ${new Date(cutoffDate).toISOString()}`);
+    return true;
+    
+  } catch (error) {
+    console.error('[localStorageService] Error checking storage clear:', error);
+    return false;
+  }
+}

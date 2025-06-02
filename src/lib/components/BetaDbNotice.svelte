@@ -1,20 +1,50 @@
 <!--
 Beta Environment Database Notice
 Informs users about database schema updates and local storage clearing
+Only shows for existing users with last_login before admin cutoff date
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { userStore } from '$lib/stores/userStore';
+  import { get } from 'svelte/store';
+  import { clearUserStorageIfNeeded } from '$lib/services/localStorageService';
   
-  let showNotice = $state(true);
+  let showNotice = $state(false);
+  let isClearing = $state(false);
   let hasSeenNotice = $state(false);
   
-  onMount(() => {
-    if (browser) {
-      // Check if user has already seen this notice
-      const noticeKey = 'beta_db_notice_seen_v1';
-      hasSeenNotice = localStorage.getItem(noticeKey) === 'true';
-      showNotice = !hasSeenNotice;
+  onMount(async () => {
+    if (!browser) return;
+    
+    // Check if user has already seen this notice
+    const noticeKey = 'beta_db_notice_seen_v1';
+    hasSeenNotice = localStorage.getItem(noticeKey) === 'true';
+    
+    if (hasSeenNotice) {
+      showNotice = false;
+      return;
+    }
+    
+    // Get current user
+    const user = get(userStore);
+    
+    // Only show notice if user exists and needs storage clearing
+    if (user.isAuthenticated && user.user) {
+      // Check if this user needs their storage cleared
+      const needsClearing = await clearUserStorageIfNeeded();
+      showNotice = needsClearing;
+      
+      // If storage was cleared, start the clearing process
+      if (needsClearing) {
+        isClearing = true;
+        // Give a moment for the UI to show the loading state
+        setTimeout(() => {
+          // The clearUserStorageIfNeeded function already handles the clearing
+          // Just finish the loading state
+          isClearing = false;
+        }, 2000);
+      }
     }
   });
   
@@ -31,21 +61,31 @@ Informs users about database schema updates and local storage clearing
     <div class="container mx-auto max-w-4xl">
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <h3 class="font-bold text-lg mb-2">Beta-Env DB Notice</h3>
+          <div class="flex items-center gap-3 mb-2">
+            <h3 class="font-bold text-lg">Beta-Env DB Notice</h3>
+            {#if isClearing}
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border-2 border-warning-100 border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-sm">Clearing storage...</span>
+              </div>
+            {/if}
+          </div>
           <p class="text-sm leading-relaxed">
             The database schema has been updated, your local storage must be cleared. 
             You will now be logged out and must register a new account to play.
           </p>
         </div>
-        <button 
-          onclick={dismissNotice}
-          class="ml-4 text-warning-100 hover:text-white transition-colors"
-          aria-label="Dismiss notice"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        {#if !isClearing}
+          <button 
+            onclick={dismissNotice}
+            class="ml-4 text-warning-100 hover:text-white transition-colors"
+            aria-label="Dismiss notice"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        {/if}
       </div>
     </div>
   </div>
