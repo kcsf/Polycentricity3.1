@@ -2,6 +2,7 @@
   import '../app.css';
   import Header from '$lib/components/Header.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import BetaDbNotice from '$lib/components/BetaDbNotice.svelte';
   import { initializeAuth } from '$lib/services/authService';
   import { userStore } from '$lib/stores/userStore';
   import { toggleTheme } from '$lib/stores/themeStore';
@@ -61,6 +62,7 @@
 </script>
 
 <div class="flex flex-col min-h-screen">
+  <BetaDbNotice />
   <Header {toggleTheme} />
   <main class="flex-grow" class:isHomePage>
     <div class="{isHomePage ? 'w-full p-0 m-0' : 'container mx-auto p-0'}">
