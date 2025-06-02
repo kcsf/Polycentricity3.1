@@ -13,6 +13,7 @@
   import DatabaseMaintenance from '$lib/components/admin/DatabaseMaintenance.svelte';
   import DatabaseTools from '$lib/components/admin/DatabaseTools.svelte';
   import AdminTools from '$lib/components/admin/AdminTools.svelte';
+  import DatabaseWipeControl from '$lib/components/admin/DatabaseWipeControl.svelte';
   import { cleanupUsers, removeUser, cleanupAllUsers } from '$lib/services/cleanupService';
   import { getCurrentUser } from '$lib/services/authService';
   import { deleteAgreement } from '$lib/services/gameService';
@@ -781,6 +782,11 @@
       {:else if activeTab === 'maintenance'}
         <!-- Render the DatabaseMaintenance component -->
         <DatabaseMaintenance />
+        
+        <!-- Database Wipe Control -->
+        <div class="mt-6">
+          <DatabaseWipeControl />
+        </div>
       {:else if activeTab === 'dev'}
         <div class="p-2">
           <!-- Database Explorer Link -->
