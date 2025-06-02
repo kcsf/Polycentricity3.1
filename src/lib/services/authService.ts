@@ -16,21 +16,17 @@ import type { User, GunAck } from "$lib/types";
 
 import { browser } from '$app/environment';
 import { checkAndClearStorageOnInit } from './localStorageService';
+import { PUBLIC_ADMIN_EMAIL } from '$env/static/public';
 
 /**
  * Returns the admin email if we're in dev mode and env is set.
  */
 function getAdminEmail(): string | null {
-  const isDev = import.meta.env.DEV;
-  console.log("[authService] [DEV MODE] isDev:", isDev);
-  // Use process.env for server-side access or return fallback
-  if (browser) {
-    return 'admin@example.com'; // Client-side fallback
-  }
   try {
-    return isDev ? process.env.ADMIN_EMAIL || 'admin@example.com' : null;
-  } catch {
-    return 'admin@example.com';
+    return PUBLIC_ADMIN_EMAIL || null;
+  } catch (error) {
+    console.warn('[authService] Could not access PUBLIC_ADMIN_EMAIL environment variable:', error);
+    return null;
   }
 }
 

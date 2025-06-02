@@ -8,4 +8,5 @@ declare module '$env/static/private' {
 
 declare module '$env/static/public' {
   export const PUBLIC_CLOUDFLARE_TURNSTILE_SITEKEY: string;
+  export const PUBLIC_ADMIN_EMAIL: string;
 }
