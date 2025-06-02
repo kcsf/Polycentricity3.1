@@ -26,27 +26,27 @@ Only shows for existing users with last_login before admin cutoff date
       return;
     }
     
-    // Get current user
-    const user = get(userStore);
-    
-    // Only show notice if user exists and needs storage clearing
-    if (user.isAuthenticated && user.user) {
-      // Check if this user needs their storage cleared (without actually clearing it)
-      const needsClearing = await shouldClearUserStorage(user.user.user_id);
-      showNotice = needsClearing;
+    // For testing/demo purposes: always show notice if cutoff date is set and in the future
+    try {
+      const { getWipeCutoffDate } = await import('$lib/services/localStorageService');
+      const cutoffDate = await getWipeCutoffDate();
       
-      // If storage needs clearing, start the clearing process
-      if (needsClearing) {
+      if (cutoffDate && cutoffDate > Date.now()) {
+        console.log(`[BetaDbNotice] Cutoff date is in future (${new Date(cutoffDate).toISOString()}), showing notice`);
+        showNotice = true;
+        
+        // Start clearing process immediately
         isClearing = true;
-        // Give a moment for the UI to show the loading state
         setTimeout(async () => {
-          // Actually clear the storage
+          // Clear the storage
           await clearUserStorageIfNeeded();
           isClearing = false;
           // Refresh the page after clearing
           window.location.reload();
         }, 2000);
       }
+    } catch (error) {
+      console.error('[BetaDbNotice] Error checking cutoff date:', error);
     }
   });
   
