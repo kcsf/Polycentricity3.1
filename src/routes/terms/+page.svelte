@@ -79,13 +79,23 @@
     <section class="mb-8">
       <h2 class="text-2xl font-semibold mb-4">Data and Privacy</h2>
       <p class="mb-4">
-        In our decentralized system:
+        <strong>Current Data Status (Pre-Alpha v0.35):</strong>
       </p>
       <ul class="list-disc ml-6 mb-4">
-        <li>You retain cryptographic ownership of your data</li>
-        <li>Data deletion may not be immediate across all network nodes</li>
-        <li>Public governance data may remain accessible even after account deletion</li>
-        <li>Private data is encrypted and controlled by your keys</li>
+        <li><strong>User accounts:</strong> Encrypted and cryptographically controlled by your keys</li>
+        <li><strong>Governance data:</strong> Currently stored unencrypted across the decentralized network</li>
+        <li><strong>Data persistence:</strong> Data deletion may not be immediate across all network nodes</li>
+        <li><strong>Public accessibility:</strong> Governance data may remain accessible even after account deletion</li>
+      </ul>
+      
+      <p class="mb-4">
+        <strong>Future Privacy Features:</strong>
+      </p>
+      <ul class="list-disc ml-6 mb-4">
+        <li>User-controlled encryption for governance and collaboration data</li>
+        <li>Peer-to-peer encrypted data sharing</li>
+        <li>Group-based privacy controls</li>
+        <li>Enhanced data sovereignty features</li>
       </ul>
     </section>
 

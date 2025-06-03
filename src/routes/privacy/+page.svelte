@@ -57,13 +57,23 @@
     <section class="mb-8">
       <h2 class="text-2xl font-semibold mb-4">Data Security</h2>
       <p class="mb-4">
-        Security is built into our decentralized architecture:
+        <strong>Current Security Status (Pre-Alpha v0.35):</strong>
       </p>
       <ul class="list-disc ml-6 mb-4">
-        <li><strong>End-to-end encryption:</strong> Data is encrypted before leaving your device</li>
-        <li><strong>Cryptographic signatures:</strong> All data is cryptographically signed</li>
-        <li><strong>Distributed storage:</strong> No single point of data compromise</li>
-        <li><strong>User-controlled keys:</strong> You control your cryptographic keys</li>
+        <li><strong>User accounts:</strong> Encrypted and secured with Gun.js SEA (Security, Encryption, Authorization)</li>
+        <li><strong>Governance data:</strong> Currently stored unencrypted in the decentralized database</li>
+        <li><strong>Distributed storage:</strong> Data is distributed across peer nodes without single points of failure</li>
+        <li><strong>User-controlled keys:</strong> You control cryptographic keys for your account authentication</li>
+      </ul>
+      
+      <p class="mb-4">
+        <strong>Planned Security Enhancements:</strong>
+      </p>
+      <ul class="list-disc ml-6 mb-4">
+        <li>Peer-to-peer encrypted data sharing using Gun.js SEA</li>
+        <li>User-controlled encryption for governance and collaboration data</li>
+        <li>Group-based encrypted communication channels</li>
+        <li>Granular privacy controls for different data types</li>
       </ul>
     </section>
 
