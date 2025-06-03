@@ -210,7 +210,7 @@
       <div class="flex justify-center space-x-4 mb-4">
         <a href="/about" class="anchor">About</a>
         <a href="/docs" class="anchor">Documentation</a>
-        <a href="https://github.com/your-repo" class="anchor">GitHub</a>
+        <span class="anchor opacity-50 cursor-not-allowed" title="Repository coming soon">GitHub</span>
       </div>
       <p class="text-sm opacity-70">© 2025 Polycentricity. All rights reserved.</p>
       <p class="text-sm opacity-60 mt-2">Made with ❤️ by <a href="https://www.endogon.com" class="anchor" target="_blank" rel="noopener noreferrer">Bjørn at Endogon.com</a></p>
