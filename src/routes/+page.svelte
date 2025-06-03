@@ -29,7 +29,7 @@
         <h1 class="h1 text-primary-500 mb-2">Polycentricity3</h1>
         <h3 class="h3 mb-2">A Decentralized Game Engine<br/>for Governance Protocols</h3>
         <div class="mb-2">
-          <span class="badge variant-filled-warning text-sm font-bold">[PRIVATE BETA]</span>
+          <span class="badge variant-filled-primary text-sm font-bold">[PRIVATE BETA]</span>
         </div>
         <p class="text-xs opacity-60 mb-4">(more like pre-alpha)</p>
         <p class="text-lg max-w-2xl mx-auto mb-8">
