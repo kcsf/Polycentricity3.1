@@ -335,6 +335,34 @@
         {/snippet}
       </Accordion.Item>
 
+      <!-- FAQ 6 -->
+      <Accordion.Item value="faq6">
+        {#snippet control()}
+          How can I contribute?
+        {/snippet}
+        
+        {#snippet panel()}
+          <div class="p-4">
+            <p class="mb-3">
+              We welcome contributors to help shape the future of decentralized governance! Get involved by:
+            </p>
+            <ul class="list-disc list-inside space-y-2 mb-4 text-sm">
+              <li>Testing the platform and providing feedback on user experience</li>
+              <li>Participating in governance simulations and sharing insights</li>
+              <li>Contributing ideas for new features and improvements</li>
+              <li>Joining community discussions about governance design</li>
+              <li>Helping with documentation and educational content</li>
+              <li>Sharing the project with other governance enthusiasts</li>
+            </ul>
+            <div class="space-y-2">
+              <p class="font-semibold">Contact us:</p>
+              <p class="text-sm">Email: <a href="mailto:bjorn@endogon.com" class="anchor">bjorn@endogon.com</a></p>
+              <p class="text-sm">Signal Group: <a href="https://signal.group/#CjQKIADcrudwk5OpFGCxHapz6JF_yebFReILnO6Wilvq90YfEhAsVAAd38_6zAEC7kZ5YT9X" class="anchor" target="_blank" rel="noopener noreferrer">Join our Signal community</a></p>
+            </div>
+          </div>
+        {/snippet}
+      </Accordion.Item>
+
     </Accordion>
   </div>
 
