@@ -27,7 +27,11 @@
           </div>
         </div>
         <h1 class="h1 text-primary-500 mb-2">Polycentricity3</h1>
-        <h3 class="h3 mb-6">A Decentralized Game Engine for Governance Protocols</h3>
+        <h3 class="h3 mb-2">A Decentralized Game Engine<br/>for Governance Protocols</h3>
+        <div class="mb-2">
+          <span class="badge variant-filled-warning text-sm font-bold">[PRIVATE BETA]</span>
+        </div>
+        <p class="text-xs opacity-60 mb-4">(more like pre-alpha)</p>
         <p class="text-lg max-w-2xl mx-auto mb-8">
           Craft and test innovative governance models in a dynamic simulation. Polycentricity empowers you to design decentralized communities, forge agreements, and experiment with value exchange mechanics—perfect for DAOs, network states, and sovereign innovators.
         </p>
@@ -85,7 +89,7 @@
     <!-- Call to Action -->
     <div class="card p-8 variant-glass-surface text-center backdrop-blur-lg border border-surface-300-600/20 shadow-lg mb-12">
       <h2 class="h2 mb-4">Shape the Future of Governance</h2>
-      <p class="text-lg mb-6">Join Edge Esmereldas—Web3 pioneers, DAO architects, and sovereignty advocates—to beta-test governance protocols and build thriving decentralized communities.</p>
+      <p class="text-lg mb-6">Join Web3 pioneers, DAO architects, and sovereignty advocates—to beta-test governance protocols and build thriving decentralized communities.</p>
       <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
         <a href="/dashboard" class="btn variant-filled-secondary">View Dashboard</a>
         <a href="/games" class="btn variant-filled-tertiary">Browse Games</a>
@@ -151,7 +155,7 @@
           {#snippet panel()}
             <div class="p-4">
               <p>
-                Our pre-alpha (v0.35) offers core mechanics like actor roles and agreements. We're seeking funding to develop v0.4, introducing real value exchange with the 8 Forms of Capital and community growth algorithms based on stakeholder entanglement (see /docs for details).
+                Our pre-alpha (v0.35) offers core mechanics like actor roles and agreements. We're seeking funding to develop v0.4, introducing real value exchange with the 8 Forms of Capital and community growth algorithms based on community entanglement (see /docs for details).
               </p>
             </div>
           {/snippet}
