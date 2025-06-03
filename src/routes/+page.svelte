@@ -4,11 +4,16 @@
   import { onMount } from 'svelte';
   import { 
     Leaf, 
-    Globe, 
-    Users, 
-    Sparkles, 
-    Check 
+    Network, 
+    Handshake, 
+    BarChart3,
+    ChevronDown,
+    ChevronUp
   } from '@lucide/svelte';
+  import { Accordion } from '@skeletonlabs/skeleton-svelte';
+  
+  // FAQ accordion state
+  let faqAccordionValue = $state<string[]>([]);
 </script>
 
 <div class="min-h-screen w-screen flex flex-col bg-linear-to-br from-surface-50-950 to-surface-200-800 -mx-4 md:-mx-8">
@@ -22,10 +27,9 @@
           </div>
         </div>
         <h1 class="h1 text-primary-500 mb-2">Polycentricity3</h1>
-        <h3 class="h3 mb-6">A Decentralized Eco-Village Simulation</h3>
+        <h3 class="h3 mb-6">A Decentralized Game Engine for Governance Protocols</h3>
         <p class="text-lg max-w-2xl mx-auto mb-8">
-          Design, negotiate, and build a sustainable community through collaborative decision-making,
-          strategic resource management, and value-driven partnerships.
+          Craft and test innovative governance models in a dynamic simulation. Polycentricity empowers you to design decentralized communities, forge agreements, and experiment with value exchange mechanics—perfect for DAOs, network states, and sovereign innovators.
         </p>
         <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
           <a href="/register" class="btn btn-lg variant-filled-primary">Get Started</a>
@@ -42,11 +46,11 @@
       <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
           <div class="w-12 h-12 flex items-center justify-center mr-4">
-            <Globe class="w-6 h-6 text-primary-500" />
+            <Network class="w-6 h-6 text-primary-500" />
           </div>
           <div>
-            <h3 class="h3 mb-2">Decentralized Platform</h3>
-            <p>Built on Gun.js for resilient peer-to-peer data synchronization and community governance.</p>
+            <h3 class="h3 mb-2">Governance Protocol Sandbox</h3>
+            <p>Powered by Gun.js, create and test peer-to-peer governance models with real-time data sync, enabling resilient, community-driven decision-making.</p>
           </div>
         </div>
       </div>
@@ -55,11 +59,11 @@
       <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
           <div class="w-12 h-12 flex items-center justify-center mr-4">
-            <Users class="w-6 h-6 text-secondary-500" />
+            <Handshake class="w-6 h-6 text-secondary-500" />
           </div>
           <div>
-            <h3 class="h3 mb-2">Collaborative Decision-Making</h3>
-            <p>Form agreements, build coalitions, and work together to solve complex sustainability challenges.</p>
+            <h3 class="h3 mb-2">Dynamic Agreement Systems</h3>
+            <p>Negotiate bilateral and multilateral agreements with obligations and benefits, visualized as a digital corkboard to track stakeholder entanglements.</p>
           </div>
         </div>
       </div>
@@ -68,11 +72,11 @@
       <div class="card p-6 variant-glass-surface backdrop-blur-sm border border-surface-300-600/20 shadow-lg">
         <div class="flex items-center">
           <div class="w-12 h-12 flex items-center justify-center mr-4">
-            <Sparkles class="w-6 h-6 text-tertiary-500" />
+            <BarChart3 class="w-6 h-6 text-tertiary-500" />
           </div>
           <div>
-            <h3 class="h3 mb-2">Dynamic Visualizations</h3>
-            <p>Interactive D3.js visualizations help track community relationships, resources, and outcomes.</p>
+            <h3 class="h3 mb-2">Visual Governance Insights</h3>
+            <p>Use D3.js and Cytoscape.js to map relationships, resources, and outcomes, offering clear insights into your community's evolving governance structure.</p>
           </div>
         </div>
       </div>
@@ -80,8 +84,8 @@
 
     <!-- Call to Action -->
     <div class="card p-8 variant-glass-surface text-center backdrop-blur-lg border border-surface-300-600/20 shadow-lg mb-12">
-      <h2 class="h2 mb-4">Ready to Build a Sustainable Future?</h2>
-      <p class="text-lg mb-6">Join our growing community of sustainability enthusiasts, policy makers, and problem solvers.</p>
+      <h2 class="h2 mb-4">Shape the Future of Governance</h2>
+      <p class="text-lg mb-6">Join Edge Esmereldas—Web3 pioneers, DAO architects, and sovereignty advocates—to beta-test governance protocols and build thriving decentralized communities.</p>
       <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
         <a href="/dashboard" class="btn variant-filled-secondary">View Dashboard</a>
         <a href="/games" class="btn variant-filled-tertiary">Browse Games</a>
@@ -91,45 +95,84 @@
     <!-- FAQ Section -->
     <div class="card p-6 variant-glass-surface backdrop-blur-lg border border-surface-300-600/20 shadow-lg mb-12">
       <h2 class="h2 text-center mb-6">Frequently Asked Questions</h2>
-      <div class="space-y-4">
+      <Accordion value={faqAccordionValue} onValueChange={(e) => (faqAccordionValue = e.value as string[])} multiple>
+        
         <!-- FAQ 1 -->
-        <div class="card p-4 variant-soft">
-          <div class="font-bold flex items-center">
-            <Check class="w-5 h-5 text-primary-500 mr-2" />
-            What is Polycentricity?
-          </div>
-          <p class="p-2">
-            Polycentricity is an immersive eco-village simulation platform that enables collaborative
-            sustainability planning. Players take on various roles to design, negotiate, and build a thriving
-            community while balancing ecological, social, and economic factors.
-          </p>
-        </div>
+        <Accordion.Item value="faq1">
+          {#snippet control()}
+            What is Polycentricity3?
+          {/snippet}
+          
+          {#snippet panel()}
+            <div class="p-4">
+              <p>
+                Polycentricity3 is a pre-alpha governance simulation engine where players design and test decentralized community models. Acting as actors with unique roles, you negotiate agreements, manage resources, and experiment with success metrics tailored to your vision.
+              </p>
+            </div>
+          {/snippet}
+        </Accordion.Item>
 
         <!-- FAQ 2 -->
-        <div class="card p-4 variant-soft">
-          <div class="font-bold flex items-center">
-            <Check class="w-5 h-5 text-primary-500 mr-2" />
-            How do I get started?
-          </div>
-          <p class="p-2">
-            Simply register for an account, join an existing game or create a new one, select a role card
-            that represents your skills and values, and begin collaborating with other players to build your
-            sustainable community.
-          </p>
-        </div>
+        <Accordion.Item value="faq2">
+          {#snippet control()}
+            How do I start playing?
+          {/snippet}
+          
+          {#snippet panel()}
+            <div class="p-4">
+              <p>
+                Register an account, join or create a game, select a role card aligned with your values and capabilities, and dive into collaborative governance. Current features include basic actor systems and agreement mechanics, with more coming in v0.4.
+              </p>
+            </div>
+          {/snippet}
+        </Accordion.Item>
 
         <!-- FAQ 3 -->
-        <div class="card p-4 variant-soft">
-          <div class="font-bold flex items-center">
-            <Check class="w-5 h-5 text-primary-500 mr-2" />
-            Is this a competitive game?
-          </div>
-          <p class="p-2">
-            While there are competitive elements, Polycentricity primarily focuses on collaboration. Success
-            is measured by how well the community thrives collectively, not by individual achievements.
-          </p>
-        </div>
-      </div>
+        <Accordion.Item value="faq3">
+          {#snippet control()}
+            Is Polycentricity competitive or collaborative?
+          {/snippet}
+          
+          {#snippet panel()}
+            <div class="p-4">
+              <p>
+                It's primarily collaborative, emphasizing collective success through shared goals. Competitive elements arise from strategic negotiations, but the focus is on building thriving communities, not zero-sum wins.
+              </p>
+            </div>
+          {/snippet}
+        </Accordion.Item>
+
+        <!-- FAQ 4 -->
+        <Accordion.Item value="faq4">
+          {#snippet control()}
+            What's next for Polycentricity?
+          {/snippet}
+          
+          {#snippet panel()}
+            <div class="p-4">
+              <p>
+                Our pre-alpha (v0.35) offers core mechanics like actor roles and agreements. We're seeking funding to develop v0.4, introducing real value exchange with the 8 Forms of Capital and community growth algorithms based on stakeholder entanglement (see /docs for details).
+              </p>
+            </div>
+          {/snippet}
+        </Accordion.Item>
+
+        <!-- FAQ 5 -->
+        <Accordion.Item value="faq5">
+          {#snippet control()}
+            Can I use Polycentricity for real-world governance?
+          {/snippet}
+          
+          {#snippet panel()}
+            <div class="p-4">
+              <p>
+                In its current form, it's an educational and experimental sandbox. Future versions aim to support real-world DAO and community governance with robust value-exchange systems and outcome analytics. Join us to shape this roadmap!
+              </p>
+            </div>
+          {/snippet}
+        </Accordion.Item>
+
+      </Accordion>
     </div>
 
     <!-- Footer -->
