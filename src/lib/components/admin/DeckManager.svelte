@@ -509,71 +509,23 @@ interface RawImportCard {
       <p class="text-sm mb-4">Paste JSON data for cards to import. Each card should include the following fields:</p>
 
       <div class="card p-3 bg-surface-100-800-token mb-4">
-        <div class="mb-2 flex items-center">
-          <span class="badge variant-filled-primary mr-2">NEW</span>
-          <p class="text-sm text-primary-500 font-semibold">Both JSON and JavaScript object formats are supported!</p>
-        </div>
         <pre class="text-xs font-mono overflow-x-auto">
-{`// Example card format (you can import array of these):
-// RECOMMENDED FORMAT - Values and Capabilities as object maps (best for Gun.js schema):
+{`// Example card format—JavaScript object format (you can import array of these).
 [
-  {
-    "card_number": 1,
-    "role_title": "Luminos Funder",
-    "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
-    "values_ref": {                                      // The preferred format!
-      "value_sustainability": true,
-      "value_equity": true,
-      "value_community_resilience": true
-    },
-    "goals": "Fund projects that reduce ecological footprints.",
-    "obligations": "Must report impact to a donor network.",
-    "capabilities_ref": {                               // The preferred format!
-      "capability_grant_writing": true,
-      "capability_impact_assessment": true
-    },
-    "intellectual_property": "Database of sustainable tech solutions.",
-    "resources": "$50K in discretionary funds, limited staff time.",
-    "card_category": "Funders",
-    "type": "Individual",
-    "icon": "sun"
-  }
-]
-
-// OR you can use with array values (less preferred):
-[
-  {
-    "card_number": 3,
-    "role_title": "Community Gardener",
-    "backstory": "A permaculture expert who develops shared growing spaces.",
-    "values_ref": ["Sustainability", "Community Resilience", "Health"],
-    "goals": "Build 5 community gardens, establish seed saving network.",
-    "obligations": "Must share harvest with community members.",
-    "capabilities_ref": ["Permaculture design", "Seed saving", "Harvest planning"],
-    "intellectual_property": "Garden design plans, seed library.",
-    "resources": "Garden tools, limited water access.",
-    "card_category": "Providers",
-    "type": "Individual",
-    "icon": "leaf"
-  }
-]
-
-// OR JavaScript object format (without quotes on property names) with updated field names:
-[
-  {
-    card_number: 2,    // Your cards will use this exact number (1-52)
-    role_title: 'DAO of the Green Veil',
-    backstory: 'A blockchain-based collective pooling crypto for eco-village experiments.',
-    values_ref: ['Decentralization', 'Sustainability', 'Transparency'], // Note: Updated field name
-    goals: 'Invest in scalable eco-village models; increase DAO membership.',
-    obligations: 'Decisions must pass a token-weighted vote; funds locked until consensus.',
-    capabilities_ref: 'Smart contract development, crowdfunding coordination', // Note: Updated field name
-    intellectual_property: 'Governance protocols, tokenomics model.',
-    resources: '10 ETH in treasury, limited developer hours.',
-    card_category: 'Funders',
-    type: 'DAO',
-    icon: 'link'
-  }
+ {
+   "card_number": 1,
+   "role_title": "Luminos Funder",
+   "backstory": "A wealthy idealist who left corporate life to fund sustainable communities.",
+   "values_ref": ["Sustainability", "Equity", "Community Resilience"],
+   "capabilities_ref": ["Grant-writing expertise", "Impact assessment"],
+   "goals": "Fund projects that reduce ecological footprints and promote self-reliance.",
+   "obligations": "Must report impact to a donor network; cannot fund profit-driven ventures.",
+   "intellectual_property": "Database of sustainable tech solutions, funding strategy playbook.",
+   "resources": "$50K in discretionary funds, limited staff time.",
+   "card_category": "Funders",
+   "type": "Individual",
+   "icon": "sun"
+ }
 ]`}
         </pre>
       </div>
