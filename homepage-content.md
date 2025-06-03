@@ -67,4 +67,4 @@ Craft and test innovative governance models in a dynamic simulation. Polycentric
 - Terms of Service (links to /terms)  
 - License (links to /license)  
 
-**Copyright:** © 2025 Polycentricity. All rights reserved.
+**Copyright:** © 2025 Polycentricity. Made with ❤️ by Bjørn at Endogon.com
