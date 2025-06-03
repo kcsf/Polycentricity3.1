@@ -213,6 +213,7 @@
         <a href="https://github.com/your-repo" class="anchor">GitHub</a>
       </div>
       <p class="text-sm opacity-70">© 2025 Polycentricity. All rights reserved.</p>
+      <p class="text-sm opacity-60 mt-2">Made with ❤️ by <a href="https://www.endogon.com" class="anchor" target="_blank" rel="noopener noreferrer">Bjørn at Endogon.com</a></p>
       <div class="flex justify-center space-x-3 mt-2">
         <a href="/privacy" class="text-xs opacity-50 hover:opacity-100">Privacy Policy</a>
         <a href="/terms" class="text-xs opacity-50 hover:opacity-100">Terms of Service</a>
