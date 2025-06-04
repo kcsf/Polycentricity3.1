@@ -987,45 +987,46 @@ export async function deleteGame(gameId: string): Promise<boolean> {
     return false;
   }
 
-  // 2️⃣ Load nested maps to clean up relationships
+  // 2️⃣ Load nested maps to clean up relationships - fix the Promise.all with proper async
   const [playersMap, actorsRefMap, agreementsRefMap, playerActorMap] = await Promise.all([
-    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "players") || {},
-    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "actors_ref") || {},
-    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "agreements_ref") || {},
-    getField<Record<string, string>>(`${nodes.games}/${gameId}`, "player_actor_map") || {},
+    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "players"),
+    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "actors_ref"),
+    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "agreements_ref"),
+    getField<Record<string, string>>(`${nodes.games}/${gameId}`, "player_actor_map"),
   ]);
 
   console.log("[gameService] fetched game:", game);
   console.log("[gameService] loaded playersMap:", playersMap);
   console.log("[gameService] loaded actorsRefMap:", actorsRefMap);
 
-  // 3️⃣ Remove edges and clean up relationships
+  // 3️⃣ Remove edges using removeEdges helper (consistent with deleteActor/deleteAgreement)
   console.log("[gameService] cleaning up relationships...");
   await Promise.all([
-    // Clean up user references to this game
-    ...Object.keys(playersMap).map(userId => 
-      deleteKey(`${nodes.users}/${userId}/games_ref`, gameId)
+    // Remove ref_set edges (matches createGame structure)
+    removeEdges(`${nodes.games}/${gameId}`, "ref_set"),
+    // Clean up nested map references from related entities
+    ...Object.keys(playersMap || {}).map(userId => 
+      removeEdges(`${nodes.users}/${userId}`, "games_ref")
     ),
-    // Clean up actor references
-    ...Object.keys(actorsRefMap).map(actorId => 
-      deleteKey(`${nodes.actors}/${actorId}/games_ref`, gameId)
+    ...Object.keys(actorsRefMap || {}).map(actorId => 
+      removeEdges(`${nodes.actors}/${actorId}`, "games_ref")
     ),
-    // Clean up agreement references  
-    ...Object.keys(agreementsRefMap).map(agreementId => 
-      deleteKey(`${nodes.agreements}/${agreementId}/game_ref`, gameId)
+    ...Object.keys(agreementsRefMap || {}).map(agreementId => 
+      removeEdges(`${nodes.agreements}/${agreementId}`, "game_ref")
     ),
   ]);
 
   console.log("[gameService] all relationships cleaned, deleting game node");
 
-  // 4️⃣ Delete the game node and its nested maps
+  // 4️⃣ Delete the game node and its nested maps using write(..., null) pattern
+  await write(nodes.games, gameId, null);
   await Promise.all([
-    deleteKey(nodes.games, gameId),
-    deleteKey(`${nodes.games}/${gameId}`, "players"),
-    deleteKey(`${nodes.games}/${gameId}`, "actors_ref"),
-    deleteKey(`${nodes.games}/${gameId}`, "agreements_ref"),
-    deleteKey(`${nodes.games}/${gameId}`, "player_actor_map"),
-    deleteKey(`${nodes.games}/${gameId}`, "chat_rooms_ref"),
+    write(`${nodes.games}/${gameId}`, "players", null),
+    write(`${nodes.games}/${gameId}`, "actors_ref", null),
+    write(`${nodes.games}/${gameId}`, "agreements_ref", null),
+    write(`${nodes.games}/${gameId}`, "player_actor_map", null),
+    write(`${nodes.games}/${gameId}`, "chat_rooms_ref", null),
+    write(`${nodes.games}/${gameId}`, "ref_set", null),
   ]);
 
   console.log(`[gameService] ✅ deleteGame complete for ${gameId}`);
