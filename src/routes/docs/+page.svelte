@@ -354,8 +354,16 @@
               <li>Helping with documentation and educational content</li>
               <li>Sharing the project with other governance enthusiasts</li>
             </ul>
-            <div class="space-y-2">
-              <p class="font-semibold">Contact us:</p>
+            <div class="space-y-3">
+              <a 
+                href="https://www.paypal.com/ncp/payment/WKRUV7VBP8EBS" 
+                class="inline-block bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                💰 Donate Capital
+              </a>
+              <p class="font-semibold mt-4">Contact us:</p>
               <p class="text-sm">Email: <a href="mailto:bjorn@endogon.com" class="anchor">bjorn@endogon.com</a></p>
               <p class="text-sm">Signal Group: <a href="https://signal.group/#CjQKIADcrudwk5OpFGCxHapz6JF_yebFReILnO6Wilvq90YfEhAsVAAd38_6zAEC7kZ5YT9X" class="anchor" target="_blank" rel="noopener noreferrer">Join our Signal community</a></p>
             </div>
