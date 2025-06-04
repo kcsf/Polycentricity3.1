@@ -61,8 +61,15 @@
         return;
       }
       if (confirm(`Are you sure you want to delete game "${game.name || gameId}"?`)) {
-        console.log(`Deleted game: ${gameId}`);
-        loadGames();
+        // Import deleteGame function from gameService
+        const { deleteGame: deleteGameService } = await import('$lib/services/gameService');
+        const success = await deleteGameService(gameId);
+        if (success) {
+          console.log(`Successfully deleted game: ${gameId}`);
+          loadGames(); // Refresh the games list
+        } else {
+          error = `Failed to delete game ${gameId}`;
+        }
       }
     } catch (err) {
       console.error('Delete game error:', err);

@@ -974,6 +974,64 @@ export async function deleteAgreement(agreementId: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Delete a game and all its relationships.
+ */
+export async function deleteGame(gameId: string): Promise<boolean> {
+  console.log(`[gameService] ▶ deleteGame(${gameId})`);
+
+  // 1️⃣ Load the root game
+  const game = await get<Game>(`${nodes.games}/${gameId}`);
+  if (!game) {
+    console.warn(`[gameService] Game not found: ${gameId}`);
+    return false;
+  }
+
+  // 2️⃣ Load nested maps to clean up relationships
+  const [playersMap, actorsRefMap, agreementsRefMap, playerActorMap] = await Promise.all([
+    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "players") || {},
+    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "actors_ref") || {},
+    getField<Record<string, boolean>>(`${nodes.games}/${gameId}`, "agreements_ref") || {},
+    getField<Record<string, string>>(`${nodes.games}/${gameId}`, "player_actor_map") || {},
+  ]);
+
+  console.log("[gameService] fetched game:", game);
+  console.log("[gameService] loaded playersMap:", playersMap);
+  console.log("[gameService] loaded actorsRefMap:", actorsRefMap);
+
+  // 3️⃣ Remove edges and clean up relationships
+  console.log("[gameService] cleaning up relationships...");
+  await Promise.all([
+    // Clean up user references to this game
+    ...Object.keys(playersMap).map(userId => 
+      deleteKey(`${nodes.users}/${userId}/games_ref`, gameId)
+    ),
+    // Clean up actor references
+    ...Object.keys(actorsRefMap).map(actorId => 
+      deleteKey(`${nodes.actors}/${actorId}/games_ref`, gameId)
+    ),
+    // Clean up agreement references  
+    ...Object.keys(agreementsRefMap).map(agreementId => 
+      deleteKey(`${nodes.agreements}/${agreementId}/game_ref`, gameId)
+    ),
+  ]);
+
+  console.log("[gameService] all relationships cleaned, deleting game node");
+
+  // 4️⃣ Delete the game node and its nested maps
+  await Promise.all([
+    deleteKey(nodes.games, gameId),
+    deleteKey(`${nodes.games}/${gameId}`, "players"),
+    deleteKey(`${nodes.games}/${gameId}`, "actors_ref"),
+    deleteKey(`${nodes.games}/${gameId}`, "agreements_ref"),
+    deleteKey(`${nodes.games}/${gameId}`, "player_actor_map"),
+    deleteKey(`${nodes.games}/${gameId}`, "chat_rooms_ref"),
+  ]);
+
+  console.log(`[gameService] ✅ deleteGame complete for ${gameId}`);
+  return true;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Deck flows
 // ─────────────────────────────────────────────────────────────────────────────
