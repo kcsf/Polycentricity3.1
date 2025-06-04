@@ -464,4 +464,4 @@ The current implementation maintains both patterns:
 This test implementation demonstrates how Gun.js edges with metadata could replace the current boolean map system while providing richer relationship semantics.
 
 #### IgnoreMe
-- V1
+- V2
