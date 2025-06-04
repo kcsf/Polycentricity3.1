@@ -1,7 +1,7 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { userStore, setError } from '$lib/stores/userStore';
-    import { joinGame, leaveGame } from '$lib/services/gameService';
+    import { joinGame, leaveGame, deleteGame } from '$lib/services/gameService';
     import { userGamesStore, setUserGames } from '$lib/stores/gameStore';
     import { getSet, getField, nodes } from '$lib/services/gunService';
     import type { Game, Actor } from '$lib/types';
@@ -20,7 +20,8 @@
       Pause,
       CheckCircle,
       Settings,
-      Sparkles
+      Sparkles,
+      Trash2
     } from '@lucide/svelte';
 
     const { game, showActions = true, isUserGame = false } = $props<{
@@ -31,6 +32,7 @@
 
     let isJoining = $state(false);
     let isLeaving = $state(false);
+    let isDeleting = $state(false);
     let actionError = $state('');
     let userActors = $state<string[]>([]);
     let gameActors = $state<string[]>([]);
@@ -278,6 +280,46 @@
         setError(actionError);
       }
     }
+
+    async function handleDeleteGame() {
+      if (!confirm(`Are you sure you want to delete "${game.name}"? This action cannot be undone.`)) {
+        return;
+      }
+
+      console.log(`[GameCard] Deleting game with gameId: ${game.game_id}`);
+      if (!game.game_id) {
+        console.error(`[GameCard] gameId is undefined for game:`, game);
+        actionError = 'Invalid game ID. Please try again.';
+        setError(actionError);
+        return;
+      }
+      if (!$userStore.user) {
+        actionError = 'Please log in to delete the game.';
+        setError(actionError);
+        await goto('/login');
+        return;
+      }
+
+      try {
+        isDeleting = true;
+        actionError = '';
+        const success = await deleteGame(game.game_id);
+        if (success) {
+          console.log(`Successfully deleted game: ${game.game_id}`);
+          // Refresh the page to reload the games list
+          window.location.reload();
+        } else {
+          actionError = 'Failed to delete game. Please try again.';
+          setError(actionError);
+        }
+      } catch (err) {
+        console.error('Error deleting game:', err);
+        actionError = 'Failed to delete game. Please try again.';
+        setError(actionError);
+      } finally {
+        isDeleting = false;
+      }
+    }
 </script>
 
 <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col h-full">
@@ -386,6 +428,23 @@
                             {:else}
                                 <LogOut size={18} class="inline mr-2" />
                                 Leave
+                            {/if}
+                        </button>
+                    {:else}
+                        <button
+                            class="flex-1 bg-red-600 hover:bg-red-800 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                            onclick={handleDeleteGame}
+                            disabled={isDeleting}
+                        >
+                            {#if isDeleting}
+                                <svg class="animate-spin w-4 h-4 inline mr-2" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                </svg>
+                                Deleting...
+                            {:else}
+                                <Trash2 size={18} class="inline mr-2" />
+                                Delete Game
                             {/if}
                         </button>
                     {/if}
